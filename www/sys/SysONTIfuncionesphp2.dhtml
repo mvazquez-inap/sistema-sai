@@ -7,7 +7,7 @@ class FuncionesPHP
 //----------------------------------------------------------------------------------------- 
 // Genera todas las constantes necesarias para el sistema
 
-	function CargarConstantes($conexion,$tipocarga)
+	static function CargarConstantes($conexion,$tipocarga)
 	{
 		$conexiongral=new SysONTIAccesoBD(getenv("SAI_DB_HOST") ?: "", getenv("SAI_DB_USER") ?: "", getenv("SAI_DB_PASSWORD") ?: "");
 		$conexiongral->SeleccionBD(getenv("SAI_DB_TABGRALES2") ?: "");
