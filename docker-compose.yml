@@ -5,7 +5,7 @@ services:
       dockerfile: ./docker/Dockerfile.nginx
     container_name: nginx_sai
     ports:
-      - 8000:80
+      - 80:80
     volumes:
       - ./www:/var/www/sai
       - ./www/sys:/var/www/sys
@@ -14,10 +14,8 @@ services:
     links:
       - php
     env_file:
-      - .env
-    extra_hosts:
-      - 'host.docker.internal:host-gateway'
-
+      - .env_file
+      
   php:
     env_file:
       - .env
@@ -29,5 +27,3 @@ services:
       - ./www:/var/www/sai
       - ./www/sys:/var/www/sys
       - ./docker/php/conf.d/sai.ini:/usr/local/etc/php/conf.d/sai.ini:ro
-    extra_hosts:
-      - 'host.docker.internal:host-gateway'
