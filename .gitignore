@@ -9,6 +9,10 @@ Thumbs.db
 
 docker/mariadb/data/*
 
+# Database dumps stay local. dumps/README.md stays in git.
+dumps/*
+!dumps/README.md
+
 # Environments
 .env
 .envrc
