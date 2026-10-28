@@ -85,7 +85,7 @@ class accesoBDLocal
 		if (!is_array($sp_param))
 		{ 
 		
-			if (RUN_ACTUAL==RUN_DESARROLLO)
+			if (defined("RUN_ACTUAL") && defined("RUN_DESARROLLO") && RUN_ACTUAL==RUN_DESARROLLO)
 				FuncionesPHPLocal::MostrarMensaje($this,MSG_ERRGRAVE,"Problema en la llamada al stored procedure, no se envia un array. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 				
 			return false;
@@ -96,7 +96,7 @@ class accesoBDLocal
 
 		if(!$this->_EjecutarQuery($sql,'ejecutarStoredProcedure',$resultado,$errno))
 		{
-			if (RUN_ACTUAL==RUN_DESARROLLO)
+			if (defined("RUN_ACTUAL") && defined("RUN_DESARROLLO") && RUN_ACTUAL==RUN_DESARROLLO)
 				FuncionesPHPLocal::MostrarMensaje($this,MSG_ERRGRAVE,"Problema en la tabla stored_procedures. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 
 			return false;
@@ -106,7 +106,7 @@ class accesoBDLocal
 		// Debe estar en la tabla de stored procedures 
 		if (mysqli_num_rows($resultado)!=1)
 		{
-			if (RUN_ACTUAL==RUN_DESARROLLO)
+			if (defined("RUN_ACTUAL") && defined("RUN_DESARROLLO") && RUN_ACTUAL==RUN_DESARROLLO)
 				FuncionesPHPLocal::MostrarMensaje($this,MSG_ERRGRAVE,"No se encuentra el procedimiento: ".$sp_nombre." en la tabla stored_procedures. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 
 			return false;
@@ -117,7 +117,7 @@ class accesoBDLocal
 		// Valida que los nombres y cantidad de parametros 
 		if (!$this->_ValidarParametros($fila['spsqlstring'],$sp_param))
 		{
-			if (RUN_ACTUAL==RUN_DESARROLLO)
+			if (defined("RUN_ACTUAL") && defined("RUN_DESARROLLO") && RUN_ACTUAL==RUN_DESARROLLO)
 				FuncionesPHPLocal::MostrarMensaje($this,MSG_ERRGRAVE,"Error en los parámetros enviados a ".$sp_nombre.". ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 				
 			return false;
@@ -129,7 +129,7 @@ class accesoBDLocal
 //  echo "<br> ANTES ".$fila['spsqlstring'];		
 		if (!$this->_ReemplazarParametros($fila['spsqlstring'],$sp_param,$sql_sp))
 		{
-			if (RUN_ACTUAL==RUN_DESARROLLO)
+			if (defined("RUN_ACTUAL") && defined("RUN_DESARROLLO") && RUN_ACTUAL==RUN_DESARROLLO)
 				FuncionesPHPLocal::MostrarMensaje($this,MSG_ERRGRAVE,"Error al reemplazar parámetros en ".$sp_nombre.". ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 				
 			return false;
@@ -138,7 +138,7 @@ class accesoBDLocal
 		if (!$this->_EjecutarQuery($sql_sp,"stored procedure ".$fila['spcod']." - ".$fila['spnombre'],$resultadosalida,$errnosalida))
 		{
 		//	echo $sql_sp;
-			if (RUN_ACTUAL==RUN_DESARROLLO) 
+			if (defined("RUN_ACTUAL") && defined("RUN_DESARROLLO") && RUN_ACTUAL==RUN_DESARROLLO) 
 				FuncionesPHPLocal::MostrarMensaje($this,MSG_ERRGRAVE,"Problema en la ejecución del stored procedure ".$sp_nombre.". ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 			return false;
 		}
@@ -174,7 +174,7 @@ class accesoBDLocal
 					return false;
 				break;
 			default:
-				if (RUN_ACTUAL==RUN_DESARROLLO)
+				if (defined("RUN_ACTUAL") && defined("RUN_DESARROLLO") && RUN_ACTUAL==RUN_DESARROLLO)
 					FuncionesPHPLocal::MostrarMensaje($this,MSG_ERRGRAVE,"Tipo de transacción no definida. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 				return false;
 				break;
@@ -216,7 +216,7 @@ class accesoBDLocal
 	
 		if (!$this->_EjecutarQuery($sql,'TraerCampo',$resultado,$errno)) 
 		{
-			if (RUN_ACTUAL==RUN_DESARROLLO)
+			if (defined("RUN_ACTUAL") && defined("RUN_DESARROLLO") && RUN_ACTUAL==RUN_DESARROLLO)
 				FuncionesPHPLocal::MostrarMensaje($this,MSG_ERRGRAVE,"Problema en TraerCampo. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 	
 			return false;
@@ -269,7 +269,7 @@ class accesoBDLocal
 	
 		if (!$this->_EjecutarQuery($sql,'ActualizarCampo',$resultado,$errno)) 
 		{
-			if (RUN_ACTUAL==RUN_DESARROLLO)
+			if (defined("RUN_ACTUAL") && defined("RUN_DESARROLLO") && RUN_ACTUAL==RUN_DESARROLLO)
 				FuncionesPHPLocal::MostrarMensaje($this,MSG_ERRGRAVE,"Problema en ActualizarCampo. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 	
 			return false;
@@ -309,7 +309,7 @@ class accesoBDLocal
 			foreach ($arraybusq as $clave => $valor)
 			{
 				$matcheo=true;
-				if (RUN_ACTUAL==RUN_DESARROLLO && !isset($fila[$clave]))
+				if (defined("RUN_ACTUAL") && defined("RUN_DESARROLLO") && RUN_ACTUAL==RUN_DESARROLLO && !isset($fila[$clave]))
 				{
 					FuncionesPHPLocal::MostrarMensaje($this,MSG_ERRGRAVE,"Problema en BuscarRegistroxClave. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 					return false;
@@ -418,30 +418,40 @@ class accesoBDLocal
 			//FuncionesPHPLocal::MandarMail($this,$this->admigeneral,"",$subject,$texto);
 
 
-			$datos = array( 
+			// TODOS and MSG_ERRGRAVE are defined by this same constant load.
+			// A missing session must not warn, and a failed load must not
+			// fatal on those constants. errno (1146) still returns false.
+			if (defined("TODOS") && defined("MSG_ERRGRAVE"))
+			{
+				$sesionRol = (isset($_SESSION) && isset($_SESSION['rolcod'])) ? $_SESSION['rolcod'] : 0;
+				$sesionUsuario = (isset($_SESSION) && isset($_SESSION['usuariocod'])) ? $_SESSION['usuariocod'] : 0;
+				$sesionCopia = (isset($_SESSION) && is_array($_SESSION)) ? $_SESSION : array();
 
-							'tipo_origen' => cMensajesInternos::MENSAJE_TIPO_ORIGEN_SISTEMA,
-							'tipo_destino' => cMensajesInternos::MENSAJE_TIPO_DESTINO_ROL,			
-							'usuario_origen' => array(
-													  'rolcod' => $_SESSION['rolcod'], 
-													  'usuariocod' => $_SESSION['usuariocod']
-													  ), 
+				$datos = array( 
 
-							'usuario_destino' => array(
-													  'rolcod' => $this->admigeneral,
-													  'usuariocod' => TODOS
-													  ), 
-							'nivel_mensaje' => MSG_ERRGRAVE,
-							'asunto' => $subject,
-							'mensaje' => $texto,
-							'archivo' => "",
-							'funcion' => "",
-							'var_session' => $_SESSION ,
-							'var_post' => $_POST ,
-							'var_get' => $_GET 
-						);
+								'tipo_origen' => cMensajesInternos::MENSAJE_TIPO_ORIGEN_SISTEMA,
+								'tipo_destino' => cMensajesInternos::MENSAJE_TIPO_DESTINO_ROL,			
+								'usuario_origen' => array(
+														  'rolcod' => $sesionRol, 
+														  'usuariocod' => $sesionUsuario
+														  ), 
 
-			FuncionesPHPLocal::MandarMailInterno($this,$datos);		
+								'usuario_destino' => array(
+														  'rolcod' => $this->admigeneral,
+														  'usuariocod' => TODOS
+														  ), 
+								'nivel_mensaje' => MSG_ERRGRAVE,
+								'asunto' => $subject,
+								'mensaje' => $texto,
+								'archivo' => "",
+								'funcion' => "",
+								'var_session' => $sesionCopia ,
+								'var_post' => $_POST ,
+								'var_get' => $_GET 
+							);
+
+				FuncionesPHPLocal::MandarMailInterno($this,$datos);
+			}
 								
 			return false;
 		}
@@ -459,7 +469,7 @@ class accesoBDLocal
 		
 		if ($param_count != count($param))
 		{
-			if (RUN_ACTUAL==RUN_DESARROLLO)
+			if (defined("RUN_ACTUAL") && defined("RUN_DESARROLLO") && RUN_ACTUAL==RUN_DESARROLLO)
 				FuncionesPHPLocal::MostrarMensaje($this,MSG_ERRGRAVE,"Error en la cantidad de parámetros en la llamada al procedimiento. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 				
 			return false;
@@ -501,7 +511,7 @@ class accesoBDLocal
 				$texto.=var_export($diff_array2,true);
 				$texto.="\r\n";
 				
-				if (RUN_ACTUAL==RUN_DESARROLLO)
+				if (defined("RUN_ACTUAL") && defined("RUN_DESARROLLO") && RUN_ACTUAL==RUN_DESARROLLO)
 					FuncionesPHPLocal::MostrarMensaje($this,MSG_ERRGRAVE,$texto,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 					
 				return false;

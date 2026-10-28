@@ -47,7 +47,7 @@ class FuncionesPHPLocal
 			// constantes ROL de USUARIOS
 			$spparam=array('porderby'=>"rolcod" );
 			if(!$conexion->ejecutarStoredProcedure("sel_roles_orden",$spparam,$resultado,$numfilas,$errno))
-				die("Error al cargar los roles");
+				die("Error al cargar los roles. MySQL ".$errno.": ".mysqli_error($conexion->idconexion));
 			
 			while ($fila = mysqli_fetch_assoc($resultado))
 				if($fila['rolcod']!=0)
@@ -60,7 +60,7 @@ class FuncionesPHPLocal
 			// Constantes Generales
 		   $spparam=array('porderby'=>"tipoorgid" );
 		   if(!$conexion->ejecutarStoredProcedure("sel_tipoorganismos_orden",$spparam,$resultado,$numfilas,$errno))
-			   die("Error al cargar los tipos de organismos");
+			   die("Error al cargar los tipos de organismos. MySQL ".$errno.": ".mysqli_error($conexion->idconexion));
 
 		   while ($fila = mysqli_fetch_assoc($resultado))
 				if(!defined($fila['tipoorgnom']))
@@ -72,7 +72,7 @@ class FuncionesPHPLocal
 			// Constantes Generales 
 			$spparam=array('psistemanom'=>$tipocarga['sistema']);
 			if(!$conexion->ejecutarStoredProcedure("sel_constantes_grales_xsistemanom",$spparam,$resultado,$numfilas,$errno))
-				die("Error al cargar las constantes");
+				die("Error al cargar las constantes. MySQL ".$errno.": ".mysqli_error($conexion->idconexion));
 			
 			while ($fila = mysqli_fetch_assoc($resultado)) 
 				if(!defined($fila['constantenom']))
@@ -81,7 +81,7 @@ class FuncionesPHPLocal
 			// Constantes Formato Actividad
 			$spparam=array('porderby'=>"formact_descripcion" );
 			if(!$conexion->ejecutarStoredProcedure("sel_formato_actividad_orden",$spparam,$resultado,$numfilas,$errno))
-				die("Error al cargar los formatos de actividad");
+				die("Error al cargar los formatos de actividad. MySQL ".$errno.": ".mysqli_error($conexion->idconexion));
 			
 			while ($fila = mysqli_fetch_assoc($resultado))
 				if(!defined($fila['formact_nom']))
@@ -90,7 +90,7 @@ class FuncionesPHPLocal
 			// Constantes Tipo de Actividad
 			$spparam=array('porderby'=>"tipoact_descripcion" );
 			if(!$conexion->ejecutarStoredProcedure("sel_tipo_actividad_orden",$spparam,$resultado,$numfilas,$errno))
-				die("Error al cargar los tipos de actividad");
+				die("Error al cargar los tipos de actividad. MySQL ".$errno.": ".mysqli_error($conexion->idconexion));
 			
 			while ($fila = mysqli_fetch_assoc($resultado))
 				if(!defined($fila['tipoact_nom']))
@@ -99,7 +99,7 @@ class FuncionesPHPLocal
 			// Constantes Tipo de Ponderadores
 			$spparam=array('porderby'=>"tipopond_descripcion" );
 			if(!$conexion->ejecutarStoredProcedure("sel_tipo_ponderador_orden",$spparam,$resultado,$numfilas,$errno))
-				die("Error al cargar los tipos de ponderadores");
+				die("Error al cargar los tipos de ponderadores. MySQL ".$errno.": ".mysqli_error($conexion->idconexion));
 			
 			while ($fila = mysqli_fetch_assoc($resultado))
 				if(!defined($fila['tipopond_nom']))
@@ -108,7 +108,7 @@ class FuncionesPHPLocal
 			// Constantes Evaluación
 			$spparam=array('porderby'=>"eval_descripcion" );
 			if(!$conexion->ejecutarStoredProcedure("sel_evaluacion_orden",$spparam,$resultado,$numfilas,$errno))
-				die("Error al cargar las evaluaciones");
+				die("Error al cargar las evaluaciones. MySQL ".$errno.": ".mysqli_error($conexion->idconexion));
 			
 			while ($fila = mysqli_fetch_assoc($resultado))
 				if(!defined($fila['eval_nom']))
@@ -258,7 +258,7 @@ class FuncionesPHPLocal
 		
 		$destinatarios=array();
 
-		if ($datos['usuario_destino']['usuariocod'] == TODOS) {
+		if (defined("TODOS") && $datos['usuario_destino']['usuariocod'] == TODOS) {
 		
 			switch($rolcod)		{
 				case ADMIONTI:
