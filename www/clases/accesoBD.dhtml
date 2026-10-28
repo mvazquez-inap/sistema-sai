@@ -14,8 +14,28 @@ class accesoBDLocal
 	
 	public function __construct($servidor,$usuariodb,$clave)
 	{
+		// SAI_DB_HOST wins. An empty host makes mysqli open the Unix socket.
+		$host = getenv("SAI_DB_HOST");
+		if (!is_string($host) || trim($host) === "") {
+			$host = $_SERVER["SAI_DB_HOST"] ?? "";
+		}
+		if (!is_string($host) || trim($host) === "") {
+			$host = (string) $servidor;
+		}
+		$host = trim($host);
+		$port = 3306;
+		if ($host !== "localhost" && preg_match('/^(.+):(\d+)$/', $host, $parts) === 1) {
+			$host = $parts[1];
+			$port = (int) $parts[2];
+		}
 		mysqli_report(MYSQLI_REPORT_OFF);
-		$this->idconexion = mysqli_connect($servidor, $usuariodb, $clave) or die("No es posible establecer conexion con MySQL Server");
+		if ($host === "localhost") {
+			$this->idconexion = mysqli_connect($host, $usuariodb, $clave) or die("No es posible establecer conexion con MySQL Server");
+		} elseif ($host !== "") {
+			$this->idconexion = mysqli_connect($host, $usuariodb, $clave, null, $port) or die("No es posible establecer conexion con MySQL Server");
+		} else {
+			die("SAI_DB_HOST is empty");
+		}
 	}
 //-----------------------------------------------------------------------------------------
 //							 PUBLICAS	
