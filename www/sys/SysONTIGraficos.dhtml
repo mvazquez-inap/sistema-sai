@@ -1,0 +1,1327 @@
+<?php
+class SysONTIGraficos
+{
+	var $EjesDisponibles;  // array con los ejes disponibles
+	var $EjesActivos;  // array con los ejes activos
+
+	var $tam_x;  // ancho del grafico total en pixel
+	var $tam_y;  // alto del grafico total en pixel
+	var $colorfondografint;  // color de fondo de la parte central del grafico
+	var $colorfondo;  // color de fondo de todo el grafico
+	
+	var $datos;  // array con los datos del grafico. Por cada posicion, nuevo array => (etiq_x,valor en eje 1,valor en eje 2, etc)
+	
+	var $formato_etiq_x; // array con formato de las etiquetas en eje x 
+	var $leyenda_x; // array con texto y formato de la leyenda del eje x
+	
+	// todas estas variables son array, donde la primer posicion indica a que eje hace referencia
+	var $formato_etiq_y; // array con el formato de las etiquetas de un eje y
+	var $leyenda_y; // array con el texto y formato de la leyenda de un eje y
+	var $tipovisualizacion_y; // tipo de visualizacion (linea,punto,etc) de cada eje y
+	var $formatolinea_y; // formato de linea de cada eje y
+	var $formatopunto_y;  // formato de los puntos de cada eje y
+	var $formatobarra_y;  // formato de barra de cada eje y
+	
+	var $dir_fuentes; // directorio donde se encuentran los archivos ttf
+	
+	var $erroractual; // guardo los datos del ultimo error que se produjo
+	var $errortextos; // un array donde guardo el texto del error
+	
+//----------------------------------------------------------------------------------------- 
+// Constructor de la clase. 
+// Define tamanio del grafico y el color de fondo. 
+// Inicializa con valores por default las otras variables de la clase
+
+	function SysONTIGraficos($tam_x,$tam_y,$colorfondografint,$colorfondo=array(255,255,255))
+	{
+		$this->dir_fuentes="./fonts/";
+
+		$this->erroractual=array("codigo"=>0,"funcion"=>"","linea"=>0);
+		$this->_InicializarTextosError();
+		
+		// estas 3 variables son solo internas al constructor.
+		// si se agregan mas variables por default, ver habilitareje
+		$colordefault=array(0,0,0);
+		$fuentedefault=$this->dir_fuentes."verdana.ttf";
+		$tamaniodefault=8;
+		$angulodefault=0;
+		
+			
+		$this->EjesDisponibles=array(1,2);
+		$this->EjesActivos=array(1);
+		
+		if(!is_int($tam_x) || $tam_x<=0)
+			$this->tam_x=100;
+		else
+			$this->tam_x=$tam_x;
+			
+		if(!is_int($tam_y) || $tam_y<=0)
+			$this->tam_y=100;
+		else
+			$this->tam_y=$tam_y;
+		
+		if(!$this->_VerificarColor($colorfondografint))
+			$this->colorfondografint=array(0,0,0);
+		else
+			$this->colorfondografint=$colorfondografint;
+			
+		if(!$this->_VerificarColor($colorfondo))
+			$this->colorfondo=array(0,0,0);
+		else
+			$this->colorfondo=$colorfondo;
+		
+		
+		$this->datos=array();
+		
+		$this->formato_etiq_x=array("fuente"=>$fuentedefault,"tamanio"=>$tamaniodefault,"color"=>$colordefault,"angulo"=>$angulodefault);
+		$this->leyenda_x=array("texto"=>"Leyenda Eje x","fuente"=>$fuentedefault,"tamanio"=>$tamaniodefault,"color"=>$colordefault);
+		
+		// cualquier default que se agregue aca, agregarlo tambien en la funcion de habilitar eje
+		$this->formato_etiq_y=array();
+		$this->formato_etiq_y[1]=array("comienzo"=>0,"fin"=>100,"paso"=>10,"unidadmedida"=>$this->UNIDMEDIDAUNIDAD(),"fuente"=>$fuentedefault,"tamanio"=>$tamaniodefault,"color"=>$colordefault,"angulo"=>$angulodefault);
+		$this->leyenda_y=array();
+		$this->leyenda_y[1]=array("texto"=>"Leyenda Eje Y1","fuente"=>$fuentedefault,"tamanio"=>$tamaniodefault,"color"=>$colordefault);
+		$this->tipovisualizacion_y=array();
+		$this->tipovisualizacion_y[1]=$this->TIPOVISUALIZPUNTO()+$this->TIPOVISUALIZLINEA();
+		$this->formatolinea_y=array();
+		$this->formatolinea_y[1]=array("color"=>$colordefault,"grosor"=>1);
+		$this->formatopunto_y=array();
+		$this->formatopunto_y[1]=array("tipopunto"=>$this->TIPOPUNTOPUNTO(),"mostrarvalor"=>false,"fuente"=>$fuentedefault,"tamanio"=>$tamaniodefault,"color"=>$colordefault);
+		$this->formatobarra_y=array();
+		$this->formatobarra_y[1]=array("color"=>$colordefault,"grosor"=>6);
+		
+
+	} // fin del constructor
+	
+//-----------------------------------------------------------------------------------------
+//							 PUBLICAS	
+//----------------------------------------------------------------------------------------- 
+	
+//----------------------------------------------------------------------------------------- 
+// Permite cargar el formato y las etiquetas del eje x, definiendo las claves de acceso para cargar los valores de los ejes y
+
+// Parámetros:
+//		$arr_etiquetas: un array asociativo donde la clave define los puntos de acceso para cargar despues los valores en y
+//					y en valor el texto que se va a mostrar
+//		$fuente,$tamanio,$color: formato de las etiquetas
+
+	function x_Etiquetas($arr_etiquetas,$fuente="",$tamanio="",$color="",$angulo="")
+	{
+		if(!is_array($arr_etiquetas))
+		{
+			$this->_SetearError(21,__FUNCTION__,__LINE__);
+			return false;
+		}
+
+		// recorre $arr_etiquetas y va guardando los valores en datos
+		foreach($arr_etiquetas as $clave => $valor)
+		{
+			$this->datos[$clave][0]=$valor; // en la primer posicion guardo el texto de la etiqueta
+		}
+		
+		// si se agregan mas parametros para el formato, agregar los valores por default en el constructor
+		if ($fuente!='')
+		{
+			if(!$this->_VerificarFuente($this->dir_fuentes.$fuente))
+				return false;
+
+			$this->formato_etiq_x["fuente"]=$this->dir_fuentes.$fuente;
+		}
+		if ($tamanio!='')
+		{
+			if(!$this->_VerificarTamanio($tamanio))
+				return false;
+
+			$this->formato_etiq_x["tamanio"]=$tamanio;
+		}
+		if ($color!='')
+		{
+			if(!$this->_VerificarColor($color))
+				return false;
+
+			$this->formato_etiq_x["color"]=$color;
+		}
+		if ($angulo!='')
+		{
+			if(!$this->_VerificarAngulo($angulo))
+				return false;
+
+			$this->formato_etiq_x["angulo"]=$angulo;
+		}
+		
+		return true;
+	} // fin de x_Etiquetas
+
+
+//----------------------------------------------------------------------------------------- 
+// Permite cargar la leyenda del eje x y su formato
+
+// Parámetros:
+//		$textoleyenda: el texto que va a aparecer como leyenda del eje x
+//		$fuente,$tamanio,$color: formato de la leyenda
+
+	function x_Leyenda($textoleyenda,$fuente,$tamanio,$color)
+	{
+		if(!$this->_VerificarFuente($this->dir_fuentes.$fuente))
+			return false;
+
+		if(!$this->_VerificarTamanio($tamanio))
+			return false;
+
+		if(!$this->_VerificarColor($color))
+			return false;
+
+		$this->leyenda_x["texto"]=$textoleyenda;
+		$this->leyenda_x["fuente"]=$this->dir_fuentes.$fuente;
+		$this->leyenda_x["tamanio"]=$tamanio;
+		$this->leyenda_x["color"]=$color;
+		
+		return true;
+	} // fin de x_Leyenda
+	
+//----------------------------------------------------------------------------------------- 
+// Permite la habilitacion de un eje y
+
+// Parámetros:
+//		$eje: indica el eje que se va a habilitar. Debe estar como valor dentro de EjesDisponibles
+
+	function y_HabilitarEje($eje)
+	{
+		// mismas variables que en el constructor
+		$colordefault=array(0,0,0);
+		$fuentedefault=$this->dir_fuentes."verdana.ttf";
+		$tamaniodefault=8;
+		$angulodefault=0;
+
+		if(!in_array($eje,$this->EjesDisponibles))
+		{
+			$this->_SetearError(5,__FUNCTION__,__LINE__);
+			return false;
+		}
+		
+		$this->EjesActivos[]=$eje;
+		$this->formato_etiq_y[$eje]=array("comienzo"=>0,"fin"=>100,"paso"=>10,"unidadmedida"=>$this->UNIDMEDIDAUNIDAD(),"fuente"=>$fuentedefault,"tamanio"=>$tamaniodefault,"color"=>$colordefault,"angulo"=>$angulodefault);
+		$this->leyenda_y[$eje]=array("texto"=>"Leyenda Eje Y".$eje,"fuente"=>$fuentedefault,"tamanio"=>$tamaniodefault,"color"=>$colordefault);
+		$this->tipovisualizacion_y[$eje]=$this->TIPOVISUALIZPUNTO()+$this->TIPOVISUALIZLINEA();
+		$this->formatolinea_y[$eje]=array("color"=>$colordefault,"grosor"=>1);
+		$this->formatopunto_y[$eje]=array("tipopunto"=>$this->TIPOPUNTOPUNTO(),"mostrarvalor"=>false,"fuente"=>$fuentedefault,"tamanio"=>$tamaniodefault,"color"=>$colordefault);
+	
+//		$this->tieney2=$valor;
+//		$this->tipovisualizacion_y[$eje]=$this->TIPOVISUALIZPUNTO()+$this->TIPOVISUALIZLINEA();
+		
+		return true;
+	} // fin de y_TieneEjeSecundario
+	
+/*	function y_FormaCalculo($eje,$forma)
+	{
+		if(!in_array($eje,$this->EjesDisponibles))
+			return false;
+			
+		$this->formacalculo_y[$eje]=$forma;
+		
+		if($eje==2)
+			$this->tieney2=true;
+			
+		return true;
+	}*/
+
+//----------------------------------------------------------------------------------------- 
+// Permite cargar el formato y las etiquetas de un eje y
+
+// Parámetros:
+//		$eje: indica el eje sobre el que se va a aplicar las etiquetas. Debe ser habilitado con anterioridad el eje.
+//		$comienzo: indica el valor con el que va a comenzar el eje y. Valor 
+//		$fin: indica el valor con el que va a terminar el eje y
+//		$paso: indica cada cuanto va a haber una etiqueta en el eje y. Expresado en unidades de comienzo y fin.
+//		$unidadmedida: indica el tipo de formato que se va a aplicar a los textos, tanto en la etiqueta como en los puntos
+//		$fuente,$tamanio,$color,$angulo: formato de las etiquetas
+	
+	function y_Etiquetas($eje,$comienzo,$fin,$paso,$unidadmedida,$fuente,$tamanio,$color,$angulo)
+	{
+		// el eje tiene que estar habilitado
+		if(!in_array($eje,$this->EjesActivos))
+		{
+			$this->_SetearError(1,__FUNCTION__,__LINE__);
+			return false;
+		}
+		
+		// solo se permiten valores numericos como comienzo y fin
+		if(!is_numeric($comienzo) || !is_numeric($fin))
+		{
+			$this->_SetearError(2,__FUNCTION__,__LINE__);
+			return false;
+		}
+		
+		// solo se permiten ejes ascendentes
+		if($comienzo>=$fin)
+		{
+			$this->_SetearError(3,__FUNCTION__,__LINE__);
+			return false;
+		}
+		
+/*		// el paso debe ser multiplo en el rango comienzo->fin
+		if(round(($fin-$comienzo)/$paso)*$paso!=($fin-$comienzo))
+		{
+			$this->_SetearError(4,__FUNCTION__,__LINE__);
+			return false;
+		}*/
+		
+		$multiplicador=1;
+		if(is_float($paso))
+			$multiplicador=pow(10,strlen(substr($paso-intval($paso),2)));
+
+		if(((($fin-$comienzo)*$multiplicador) % ($paso*$multiplicador)) != 0)
+		{
+			$this->_SetearError(4,__FUNCTION__,__LINE__);
+			return false;
+		}
+		
+		// obtengo todos los metodos de la clase
+		$metodos_clase = get_class_methods(get_class($this));
+		$valorvalido=false;
+		
+		//recorro todos los metodos
+		foreach($metodos_clase as $metodo)
+		{
+			// si el metodo es uno que define el tipo de punto
+			if(substr($metodo,0,10)=="unidmedida")
+			{
+				// si el valor es el que me enviaron, entonces es valido
+				if($this->$metodo() == $unidadmedida)
+				{
+					$valorvalido=true;
+				}
+			}
+		}
+
+		// el valor enviado como tipopunto no es valido
+		if(!$valorvalido)
+		{
+			$this->_SetearError(22,__FUNCTION__,__LINE__);
+			return false;
+		}
+		
+		if(!$this->_VerificarFuente($this->dir_fuentes.$fuente))
+			return false;
+
+		if(!$this->_VerificarTamanio($tamanio))
+			return false;
+
+		if(!$this->_VerificarColor($color))
+			return false;
+
+		if(!$this->_VerificarAngulo($angulo))
+			return false;
+		
+		$this->formato_etiq_y[$eje]["comienzo"]=$comienzo;
+		$this->formato_etiq_y[$eje]["fin"]=$fin;
+		$this->formato_etiq_y[$eje]["paso"]=$paso;
+		$this->formato_etiq_y[$eje]["unidadmedida"]=$unidadmedida;
+		$this->formato_etiq_y[$eje]["fuente"]=$this->dir_fuentes.$fuente;
+		$this->formato_etiq_y[$eje]["tamanio"]=$tamanio;
+		$this->formato_etiq_y[$eje]["color"]=$color;
+		$this->formato_etiq_y[$eje]["angulo"]=$angulo;
+		
+		return true;
+	} // fin de y_Etiquetas
+
+//----------------------------------------------------------------------------------------- 
+// Permite cargar la leyenda del eje y y su formato
+
+// Parámetros:
+//		$eje: indica el eje sobre el que se va a aplicar las leyendas. Debe ser habilitado con anterioridad el eje.
+//		$textoleyenda: el texto que va a aparecer como leyenda del eje x
+//		$fuente,$tamanio,$color: formato de la leyenda
+
+	function y_Leyenda($eje,$textoleyenda,$fuente,$tamanio,$color)
+	{
+		// el eje tiene que estar habilitado
+		if(!in_array($eje,$this->EjesActivos))
+		{
+			$this->_SetearError(1,__FUNCTION__,__LINE__);
+			return false;
+		}
+
+		if(!$this->_VerificarFuente($this->dir_fuentes.$fuente))
+			return false;
+
+		if(!$this->_VerificarTamanio($tamanio))
+			return false;
+
+		if(!$this->_VerificarColor($color))
+			return false;
+
+		$this->leyenda_y[$eje]["texto"]=$textoleyenda;
+		$this->leyenda_y[$eje]["fuente"]=$this->dir_fuentes.$fuente;
+		$this->leyenda_y[$eje]["tamanio"]=$tamanio;
+		$this->leyenda_y[$eje]["color"]=$color;
+		
+		return true;
+	} // fin de x_Leyenda
+	
+/*	function y_EtiqManual($eje,$arr_etiquetas)
+	{
+		if(!in_array($eje,$this->EjesDisponibles))
+			return false;
+
+		if($eje==2 && !$this->tieney2)
+			return false;
+		
+		if($this->formacalculo_y[$eje]!=$this->FORMACALCULOMANUAL)
+			return false;
+			
+		
+		
+	
+	}*/
+
+//----------------------------------------------------------------------------------------- 
+// Define el tipo de grafico para un eje y
+
+// Parámetros:
+//		$eje: indica el eje sobre el que se va a aplicar. Debe ser habilitado con anterioridad el eje.
+//		$tipovisualizacion: tiene que ser algun valor de los definidos como tipos de graficos o alguna suma de los mismos
+	
+	function y_TipoGrafico($eje,$tipovisualizacion)
+	{
+		// el eje tiene que estar habilitado
+		if(!in_array($eje,$this->EjesActivos))
+		{
+			$this->_SetearError(1,__FUNCTION__,__LINE__);
+			return false;
+		}
+
+		// obtengo todos los metodos de la clase
+		$metodos_clase = get_class_methods(get_class($this));
+		$valorvalido=false;
+		$temp=$tipovisualizacion;
+		
+		//recorro todos los metodos
+		foreach($metodos_clase as $metodo)
+		{
+			// si el metodo es uno que define el tipo de visualizacion
+			if(substr($metodo,0,12)=="tipovisualiz")
+			{
+				// si el valor (binario) lo tengo en el tipo de visualizacion, entonces puede que sea valido
+				if($this->$metodo() & $temp)
+				{
+					$valorvalido=true;
+					// disminuyo el valor de temp, para controlar despues si me sobra algun valor
+					$temp-=$this->$metodo();
+				}
+			}
+		}
+
+		// si temp es mayor a 0, entonces me estan mandando un valor no definido como visualizacion
+		if($temp>0)
+			$valorvalido=false;
+
+		// el valor enviado como tipovisualizacion no es valido
+		if(!$valorvalido)
+		{
+			$this->_SetearError(6,__FUNCTION__,__LINE__);
+			return false;
+		}
+
+
+		$this->tipovisualizacion_y[$eje]=$tipovisualizacion;
+
+		return true;
+	} // fin y_TipoGraficos
+
+//----------------------------------------------------------------------------------------- 
+// Define el formato de la linea para un eje y
+
+// Parámetros:
+//		$eje: indica el eje sobre el que se va a aplicar. Debe ser habilitado con anterioridad el eje.
+//		$tipovisualizacion: tiene que ser algun valor de los definidos como tipos de graficos o alguna suma de los mismos
+	
+	function y_FormatoLinea($eje,$color,$grosor)
+	{
+		// el eje tiene que estar habilitado
+		if(!in_array($eje,$this->EjesActivos))
+		{
+			$this->_SetearError(1,__FUNCTION__,__LINE__);
+			return false;
+		}
+
+		// si se esta queriendo setear el formato de linea para un grafico que no es de linea
+		if(!($this->tipovisualizacion_y[$eje] & $this->TIPOVISUALIZLINEA()))
+		{
+			$this->_SetearError(7,__FUNCTION__,__LINE__);
+			return false;
+		}
+
+		if(!$this->_VerificarColor($color))
+			return false;
+		
+		if(!is_int($grosor) || $grosor<=0)
+		{
+			$this->_SetearError(23,__FUNCTION__,__LINE__);
+			return false;
+		}
+
+		$this->formatolinea_y[$eje]["color"]=$color;
+		$this->formatolinea_y[$eje]["grosor"]=$grosor;
+
+		return true;	
+	}  // fin y_FormatoLinea
+
+//----------------------------------------------------------------------------------------- 
+// Define el formato de los puntos para un eje y
+
+// Parámetros:
+//		$eje: indica el eje sobre el que se va a aplicar. Debe ser habilitado con anterioridad el eje.
+//		$tipopunto: tiene que ser algun valor de los definidos como tipos de puntos
+//		$mostrarvalor: indica si el valor va a ser mostrado al lado del punto
+//		$fuente,$tamanio,$color: formato de la leyenda
+	
+	function y_FormatoPunto($eje,$tipopunto,$mostrarvalor,$fuente,$tamanio,$color)
+	{
+		// el eje tiene que estar habilitado
+		if(!in_array($eje,$this->EjesActivos))
+		{
+			$this->_SetearError(1,__FUNCTION__,__LINE__);
+			return false;
+		}
+
+		// si se esta queriendo setear el formato de linea para un grafico que no es de linea
+		if(!($this->tipovisualizacion_y[$eje] & $this->TIPOVISUALIZPUNTO()))
+		{
+			$this->_SetearError(8,__FUNCTION__,__LINE__);
+			return false;
+		}
+				
+		// obtengo todos los metodos de la clase
+		$metodos_clase = get_class_methods(get_class($this));
+		$valorvalido=false;
+		
+		//recorro todos los metodos
+		foreach($metodos_clase as $metodo)
+		{
+			// si el metodo es uno que define el tipo de punto
+			if(substr($metodo,0,9)=="tipopunto")
+			{
+				// si el valor es el que me enviaron, entonces es valido
+				if($this->$metodo() == $tipopunto)
+				{
+					$valorvalido=true;
+				}
+			}
+		}
+
+		// el valor enviado como tipopunto no es valido
+		if(!$valorvalido)
+		{
+			$this->_SetearError(9,__FUNCTION__,__LINE__);
+			return false;
+		}
+
+		// el valor enviado en mostrarvalor no es valido
+		if(!is_bool($mostrarvalor))
+		{
+			$this->_SetearError(10,__FUNCTION__,__LINE__);
+			return false;
+		}
+
+		if(!$this->_VerificarFuente($this->dir_fuentes.$fuente))
+			return false;
+
+		if(!$this->_VerificarTamanio($tamanio))
+			return false;
+
+		if(!$this->_VerificarColor($color))
+			return false;
+
+		$this->formatopunto_y[$eje]["tipopunto"]=$tipopunto;
+		$this->formatopunto_y[$eje]["mostrarvalor"]=$mostrarvalor;
+		$this->formatopunto_y[$eje]["fuente"]=$this->dir_fuentes.$fuente;
+		$this->formatopunto_y[$eje]["tamanio"]=$tamanio;
+		$this->formatopunto_y[$eje]["color"]=$color;
+
+		return true;	
+	}  // fin y_FormatoPunto
+
+//----------------------------------------------------------------------------------------- 
+// Define el formato de la barra para un eje y
+
+// Parámetros:
+//		$eje: indica el eje sobre el que se va a aplicar. Debe ser habilitado con anterioridad el eje.
+//		$tipovisualizacion: tiene que ser algun valor de los definidos como tipos de graficos o alguna suma de los mismos
+	
+	function y_FormatoBarra($eje,$color,$grosor)
+	{
+		// el eje tiene que estar habilitado
+		if(!in_array($eje,$this->EjesActivos))
+		{
+			$this->_SetearError(1,__FUNCTION__,__LINE__);
+			return false;
+		}
+
+		// si se esta queriendo setear el formato de barra para un grafico que no es de barra
+		if(!($this->tipovisualizacion_y[$eje] & $this->TIPOVISUALIZBARRA()))
+		{
+			$this->_SetearError(7,__FUNCTION__,__LINE__);
+			return false;
+		}
+
+		if(!$this->_VerificarColor($color))
+			return false;
+		
+		if(!is_int($grosor) || $grosor<=0)
+		{
+			$this->_SetearError(23,__FUNCTION__,__LINE__);
+			return false;
+		}
+
+		$this->formatobarra_y[$eje]["color"]=$color;
+		$this->formatobarra_y[$eje]["grosor"]=$grosor;
+
+		return true;	
+	}  // fin y_FormatoBarra
+	
+//----------------------------------------------------------------------------------------- 
+// Carga valores en datos para el eje definido
+
+// Parámetros:
+//		$eje: indica el eje sobre el que se va a aplicar. Debe ser habilitado con anterioridad el eje.
+//		$arr_datos: array asociativo, donde la clave tiene que haber sido definida con x_Etiquetas
+
+	function y_Datos($eje,$arr_datos)
+	{
+		// el eje tiene que estar habilitado
+		if(!in_array($eje,$this->EjesActivos))
+		{
+			$this->_SetearError(1,__FUNCTION__,__LINE__);
+			return false;
+		}
+
+		if(!is_array($arr_datos))
+		{
+			$this->_SetearError(24,__FUNCTION__,__LINE__);
+			return false;
+		}
+
+		foreach($arr_datos as $clave => $valor)
+		{
+			// la clave en datos tiene que haber sido definida
+			if(!isset($this->datos[$clave]))
+			{
+				$this->_SetearError(11,__FUNCTION__,__LINE__);
+				return false;
+			}
+
+			// Verifico que los datos sean numericos o bien NE
+			if(!is_numeric($valor) && $valor!=$this->VALORNOEXISTE())
+			{
+				$this->_SetearError(25,__FUNCTION__,__LINE__);
+				return false;
+			}
+
+			$this->datos[$clave][$eje]=$valor;
+		}
+		
+		return true;	
+	}  // fin y_Datos
+	
+//----------------------------------------------------------------------------------------- 
+// Arma el grafico
+
+// Parámetros:
+//		$enviar_grafico: indica si se genera el grafico o no
+	
+	function DibujarGrafico($enviar_grafico=true)
+	{
+		$MARGENIZQUIERDO=0.15; // en decimos
+		$MARGENDERECHO=0.15; // en decimos
+		$MARGENSUPERIOR=0.05; // en decimos
+		$MARGENINFERIOR=0.10; // en decimos
+		$POSICIONLEYENDAIZQUIERDA=0.05; // en decimos
+		$POSICIONLEYENDADERECHA=0.97; // en decimos
+		$POSICIONLEYENDAEJEX=0.97; // en decimos
+		
+		$LARGOLINEAESCALA=5; // en pixeles
+		$DISTANCIAALEJE=3; // en pixeles
+		$DISTANCIAALPUNTO=10; // en pixeles
+		
+		
+		$tamaniografico_x=round((1-$MARGENIZQUIERDO-$MARGENDERECHO)*$this->tam_x); // define el ancho del grafico interno en pixel
+		$tamaniografico_y=round((1-$MARGENSUPERIOR-$MARGENINFERIOR)*$this->tam_y); // define la altura del grafico interno en pixel
+		$izqgrafico=round($MARGENIZQUIERDO*$this->tam_x); // define el margen izquierdo para el grafico interno en pixel
+		$supgrafico=round($MARGENSUPERIOR*$this->tam_y);  // define el margen superior para el grafico interno en pixel
+		
+		$paso_x=$tamaniografico_x/(count($this->datos)); // define cada cuantos pixeles hay una etiqueta en el eje x
+		
+		if(!$this->_RecalcularRangoEjesY())
+			return false;
+		
+
+		// Devuelve el identificador de una imagen negra de tamaño x * y
+		$im=imagecreatetruecolor($this->tam_x,$this->tam_y);
+
+		// Definición de colores a usar (en RGB)
+		$negro=imagecolorallocate($im,0,0,0);
+
+		// Crea en la imagen un rectangulo relleno con el color de fondo
+		$x_arriba_izq=0;
+		$y_arriba_izq=0;
+		$x_abajo_der=$this->tam_x-1;
+		$y_abajo_der=$this->tam_y-1;
+		$color=imagecolorallocate($im,$this->colorfondo[0],$this->colorfondo[1],$this->colorfondo[2]);
+		imagefilledrectangle($im,$x_arriba_izq,$y_arriba_izq,$x_abajo_der,$y_abajo_der,$color);
+		
+		// Crea en la imagen el rectangulo del grafico interno, relleno y el borde
+		$x_arriba_izq=$izqgrafico;
+		$y_arriba_izq=$supgrafico;
+		$x_abajo_der=$izqgrafico+$tamaniografico_x;
+		$y_abajo_der=$supgrafico+$tamaniografico_y;
+		$color=imagecolorallocate($im,$this->colorfondografint[0],$this->colorfondografint[1],$this->colorfondografint[2]);
+		imagefilledrectangle($im,$x_arriba_izq,$y_arriba_izq,$x_abajo_der,$y_abajo_der,$color);
+		imagerectangle($im,$x_arriba_izq,$y_arriba_izq,$x_abajo_der,$y_abajo_der,$negro);
+		
+		// Genera las etiquetas del eje x en el grafico
+		$posicion_x=$izqgrafico;
+		$color=imagecolorallocate($im,$this->formato_etiq_x["color"][0],$this->formato_etiq_x["color"][1],$this->formato_etiq_x["color"][2]);
+		foreach($this->datos as $clave => $valor)
+		{
+			$textoetiqueta=$valor[0];	
+			$archivofont=$this->formato_etiq_x["fuente"];
+
+			// Pone las líneas de la escala en x
+			$x_desde=round($posicion_x);
+			$y_desde=$supgrafico+$tamaniografico_y-$LARGOLINEAESCALA;
+			$x_hasta=round($posicion_x);
+			$y_hasta=$tamaniografico_y+$LARGOLINEAESCALA;
+			imageline($im,$x_desde,$y_desde,$x_hasta,$supgrafico+$y_hasta,$color);
+			
+			// Escribe en la imagen un texto de un color
+			$tamanioletra=$this->formato_etiq_x["tamanio"];
+			$angulotexto=$this->formato_etiq_x["angulo"];
+
+			// Si es de tipo barra, las etiquetas las pongo al medio
+			if($this->tipovisualizacion_y[1]==$this->TIPOVISUALIZBARRA())
+			{
+				$x_abajo_izq=round($posicion_x)+$paso_x/2;
+				$caja_centrado=imagettfbbox($tamanioletra,$angulotexto,$archivofont,$textoetiqueta);
+				$x_abajo_izq-=round($caja_centrado[2]/2);
+			}
+			else
+				$x_abajo_izq=round($posicion_x)+$DISTANCIAALEJE;
+
+			$y_abajo_izq=$supgrafico+$tamaniografico_y+$this->formato_etiq_x["tamanio"]+$DISTANCIAALEJE;
+			if($angulotexto==-45 || $angulotexto==315)
+				$y_abajo_izq=$supgrafico+$tamaniografico_y+floor(($this->formato_etiq_x["tamanio"])/2)+$DISTANCIAALEJE;
+			if($angulotexto==-90 || $angulotexto==270)
+				$y_abajo_izq=$supgrafico+$tamaniografico_y+$DISTANCIAALEJE;
+			imagettftext($im,$tamanioletra,$angulotexto,$x_abajo_izq,$y_abajo_izq,$color,$archivofont,$textoetiqueta);
+			
+			$posicion_x+=$paso_x;
+		}
+		
+		$eje=1;
+		// Genera las etiquetas del eje Y1
+		if(!$this->_GenerarEtiq_Y($im,$eje,$tamaniografico_y,$supgrafico+$tamaniografico_y,$izqgrafico,$LARGOLINEAESCALA,$DISTANCIAALEJE,"IZQ"))
+			return false;
+		
+		// Si tengo el eje 2, entonces pongo las etiquetas
+		$eje=2;
+		if(in_array($eje,$this->EjesActivos))
+		{
+			if(!$this->_GenerarEtiq_Y($im,$eje,$tamaniografico_y,$supgrafico+$tamaniografico_y,$izqgrafico+$tamaniografico_x,$LARGOLINEAESCALA,$DISTANCIAALEJE,"DER"))
+				return false;
+		}
+
+		//escribo la leyenda del eje x
+		$tamanioletra=$this->leyenda_x["tamanio"];
+		$angulotexto=0;
+		$archivofont=$this->leyenda_x["fuente"];
+		$textoleyenda=$this->leyenda_x["texto"];
+		// Devuelve en 8 números las coordenadas de las esquinas de una caja que ocupa el texto
+		$caja=imagettfbbox($tamanioletra,$angulotexto,$archivofont,$textoleyenda);
+		
+		$x_abajo_izq=$izqgrafico+round(($tamaniografico_x-$caja[2])/2); // centro el texto
+		$y_abajo_izq=round($POSICIONLEYENDAEJEX*$this->tam_y);
+		$color=imagecolorallocate($im,$this->leyenda_x["color"][0],$this->leyenda_x["color"][1],$this->leyenda_x["color"][2]);
+		imagettftext($im,$tamanioletra,$angulotexto,$x_abajo_izq,$y_abajo_izq,$color,$archivofont,$textoleyenda);
+		
+		$eje=1;
+		// Genera las leyendas del eje Y1
+		if(!$this->_GenerarLeyenda_y($im,$eje,90,round($POSICIONLEYENDAIZQUIERDA*$this->tam_x),$supgrafico,$tamaniografico_y))
+			return false;
+		
+		// Si tengo el eje 2, entonces pongo las leyendas
+		$eje=2;
+		if(in_array($eje,$this->EjesActivos))
+		{
+			if(!$this->_GenerarLeyenda_y($im,$eje,-90,round($POSICIONLEYENDADERECHA*$this->tam_x),$supgrafico,$tamaniografico_y))
+				return false;
+		}
+
+
+		// Genera cada grafico
+		foreach($this->EjesActivos as $eje)
+		{
+			$posicion_x=$izqgrafico+round($paso_x/2); // la primera posicion en x es la mitad del paso
+			$colorpunto=imagecolorallocate($im,$this->formatopunto_y[$eje]["color"][0],$this->formatopunto_y[$eje]["color"][1],$this->formatopunto_y[$eje]["color"][2]);
+			$colorlinea=imagecolorallocate($im,$this->formatolinea_y[$eje]["color"][0],$this->formatolinea_y[$eje]["color"][1],$this->formatolinea_y[$eje]["color"][2]);
+	
+			// estas 2 varibles me permiten pasar el valor de Y a escala del eje
+			$multiplicador=100/($this->formato_etiq_y[$eje]["fin"]-$this->formato_etiq_y[$eje]["comienzo"]);
+			$resta=100*$this->formato_etiq_y[$eje]["comienzo"]/($this->formato_etiq_y[$eje]["fin"]-$this->formato_etiq_y[$eje]["comienzo"]);
+			
+			$valoranterior_y=$this->VALORNOEXISTE();
+			
+			// recorro todos los valores de un eje
+			foreach($this->datos as $clave => $valor)
+			{
+				if($valor[$eje]!=$this->VALORNOEXISTE())
+				{
+					$posicionpunto_y=$valor[$eje]*$multiplicador-$resta;
+					$posicionpunto_y=$supgrafico+$tamaniografico_y-($posicionpunto_y*$tamaniografico_y/100);
+					
+					if($this->tipovisualizacion_y[$eje] & $this->TIPOVISUALIZPUNTO())
+					{
+						if(!$this->_GenerarPunto($im,$eje,$valor[$eje],$posicion_x,$posicionpunto_y,$colorpunto,$DISTANCIAALPUNTO))
+							return false;
+					} // fin de visualizacion con punto
+		
+					// muestro la linea siempre y cuando el punto anterior exista
+					if(($this->tipovisualizacion_y[$eje] & $this->TIPOVISUALIZLINEA()) && $valoranterior_y!=$this->VALORNOEXISTE())
+					{
+					
+						$posicionant_y=$valoranterior_y*$multiplicador-$resta;
+						$posicionant_y=$supgrafico+$tamaniografico_y-($posicionant_y*$tamaniografico_y/100);
+					
+						if(!$this->_GenerarLinea($im,$eje,$posicion_x,$posicionpunto_y,$posicion_x-$paso_x,$posicionant_y,$colorlinea))
+							return false;
+					} // fin de visualizacion con linea
+
+					if($this->tipovisualizacion_y[$eje] & $this->TIPOVISUALIZBARRA())
+					{
+						if(!$this->_GenerarBarra($im,$eje,$valor[$eje],$posicion_x,$posicionpunto_y,$colorpunto,$y_abajo_der))
+							return false;
+					} // fin de visualizacion barra
+
+				}
+				$posicion_x+=$paso_x;
+				$valoranterior_y=$valor[$eje];
+				
+			} // fin de recorrer todos los datos para un eje
+		} // fin de recorrer todos los ejes
+
+
+		
+		// si tengo que generar el grafico
+		if($enviar_grafico)
+		{
+			header("Content-type: image/png"); 
+			imagepng($im); 
+		}
+
+		imagedestroy($im);
+			   
+		return true;
+	} // fin DibujarGrafico
+	
+	function ObtenerError(&$textoerror,&$funcionerror,&$lineaerror)
+	{
+		$textoerror=$this->_ObtenerTextoErrorActual();
+		$funcionerror=$this->erroractual["funcion"];
+		$lineaerror=$this->erroractual["linea"];	
+	}
+
+	
+//-----------------------------------------------------------------------------------------
+//							 PRIVADAS	
+//----------------------------------------------------------------------------------------- 
+	
+//----------------------------------------------------------------------------------------- 
+// Setea el error ocurrido en la variable de la clase
+	
+	function _SetearError($codigoerror,$funcion,$linea)
+	{
+		$this->erroractual["codigo"]=$codigoerror;
+		$this->erroractual["funcion"]=$funcion;
+		$this->erroractual["linea"]=$linea;	
+	}
+	
+//----------------------------------------------------------------------------------------- 
+// Inicializa el vector con los textos de error
+
+	function _InicializarTextosError()
+	{
+		$this->errortextos=array();
+		
+		$this->errortextos[1]="Eje y no habilitado.";
+		$this->errortextos[2]="El valor de comienzo o fin de las etiquetas del eje y no es numérico.";
+		$this->errortextos[3]="El valor de comienzo no puede ser igual o superior a fin.";
+		$this->errortextos[4]="El valor de paso no es divisor en el rango comienzo->fin.";
+		$this->errortextos[5]="El eje y no está disponible.";
+		$this->errortextos[6]="Tipo de gráfico no válido.";
+		$this->errortextos[7]="Se está tratando de aplicar formato de linea a un eje y que no es de linea.";
+		$this->errortextos[8]="Se está tratando de aplicar formato de punto a un eje y que no es de punto.";
+		$this->errortextos[9]="Tipo de punto no válido.";
+		$this->errortextos[10]="El valor de mostrarvalor no es válido.";
+		$this->errortextos[11]="Se está tratando de ingresar un valor y para una clave no definida en x.";
+		$this->errortextos[12]="Falta definir un valor en un eje.";
+		$this->errortextos[13]="Alineación de leyendas de eje y no definida.";
+		$this->errortextos[14]="Color no es un array.";
+		$this->errortextos[15]="Error en las posiciones del vector color.";
+		$this->errortextos[16]="Los componentes de color no son enteros.";
+		$this->errortextos[17]="Una o mas posiciones del vector de color se va de rango.";
+		$this->errortextos[18]="Fuente inexistente.";
+		$this->errortextos[19]="El tamaño de la fuente no es entero.";
+		$this->errortextos[20]="El tamaño de la fuente está fuera de rango.";
+		$this->errortextos[21]="El parámetro de etiquetas de X no es array.";
+		$this->errortextos[22]="Unidad de medida no válida.";
+		$this->errortextos[23]="Grosor no es válido.";
+		$this->errortextos[24]="El parámetro de datos de Y no es array.";
+		$this->errortextos[25]="Algún valor en el array de datos no es válido.";
+		$this->errortextos[26]="El ángulo no es entero.";
+		$this->errortextos[27]="El ángulo está fuera de rango.";
+	}
+	
+//----------------------------------------------------------------------------------------- 
+// Obtiene el texto a partir del codigo de error
+
+	function _ObtenerTextoErrorActual()
+	{
+		if(isset($this->errortextos[$this->erroractual["codigo"]]))
+			return $this->errortextos[$this->erroractual["codigo"]];
+		else
+			return "Código de error sin definir (".$this->erroractual["codigo"].")";
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Genera las etiquetas de un eje Y
+
+// Parámetros:
+//		$im: el recurso que identifica la imagen
+//		$eje: el codigo de eje
+//		$tamaniografico_y: la altura, en pixel, del grafico interno
+//		$posicion_y: la posicion sobre la cual se empiezan a escribir las etiquetas. Linea inferior del grafico interno. En pixel
+//		$posicion_x: la linea vertical sobre la cual se van a escribir las etiquetas. En pixel
+//		$LARGOLINEAESCALA: la longitud de la linea que marca cada posicion
+//		$DISTANCIAALEJE: La distancia que hay del eje a la leyenda
+//		$alineacion: si la leyenda va a la IZQ o DER del eje
+
+	function _GenerarEtiq_Y($im,$eje,$tamaniografico_y,$posicion_y,$posicion_x,$LARGOLINEAESCALA,$DISTANCIAALEJE,$alineacion)
+	{
+		$paso_y=$tamaniografico_y/(($this->formato_etiq_y[$eje]["fin"]-$this->formato_etiq_y[$eje]["comienzo"])/$this->formato_etiq_y[$eje]["paso"]);
+		$coloreje=imagecolorallocate($im,$this->formato_etiq_y[$eje]["color"][0],$this->formato_etiq_y[$eje]["color"][1],$this->formato_etiq_y[$eje]["color"][2]);
+		$numeromostrar=$this->formato_etiq_y[$eje]["comienzo"];
+		
+		$multiplicador=1;
+		if(is_float($this->formato_etiq_y[$eje]["paso"]))
+			$multiplicador=pow(10,strlen(substr($this->formato_etiq_y[$eje]["paso"]-intval($this->formato_etiq_y[$eje]["paso"]),2)));
+		$cant_pasos=((($this->formato_etiq_y[$eje]["fin"]-$this->formato_etiq_y[$eje]["comienzo"])*$multiplicador) / ($this->formato_etiq_y[$eje]["paso"]*$multiplicador));
+
+		$numeromostrar=$this->formato_etiq_y[$eje]["comienzo"];		
+		for($num_paso=0;$num_paso<=$cant_pasos;$num_paso++)
+		{
+			// Pone las líneas de la escala en y
+			$x_desde=$posicion_x-$LARGOLINEAESCALA;
+			$y_desde=round($posicion_y);
+			$x_hasta=$posicion_x+$LARGOLINEAESCALA;
+			$y_hasta=round($posicion_y);
+			imageline($im,$x_desde,$y_desde,$x_hasta,$y_hasta,$coloreje);
+
+			$tamanioletra=$this->formato_etiq_y[$eje]["tamanio"];
+			$angulotexto=$this->formato_etiq_y[$eje]["angulo"];
+			$archivofont=$this->formato_etiq_y[$eje]["fuente"];
+
+			if(!$this->_AplicarFormato($numeromostrar,$this->formato_etiq_y[$eje]["unidadmedida"],$numeroformateado))
+				return false;
+
+			// Devuelve en 8 números las coordenadas de las esquinas de una caja que ocupa el texto
+			$caja=imagettfbbox($tamanioletra,$angulotexto,$archivofont,$numeroformateado);
+			
+			if($alineacion=="IZQ")
+				$x_abajo_izq=$posicion_x-$DISTANCIAALEJE-$LARGOLINEAESCALA-$caja[2];
+			elseif($alineacion=="DER")
+				$x_abajo_izq=$posicion_x+$DISTANCIAALEJE+$LARGOLINEAESCALA;
+			else
+			{
+				$this->_SetearError(13,__FUNCTION__,__LINE__);
+				return false;
+			}
+
+			$y_abajo_izq=$posicion_y+$this->formato_etiq_y[$eje]["tamanio"]/2;
+			
+			
+			imagettftext($im,$tamanioletra,$angulotexto,$x_abajo_izq,$y_abajo_izq,$coloreje,$archivofont,$numeroformateado);
+			
+			$posicion_y-=$paso_y;
+			$numeromostrar+=$this->formato_etiq_y[$eje]["paso"];
+		}
+		
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Genera las etiquetas de un eje Y
+
+// Parámetros:
+//		$im: el recurso que identifica la imagen
+//		$eje: el codigo de eje
+//		$angulotexto: el angulo del texto a mostrar
+//		$posicion_x: la linea vertical sobre la cual se va a escribir la leyenda. En pixel
+//		$supgrafico: margen superior del grafico interno en pixel
+//		$tamaniografico_y: la altura, en pixel, del grafico interno
+	
+	function _GenerarLeyenda_y($im,$eje,$angulotexto,$posicion_x,$supgrafico,$tamaniografico_y)
+	{
+		$tamanioletra=$this->leyenda_y[$eje]["tamanio"];
+		$archivofont=$this->leyenda_y[$eje]["fuente"];
+		$textoleyenda=$this->leyenda_y[$eje]["texto"];
+		// Devuelve en 8 números las coordenadas de las esquinas de una caja que ocupa el texto
+		$caja=imagettfbbox($tamanioletra,$angulotexto,$archivofont,$textoleyenda);
+		
+		$coloreje=imagecolorallocate($im,$this->leyenda_y[$eje]["color"][0],$this->leyenda_y[$eje]["color"][1],$this->leyenda_y[$eje]["color"][2]);
+		
+		$x_abajo_izq=$posicion_x;
+		$y_abajo_izq=$supgrafico+round(($tamaniografico_y-$caja[3])/2); // centro el texto
+		imagettftext($im,$tamanioletra,$angulotexto,$x_abajo_izq,$y_abajo_izq,$coloreje,$archivofont,$textoleyenda);	
+		
+		return true;
+	}
+	
+//----------------------------------------------------------------------------------------- 
+// Genera un punto en el grafico
+
+// Parámetros:
+//		$im: el recurso que identifica la imagen
+//		$eje: el codigo de eje
+//		$valor_y: el valor de y a mostrar en pantalla
+//		$posicion_x: la posicion en pixel donde va a ir el punto
+//		$posicion_y: la posicion en pixel donde va a ir el punto
+//		$color: el color a aplicar (NO en array, ya con el allocate)
+//		$DISTANCIAALPUNTO: la distancia en pixeles donde se va a mostrar la etiqueta
+	
+	function _GenerarPunto($im,$eje,$valor_y,$posicion_x,$posicion_y,$color,$DISTANCIAALPUNTO)
+	{
+		switch($this->formatopunto_y[$eje]["tipopunto"])
+		{
+			case $this->TIPOPUNTOPUNTO():
+				imagefilledrectangle($im,$posicion_x-1,$posicion_y-1,$posicion_x+1,$posicion_y+1,$color);
+				break;
+			case $this->TIPOPUNTOCUADRADO():
+				imagefilledrectangle($im,$posicion_x-3,$posicion_y-3,$posicion_x+3,$posicion_y+3,$color);
+				break;
+			case $this->TIPOPUNTOCIRCULO():
+				imagefilledellipse($im,$posicion_x,$posicion_y,6,6,$color);
+				break;
+		} // fin del switch por tipo de punto
+		
+		if($this->formatopunto_y[$eje]["mostrarvalor"])
+		{
+			$tamanioletra=$this->formatopunto_y[$eje]["tamanio"];
+			$angulotexto=0;
+			$archivofont=$this->formatopunto_y[$eje]["fuente"];
+
+			if(!$this->_AplicarFormato($valor_y,$this->formato_etiq_y[$eje]["unidadmedida"],$valorformateado))
+				return false;
+
+			$x_abajo_izq=$posicion_x+$DISTANCIAALPUNTO;
+			$y_abajo_izq=$posicion_y+$this->formato_etiq_y[$eje]["tamanio"]/2;
+			
+			imagettftext($im,$tamanioletra,$angulotexto,$x_abajo_izq,$y_abajo_izq,$color,$archivofont,$valorformateado);
+		}
+		
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Genera una linea en el grafico
+
+// Parámetros:
+//		$im: el recurso que identifica la imagen
+//		$eje: el codigo de eje
+//		$posicion_x,$posicion_y,$posicionant_x,$posicionant_y: coordenada de la linea
+//		$color: el color a aplicar (NO en array, ya con el allocate)
+	
+	function _GenerarLinea($im,$eje,$posicion_x,$posicion_y,$posicionant_x,$posicionant_y,$color)
+	{
+		imagesetthickness($im,$this->formatolinea_y[$eje]["grosor"]);
+		
+		imageline($im,$posicionant_x,$posicionant_y,$posicion_x,$posicion_y,$color);
+		
+		imagesetthickness($im,1);
+		
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Genera una barra en el grafico
+
+// Parámetros:
+//		$im: el recurso que identifica la imagen
+//		$eje: el codigo de eje
+//		$valor_y: el valor de y a mostrar en pantalla
+//		$posicion_x: la posicion en pixel donde va a ir el punto
+//		$posicion_y: la posicion en pixel donde va a ir el punto
+//		$color: el color a aplicar (NO en array, ya con el allocate)
+//		$DISTANCIAALPUNTO: la distancia en pixeles donde se va a mostrar la etiqueta
+	
+	function _GenerarBarra($im,$eje,$valor_y,$posicion_x,$posicion_y,$color,$piso)
+	{
+		imagefilledrectangle($im,$posicion_x-$this->formatobarra_y[$eje]["grosor"],$posicion_y,$posicion_x+$this->formatobarra_y[$eje]["grosor"],$piso,$color);
+				
+		return true;
+	}
+
+
+//----------------------------------------------------------------------------------------- 
+// Recalculo, si es necesario, el comienzo y fin de los ejes Y
+
+	function _RecalcularRangoEjesY()
+	{
+		// recorro todos los valores de cada eje para ver si estan en el rango comienzo->fin. Si no es asi, recalculo el rango
+		foreach($this->EjesActivos as $eje)
+		{
+			$nuevocomienzo=$this->formato_etiq_y[$eje]["comienzo"]; // variable temporal
+			$nuevofin=$this->formato_etiq_y[$eje]["fin"]; // variable temporal
+			
+			// recorro todos los valores de un eje
+			foreach($this->datos as $clave => $valores)
+			{
+				// si no tiene cargado un dato del eje, se va de la función
+				if(!isset($valores[$eje]))
+				{
+					$this->_SetearError(12,__FUNCTION__,__LINE__);
+					return false;
+				}
+					
+				// si el valor se va fuera del rango, amplio el rango
+				if($valores[$eje]!=$this->VALORNOEXISTE())
+				{
+					if($valores[$eje]<$nuevocomienzo)
+						$nuevocomienzo=$valores[$eje];
+					
+					if($valores[$eje]>$nuevofin)
+						$nuevofin=$valores[$eje];
+				}
+			}
+			
+			// si cambie el valor de comienzo, recalculo el comienzo
+			if($nuevocomienzo!=$this->formato_etiq_y[$eje]["comienzo"])
+			{
+				$pasosagregar=ceil(($this->formato_etiq_y[$eje]["comienzo"]-$nuevocomienzo) / $this->formato_etiq_y[$eje]["paso"]);
+				$this->formato_etiq_y[$eje]["comienzo"]-=$pasosagregar*$this->formato_etiq_y[$eje]["paso"];
+			}
+			
+			// si cambie el valor de fin, recalculo el fin
+			if($nuevofin!=$this->formato_etiq_y[$eje]["fin"])
+			{
+				$pasosagregar=ceil(($nuevofin-$this->formato_etiq_y[$eje]["fin"]) / $this->formato_etiq_y[$eje]["paso"]);
+				$this->formato_etiq_y[$eje]["fin"]+=$pasosagregar*$this->formato_etiq_y[$eje]["paso"];
+			}
+
+		} // fin de recorrer todos los ejes
+		
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Aplico el formato solicitado al texto
+
+// Parámetros:
+//		$textoentrada: texto a formatear
+//		$formato: formato a aplicar
+
+	function _AplicarFormato($textoentrada,$formato,&$textosalida)
+	{
+		$textosalida="";
+
+		switch($formato)
+		{
+			case $this->UNIDMEDIDAUNIDAD():
+				$textosalida=$textoentrada;
+				
+				break;
+			case $this->UNIDMEDIDAPORCENTAJE():
+				$textosalida=number_format($textoentrada,2)."%";
+				
+				break;
+			case $this->UNIDMEDIDA2DECIMALES():
+				$textosalida=number_format($textoentrada,2);
+		
+				break;
+			
+			default:
+				$this->_SetearError(22,__FUNCTION__,__LINE__);
+
+				return false;
+				break;
+		}
+		
+		return true;
+	}
+	
+//----------------------------------------------------------------------------------------- 
+// Verifica si el array es un vector de color valido
+
+// Parámetros:
+//		$color: vector a verificar
+
+	function _VerificarColor($color)
+	{
+		if(!is_array($color))
+		{
+			$this->_SetearError(14,__FUNCTION__,__LINE__);
+			return false;
+		}
+
+		if(!isset($color[0]) || !isset($color[1]) || !isset($color[2]))
+		{
+			$this->_SetearError(15,__FUNCTION__,__LINE__);
+			return false;
+		}
+
+		if(!is_int($color[0]) || !is_int($color[1]) || !is_int($color[2]))
+		{
+			$this->_SetearError(16,__FUNCTION__,__LINE__);
+			return false;
+		}
+
+		if($color[0]<0 || $color[0]>255 || $color[1]<0 || $color[1]>255 || $color[2]<0 || $color[2]>255)
+		{
+			$this->_SetearError(17,__FUNCTION__,__LINE__);
+			return false;
+		}
+
+		return true;
+	}
+	
+//----------------------------------------------------------------------------------------- 
+// Verifica si la fuente es valida
+
+// Parámetros:
+//		$fuente: fuente a verificar
+
+	function _VerificarFuente($fuente)
+	{
+		if(!file_exists($fuente))
+		{
+			$this->_SetearError(18,__FUNCTION__,__LINE__);
+			return false;
+		}
+
+
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Verifica si el tamanio de la fuente es valido
+
+// Parámetros:
+//		$tamanio: tamanio a verificar
+
+	function _VerificarTamanio($tamanio)
+	{
+		if(!is_int($tamanio))
+		{
+			$this->_SetearError(19,__FUNCTION__,__LINE__);
+			return false;
+		}
+
+		if($tamanio<=0)
+		{
+			$this->_SetearError(20,__FUNCTION__,__LINE__);
+			return false;
+		}
+
+
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Verifica si el angulo es valido
+
+// Parámetros:
+//		$angulo: angulo a verificar
+
+	function _VerificarAngulo($angulo)
+	{
+		if(!is_int($angulo))
+		{
+			$this->_SetearError(26,__FUNCTION__,__LINE__);
+			return false;
+		}
+
+		if($angulo<-359 || $angulo>359)
+		{
+			$this->_SetearError(27,__FUNCTION__,__LINE__);
+			return false;
+		}
+
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------
+//							 CONSTANTES	
+//----------------------------------------------------------------------------------------- 
+	
+// Tipos de Visualizaciones - Tienen que ser potencias de 2 los valores
+	function TIPOVISUALIZPUNTO()
+	{
+		return 1;
+	}
+	
+	function TIPOVISUALIZLINEA()
+	{
+		return 2;
+	}
+
+	function TIPOVISUALIZBARRA()
+	{
+		return 4;
+	}
+	
+//----------------------------------------------------------------------------------------- 
+// Tipos de Puntos
+	
+	function TIPOPUNTOPUNTO()
+	{
+		return 1;
+	}
+	
+	function TIPOPUNTOCUADRADO()
+	{
+		return 2;
+	}
+	
+	function TIPOPUNTOCIRCULO()
+	{
+		return 3;
+	}
+	
+//----------------------------------------------------------------------------------------- 
+// Unidades de Medida
+
+	function UNIDMEDIDAUNIDAD()
+	{
+		return 1;
+	}
+	
+	function UNIDMEDIDAPORCENTAJE()
+	{
+		return 2;
+	}
+	
+	function UNIDMEDIDA2DECIMALES()
+	{
+		return 3;
+	}
+	
+//----------------------------------------------------------------------------------------- 
+// Convencion para valores no existentes
+
+	function VALORNOEXISTE()
+	{
+		return "NE";
+	}
+	
+} // fin clase Graficos
+
+?>

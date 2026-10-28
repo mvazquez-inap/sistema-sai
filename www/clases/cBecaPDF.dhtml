@@ -1,0 +1,233 @@
+<?php 
+require_once('SysONTIPdf.dhtml');
+class cBecaPDF extends cPDF {
+
+	// Datos de la Notificacion
+	var $array_datos = array();
+
+	// Ctes para la impresion de la Notificacion
+	var $ver_borde=0;	
+	var $xContenido = 5;
+	var $imagenLogo = 'images/escudo_fopecap.jpg';
+	
+	var $orientacionPagina = 'portrait';
+	var $topMargen = 5;
+	var $leftMargen = 10;
+	var $rightMargen = 10;
+	var $footerMargen = 5;
+	var $anchoMaxTexto = 180;	
+	var $altoMaxPag = 800;
+				
+	public function __construct () {	    
+		 $format = "A4";
+		parent::__construct($this->orientacionPagina,'mm',$format);
+	}	
+	
+	//------------------------------------------------------------------------
+	function AddBeca() {
+		// Inicializa formato de la pagina 
+		$this->AddPage($this->orientacionPagina);
+		$this->SetMargins($this->leftMargen,$this->topMargen,$this->rightMargen);
+		// Para que el pie tenga 0.5 por defecto son 2cm
+		$this->SetAutoPageBreak(true,$this->footerMargen);
+		// Inicializa datos 
+		$this->array_datos = array('pers_cuilt'=>'',
+									'nombre'=>'',
+									'beca'=>'',
+									'email'=>'',
+									'fecha'=>'',
+									'estudios'=>'',
+									'fecha_nac'=>'',
+									'agentes'=>'',
+									'pais'=>'',
+									'provincia'=>'',
+									'organismo_ccordinador'=>'',
+									'escalafon'=>'',
+									'organismo_trabajo'=>'',
+									'funcion'=>''
+		
+									);
+	}	
+	
+	
+	//------------------------------------------------------------------------
+	function Set($campo,$valor) {
+		$this->array_datos[$campo]=$valor;
+	}
+	//------------------------------------------------------------------------
+	function Get($campo) {
+		return ($this->array_datos[$campo]);
+	}
+	//------------------------------------------------------------------------
+	function Header() {
+	 }
+	//------------------------------------------------------------------------
+	function MostrarBeca($conexion) {
+	
+		$this->SetFont('Arial','',8);
+		$this->Image($this->imagenLogo,$this->lMargin+$this->xContenido,$this->tMargin+2,0,0);
+
+		$ancho_fila_dato = $this->anchoMaxTexto;
+		$alto_fila_dato =  6;
+
+		// -------------  Carátula
+ 		$this->Ln(20);	
+		$this->SetFont('Arial','B',18);
+		$this->Ln(30);
+    	$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								"PROGRAMA INTEGRAL DE FORMACIÓN PARA EL EMPLEO PÚBLICO",$this->ver_borde,'C',0,2);
+ 		$this->Ln(10);	
+		$this->SetFont('Arial','BU',14);    	
+    	$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								"SOLICITUD DE BECA",$this->ver_borde,'C',0,2);
+ 		$this->Ln(10);	
+		$this->SetFont('Arial','B',12);    	
+    	
+    	 
+		if ($this->Get('pers_cuilt') != "")
+			$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'CUIT-CUIL-CID: '.$this->Get('pers_cuilt'),$this->ver_borde,'L',0,2);
+		$this->Ln(1);			
+		if ($this->Get('nombre') != "")
+			$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'NOMBRE: '.$this->Get('nombre'),$this->ver_borde,'L',0,2);
+		$this->Ln(1);
+		if ($this->Get('beca') != "")
+			$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'BECA: '.$this->Get('beca'),$this->ver_borde,'L',0,2);
+		
+		$this->SetFont('Arial','',12);		
+		$this->Ln(1);
+		if ($this->Get('email') != "")
+			$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'EMAIL: '.$this->Get('email'),$this->ver_borde,'L',0,2);
+			
+		$this->Ln(1);
+		if ($this->Get('fecha_nac') != "")
+			$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'FECHA DE NACIMIENTO: '.$this->Get('fecha_nac'),$this->ver_borde,'L',0,2);
+			
+		$this->Ln(1);
+		if ($this->Get('estudios') != "")
+			$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'NIVEL DE ESTUDIOS: '.$this->Get('estudios'),$this->ver_borde,'L',0,2);
+		$this->Ln(1);
+		if ($this->Get('agentes') != "")
+			$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'CANT. AGENTES A CARGO: '.$this->Get('agentes'),$this->ver_borde,'L',0,2);
+		$this->Ln(1);
+		if ($this->Get('pais') != "")
+			$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'PAIS: '.$this->Get('pais'),$this->ver_borde,'L',0,2);
+			
+		$this->Ln(1);
+		if ($this->Get('provincia') != "")
+			$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'PROVINCIA: '.$this->Get('provincia'),$this->ver_borde,'L',0,2);
+			
+		$this->Ln(1);
+		if ($this->Get('organismo_ccordinador') != "")
+			$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'ORGANISMO DEL COORDINADOR TÉCNICO: '.$this->Get('organismo_ccordinador'),$this->ver_borde,'L',0,2);
+			
+		$this->Ln(1);
+		if ($this->Get('escalafon') != "")
+			$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'ESCALAFÓN: '.$this->Get('escalafon'),$this->ver_borde,'L',0,2);
+
+		if ($this->Get('organismo_trabajo') != "")
+			$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'ORGANISMO DONDE TRABAJA: '.$this->Get('organismo_trabajo'),$this->ver_borde,'L',0,2);
+			
+		if ($this->Get('funcion') != "-- Seleccione una Función")
+			$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'FUNCIÓN: '.$this->Get('funcion'),$this->ver_borde,'L',0,2);
+			
+    	$this->Ln(10);	
+
+		$this->SetFont('Arial','B',10);
+
+    	$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								"Declaro conocer el Reglamento de Becas aprobado por la Comisión de Administración del FoPeCap por Acta N° 7/2011, que regula su otorgamiento a agentes de la Administración Pública Nacional comprendidos en el Convenio Colectivo de Trabajo General para la Administración Pública Nacional homologado por el Decreto N° 214/2006. Asimismo, declaro que los datos contenidos en la presente solicitud son verdaderos, que me encuentro comprendido en el Convenio Colectivo de Trabajo General para la Administración Pública Nacional homologado por el Decreto N° 214/2006 y que no me encuentro beneficiado por ninguna otra beca de estudios que otorgue cualquier organización pública o privada, nacional o internacional.
+								 
+								Los datos consignados precedentemente tienen el carácter de Declaración Jurada. Este documento debe presentarse junto con la constancia de inscripción como alumno regular en el establecimiento educativo donde cursa/cursará estudios, en la Universidad Administradora del Programa Integral de Formación para el Empleo Público que corresponda.",$this->ver_borde,'L',0,8);
+		
+    	
+		$this->Ln(10);	
+
+		$this->SetFont('Arial','B',12);
+		$texto_final = "FIRMA ___________________________ ACLARACIÓN_______________________ 
+		LUGAR Y FECHA ________________________________________________________";	
+		$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato*2,$texto_final,$this->ver_borde,'L',0,2);
+		
+		$this->AddPage($this->orientacionPagina); 		
+		$this->SetFont('Arial','',8);
+		$this->Image($this->imagenLogo,$this->lMargin+$this->xContenido,$this->tMargin+2,0,0);
+
+		$ancho_fila_dato = $this->anchoMaxTexto;
+		$alto_fila_dato =  6;		
+		 		
+		$this->SetFont('Arial','B',14);    	
+    	$this->Ln(60);	
+
+    	$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								"COMPROBANTE DE RECIBO DE LA SOLICITUD DE INSCRIPCIÓN:",$this->ver_borde,'C',0,2);
+		$this->Ln(25);					
+    	$this->SetFont('Arial','B',12);
+    	 
+		if ($this->Get('fecha') != "")
+			$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'FECHA: '.$this->Get('fecha'),$this->ver_borde,'L',0,2);
+		$this->Ln(8);			
+		if ($this->Get('nombre') != "")
+			$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'NOMBRE: '.$this->Get('nombre'),$this->ver_borde,'L',0,2);
+		$this->Ln(8);
+		if ($this->Get('beca') != "")
+			$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'BECA: '.$this->Get('beca'),$this->ver_borde,'L',0,2);
+		
+		$this->Ln(20);	
+		$this->SetFont('Arial','B',12);
+		$texto_final = "FIRMA DEL RECEPTOR ___________________________ 
+		ACLARACIÓN _____________________________ 
+		";	
+		$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato*2,$texto_final,$this->ver_borde,'L',0,2);
+			
+		
+		
+		
+		// ------------- Cabecera
+		//$this->AddPage($this->orientacionPagina);
+		//$this->MostrarCabecera();
+	
+		
+
+		
+	}
+	//------------------------------------------------------------------------
+	function MostrarCabecera() {
+
+		$this->AliasNbPages(); 
+
+		
+
+	}
+	
+	
+	
+	//------------------------------------------------------------------------
+	function MostrarEncabezadoTabla($titulo_columnas, $ancho_columnas) {
+		$this->SetFont('Arial','',10);
+		$this->SetTextColor(0);
+		for($i=0;$i<count($titulo_columnas);$i++)
+			$this->Cell($ancho_columnas[$i],12,$titulo_columnas[$i],1,0,'C',0);
+		$this->Ln();
+		$this->SetTextColor(0);
+		$this->SetFont('Arial','',8);
+	}	
+	//------------------------------------------------------------------------
+	function Footer() { }	
+	
+} // fin clase	
+?>

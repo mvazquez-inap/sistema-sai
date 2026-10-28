@@ -1,0 +1,102 @@
+<?php require('./include.dhtml');
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+
+$oActividadEducacionFormal = new cActividadEducacionFormal($conexion);
+$oActividadEducacionFormalPersona  = new cActividadEducacionFormalPersona($conexion);
+//----------------------------------------------------------------------------------------- 
+?>
+<script type="text/javascript">
+	<?php $oActividadEducacionFormal->ValidarFormAltaActividadEducacionFormal(); ?>
+</script>
+<?php 
+$fila_eformal=array();
+$fila_eformal['act_codinap']=(isset($_POST['act_codinap_seleccion']))?$_POST['act_codinap_seleccion']:"";
+$fila_eformal['act_codigo']=(isset($_POST['act_codigo']))?$_POST['act_codigo']:"";
+
+if (isset($_POST['act_codinap_seleccion'])) {
+	if($conexion->TraerCampo("actividad","act_codigo",array("act_codinap='",$_POST['act_codinap_seleccion'],"'"),$act_codigo,$numfilas,$errno))
+		$fila_eformal['act_codigo']=htmlspecialchars($act_codigo,ENT_QUOTES);
+}
+$destino_formulario_interface="actividad_eformal_modificar.dhtml";
+?>
+<form action="<?php echo $destino_formulario_interface ?>" method="post" name="formulario_seleccion" id="formulario_seleccion">
+	<table width="100%" class="textoTablaDato" align="center">
+	<tr>
+		<td><?php $oActividadEducacionFormal->PedirActividad($fila_eformal['act_codinap'],'formulario_seleccion','act_codinap_seleccion','ActualizarEducacionFormal'); ?></td>
+	</tr>
+	</table>
+</form>	
+<?php
+$es_modif=false;
+$ok=false;
+if ($fila_eformal['act_codigo']=="") {
+	if(isset($_POST['act_codigo']) || isset($_POST['act_codinap_seleccion']) )
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No se ha encontrado la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+} else {
+	if ($oActividadEducacionFormal->TraerDatosActividadEducacionFormal($fila_eformal['act_codigo'],$fila_eformal,$es_modif)) {
+		if (!$es_modif) {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No se ha encontrado la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		} else { // Es actividad 
+		
+		
+			if ($oActividadEducacionFormal->TienePermisoModificar($fila_eformal['actividad']['act_codigo'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap'])) {
+
+				$ArregloDatos= array();
+				$ArregloDatos['act_codigo'] = $fila_eformal['actividad_eformal']['act_codigo'];		
+				$ArregloDatos['tipoact_codigo'] = $fila_eformal['actividad_eformal']['tipoact_codigo'];		
+		
+				if (!$oActividadEducacionFormalPersona->BuscarActividadAsignadaPersonaAvanzada($ArregloDatos,$numfilas_personas_asig,$result_personas,$error,$errormail)) {
+					$txt_sys_mail="\nvalor_buscado_".$fila_eformal['actividad_eformal']['act_codigo']."\nerror=".$errormail;
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando datos a mostrar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+					return false;			
+				}			
+					
+				if ($numfilas_personas_asig> 0)		
+				{	
+				 ?> <div class="textoAtencion" style="padding:10px;"> Atención!! La actividad tiene personas asignadas cualquier cambio afectará a todos los que realizaron la actividad.</div><?php
+				// 	FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"Atención!! La actividad tiene personas asignadas cualquier cambio en los créditos afectará a los que realizaron la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				}
+
+
+				$ok=true;		
+			} // Tiene permiso el usuario sobre la actividad	
+			
+		}	// Se encontró la actividad con el formato esperado		
+	} // No se produjo error al buscar la actividad con el formato esperado		
+}
+
+if ($ok) { 
+	$destino_formulario_upd="actividad_eformal_modificar_upd.dhtml";
+?>	<form action="<?php echo $destino_formulario_upd ?>" method="post" name="formulario">
+<?php		$oActividadEducacionFormal->MostrarDatosActividadEducacionFormal($conexion,"M",$fila_eformal); ?>
+		<table width="100%" class="textoTablaDato" align="center">
+			<tr align="center">
+				<td colspan="2" valign="top">
+					<input type="submit" name="boton_confirma" class="botones" value="Confirma Actualización" onClick="return ValidarFormAltaActividadEducacionFormal(formulario,'M'); ">
+					&nbsp;&nbsp;&nbsp;&nbsp;
+					<input type="hidden" name="act_codigo" value="<?php echo ($es_modif)?htmlspecialchars($fila_eformal['actividad']['act_codigo'],ENT_QUOTES):""; ?>">
+				</td>
+			</tr>	
+		</table>
+	</form>	
+<?php	
+} // fin ok
+
+$oEncabezados->PieMenuEmergente(); 
+?>

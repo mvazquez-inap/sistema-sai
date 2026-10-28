@@ -1,0 +1,754 @@
+<?php
+/* CLASE ABSTRACTA
+
+	Los métodos que comienzan con _	no deber ser usados desde afuera.
+	Los métodos que comienzan con __ deben ser redefinidos en la subclase si fuera necesario.
+
+//--------------------------------------------------------------------------------------------------
+// ABM de tablas básicas del sistema:
+// Tablas: 	código 			: autoincremental.
+			descripción  	: se parametriza el nombre del campo.
+			fecha de alta	: fecha en que ingresa la descripcion al sistema.
+ 			estado 			: opcional en caso de manejar baja lógica.
+			fecha de baja 	: opcional en caso de manejar baja lógica. 
+
+// Para ALTA o MODIFICACIOn
+	Si la tabla maneja estado:
+		Se valida que la descripción no exista en un registro activo cuando se inserta o modifica.
+	Si la tabla no maneja estado:
+		Se valida que la descripción no exista en un registro cuando se inserta o modifica.
+
+// Para la BAJA
+	__PosibleBaja: 	Debe ser redefinida en caso de querer evitar la baja (logica o fisica) x la 
+					existencia de datos asociados.	
+    __BajaCascada:	Debe ser redefinida en caso de requerirse eliminar datos asocidos antes de intentar la 
+					baja del descriptor.
+
+	Si es una tabla que maneja estados:
+				
+		 Se intenta una baja física cuando el código no existe en ninguna de
+		 las tablas definidas como referenciadas, sino se realiza una baja lógica.
+
+//--------------------------------------------------------------------------------------------------
+// Se deben definir los siguientes stored para la tabla
+//  NOTA: si la tabla no maneja estado omitir en los nombres y parametros el mismo
+//		  y no hace falta definir el cambio de estado.
+  
+// "ins_".$tabla
+// "del_".$tabla
+// "upd_".$tabla
+// "upd_".$tabla."_cambio_estado_x".$campo_clave
+// "sel_".$tabla."_x".$campo_clave;  				
+// "sel_".$tabla."_x".$campo_estado."_".$campo_desc;
+// "sel_".$tabla."_xestado_orden"
+// "sel_".$tabla."_xdatos"
+*/
+
+class cTablaSysDesc  {
+
+	var $conexion;
+	var $nom_tabla="";			// Nombre de la tabla Ej:area_curso_inap
+	var $titulo_tabla;			// Titulo de la tabla Ej: Areas para clasificar las actividades INAP
+								// Si esta seteado se usa en la grilla de seleccion como titulo de la misma.
+	var $campos_tabla=array();	// Campos de la tabla 
+								// Define el nombre de campo cada uno de los componentes de la tabla
+								// Ej:	$array_campos=array(	'clave'=> 'areacur_codigo',
+								//  	'estado'=>'areacur_estado',
+								//		'descripcion'=>array('nombre_campo'=>'areacur_descripcion', 'long_campo'=>40 ,'titulo_campo'=>'Area'),
+								//		'fecha_alta'=>'areacur_falta',
+								//		'fecha_baja'=>'areacur_fbaja');
+								
+	var $error=false;			// Alguna operación produjo o no error 
+	var $errorMsg="";			// Descripcion del error que se produjo
+
+	var $logs=array();			// Ej: $array_log=array('ins'=>'35001', 'upd'=>'35003', 'del'=>'35002','chg_estado'=>'35004');
+
+	var $tabla_ref=array();	    // Array con las tablas que hacen referencia a la tabla que se actualiza.
+								// cada elemento contiene nombre de la tabla relacionada y campo por el cual se relaciona
+								// Ej: array(array('nom_tabla'=>'actividad_curso_diseno_inap','campo_tabla'=>'areacur_codigo') 
+								// Por defecto si existen datos en las tablas relacionadas se va a
+								// ejecutar una baja lógica, sino física.
+
+	var $estado=true;			// Define si la tabla maneja estados.
+	
+//---------------------------------------------------------------
+	public function __construct($conexion,$tabla,$array_campos) {
+		$this->conexion = &$conexion;
+		$this->_SetearCampos($array_campos);
+		$this->nom_tabla=$tabla;
+	}
+//---------------------------------------------------------------	
+	function SetearTablasTipoBaja($tabla_relacionada) {
+		$this->tabla_ref=$tabla_relacionada;
+	}
+//---------------------------------------------------------------
+	function SetearLogs($array_log) {
+	
+		if ($this->_ValidarLog($array_log)) {
+
+			$this->_SetearLog('ins',$array_log['ins']);
+			$this->_SetearLog('upd',$array_log['upd']);
+			$this->_SetearLog('del',$array_log['del']);
+
+			if($this->_EsTablaConEstado()) 			
+				$this->_SetearLog('chg_estado',$array_log['chg_estado']);
+		}			
+	}	
+//---------------------------------------------------------------
+	function SetearTituloTabla($titulo) {
+		$this->titulo_tabla=$titulo;
+	}	
+//---------------------------------------------------------------
+	function ObtenerNombreTabla() {
+	 	return $this->nom_tabla;
+	}
+//---------------------------------------------------------------
+	function ObtenerTituloTabla() {
+	 	return $this->titulo_tabla;
+	}
+//---------------------------------------------------------------
+	function ObtenerCampo($campo) {
+		if($campo=='descripcion')
+			return $this->campos_tabla['descripcion']['nombre_campo'];	
+		
+		return $this->campos_tabla[$campo];	 
+	}
+//---------------------------------------------------------------
+	function ObtenerLongCampo($campo) {
+		if($campo=='descripcion')
+			return $this->campos_tabla['descripcion']['long_campo'];	
+		else {
+			$this->error=true;
+			$this->errorMsg="No se definió long para el campo enviado";			
+		}	  
+	}
+//---------------------------------------------------------------
+	function ObtenerTituloCampo($campo) {
+		if($campo=='descripcion')
+			return $this->campos_tabla['descripcion']['titulo_campo'];	
+		else {
+			$this->error=true;
+			$this->errorMsg="No se definió titulo para el campo enviado";			
+		}	  
+	}
+//---------------------------------------------------------------
+	function ObtenerCodigoLog($operacion) {
+		if (!isset($array_log[$operacion]))	{
+			$this->error=true;
+			$this->errorMsg="Error no existe la operación requerida";			
+		}			
+		return $this->logs[$operacion];
+	}	
+//---------------------------------------------------------------
+	function ObtenerSPxClave(&$spnombre,&$spparam,$valor) {
+		$spnombre= "sel_".$this->ObtenerNombreTabla()."_x".$this->ObtenerCampo('clave');
+		$spparam = array('p'.$this->ObtenerCampo('clave')=>$valor);
+	}
+//---------------------------------------------------------------
+	function TablaDescriptoresSP(&$spnombre,&$spparam)
+	{
+		$spnombre="sel_".$this->ObtenerNombreTabla();
+		$spnombre.=($this->_EsTablaConEstado())?"_xestado":"";
+		$spnombre.="_orden";
+		
+		$spparam = array('porderby'=>$this->ObtenerCampo('descripcion'));
+		if($this->_EsTablaConEstado()) 		
+			$spparam+=array('p'.$this->ObtenerCampo('estado')=>ESTADOACTIVO);
+	}
+//---------------------------------------------------------------
+	// Hay que mandarle la conexion porque es una funcion de clase
+	function CrearSubTipo($conexion,$subtipo,&$objTabla)	{
+		switch ($subtipo) {
+			case 'area_curso_inap':
+				$objTabla = new cTablaAreaCursoInap($conexion);
+				break;
+			case 'programa_curso_inap':
+				$objTabla = new cTablaProgramaCursoInap($conexion);
+				break;
+			case 'organismo_publico':
+				$objTabla = new cTablaOrganismoPublico($conexion);
+				break;
+			case 'organismo_privado':
+				$objTabla = new cTablaOrganismoPrivado($conexion);
+				break;
+			case 'sede':		
+				$objTabla = new cTablaSede($conexion);
+				break;
+			case 'agente_funcion':
+				$objTabla = new cTablaAgenteTipoFuncion($conexion);
+				break;
+			case 'tipo_inscripcion':
+				$objTabla=new cTablaTipoInscripcion($conexion);
+				break;
+			case 'area_contextual':
+				$objTabla=new cTablaAreaContextual($conexion);
+				break;
+			case 'area_general':
+				$objTabla=new cTablaAreaGeneral($conexion);
+				break;				
+			case 'tipo_certificacion':
+				$objTabla=new cTablaTipoCertificacion($conexion);
+				break;				
+			default: false;			
+		}		
+		return true;
+	}	
+//---------------------------------------------------------------
+	function __PosibleBaja($valor_campo,&$error, &$error_mail) {
+		// Redefinido en las tablas del sistema que evitan la baja 
+		// bajo algún criterio.
+		
+		// Ejempo, no se puede dar baja lógica de areas contextuales,  
+		// areas generales o específicas si existen datos de docentes,
+		// primero se debieran redefinir los docentes a otras áreas.
+		
+		$error="";
+		$error_mail="";
+		return true;
+	}
+//---------------------------------------------------------------
+	function __BajaCascada($valor_campo) {
+		// Redefinido en las tablas del sistema requiern baja en otras tablas
+		// bajo algún criterio.
+	
+		return true;
+	}
+//---------------------------------------------------------------
+	function PosibleBajaFisica($valor_campo, &$error) {
+		$error=false;
+		foreach ($this->tabla_ref as $tabla) {	
+			if(!$this->conexion->TraerCampo($tabla['nom_tabla'],$tabla['campo_tabla'],array($tabla['campo_tabla']."='",$valor_campo,"'"),$dato,$numfilas,$errno)) {
+				$error=true;	
+				return false;	
+		    } elseif ($numfilas!=0) 
+				return false;	
+		}
+		return true;
+	}
+//---------------------------------------------------------------
+	function ValidarFormSysTabla() {
+	?>
+ 	function ValidarFormSysTabla(formulario,operacion) {
+
+		if (operacion=="I"  || operacion=="M") { 		
+			if (formulario.<?php echo $this->ObtenerCampo('descripcion') ?>.value=="")	{
+				alert("Debe ingresar la descripción");
+				formulario.<?php echo $this->ObtenerCampo('descripcion')?>.focus();
+				return false;
+			}
+		}		
+		if (operacion=="B"  || operacion=="M") { 		
+			if (formulario.<?php echo $this->ObtenerCampo('clave') ?>.value=="")	{
+				alert("Debe ingresar la descripción");
+				formulario.<?php echo $this->ObtenerCampo('clave')?>.focus();
+				return false;
+			}
+		}	
+		return true;
+		}
+	//-->
+	<?php } 
+//---------------------------------------------------------------
+	function AltaSysTabla($datos)	{
+
+		if(!$this->_DatosValidosAlta($datos,$datosvalidados))
+			return false;
+
+		$spnombre="ins_".$this->ObtenerNombreTabla();
+		$spparam=array(
+			'p'.$this->ObtenerCampo('descripcion')=>$datosvalidados[$this->ObtenerCampo('descripcion')],
+			'p'.$this->ObtenerCampo('fecha_alta')=>date("Y/m/d H:i:s"),
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=>date("Y/m/d H:i:s")
+		);
+
+		if($this->_EsTablaConEstado()) 		
+			$spparam+=array('p'.$this->ObtenerCampo('estado')=>ESTADOACTIVO);
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod) || $numfilas!=1)	{
+			if($errorcod==MYSQLCLAVEDUP) {
+				$txt_sys_mail="\n".$this->ObtenerCampo('descripcion')."=".$datosvalidados[$this->ObtenerCampo('descripcion')];	
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Ya existe un registro con esa clave.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+			}
+			return false;
+		}
+		
+		return true;
+	}
+//---------------------------------------------------------------	
+	function BorrarSysTabla($datos,&$tipobaja) {
+
+		if(!$this->_DatosValidosBorrados($datos,$datosvalidados))
+			return false;
+
+		// Doy de baja los datos relacionados si la clase lo redefiniera
+		if(!$this->__BajaCascada($datosvalidados[$this->ObtenerCampo('clave')]))
+			return false;					  	 	
+
+		// Si No existen datos asociados a la tabla
+		$es_baja_fisica = $this->PosibleBajaFisica($datosvalidados[$this->ObtenerCampo('clave')],$error);
+
+		if ($error) {
+			$txt_sys_mail="\nTabla=".$this->ObtenerNombreTabla();
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al determinar el tipo de baja.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} elseif ($es_baja_fisica) {
+			
+			$tipobaja=$this->logs['del'];
+			
+			// Intento la baja física	
+			$spnombre="del_".$this->ObtenerNombreTabla();
+			$spparam=array('p'.$this->ObtenerCampo('clave')=>$datosvalidados[$this->ObtenerCampo('clave')]);		
+
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod)) 
+				return false;					  	 	
+			
+		} else {
+		
+				$tipobaja=$this->logs['chg_estado'];			
+				$spnombre="upd_".$this->ObtenerNombreTabla()."_cambio_estado_x".$this->ObtenerCampo('clave');
+				$spparam=array('p'.$this->ObtenerCampo('clave')=>$datosvalidados[$this->ObtenerCampo('clave')],
+							   'p'.$this->ObtenerCampo('estado')=>ESTADOBAJA,					  			    
+							   'p'.$this->ObtenerCampo('fecha_baja')=>date("Y/m/d H:i:s"),
+							   'pultmodusuario'=>$_SESSION['usuariocod']
+							);		
+				  if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod) || $numfilas!=1) {
+						return false;					  	 	
+				}
+		}
+
+		return true;
+
+	}
+//---------------------------------------------------------------	
+	function ModificarSysTabla($datos)	{
+	
+		if(!$this->_DatosValidosModificacion($datos,$datosvalidados))
+			return false;
+					
+		$spnombre="upd_".$this->ObtenerNombreTabla();
+		$spparam=array (
+			'p'.$this->ObtenerCampo('clave')=>$datosvalidados[$this->ObtenerCampo('clave')],
+			'p'.$this->ObtenerCampo('descripcion')=>$datosvalidados[$this->ObtenerCampo('descripcion')],
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=>date("Y/m/d H:i:s")
+		);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod) || $numfilas!=1)
+			return false;		
+
+		return true;
+	}
+	
+//---------------------------------------------------------------	
+	function DescargarExcel()	{
+
+		$ArregloDatos= array();
+
+		if($this->_EsTablaConEstado())
+			$ArregloDatos['estado']=ESTADOACTIVO;
+			
+		$ArregloDatos['orden'] = $this->ObtenerCampo('descripcion');
+		
+		if (!$this->BuscarEnTabla($ArregloDatos,$numfilas,$result,$error,$errormail)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando datos exportar a excel.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;			
+		}	
+				
+		$nombrearchivo=$this->ObtenerNombreTabla().".xls";  
+		
+		$oExcel= new cEscribirExcel($nombrearchivo);
+		$oExcel->AddHoja ($this->ObtenerNombreTabla());
+		$oExcel->EsconderGrillas();
+		$oExcel->PaginaHorizontal();
+		$oExcel->FormatoColumna (1,$this->ObtenerLongCampo('descripcion')); 
+	
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",12);
+		$oExcel->AddFormato ("Color","azul");
+		$oExcel->AddFormato ("FgColor",22);
+		$oExcel->CargarDatosVariasCeldas (0,0,0,1,$this->ObtenerTituloTabla(),true);
+		
+		// Titulos de las columnas
+		$oExcel->AddFormato ("TextWrap","");		
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",12);
+		$oExcel->AddFormato ("Color","negro");
+		$oExcel->AddFormato ("FgColor","gris");
+	
+		$oExcel->CargarDatos (1,0,"Código",true);
+		$oExcel->CargarDatos (1,1,"Descripción",true);
+		
+		// Formato para el contenido de las columnas
+		$oExcel->AddFormato ("Tamaño",10);
+		$oExcel->AddFormato ("FgColor","blanco");		
+		$oExcel->AddFormato ("Align","left");
+		
+		$formato=$oExcel->GetFormato();
+
+		// Formatos y claves de los datos
+		$arregloformatos = array($this->ObtenerCampo('descripcion')=>$formato,$this->ObtenerCampo('clave')=>$formato);
+		$arrayclaves = array ($this->ObtenerCampo('clave'),$this->ObtenerCampo('descripcion'));
+
+		$oExcel->CargarGrilla ($result,2,0,$arrayclaves,$arregloformatos);
+		$oExcel->Enviar();
+	}
+//---------------------------------------------------------------	
+	function MostrarGrillaSeleccion($modulo, $valor_buscado="") {
+
+		$ArregloDatos= array();
+		$ArregloDatos['estado'] = ESTADOACTIVO;
+		$ArregloDatos['orden'] = $this->ObtenerCampo('descripcion');
+		
+		if ($valor_buscado!="") 
+			$ArregloDatos['descripcion']=$valor_buscado;		
+			
+		if (!$this->BuscarEnTabla($ArregloDatos,$numfilas,$result,$error,$errormail)) {
+			$txt_sys_mail="\nvalor_buscado_".$valor_buscado."\nmodulo=".$modulo."\nerror=".$errormail;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando datos a mostrar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;			
+		}			
+		
+		$opciones=array(
+			"numPagina"=>isset($_GET['pagina'])?$_GET['pagina']:1,
+			"NombrePaginaQuery"=>"pagina",
+			"FilasPagina"=>10
+		);
+		
+		if (isset($_GET['pagina']))	{
+			$querystring=FuncionesPHPLocal::ArmarQueryString("pagina","",false);	
+			$opciones['QueryString']=$querystring;
+		}
+		
+		$oGrilla = new cGrilla($opciones);
+	
+		if ($this->ObtenerTituloTabla() != "")
+			$oGrilla->SetearTituloGrilla('Tabla:'.$this->ObtenerTituloTabla());
+		
+		$oGrilla->SetearAnchoGrilla('90%');
+		
+		$miColumna1 = $oGrilla->AddColumna('txt');
+		$oGrilla->Setear('titulo_columna',$miColumna1,$this->ObtenerTituloCampo('descripcion'));
+		$oGrilla->Setear('campo_grilla',$miColumna1,$this->ObtenerCampo('descripcion'));
+		$oGrilla->Setear('align_columna',$miColumna1,'left');
+	
+		$miColumna2 = $oGrilla->AddColumna('linkimg');
+		$oGrilla->Setear('titulo_columna',$miColumna2,'Editar');
+		$oGrilla->Setear('ancho_columna',$miColumna2,'60');
+		$oGrilla->Setear('url',$miColumna2,$modulo);
+		$oGrilla->Setear('imagen',$miColumna2,'images/editar.jpg');
+		$oGrilla->Setear('altImagen',$miColumna2,'Editar');						
+		$oGrilla->AddParametrosURL($miColumna2,$this->ObtenerCampo('clave'),$this->ObtenerCampo('clave'));
+		$oGrilla->AddParametrosURL($miColumna2,"operacion","M","cte");
+	
+		$miColumna3 = $oGrilla->AddColumna('linkimg');
+		$oGrilla->Setear('titulo_columna',$miColumna3,'Eliminar');
+		$oGrilla->Setear('ancho_columna',$miColumna3,'60');
+		$oGrilla->Setear('url',$miColumna3,$modulo);
+		$oGrilla->Setear('imagen',$miColumna3,'images/borrar.jpg');
+		$oGrilla->Setear('altImagen',$miColumna3,'Eliminar');
+		$oGrilla->AddParametrosURL($miColumna3,$this->ObtenerCampo('clave'),$this->ObtenerCampo('clave'));
+		$oGrilla->AddParametrosURL($miColumna3,"operacion","B","cte");
+	
+		if (!$oGrilla->CargarGrilla($result))
+			return false;
+			
+		$oGrilla->MostrarGrilla();
+
+		return true;
+	} 		
+//---------------------------------------------------------------	
+	function BuscarEnTabla ($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)
+	{
+		$sparam=array('pxclave'=>0);		
+		
+		if ($this->_EsTablaConEstado())
+			$sparam+=array('pxestado'=>0);
+			
+		$sparam+=array('pxdescripcion'=>0);			
+		$sparam+=array('p'.$this->ObtenerCampo('clave') =>"");
+		$sparam+=array('p'.$this->ObtenerCampo('descripcion') =>"");
+
+		if ($this->_EsTablaConEstado())
+			$sparam+=array('p'.$this->ObtenerCampo('estado') =>"-1");
+	
+		$sparam+=array('porderby' =>$this->ObtenerCampo('descripcion'));
+		
+		if (isset ($ArregloDatos['clave']))
+		{
+			if ($ArregloDatos['clave']!="")
+			{	
+				$sparam['p'.$this->ObtenerCampo('clave')]= $ArregloDatos['clave'];
+				$sparam['pxclave']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['descripcion']))
+		{
+			if ($ArregloDatos['descripcion']!="")
+			{	
+				$sparam['p'.$this->ObtenerCampo('descripcion')]= $ArregloDatos['descripcion'];
+				$sparam['pxdescripcion']= 1;
+			}
+		}
+
+		if ( $this->_EsTablaConEstado() && isset ($ArregloDatos['estado']))
+		{
+			if ($ArregloDatos['estado']!="")
+			{	
+				$sparam['p'.$this->ObtenerCampo('estado')]= $ArregloDatos['estado'];
+				$sparam['pxestado']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+			{	
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+
+		$spnombre="sel_".$this->ObtenerNombreTabla()."_xdatos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar en tabla.";
+			$errormail="Error al buscar en tabla ".$errno;
+			return false;
+		}
+
+		return true;
+	}
+//---------------------------------------------------------------	
+	function _SetearCampo($campo, $nom_campo) {
+		$this->campos_tabla[$campo]=$nom_campo;
+	}
+//---------------------------------------------------------------	
+	function _ValidarCampos($array_campos) {
+
+		if (!isset($array_campos['clave']))	{
+			$this->error=true;
+			$this->errorMsg="No se definió la clave.";		
+			return false;
+		} 
+		if (!isset($array_campos['descripcion']))	{
+			$this->error=true;
+			$this->errorMsg="No se definió la descripcion.";			
+			return false;
+		} 
+		if (!isset($array_campos['descripcion']['nombre_campo']))	{
+			$this->error=true;
+			$this->errorMsg="No se definió la descripcion (nombre del campo).";			
+			return false;
+		} 
+		if (!isset($array_campos['descripcion']['long_campo']))	{
+			$this->error=true;
+			$this->errorMsg="No se definió la descripcion (longitud del campo).";			
+			return false;
+		} 	
+		if (!isset($array_campos['fecha_alta']))	{
+			$this->error=true;
+			$this->errorMsg="No se definió la fecha de alta.";			
+			return false;
+		} 
+
+		// Todavia no se puede usar la función porque es previo a la asignación del estado		
+		if (isset($this->array_campos['estado']))  {
+			if (!isset($array_campos['fecha_baja']))	{
+				$this->error=true;
+				$this->errorMsg="No se definió la fecha de baja.";			
+				return false;
+			} 
+		} 
+			
+		return true;
+	}
+//---------------------------------------------------------------	
+	function _SetearCampos($array_campos) {
+
+		if ($this->_ValidarCampos($array_campos)) {
+
+			$this->_SetearCampo('clave',$array_campos['clave']);
+			
+			if(isset($array_campos['estado']))	
+				$this->_SetearCampo('estado',$array_campos['estado']);
+			else 
+				$this->_SetearTablaEstado(false);
+					
+			$this->_SetearCampo('descripcion',$array_campos['descripcion']);
+			$this->_SetearCampo('fecha_alta',$array_campos['fecha_alta']);
+	
+			if($this->_EsTablaConEstado())	
+				$this->_SetearCampo('fecha_baja',$array_campos['fecha_baja']);
+		}				
+	}
+//---------------------------------------------------------------	
+	function _ValidarLog($array_log) {	
+		
+		if (!isset($array_log['ins']))	{
+			$this->error=true;
+			$this->errorMsg="No se definió el codigo del log para el insert.";			
+			return false;	
+		} 
+		if (!isset($array_log['upd']))	{
+			$this->error=true;
+			$this->errorMsg="No se definió el codigo del log para el update.";			
+			return false;	
+		}		
+		if (!isset($array_log['del']))	{
+			$this->error=true;
+			$this->errorMsg="No se definió el codigo del log para la baja física";			
+			return false;	
+		}	
+		if ($this->_EsTablaConEstado())		{	
+			if (!isset($array_log['chg_estado']))	{
+				$this->error=true;
+				$this->errorMsg="No se definió el codigo del log para la baja lógica.";			
+				 return false;				 
+			}		
+		}		
+		 return true;	
+	}
+//---------------------------------------------------------------
+	function _SetearLog($log, $codigo) {
+		$this->logs[$log]=$codigo;
+	}		
+//---------------------------------------------------------------	
+	function _SetearTablaEstado($estado) {
+		$this->estado=$estado;
+	}
+//---------------------------------------------------------------	
+	function _EsTablaConEstado()	{
+		return $this->estado;		
+	}
+//---------------------------------------------------------------
+	function _DatosValidosComunes($datos,&$datosvalidados) {
+
+		// La descripcion no puede ser vacía
+		if (trim($datos[$this->ObtenerCampo('descripcion')])=="") {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La descripción no puede quedar vacía.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;			
+		}
+
+		// La descripción no puede superar el máximo definido.
+		if ( strlen(trim($datos[$this->ObtenerCampo('descripcion')])) > $this->ObtenerLongCampo('descripcion') ) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La descripción no puede superar ".$this->ObtenerLongCampo('descripcion')." caracteres.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;			
+		}
+		
+		$spnombre="sel_".$this->ObtenerNombreTabla()."_x".(($this->_EsTablaConEstado())?$this->ObtenerCampo('estado')."_":"").$this->ObtenerCampo('descripcion');
+		$spparam=array("p".$this->ObtenerCampo('descripcion')=>trim($datos[$this->ObtenerCampo('descripcion')]));		
+
+		if ($this->_EsTablaConEstado())
+			$spparam+=array("p".$this->ObtenerCampo('estado')=>ESTADOACTIVO);		
+		
+		// No debe existir la descripción en un registro.
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod) ) {
+			$txt_sys_mail="\n".$this->ObtenerCampo('descripcion')."=".$datos[$this->ObtenerCampo('descripcion')];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionado de ".$this->ObtenerNombreTabla(),array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+			return false;
+		}
+	
+		if ($numfilas>0)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Ya existe:".$datos[$this->ObtenerCampo('descripcion')]." en la tabla.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		
+		$datosvalidados[$this->ObtenerCampo('descripcion')]=trim($datos[$this->ObtenerCampo('descripcion')]);			
+		return true;
+	}
+
+//---------------------------------------------------------------
+	function _DatosValidosAlta($datos,&$datosvalidados) {
+
+		if (!$this->_DatosValidosComunes($datos,$datosvalidados))
+		   return false; 
+
+		return true;
+	}
+//---------------------------------------------------------------	
+	function _DatosValidosBorrados($datos,&$datosvalidados) {
+
+		// El registro con el código debe estar activo.
+		$spnombre ="sel_".$this->ObtenerNombreTabla()."_x".$this->ObtenerCampo('clave');
+		$spparam = array('p'.$this->ObtenerCampo('clave')=>$datos[$this->ObtenerCampo('clave')]);
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod)) {
+			$txt_sys_mail="\n".$this->ObtenerCampo('clave')."=".$datos[$this->ObtenerCampo('clave')];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionado de ".$this->ObtenerNombreTabla(),array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+			return false;
+		} else {
+			if ($numfilas>1) {
+				$txt_sys_mail="Más de un registro con la clave\n".$this->ObtenerCampo('clave')."=".$datos[$this->ObtenerCampo('clave')];
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error existe más de un registro con la misma clave en la tabla.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			} elseif ($numfilas==0) {			
+				$txt_sys_mail="No existe el registro con la clave\n".$this->ObtenerCampo('clave')."=".$datos[$this->ObtenerCampo('clave')];
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No existe el registro seleccionado para eliminar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;		
+			}			
+			$fila_tabla = mysqli_fetch_assoc($query);
+							
+			if ($this->_EsTablaConEstado() && $fila_tabla[$this->ObtenerCampo('estado')] != ESTADOACTIVO) {
+				$txt_sys_mail="\n".$this->ObtenerCampo('clave')."=".$datos[$this->ObtenerCampo('clave')];
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No esta activo el registro seleccionado para eliminar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+				return false;
+			}
+		}			
+
+		// Verifica si hay que evitar hasta la baja según si existen datos asociados datos 		
+		if (!$this->__PosibleBaja($datos[$this->ObtenerCampo('clave')], $error, $errormail )) {
+			if($errormail =="")
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			else 	
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+				
+		$datosvalidados[$this->ObtenerCampo('clave')]=$datos[$this->ObtenerCampo('clave')];
+		$datosvalidados[$this->ObtenerCampo('descripcion')]=$fila_tabla[$this->ObtenerCampo('descripcion')];
+
+		return true;
+	}
+//---------------------------------------------------------------	
+	function _DatosValidosModificacion($datos,&$datosvalidados) {
+
+		if (!$this->_DatosValidosComunes($datos,$datosvalidados))
+			return false; 
+
+		// El registro con el código debe estar activo.
+		$spnombre ="sel_".$this->ObtenerNombreTabla()."_x".$this->ObtenerCampo('clave');
+		$spparam = array('p'.$this->ObtenerCampo('clave')=>$datos[$this->ObtenerCampo('clave')]);
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod)) {
+			$txt_sys_mail="\n".$this->ObtenerCampo('clave')."=".$datos[$this->ObtenerCampo('clave')];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionado de ".$this->ObtenerNombreTabla(),array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+			return false;
+		} else {
+			if ($numfilas>1) {
+				$txt_sys_mail="Más de un registro con la clave\n".$this->ObtenerCampo('clave')."=".$datos[$this->ObtenerCampo('clave')];
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error existe más de un registro con la misma clave en la tabla.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			} elseif ($numfilas==0) {			
+				$txt_sys_mail="No existe el registro con la clave\n".$this->ObtenerCampo('clave')."=".$datos[$this->ObtenerCampo('clave')];
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No existe el registro a modificar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;		
+			}
+			$fila_modif = mysqli_fetch_assoc($query);
+			
+			if ( $this->_EsTablaConEstado() && $fila_modif[$this->ObtenerCampo('estado')] != ESTADOACTIVO) {
+				$txt_sys_mail="\n".$this->ObtenerCampo('clave')."=".$datos[$this->ObtenerCampo('clave')];
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No esta activo el registro a modificar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+				return false;
+			}	
+		}					
+
+		$datosvalidados[$this->ObtenerCampo('clave')]=$datos[$this->ObtenerCampo('clave')];			
+		return true;
+	}
+
+} // fin clase
+?>

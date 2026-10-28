@@ -1,0 +1,309 @@
+<?php 
+require_once('SysONTIPdf.dhtml');
+class cActaPDF extends cPDF {
+
+	// Datos de la Notificacion
+	var $array_datos = array();
+
+	// Ctes para la impresion de la Notificacion
+	var $ver_borde=0;	
+	var $xContenido = 5;
+	var $imagenLogo = 'images/escudo_secretaria.jpg';
+	
+	var $orientacionPagina = 'landscape';
+	var $topMargen = 5;
+	var $leftMargen = 5;
+	var $rightMargen = 5;
+	var $footerMargen = 5;
+	var $anchoMaxTexto = 280;	
+	var $altoMaxPag = 200;
+				
+	public function __construct () {	    
+		 $format = "A4";
+		parent::__construct($this->orientacionPagina,'mm',$format);
+	}	
+	
+	//------------------------------------------------------------------------
+	function AddActa() {
+		// Inicializa formato de la pagina 
+		$this->AddPage($this->orientacionPagina);
+		$this->SetMargins($this->leftMargen,$this->topMargen,$this->rightMargen);
+		// Para que el pie tenga 0.5 por defecto son 2cm
+		$this->SetAutoPageBreak(true,$this->footerMargen);
+		// Inicializa datos 
+		$this->array_datos = array('comi_codinap'=>'',
+									'comi_acta_numero'=>'',
+									'act_nombre'=>'',
+									'sede'=>'',									
+									'comi_domicilio'=>'',
+									'comi_detalle'=>'',		
+									'cronograma' => array(),
+									'prestador_docente' => array(),
+									'datos_cabecera' => array(),									
+									'datos_inscriptos' => array()
+									);
+	}	
+	
+	
+	//------------------------------------------------------------------------
+	function Set($campo,$valor) {
+		$this->array_datos[$campo]=$valor;
+	}
+	//------------------------------------------------------------------------
+	function Get($campo) {
+		return ($this->array_datos[$campo]);
+	}
+	//------------------------------------------------------------------------
+	function Header() {
+	 }
+	//------------------------------------------------------------------------
+	function MostrarActa($conexion,$formato) {
+	
+		$this->SetFont('Arial','',8);
+		$this->Image($this->imagenLogo,$this->lMargin+$this->xContenido,$this->tMargin+2,190,0);
+
+		$ancho_fila_dato = $this->anchoMaxTexto;
+		$alto_fila_dato =  6;
+
+		// -------------  Carátula
+ 		$this->Ln(30);	
+		$this->SetFont('Arial','B',10);
+		
+    	$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								"SISTEMA NACIONAL DE CAPACITACION\n ACTA VOLANTE",$this->ver_borde,'C',0,2);
+ 		$this->Ln(4);	
+
+		$this->SetFont('Arial','B',10);
+		if ($this->Get('comi_codinap') != "")
+	    	$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'COMISION: '.$this->Get('comi_codinap').str_repeat(' ',5)." N° ACTA:".$this->Get('comi_acta_numero'),$this->ver_borde,'L',0,1);
+
+		$this->SetFont('Arial','',10);
+
+
+		if ($this->Get('act_nombre') != "")
+			$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'ACTIVIDAD: '.$this->Get('act_nombre'),$this->ver_borde,'L',0,2);
+
+
+		if ($this->Get('comi_domicilio') != "")
+	    	$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'LUGAR: '.'SEDE: '.$this->Get('sede').' '.$this->Get('comi_domicilio').' '.$this->Get('comi_detalle'),$this->ver_borde,'L',0,1);
+
+
+		// ------------- Horario
+ 		$this->Line($this->GetX(),$this->GetY(),$ancho_fila_dato,$this->GetY());	
+
+		$this->SetFont('Arial','B',10);
+    	$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'HORARIO:',$this->ver_borde,'L',0,1);
+
+		$this->SetFont('Arial','',10);
+
+		$cronograma = $this->Get('cronograma');
+		foreach ($cronograma as $indice=>$valor) {
+	    	$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								FuncionesPHPLocal::ConvertirFecha($valor['comifec_fecha'],'aaaa-mm-dd','dd/mm/aaaa')." de ".substr($valor['comifec_hora_inicio'],0,2).":".substr($valor['comifec_hora_inicio'],2,2)." a ".substr($valor['comifec_hora_fin'],0,2).":".substr($valor['comifec_hora_fin'],2,2),$this->ver_borde,'L',0,1);
+			}
+
+		// ------------- Docente		
+		$this->Line($this->GetX(),$this->GetY(),$ancho_fila_dato,$this->GetY());	
+		$this->SetFont('Arial','B',10);
+
+    	$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'DOCENTE:',$this->ver_borde,'L',0,1);
+
+		$this->SetFont('Arial','',10);
+
+		 $prestador_docente = $this->Get('prestador_docente');
+
+		foreach ($prestador_docente as $indice=>$valor) {
+	    	$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								$valor['campo_mostrar'],$this->ver_borde,'L',0,1);
+		}
+		
+ 		$this->Line($this->GetX(),$this->GetY(),$ancho_fila_dato,$this->GetY());	
+		
+		
+		// ------------- Evaluaciones
+		$this->SetFont('Arial','B',10);
+    	$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'EVALUACIONES POSIBLES:',$this->ver_borde,'L',0,1);
+
+		$spparam=array('porderby'=>"eval_descripcion");
+		if(!$conexion->ejecutarStoredProcedure("sel_evaluacion_orden",$spparam,$resultado,$numfilas,$errno)) {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al cargar las evaluaciones.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		$evaluaciones = "";
+		while ($fila_evaluacion = mysqli_fetch_assoc($resultado)) {	
+			if ($fila_evaluacion['eval_certifica'] != "I")
+				$evaluaciones .= $fila_evaluacion['eval_descripcion'].", ";
+		}
+		
+		$evaluaciones = substr($evaluaciones,0,strlen($evaluaciones)-2);
+		$this->SetFont('Arial','',8);
+    	$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								$evaluaciones,$this->ver_borde,'L',0,2);
+
+ 		$this->Line($this->GetX(),$this->GetY(),$ancho_fila_dato,$this->GetY());	
+
+
+		// ------------- Cabecera
+		$this->AddPage($this->orientacionPagina);
+		$this->MostrarCabecera();
+
+
+		// ------------- Inscripcion
+		$this->MostrarInscriptos($formato);
+
+
+		// ------------- Pie del acta
+		// Total firma 70
+		$alto_fima=70;
+		if($alto_fima >= $this->altoMaxPag-$this->GetY()) { 		
+			$this->AddPage($this->orientacionPagina);
+			$this->MostrarCabecera();
+		}	
+
+		$this->Ln(15);
+		$this->SetFont('Arial','B',10);
+
+		$texto_final = "Se hace constar que sobre un total de __________________ alumnos, resultaron: ______________ aprobados,  ______________ desaprobados, \n ______________ ausentes y ______________ libres.";	
+		$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato*2,$texto_final,$this->ver_borde,'L',0,2);
+
+		$yFirma = $this->Gety()+30;						
+		$xFirma = $this->GetX()+20;
+		$this->Line($xFirma,$yFirma,$xFirma+45,$yFirma);
+		$this->SetFont('Arial','B',8);
+		$this->SetXY($xFirma+15,$yFirma);
+		$this->MultiCellMaxLine(15,$alto_fila_dato,'Docente',$this->ver_borde,'C',0,1);
+
+		$xFirma = $this->GetX()+70;						
+		$this->Line($xFirma,$yFirma,$xFirma+45,$yFirma);
+		$this->SetFont('Arial','B',8);
+		$this->SetXY($xFirma+15,$yFirma);
+		$this->MultiCellMaxLine(15,$alto_fila_dato,'Docente',$this->ver_borde,'C',0,1);
+
+		$xFirma = $this->GetX()+120;						
+		$this->Line($xFirma,$yFirma,$xFirma+45,$yFirma);
+		$this->SetFont('Arial','B',8);
+		$this->SetXY($xFirma+7,$yFirma);
+		$this->MultiCellMaxLine(30,$alto_fila_dato,'Coordinador INAP',$this->ver_borde,'C',0,1);
+	}
+	//------------------------------------------------------------------------
+	function MostrarCabecera() {
+
+		$this->AliasNbPages(); 
+
+		$datos_cabecera = $this->Get('datos_cabecera');
+
+		$this->SetFont('Arial','BI',10);
+		$y_inicial = $this->GetY();
+		if ($this->Get('comi_codinap') != "")
+	    	$this->MultiCellMaxLine(0,8,
+								'COMISION: '.$datos_cabecera['comi_codinap']."               ".'N° ACTA: '.$datos_cabecera['comi_acta_numero'],$this->ver_borde,'L',0,1);
+
+
+		$this->SetY($y_inicial);
+    	$this->MultiCellMaxLine($this->anchoMaxTexto,10,
+								$this->PageNo()."/{nb}",$this->ver_borde,'R',0,1);
+		if ($this->Get('comi_codinap') != "")
+	    	$this->MultiCellMaxLine(0,8,
+								'ACTIVIDAD: '.$datos_cabecera['act_codinap']." - ".$datos_cabecera['act_nombre'],$this->ver_borde,'L',0,2);
+
+		$this->Ln(10);			
+		$this->SetFont('Arial','',10);
+	}
+	
+	//------------------------------------------------------------------------
+	function MostrarInscriptos($formato) {
+	
+		$this->SetFont('Arial','',10);
+		$datos_inscriptos = $this->Get('datos_inscriptos');
+		
+		if ($formato == "M")  {
+			$cant_firmas = 10;
+			$ancho_firma = 8;
+			$ancho_nombre = 40;
+			$ancho_organismo = 60;
+		} else {
+			$cant_firmas = 1;			
+			$ancho_firma = 30;				
+			$ancho_nombre = 60 ;
+			$ancho_organismo = 85 ;
+		}
+
+		// -------------  Columnas		
+		// Titulos
+		$titulo_columnas=array("N°","Apellido y Nombre","Organismo","CUIT / CUIL", "Nivel", "Tramo", "Grado");
+		for ($i = 1; $i<=$cant_firmas;$i++)	 
+			$titulo_columnas[] = "";
+		$titulo_columnas[] = "Evaluación";
+
+		// Ancho				
+		$ancho_columnas=array(8,$ancho_nombre,$ancho_organismo,25,12,15,12);
+		for ($i = 1; $i<=$cant_firmas;$i++)	 {
+			$ancho_columnas[] = $ancho_firma;
+		}
+		$ancho_columnas[] = 35;
+		
+		// -------------  Encabezado Tabla
+		$this->MostrarEncabezadoTabla($titulo_columnas,$ancho_columnas);
+		
+		// Datos
+		$n = 0;
+
+		// Datos generales
+		$alto_fila_dato = 8;	
+		$inscriptos_por_pagina = 15;
+		
+		foreach($datos_inscriptos as $indice=>$valor) {
+			$n++;
+
+			$nombre = $valor['pers_apellido']." ".$valor['pers_nombre'];
+			$organismo = $valor['jurisdnom'];
+			$lineas_nom = $this->WordWrap($nombre,$ancho_nombre-6);				
+			$lineas_org = $this->WordWrap($organismo,$ancho_organismo-6);
+			$lineas = max($lineas_org, $lineas_nom);
+
+			if(($alto_fila_dato*$lineas)+10 > $this->altoMaxPag-$this->GetY()) { //  Si el alto para la siguente fila no es suficiente agrego una pagina
+				$this->AddPage($this->orientacionPagina);
+				$this->MostrarCabecera();
+				$this->MostrarEncabezadoTabla($titulo_columnas,$ancho_columnas);
+			}
+			
+			$this->Cell($ancho_columnas[0],$alto_fila_dato*$lineas,$n,'LR',0,'C');
+			$this->CellCompress($ancho_columnas[1],$alto_fila_dato*$lineas,$nombre,'LR');
+			$this->CellCompress($ancho_columnas[2],$alto_fila_dato*$lineas,$organismo,'LR');
+			$this->Cell($ancho_columnas[3],$alto_fila_dato*$lineas,$valor['pers_cuilt'],'LR');
+			$this->Cell($ancho_columnas[4],$alto_fila_dato*$lineas,$valor['escalafnivdesc'],'LR',0,'C');				
+			$this->Cell($ancho_columnas[5],$alto_fila_dato*$lineas,$valor['escalaftramodesc'],'LR',0,'C');				
+			$this->Cell($ancho_columnas[6],$alto_fila_dato*$lineas,$valor['escalafgradodesc'],'LR',0,'C');	
+
+			for ($i = 7; $i<=$cant_firmas+6;$i++)	 {
+				$this->Cell($ancho_columnas[$i],$alto_fila_dato*$lineas,"",'LR');	
+			}
+			
+			$this->Cell($ancho_columnas[$i],$alto_fila_dato*$lineas,($formato == "C")?$valor['eval_descripcion']:"",'LR');	
+			$this->Ln();				
+			$this->Cell(array_sum($ancho_columnas),0,"",'T');
+			$this->Ln();
+		}
+	}		
+	//------------------------------------------------------------------------
+	function MostrarEncabezadoTabla($titulo_columnas, $ancho_columnas) {
+		$this->SetFont('Arial','',10);
+		$this->SetTextColor(0);
+		for($i=0;$i<count($titulo_columnas);$i++)
+			$this->Cell($ancho_columnas[$i],12,$titulo_columnas[$i],1,0,'C',0);
+		$this->Ln();
+		$this->SetTextColor(0);
+		$this->SetFont('Arial','',8);
+	}	
+	//------------------------------------------------------------------------
+	function Footer() { }	
+	
+} // fin clase	
+?>

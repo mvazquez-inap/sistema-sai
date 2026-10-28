@@ -1,0 +1,24 @@
+<?php
+// Constantes ROL de USUARIOS
+$param=array();
+$query=ejecutarStoredProcedure($idconexion,"sel_rol",$param);
+while ($fila = mysqli_fetch_assoc($query)) {
+	if($fila['rol_codigo']!=0)	{	
+		define ($fila['rol_nombre'],$fila['rol_codigo']);
+	}
+}	
+// Constantes Generales 
+$param=array('pconsgr_sistema'=>"DDF");
+$query=ejecutarStoredProcedure($idconexion,"sel_constantes_grales_xsistema",$param);
+
+if ($query<0) {
+	MostrarMensaje_viejo($idconexion,MSG_ERRGRAVE,"Error seleccionando de la tabla:constantes_grales.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),FMT_TEXTO);	
+	die; 
+} else {
+ 	while ($fila=mysqli_fetch_assoc($query)) {
+		define ($fila['consgr_nombre'],$fila['consgr_codigo']);
+	}
+}
+define("DIR_ROOT","/ADMIDDF/");
+define("DIR_ROOT_PORTAL","/DDF/");
+?>

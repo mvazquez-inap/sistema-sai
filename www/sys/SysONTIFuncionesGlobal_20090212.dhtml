@@ -1,0 +1,39 @@
+<?php
+
+class FuncionesGlobal
+{
+	function URL_Servidor($https=false)
+	{
+		$protocolo="http://";
+		if($https)
+			$protocolo="https://";
+		
+		switch($_SERVER['SERVER_ADDR'])
+		{
+			case '10.1.10.173':
+				return $protocolo.$_SERVER['SERVER_ADDR']."/contenido/portal";
+				break;
+			case '10.1.10.115':
+				return $protocolo."contenidotest.sgp.gov.ar";
+				break;
+			case '200.123.99.247':
+				return "http://testjgm.sgp.gob.ar";
+				break;
+			
+				
+				
+/*			case '10.1.10.115':
+			case '200.1.116.26':
+				return $protocolo."www.argentina.gov.ar";
+				break;*/
+			default:
+				return $protocolo.$_SERVER['SERVER_ADDR'];
+				break;
+		}
+
+		echo "Error en obtener la IP del servidor";		
+		die();
+	}
+}
+
+?>

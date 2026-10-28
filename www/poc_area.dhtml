@@ -1,0 +1,227 @@
+<?php
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+$oPocArea = new cPocArea($conexion);
+//----------------------------------------------------------------------------------------- 	
+// Funciones para definir 
+//--------------------------------------------------------------------------------------------------
+//echo "/// SESSION ///";
+//print_r ($_SESSION);
+$modulo_recarga= "poc_area.dhtml";
+$result = true;
+//--------------------------------------------------------------------------------------------------
+// Se confirmo la operacion 
+//--------------------------------------------------------------
+
+if ( ($_SESSION['rolcod']== COORDINADORTECNICO) || ($_SESSION['rolcod']== USUORGANISMO) )
+{
+	if ( isset($_POST['boton_actualizar']) || isset($_POST['boton_eliminar']) ) 
+	{
+		$commit=true;
+		$conexion->ManejoTransacciones("B");
+		// Alta - Baja - Modificación
+		if ($commit) 
+		{
+								
+			if (isset($_POST['boton_actualizar'])) {
+			
+				if ($_POST['operacion']=="I") {
+				    //echo"alta!!!!!!!!!";
+					if ($oPocArea->AltaPoc_Area($_POST)) 
+					{
+						$nuevocodigo=$conexion->UltimoCodigoInsertado();
+						FuncionesPHPLocal::RegistrarAcceso($conexion,"37601","pocarea_codigo=".$nuevocodigo,$_SESSION['usuariocod']);
+						FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se ha dado de Alta el Área ".$_POST['pocarea_descripciones'].".",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					} else {
+						$arraymensajepantalla="No se ha podido dar de alta el Área";
+						FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+						$commit=false;
+						}
+				}			
+				
+				if ($_POST['operacion'] == "M") {
+				    //echo"modif!!!!!!!!!";
+					if ($oPocArea->ModifDatosPoc_Area($_POST)) 
+					{
+						FuncionesPHPLocal::RegistrarAcceso($conexion,"37603","pocarea_codigo=".$_POST['pocarea_codigo'],$_SESSION['usuariocod']);
+						FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se han modificado los datos del Área ".$_POST['pocarea_descripciones'].".",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					} else {
+						$arraymensajepantalla="No se ha podido modificar el Área";
+						FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+						$commit=false;
+						}
+					//}//fin: else
+				}//fin: if ($_POST['operacion'] == "M")
+  			 }//fin: if (isset($_POST['boton_actualizar']))			
+			//}//fin: if ($commit) 
+			
+			if (isset($_POST['boton_eliminar'])) {
+				   // echo"eliminar!!!!!!!!!";
+					if ($oPocArea->EliminarDatosPoc_Area($_POST)) 
+					{			
+						FuncionesPHPLocal::RegistrarAcceso($conexion,"37602","pocarea_codigo=".$_POST['pocarea_codigo'],$_SESSION['usuariocod']);
+						FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se ha dado de Baja el Área ".$_POST['pocarea_descripciones'].".",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					} else {
+						$arraymensajepantalla="No se ha podido eliminar el Área";
+						FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+						$commit=false;
+						}
+			}
+			
+			if($commit)
+				$conexion->ManejoTransacciones("C");
+			else
+				$conexion->ManejoTransacciones("R");
+		}	// commit
+	} // 	if (isset($_POST['boton_actualizar']) || (isset($_POST['boton_eliminar'])) 
+
+
+
+	//------------------------------------------------------------
+	// Inicio de pantalla
+	//------------------------------------------------------------
+	// Se define la acción
+	if (!isset($_GET['pocarea_descripcion'] )) 
+	{
+		$leyenda_operacion = "Agregar";
+		$boton_operacion_act = "Agregar";		
+		$operacion = "I";
+	} 
+	else 
+	{
+		$leyenda_operacion = "Actualizar";		
+		$boton_operacion_act = "Actualizar";	
+		$boton_operacion_eli = "Eliminar";		
+		$operacion = "M";				
+	}
+
+	
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////	
+	?>
+	<script type="text/javascript">
+		<?php $oPocArea->ValidarFormAltaPocArea(); ?>
+	</script>
+	<?php	
+	
+	//------- DATOS DE UN REGISTRO
+	if ($result) { 	
+		$fila_tabla=array();						//  NUEVO
+	
+		$es_modif = false;	
+		if ($operacion == "M" || $operacion == "B") 
+		{	
+			// BAJA o MODIFICACION
+			// Datos para la seleccion de un registro.
+			//busco poc_area por descripcion
+			$ArregloDatos=array();
+			$ArregloDatos['pocarea_descripcion']= $_GET['pocarea_descripcion'];
+			$ArregloDatos['jurisdid_inap']= $_SESSION['jurisdid_inap'];
+			if(!$oPocArea->BuscarPocArea($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+			{
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"El código no corresponde a un área.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					?><br><br><br><div align="center"><a href="poc_area.dhtml" class="linkFondoBlanco">Volver</a></div><?php
+					$esta_ok=false;
+			}
+			else
+				$datospoc=mysqli_fetch_assoc($resultado);
+
+			
+	
+		} // Obtencion de datos 
+		
+		if ( $result ) 
+		{  
+		?>
+		<form action="<?php echo $modulo_recarga; ?>" method="post" name="formulario">
+		<table width="80%"  border="0" align="center" cellspacing="0" cellpadding="0">			
+			<!-- DATOS A MODIFICAR -->
+			<tr> 
+				<td colspan="2" >&nbsp;</td>
+			
+			</tr>
+			<tr>
+				<td valign="top" width="25%" >
+					<span class='textoEtiqueta'>Área </span>
+				</td>
+				<td class="textoEtiquetaDatoResaltado" width="75%" align="left">
+				<?php
+				$pocareajuris=$_SESSION['jurisdid_inap'];
+				$oPocArea->AreasSP($pocareajuris,$spnombre,$spparam);
+				$querystring=FuncionesPHPLocal::ArmarQueryString("pocarea_descripcion");
+				FuncionesPHPLocal::ArmarCombo_BD($conexion,$spnombre,$spparam,"formulario","pocarea_descripcion","pocarea_descripcion","pocarea_descripcion",$querystring,"-- Nuevo Área",$filaselec,$selec);
+				?>
+				</td>
+			</tr>	
+			
+			<tr>
+				<td valign="top" colspan="2">&nbsp; </td>
+			</tr>
+			
+		</table>
+		<br>
+		<table width="80%"  border="0" align="center" cellspacing="0" cellpadding="0">			
+			<!-- DATOS A MODIFICAR -->
+			<tr> 
+				<td>
+				<fieldset class="bordeDetalleRegistro">
+				<legend class="textoLeyendaDetalleRegistro">  Detalle del &Aacute;rea  ( <?php echo $leyenda_operacion ?>  )</legend>
+				<table width="100%" class="textoTablaDato" cellpadding="2" cellspacing="0">
+	
+						<tr> 
+							<td colspan="2" >&nbsp;</td>
+						</tr>
+						
+						<tr>
+							<td valign="top" class="textoEtiqueta">Descripci&oacute;n </td>
+						    <td class="textoEtiquetaDatoResaltado">	
+							 <textarea cols="100"  name="pocarea_descripciones"  style="width:400px" <?php echo ($operacion == "B")?' class="inputReadonly" readonly ':' class="textoInput" '?>><?php if($operacion == "M" || $operacion == "B") echo htmlspecialchars($datospoc['pocarea_descripcion'],ENT_QUOTES) ?></textarea>
+						  </td>
+						</tr> 
+	
+						<tr>
+							<td colspan="2" align="center">
+								<input type="submit" name="boton_actualizar" value="<?php echo $boton_operacion_act; ?>"  class="botones" onClick="return ValidarFormAltaPocArea(formulario,'<?php  echo $operacion ?>'); " />
+								<?php if ($operacion=="M") { ?>
+									<input type="submit" name="boton_eliminar" value="<?php echo $boton_operacion_eli; ?>"  class="botones" onClick="return confirm('¿Está seguro que desea eliminar el Área?');" />
+								<?php } ?>
+								<input type="submit" name="boton_cancelar" value="Cancelar"  class="botones" />								
+								<input type="hidden" name="operacion" id="operacion" value="<?php echo $operacion;?>">
+								<input type="hidden" name="pocarea_codigo" value="<?php  echo (isset($_GET['pocarea_codigo']))?$_GET['pocarea_codigo'] :"" ?>"  />
+							</td>
+						</tr>					
+				</table>
+				
+				</fieldset> 
+				</td>
+				</tr>
+			</table>
+		</form>	
+	<?php
+			//} // fin selec
+		} // 
+	} // 
+} // fin de: //if (($_SESSION[rolcod]==COORDINADORTECNICO) || ($_SESSION[rolcod]==USUORGANISMO))
+else
+{
+	$arraymensajepantalla="El rol del usuario no es válido para ésta operación. ";
+	FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+} 
+$oEncabezados->PieMenuEmergente(); 
+?>

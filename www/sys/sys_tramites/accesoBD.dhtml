@@ -1,0 +1,391 @@
+<?php 
+//--------------------------------------------------------------------------
+//  Define el acceso a la Base de datos.
+//--------------------------------------------------------------------------
+// Se genera la conexion a la base de datos
+
+$base_datos = getenv("SAI_TRAMITES_DB") ?: "";
+$servidor = getenv("SAI_TRAMITES_HOST") ?: "";
+$usuariodb = getenv("SAI_TRAMITES_USER") ?: "";
+$clave = getenv("SAI_TRAMITES_PASSWORD") ?: "";
+mysqli_report(MYSQLI_REPORT_OFF);
+$idconexion = mysqli_connect($servidor, $usuariodb, $clave) or die("No es posible establecer conexion con MySQL Server");
+mysqli_select_db($idconexion, $base_datos) or die("No es posible conectar a la base de datos");
+
+define(expresion_url,"^(http|ftp|https)://(www\.)?.+\.(gov(.ar)*|mil(.ar)*|org(.ar)*|edu.ar|com(.ar)*|ar$|ar/)(.*)");
+
+
+//--------------------------------------------------------------------------
+//						 FUNCIONES PARA ACCEDER A LA BASE DE DATOS
+//--------------------------------------------------------------------------
+// Funciones Publicas: Pueden ser llamadas desde otro modulo.
+// Funciones Privadas: No deberian ser llamadas desde otro modulo.
+//--------------------------------------------------------------------------
+//							 PUBLICAS	
+//----------------------------------------------------------------------------------------- 
+// Ejecuta el SQL almacenado en la base stored_procedures con nombre $sp_nombre
+
+// 1) Sintaxis del SQL en la tabla stored_procedures:
+//		Los parametros deben ser escritos entre #.
+
+// 2) Recibe un array asociativo con los parametros del requeridos para el SQL.
+
+//	  - La cantidad de parametros enviados debe se igual a la cantidad de parametros.
+//    - Los nombres de los parametros no pueden ser igual al de campos asociados a las tablas 
+//      involucradas en el SQL ni pueden ser palabras reservadas del SQL. 	
+
+// Ejemplo llamada:
+// 		$param=array("parchivonom" => $_POST['archivonom']);		
+//		$query=ejecutarStoredProcedure($idconexion,"sel_archivos_xnombre",$param);
+// Ejemplo definicion en la base de stored_procedures: 
+//      select archivonom from archivos where archivonom="#parchivonom#"
+
+// Retorna:	
+//			- En un select retorna el resultado de ejecutar el query (EjecutarQuery) o el error que se produjo con valor negativo.
+//			- Si es otra operacion, retorna -1 si se produjo error o el valor negativo si hay codigo de error
+//						o la cantidad de filas afectadas en caso exitoso
+//			- Nota: En caso de error EjecutarQuery, envia un mail. 
+//					El error esta asociado a un sp particular de modo
+//				   que se envia: spcod.
+function EjecutarStoredProcedure($idconexion,$sp_nombre,$param) {
+	 
+	if (!is_array($param)) { 
+	
+		if (RUN_ACTUAL==RUN_DESARROLLO) {			
+			$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+			$array_msg_pantalla+=array("texto" => "Error en EjecutarStoredProcedure: ".$sp_nombre.",<BR> se espera un array como parámetro." );
+			$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']);
+			MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+		}
+			
+		return -1;
+	}	
+
+	$sql ="SELECT * FROM stored_procedures";
+	$sql.=" WHERE sp_nombre='".$sp_nombre."'";
+	
+	if(!($query=EjecutarQuery($idconexion,$sql,'EjecutarStoredProcedure',$errno))) {
+		if (RUN_ACTUAL==RUN_DESARROLLO) {
+			$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+			$array_msg_pantalla+=array("texto" => "Error en EjecutarStoredProcedure:".$sp_nombre." al seleccionar de stored_procedures." );
+			$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']);
+			MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+		}	
+		return -1;
+	}
+
+	// Debe estar en la tabla de stored procedures 
+    if (mysqli_num_rows($query)!=1) {
+		if (RUN_ACTUAL==RUN_DESARROLLO) {
+			$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+			$array_msg_pantalla+=array("texto" => "Error en EjecutarStoredProcedure, no se encuentra el procedimiento: ".$sp_nombre." en stored_procedures." );
+			$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']);
+			MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+		}	
+		return -1;
+	} 
+	
+	$fila=mysqli_fetch_assoc($query);
+
+	// Valida que los nombres y cantidad de parametros 
+	if (!ValidarParametros($idconexion,$fila['sp_sqlstring'],$param))  {
+		if (RUN_ACTUAL==RUN_DESARROLLO) {
+			$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+			$array_msg_pantalla+=array("texto" => "Error en EjecutarStoredProcedure, ejecutando el stored procedure:".$sp_nombre." validando parámetros." );
+			$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']);
+			MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+		}	
+		return -1;
+    }
+
+	// Todo es inicialmente valido para la ejecucion del Stored Procedure	
+	// Reemplazo los parametros enviados en el string SQL
+	$sql_sp=ReemplazarParametros($idconexion,$fila['sp_sqlstring'],$param);  
+	if (!($query=EjecutarQuery($idconexion,$sql_sp,"stored procedure ".$fila['sp_codigo']." - ".$fila['sp_nombre'],$errno)))
+	{
+		if (RUN_ACTUAL==RUN_DESARROLLO) {
+			$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+			$array_msg_pantalla+=array("texto" => "Error en EjecutarStoredProcedure, <BR> ejecutando el stored procedure:".$sp_nombre."." );
+			$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']);
+			MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+		}	
+		return -$errno;
+    }
+	
+	if($fila['sp_operacion']=="SEL")
+   		return $query;
+	else
+		return mysqli_affected_rows($idconexion);
+}
+//----------------------------------------------------------------------------------------- 
+function ManejoTransacciones($idconexion,$transtipo)
+{
+ switch($transtipo)
+ {
+	case "B": // begin
+		if (!EjecutarQuery($idconexion,"BEGIN",'ManejoTransacciones',$errno)) 
+			return false;
+ 		break;
+	case "C": // commit
+		if (!EjecutarQuery($idconexion,"COMMIT",'ManejoTransacciones',$errno)) 
+			return false;
+ 		break;
+	case "R": // rollback
+		if (!EjecutarQuery($idconexion,"ROLLBACK",'ManejoTransacciones',$errno)) 
+			return false;
+ 		break;
+	default:
+		if (RUN_ACTUAL==RUN_DESARROLLO) {
+			$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+			$array_msg_pantalla+=array("texto" => "Tipo de transacción no definida." );
+			$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']);
+			MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+ 		}
+		return false;
+ 		break;
+ }
+ return true;
+}
+//--------------------------------------------------------------------------
+function TraerCampo($idconexion,$tabla,$camponom,$arraywhere)
+{
+	$sql = "select ".$camponom." as campodevuelto  "."from ".$tabla;
+	
+	if (count($arraywhere)>0)
+	{ 
+		$sql.= " where ";
+
+		for ($i=0;$i<count($arraywhere);$i++)
+		{
+			if ($i%2 == 0)
+				$sql.=$arraywhere[$i];
+			else	
+				$sql.=mysqli_real_escape_string($idconexion, $arraywhere[$i]);
+		}
+	}
+
+	if(!($query=EjecutarQuery($idconexion,$sql,'TraerCampo',$errno)))	{
+		if (RUN_ACTUAL==RUN_DESARROLLO) {
+			$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+			$array_msg_pantalla+=array("texto" => "Problema en TraerCampo." );
+			$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']);
+			MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+		}
+		return -$errno;
+	}
+	
+	if(mysqli_num_rows($query)==0)
+		return "";
+	else {
+		$fila=mysqli_fetch_assoc($query);
+		return $fila['campodevuelto'];
+	}
+}
+
+//----------------------------------------------------------------------------------------- 
+function ActualizarCampo($idconexion,$tabla,$camponom,$campovalor,$arraywhere,$datosauditoria)
+{
+	$sql="update $tabla";
+	$sql.=" set $camponom='".mysqli_real_escape_string($idconexion, $campovalor)."'";
+	if ($datosauditoria=="S")
+	{
+		$sql.=",ultmodusuario=".$_SESSION['pers_cuilt'];
+		$sql.=",ultmodfecha='".date('Y/m/d H:i:s')."'";
+	}
+	if (count($arraywhere)>0)
+	{
+		$sql.=" where ";
+		for ($i=0;$i<count($arraywhere);$i++)
+		{
+			if ($i%2 == 0)
+				$sql.=$arraywhere[$i];
+			else	
+				$sql.=mysqli_real_escape_string($idconexion, $arraywhere[$i]);
+		}
+	}
+
+	if(!($query=EjecutarQuery($idconexion,$sql,'ActualizarCampo',$errno)))	{
+		if (RUN_ACTUAL==RUN_DESARROLLO) {
+			$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+			$array_msg_pantalla+=array("texto" => "Problema en ActualizarCampo." );
+			$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']);
+			MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+		}	
+		return -$errno;
+	}
+	
+	return mysqli_affected_rows($idconexion);
+}
+//--------------------------------------------------------------------------
+// Busca un clave en el resultado de la ejecucion del sp.
+//	$arraybusq: es una array asociativo donde la clave será el nombre del campo
+//				y el valor el valor buscado.
+
+//  Retorna la funcion: false si se produjo error al ejecutarQuery
+//                     sino retorna la cantidad de registros encontrados
+//         en fila: retorna datos solo si encontró 1 sola fila incluida en el resultado del SP
+//         en query: retorna el resultdo del SP
+function BuscarRegistroxClave($idconexion,$sp_nombre,$param,$arraybusq,&$query,&$filaret)
+{
+	$filaret=array();
+
+	if(($query=ejecutarStoredProcedure($idconexion,$sp_nombre,$param))<0)
+		return false;
+
+	$cantfilas=0;
+	while($fila=mysqli_fetch_assoc($query))
+	{
+		foreach ($arraybusq as $clave => $valor)
+		{
+			$matcheo=true;
+			if($fila[$clave]!=$valor)
+			{
+				$matcheo=false;
+				break;
+			}
+		} // for each arraybusq
+		if($matcheo)
+		{
+			$filaret=$fila;
+			$cantfilas++;
+		}
+	} // while del query
+	if($cantfilas!=1)
+		$filaret=array();
+
+	return $cantfilas;
+}
+
+// ----------------------- FUNCIONES PRIVADAS ---------------------------
+function EjecutarQuery($idconexion,$sql,$erroren,&$errno) {
+	$errno=0;
+	$query=mysqli_query($idconexion, $sql);
+	if(!$query)	{		
+	
+		$errno=mysqli_errno($idconexion);
+		$textoerror="Error Mysql: ".mysqli_errno($idconexion)." - ".mysqli_error($idconexion);
+		// MANDAR MAIL
+		if($_SESSION['rol_codigo']!=0)
+			$nombreusuario="CUIT/CUIL:".$_SESSION['pers_cuilt']." ".$_SESSION['pers_nombre'].($_SESSION['pers_nombre']!=""?"  -  ":"").$_SESSION['pers_apellido'];
+
+		$subject="( ".SISTEMA.' - '.$_SERVER['SERVER_NAME']." ) - Error en el sistema - Acceso DB.";
+		$texto="Se ha producido un error en ".$_SERVER['PHP_SELF']." - Error en ".$erroren."\n\n";
+		if($_SESSION['rol_codigo']!=0)
+			$texto.="Usuario ".$nombreusuario."\n\n";
+		$texto.="SQL= ".$sql."\n\n";
+		$texto.=$textoerror;
+		MandarMail($idconexion,ADMI_SISTEMA,"",$subject,$texto);
+	}
+	
+	return $query;
+}
+//----------------------------------------------------------------------------------------- 
+// Valida los parametros del SQL contra los enviados
+function ValidarParametros($idconexion,$sql,$param) {
+
+	$param_count = substr_count($sql,"#")/2; 
+	
+	if ($param_count != count($param) ) {
+
+		if (RUN_ACTUAL==RUN_DESARROLLO) {		
+			$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+			$array_msg_pantalla+=array("texto" => "Error en ValidarParametros, no coincide la cantidad de parámetros envidados con los requeridos." );
+			$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']."\n\n"."enviados=".count($param)." - definidos:".$param_count);
+			MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);			
+		}
+		return false;
+
+	} else {  
+
+		$strSql=trim($sql);
+		$i=0;
+		$param_nomSQL = array();
+
+		// Armo un arreglo con los nombres de los parametros en $sql (vienen de la tabla stored_procedure)
+		while (strpos($strSql,"#")>0 ) {
+			$pos_ini = strpos($strSql,"#"); 
+			$strSql = substr($strSql,$pos_ini+1,strlen($strSql) - $pos_ini+1) ;
+			$pos_fin = strpos($strSql, "#"); 
+			$param_nomSQL[$i] = substr($strSql,0,$pos_fin); 			
+			$strSql = substr($strSql,$pos_fin+1,strlen($strSql) - $pos_fin);
+			$i=$i+1;
+		}
+		
+		// Comparo un arreglo con las claves del array enviado como parametro
+		// con el arreglo que surge del string sql.
+		$param_nomArray=array_keys(array_change_key_case($param,CASE_LOWER));
+
+		// No hay parametros en la llamada ni definicion del stored proceduce
+		if (count($param_nomSQL)==0 && count($param_nomArray)==0 ) 
+			return true;
+
+		$diff_array1=array_diff($param_nomSQL,$param_nomArray); 
+		$diff_array2=array_diff($param_nomArray,$param_nomSQL); 
+
+		if ( count($diff_array1)!=0  || count($diff_array2)!=0 ) 
+		{
+			$texto="Error en ValidarParametros, el nombre de algún parámetro es inválido.<br>";
+			$texto.="Parámetros que sobran en la definición del stored_procedure:<br>";
+			$texto.=var_export($diff_array1,true);
+			$texto.="<br>Parámetros que sobran del array de parámetros envidados:<br>";
+			$texto.=var_export($diff_array2,true);
+			$texto.="<br>";
+			
+			if (RUN_ACTUAL==RUN_DESARROLLO) {
+				$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+				$array_msg_pantalla+=array("texto" => $texto);
+				$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+				$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']);
+				MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+			}
+			return false;
+		}		
+	}
+	return true;
+}
+
+//--------------------------------------------------------------------------
+function ReemplazarParametros($idconexion,$sql,$param) {
+
+	$sql_pieces = explode("#",strtolower(trim($sql))); 
+    $param_nom = array_keys(array_change_key_case($param,CASE_LOWER));
+    $i=0;
+	while (count($param_nom)) {
+		$param_search=array_shift($param_nom); 
+		// Busco la key en las piezas y lo reemplazo por el valor
+		foreach ($sql_pieces as $xsql_pieces[$i]) {
+			$posicion=array_search($param_search,$sql_pieces); 
+			if ($posicion) {				
+				if(is_array($param[$param_search]))	{
+					$sql_pieces[$posicion]="";
+					for ($i=0;$i<count($param[$param_search]);$i++)	{
+						if ($i%2 == 0)
+							$sql_pieces[$posicion].=$param[$param_search][$i];
+						else	
+							$sql_pieces[$posicion].=mysqli_real_escape_string($idconexion, $param[$param_search][$i]);
+					}
+				} elseif(trim($param[$param_search])=="NULL") {
+					$sql_pieces[$posicion-1]=substr($sql_pieces[$posicion-1],0,strlen($sql_pieces[$posicion-1])-1);
+					$sql_pieces[$posicion+1]=substr($sql_pieces[$posicion+1],1);
+					$sql_pieces[$posicion]="NULL"; 
+					} else  // Saco caracteres que podrian traer problemas para el SQL. 				 
+						$sql_pieces[$posicion]=mysqli_real_escape_string($idconexion, $param[$param_search]); 
+				} // if - $poscicion
+			} // foreach - $sql_pieces
+		} // while - count($param_nom)
+
+   $sql_resu=implode("",$sql_pieces);
+
+   return $sql_resu;
+}
+//--------------------------------------------------------------------------
+?>

@@ -1,0 +1,45 @@
+<?php require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+
+$oPrestadorDocente = new cPrestadorDocente($conexion);
+//----------------------------------------------------------------------------------------- 
+?>
+<script type="text/javascript">
+	<?php $oPrestadorDocente->ValidarFormAltaPrestadorDocente(); ?>
+</script>
+<script type="text/javascript" src="calendar/calendar.js"></script>
+<script type="text/javascript" src="calendar/calendar-setup.js"></script>
+<script type="text/javascript" src="calendar/calendar-es.js"></script>
+
+<?php
+$destino_formulario = "prestador_docente_alta_upd.dhtml";
+?>	
+<form action="<?php echo $destino_formulario?>" method="post" name="formulario">
+<?php if($oPrestadorDocente->MostrarDatoPrestadorDocente($conexion,"A")){ ?>
+	<table width="100%" class="textoTablaDato" align="center">		
+		<tr align="center">
+			<td colspan="2" valign="top">
+				<input type="submit" name="boton_alta" class="botones" value="Confirma Alta" onClick="return ValidarFormAltaPrestadorDocente(formulario,'I');">&nbsp;&nbsp;&nbsp;&nbsp;
+			</td>
+		</tr>	
+	</table>
+<?php } // MostrarDatoPrestadorDocente ?>	
+</form>
+<?php $oEncabezados->PieMenuEmergente(); ?>

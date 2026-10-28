@@ -1,0 +1,52 @@
+<?php
+//----------------------------------------------------------------------------------------- 
+//----------------------------------------------------------------------------------------- 
+// Clase con la lógica para el manejo de usuarios
+
+class cUsuarios
+{
+	var $conexion;
+
+	function cUsuarios($conexion)
+	{
+		$this->conexion = &$conexion;
+	}
+
+//-----------------------------------------------------------------------------------------
+//							 PUBLICAS	
+//----------------------------------------------------------------------------------------- 
+
+//----------------------------------------------------------------------------------------- 
+// Envia un mail a todos los integrantes de una mesa de ayuda con un determinado rol
+
+// Parámetros de Entrada:
+//		mesaayudacod, rolcod: para buscar los usuarios activos
+//		subject,mensaje: los datos a enviar en el mail
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+	
+	function EnvioMailUsuariosMesaAyuda($mesaayudacod,$rolcod,$subject,$mensaje)
+	{
+		$spnombre="sel_usuarios_roles_xmesaayudacod_xrolcod_xusuarioestado_orden";
+		$spparam=array("pmesaayudacod"=>$mesaayudacod);
+		$spparam+=array("prolcod"=>$rolcod);
+		$spparam+=array("pusuarioestado"=>"(".USUARIONUEVO.",".USUARIOACT.")");
+		$spparam+=array("porderby"=>"usuariocod");
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno))
+			return false;
+
+		$destina_array=array();
+		while($filausuario=mysqli_fetch_assoc($query))
+			$destina_array[]=$filausuario["usuarioemail"];
+
+		$destinatarios=implode(", ",$destina_array);
+
+		if(!mail($destinatarios,$subject,$mensaje))
+			return false;
+		
+		return true;
+	}
+}
+?>

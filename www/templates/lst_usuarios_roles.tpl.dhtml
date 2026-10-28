@@ -1,0 +1,78 @@
+<div align="center">
+<table width="95%" class="textoTablaDato" border="0" cellpadding="0" cellspacing="0" align="center">
+	<tr>
+	    <td class='textoTitulosGrilla' align="left">
+			<?php  $this->_($this->TituloListado)  ?>
+		</td>
+	</tr>
+</table>
+<br>
+<table width="95%" class="textoTablaDato" border="1" cellpadding="1" cellspacing="1" align="center">
+
+	<tr align="center">
+		<td class="colorTitulosGrupo textoTituloGrupo">	CUIT/CUIL/CDI</td>
+		<td class="colorTitulosGrupo textoTituloGrupo">	Apellido y Nombre</td>
+		<td class="colorTitulosGrupo textoTituloGrupo">	Estado </td>
+		<td class="colorTitulosGrupo textoTituloGrupo">	Email</td>
+		<td class="colorTitulosGrupo textoTituloGrupo">	Actualizar Roles</td>
+	</tr>
+	
+    <?php foreach ($this->result as $row): ?>
+    <tr style="height:26px">
+		<td align="right" class="textoEtiquetaDatoResaltado">
+			<?php $this->_($row["usuarioCUIT"]); ?>
+		</td>
+		<td class="textoEtiquetaDatoResaltado"> 
+			<?php $this->_($row["usuarionombrecompleto"]); ?>
+		</td>
+		<td class="textoEtiquetaDatoResaltado"> 
+			<?php $this->_($row["usuarioestadodesc"]); ?>
+		</td>		
+		<td class="textoEtiquetaDatoResaltado">
+			<?php $this->_($row["usuarioemail"]); ?>
+		</td>
+		<td align="center" class="textoEtiquetaDatoResaltado">
+  			<?php if ($row["usuarioestado"] != USUARIOBAJA) { ?>
+				<a href="usuario_actualizar_roles.dhtml?usuariocod=<?php echo $row["usuariocod"]; ?>"><img src="images/editar.jpg" border="0" alt="Actualizar Roles"></a> 
+			<?php } ?>	
+		</td>
+    </tr>
+	
+<?php	if (count($row["usuarioroles"])> 0) { ?>
+	<tr style="height:26px;" >
+		<td></td>
+		<td colspan="4">
+		<table border="0" class="textoAclaraciones">
+		    <?php 	foreach ($row["usuarioroles"] as $row_rol):	 ?>
+			<tr>
+				<td width="45%" <?php echo ($row_rol["jurisdnom"]=="")?"colspan=2":"" ?>> <?php $this->_($row_rol["roldesc"]) ?></td>
+				<?php if ($row_rol["jurisdnom"]!="") { ?>
+					<td> <?php $this->_($row_rol["jurisdnom"]); ?></td>
+				<?php } ?>	
+			</tr>
+			 <?php endforeach; ?>
+		</table>		
+		</td>
+	</tr>
+<?php } ?>	
+
+
+<?php endforeach; ?>
+</table>
+
+<table width="95%" class="textoTablaDato" border="0" cellpadding="0" cellspacing="0" align="center">
+	<tr>
+		<td class='colorTitulosGrupo textoTituloGrupo'>
+<?php 		// Si la cantidad de filas por página hace necesaria la botonera, la muestro sino no. 
+		// Nota: para que no se muestre enviar en filas por pagina la cantidad de registros a mostrar
+		if (($this->DeshabilitarBtsAdelante!="disabled") || ($this->DeshabilitarBtsAtras!="disabled")) { ?>		
+			<table align="right"  border="0" cellpadding="0" class="colorTitulosGrupo textoTituloGrupo"> 
+				<tr align="left">
+					<td> <?php	include $this->loadTemplate('templates/rpt_botones.tpl.dhtml'); ?> </td> 
+				</tr>
+			</table>
+<?php 		} ?>
+		</td>
+	</tr>
+</table>
+</div>

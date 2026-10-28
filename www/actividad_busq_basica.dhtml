@@ -1,0 +1,488 @@
+<?php require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+
+$oActividad= new cActividad($conexion);
+//----------------------------------------------------------------------------------------- 
+?>
+<script type="text/javascript" language="javascript">
+function Validar(formulario) {
+
+// no se valida los campos	
+	return true;	
+}
+var vec_form = new Array();
+var vec_tipo = new Array();
+
+CargoFormato(); 	// Carga arreglo con Formatos. 	vec_form
+CargoTipo(); // Carga arreglo con tipos.	vec_tipo
+//------------------------------------------------------------------------------------------------
+function CargoFormato() {
+	// Se carga el array de Formatos
+	<?php 
+		if(!$conexion->ejecutarStoredProcedure("sel_formato_actividad_orden",array('porderby'=>"formact_descripcion"),$resultado,$numfilas,$errno))	{
+			$txt_sys_mail="Error al buscar el formato.";
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al buscar el Formato de Actividades.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$i=0;
+		while ($fila_form = mysqli_fetch_assoc($resultado)){
+				echo "vec_form[".$i."]=new Array('".$fila_form['formact_codigo']."','".htmlspecialchars($fila_form['formact_descripcion'],ENT_QUOTES)."');\n\t";			
+			$i++;
+		}
+	?>
+}
+//------------------------------------------------------------------------------------------------
+function CargoTipo() {
+	// Se carga el array de Tipos
+	<?php 	if(!$conexion->ejecutarStoredProcedure("sel_tipo_actividad_orden",array('porderby'=>"tipoact_descripcion"),$resultado,$numfilas,$errno))	{
+			$txt_sys_mail="Error al buscar el formato.";
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al buscar el Formato de Actividades.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$i=0;
+		while ($fila_tipo = mysqli_fetch_assoc($resultado)){
+				echo "vec_tipo[".$i."]=new Array('".$fila_tipo['tipoact_codigo']."','".$fila_tipo['formact_codigo']."','".htmlspecialchars($fila_tipo['tipoact_descripcion'],ENT_QUOTES)."');\n\t";			
+			$i++;
+		}
+	?>
+}
+//------------------------------------------------------------------------------------------------
+function CambioFormato(formato,tipo)	{
+	var ii;
+	var ObjFormato = eval('document.getElementById("'+formato+'")');
+	var ObjTipo = eval('document.getElementById("'+tipo+'")');
+
+	while (ObjTipo.length > 0)
+		ObjTipo[0] = null;
+	
+	var form = ObjFormato[ObjFormato.selectedIndex].value;
+	ObjTipo.options[0] = new Option("-- Todos los Tipos", '*');
+
+	for(ii = 0; ii < vec_tipo.length; ii++)
+		if (vec_tipo[ii][1] == form)
+			ObjTipo.options[ObjTipo.options.length] = new Option(vec_tipo[ii][2], vec_tipo[ii][0]);
+
+	ObjTipo.options[0].selected=true	
+}
+//------------------------------------------------------------------------------------------------
+</script>
+<?php 
+//-----------------------------------------------------------------------------------------------
+function MostrarGrillaSeleccion($conexion,$arregloBuscar) {
+
+	$oActividadCurso= new cActividadCurso($conexion);
+	$oActividadAutodesarrollo= new cActividadAutodesarrollo($conexion);
+	$oActividadExterna= new cActividadExterna($conexion);	
+	$oActividadEducacionFormal = new cActividadEducacionFormal($conexion);	
+
+	if ($_SESSION['array_busqueda_actividad']['tipoact_codigo'] != "*")
+		$ArregloDatos['tipoact_codigo']=$_SESSION['array_busqueda_actividad']['tipoact_codigo'];
+
+	$ArregloDatos['act_nombre'] = $_SESSION['array_busqueda_actividad']['act_nombre'];			
+	$ArregloDatos['act_codinap'] = $_SESSION['array_busqueda_actividad']['act_codinap'];			
+
+	$ArregloDatos['orderby']='act_nombre';
+
+	$result = true;
+	$numfilas = 0;
+	$arrayAct = array();
+	
+	if ($arregloBuscar['buscaCurso']) {
+		if(!$oActividadCurso->BuscarActividadCurso($ArregloDatos,$numfilas,$resultActCurso,$error,$errormail)){
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando datos a mostrar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$result = false;			
+		}
+	
+		if(!$result) {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar actividades. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$error=true;											
+		} else {
+			while ($filaActCurso = mysqli_fetch_assoc($resultActCurso)) {
+				$clave = array_search ($filaActCurso['act_codinap'],$arrayAct);
+				if ($clave = array_search ($filaActCurso['act_codinap'],$arrayAct) == FALSE) 
+						$arrayAct[] = array("act_codinap"=>$filaActCurso['act_codinap'],"act_nombre"=>$filaActCurso['act_nombre'],"act_codigo" => $filaActCurso['act_codigo'],"tipoact_codigo"=>$filaActCurso['tipoact_codigo'],"formact_codigo"=>FORMATOCURSO,"actcur_creditos"=>$filaActCurso['actcur_creditos'],"actauto_creditos"=>"---","actext_creditos"=>"---","actform_creditos"=>"---", "Curso"=>"si","Auto"=>"no","Ext"=>"no","Form"=>"no");
+				else 
+						$arrayAct[$clave]['Curso'] = 'si';
+			}
+		}
+	}
+
+	$act_codinap = array();
+	foreach ($arrayAct as $llave => $fila) {
+	   $act_codinap[$llave]  = $fila['act_codinap'];
+	}
+
+	if ($arregloBuscar['buscaAuto']) {
+		if(!$oActividadAutodesarrollo->BuscarActividadAutodesarrollo($ArregloDatos,$numfilas,$resultActAuto,$error,$errormail)){
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando datos a mostrar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$result = false;			
+		}
+	
+		if(!$result) {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar actividades. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$error=true;											
+		} else {
+			while ($filaActAuto = mysqli_fetch_assoc($resultActAuto)) {
+
+			if (in_array($filaActAuto['act_codinap'],$act_codinap)) {
+				$clave = array_search ($filaActAuto['act_codinap'],$act_codinap);
+				$arrayAct[$clave]['Auto'] = 'si';
+		 	} else {		
+				$actauto_creditos = "---";		
+				switch ($filaActAuto['tipoact_codigo']) {
+					case TIPOACTAUTOEVASIS : 
+						if (!$oActividadAutodesarrollo->TraerDatosActividadAutodesarrolloEvento($filaActAuto['act_codigo'],$filaautodesarrollo,$es_modif)) {
+							$ok=false;		
+						}	
+						$actauto_creditos = $filaautodesarrollo['actividad_autodesarrollo_evento']['actautoeven_creditos_asistencia'];
+					break;
+
+					case TIPOACTAUTOEVACT : 
+					case TIPOACTAUTODOCENTE : 
+					case TIPOACTAUTOPUBLI : 
+					case TIPOACTAUTOASISTEC : 
+					case TIPOACTAUTOAAUTOFORM : 
+						$actauto_creditos = "por persona";		
+					break;
+					
+				}
+				$arrayAct[] = array("act_codinap"=>$filaActAuto['act_codinap'],"act_nombre"=>$filaActAuto['act_nombre'],"act_codigo" => $filaActAuto['act_codigo'],"tipoact_codigo"=>$filaActAuto['tipoact_codigo'],"formact_codigo"=>FORMATOAUTO,"actcur_creditos"=>"---","actauto_creditos"=>$actauto_creditos,"actext_creditos"=>"---","actform_creditos"=>"---", "Curso"=>"no","Auto"=>"si","Ext"=>"no","Form"=>"no");
+				}	
+			}
+		}
+	}
+	
+	$act_codinap = array();
+	foreach ($arrayAct as $llave => $fila) {
+	   $act_codinap[$llave]  = $fila['act_codinap'];
+	}
+
+	if ($arregloBuscar['buscaExt']) {
+		if(!$oActividadExterna->BuscarActividadExterna($ArregloDatos,$numfilas,$resultActExt,$error,$errormail)){
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando datos a mostrar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$result = false;			
+		}
+	
+		if(!$result) {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar actividades. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$error=true;											
+		} else {
+			while ($filaActExt = mysqli_fetch_assoc($resultActExt)) {
+				if (in_array($filaActExt['act_codinap'],$act_codinap)) {
+					$clave = array_search ($filaActExt['act_codinap'],$act_codinap);
+					$arrayAct[$clave]['actext_creditos'] = $filaActExt['actext_creditos'];
+				} else 
+					$arrayAct[] = array("act_codinap"=>$filaActExt['act_codinap'],"act_nombre"=>$filaActExt['act_nombre'],"act_codigo" => $filaActExt['act_codigo'],"tipoact_codigo"=>$filaActExt['tipoact_codigo'],"formact_codigo"=>FORMATOEXT,"actcur_creditos"=>"---","actauto_creditos"=>"---","actext_creditos"=>$filaActExt['actext_creditos'],"actform_creditos"=>"---", "Curso"=>"no","Auto"=>"no","Ext"=>"si", "Form"=>"no");
+			}
+		}
+	}	
+	
+	if ($arregloBuscar['buscaFormal']) {
+		$numfilas=0;
+		if(!$oActividadEducacionFormal->BuscarActividadEducacionFormal($ArregloDatos,$numfilas,$resultActForm,$error,$errormail)){
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando datos a mostrar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$result = false;			
+		}
+	
+		if(!$result) {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar actividades. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$error=true;											
+		} else {
+			while ($filaActForm = mysqli_fetch_assoc($resultActForm)) {
+				if (in_array($filaActForm['act_codinap'],$act_codinap)) {
+					$clave = array_search ($filaActForm['act_codinap'],$act_codinap);
+					$arrayAct[$clave]['actform_creditos'] = $filaActForm['actform_creditos'];
+				} else {
+					$actform_creditos = "por persona";		
+					$arrayAct[] = array("act_codinap"=>$filaActForm['act_codinap'],"act_nombre"=>$filaActForm['act_nombre'],"act_codigo" => $filaActForm['act_codigo'],"tipoact_codigo"=>$filaActForm['tipoact_codigo'],"formact_codigo"=>FORMATOEFORMAL,"actcur_creditos"=>"---","actauto_creditos"=>"---","actext_creditos"=>"---","actform_creditos"=>$actform_creditos,"Curso"=>"no","Auto"=>"no","Ext"=>"no","Form"=>"si");
+				}
+			}
+		}
+	}	
+	
+	$act_codinap = array();
+	$act_nombre = array();
+	$tipoact_codigo = array();
+	$formact_codigo = array();			
+	
+	// separo los arrays par poder ordenarlos
+	foreach ($arrayAct as $llave => $fila) {
+	   $act_codinap[$llave]  = $fila['act_codinap'];
+	   $act_nombre[$llave] = $fila['act_nombre'];
+	   $tipoact_codigo[$llave]  = $fila['tipoact_codigo'];
+	   $formact_codigo[$llave] = $fila['formact_codigo'];
+	}
+	
+	// ordeno los arrays 
+	array_multisort($act_nombre, SORT_ASC, $act_codinap, SORT_ASC, $arrayAct);
+
+		$opciones=array(
+			"numPagina"=>isset($_GET['pagina'])?$_GET['pagina']:1,
+			"FilasPagina"=>20,
+			"NombrePaginaQuery"=>"pagina"
+		);				
+		
+		$oGrilla = new cGrilla($opciones);
+		$oGrilla->SetearTituloGrilla('Actividades que cumplen los criterios de búsqueda: ');
+		$oGrilla->SetearAnchoGrilla('90%');
+
+		$miColumna0 = $oGrilla->AddColumna('txt');
+		$oGrilla->Setear('titulo_columna',$miColumna0,'Código');
+		$oGrilla->Setear('campo_grilla',$miColumna0,'act_codinap');
+		$oGrilla->Setear('align_columna',$miColumna0,'left');
+
+		$miColumna1 = $oGrilla->AddColumna('txt');
+		$oGrilla->Setear('titulo_columna',$miColumna1,'Nombre');
+		$oGrilla->Setear('campo_grilla',$miColumna1,'act_nombre');
+		$oGrilla->Setear('align_columna',$miColumna1,'left');
+
+		$miColumna2 = $oGrilla->AddColumna('popup');
+		$oGrilla->Setear('titulo_columna',$miColumna2,'Detalle');
+		$oGrilla->Setear('ancho_columna',$miColumna2,'55');
+		$oGrilla->Setear('imagen',$miColumna2,'images/verdetalle.gif');
+		$oGrilla->Setear('altImagen',$miColumna2,'Ver detalle');
+		$oGrilla->Setear('url',$miColumna2,$_SESSION['array_busqueda_actividad']['idtextboxAddValorDis']);
+		$oGrilla->Setear('ventanaAnchoPopup',$miColumna2,'680');
+		$oGrilla->Setear('ventanaAltoPopup',$miColumna2,'500');
+		$oGrilla->Setear('ventanaVarxPopup',$miColumna2,'120');
+		$oGrilla->Setear('ventanaVaryPopup',$miColumna2,'50');
+		$oGrilla->AddParametrosURL($miColumna2,"act_codigo",'act_codigo');
+		$oGrilla->AddParametrosURL($miColumna2,"tipoact_codigo",'tipoact_codigo');
+
+		$miColumna7 = $oGrilla->AddColumna('linkimg');
+		$oGrilla->Setear('ancho_columna',$miColumna7,'30');		
+		$oGrilla->Setear('titulo_columna',$miColumna7,'');
+		$oGrilla->Setear('align_columna',$miColumna7,'right');
+		$oGrilla->Setear('imagen',$miColumna7,'images/pdf.gif');
+		$oGrilla->Setear('altImagen',$miColumna7,'Diseño/Detalle en PDF');
+		$oGrilla->Setear('url',$miColumna7,"download_pdf.dhtml");
+		$oGrilla->Setear('target',$miColumna7,"_blank");
+		$oGrilla->AddParametrosURL($miColumna7,"contenido",'diseno','cte');
+		$oGrilla->AddParametrosURL($miColumna7,"formact_codigo",'formact_codigo');
+		$oGrilla->AddParametrosURL($miColumna7,"act_codigo",'act_codigo');
+		$oGrilla->AddParametrosURL($miColumna7,"tipoact_codigo",'tipoact_codigo');
+	
+	if ($arregloBuscar['buscaCurso']) {
+		$miColumna3 = $oGrilla->AddColumna('txt');
+		$oGrilla->Setear('ancho_columna',$miColumna3,'55');
+		$oGrilla->Setear('titulo_columna',$miColumna3,'Créd. Curso');
+		$oGrilla->Setear('campo_grilla',$miColumna3,'actcur_creditos');
+		$oGrilla->Setear('align_columna',$miColumna3,'right');
+	}
+
+	if ($arregloBuscar['buscaAuto']) {
+		$miColumna4 = $oGrilla->AddColumna('txt');
+		$oGrilla->Setear('ancho_columna',$miColumna4,'55');	
+		$oGrilla->Setear('titulo_columna',$miColumna4,'Créd. Autod.');
+		$oGrilla->Setear('campo_grilla',$miColumna4,'actauto_creditos');
+		$oGrilla->Setear('align_columna',$miColumna4,'right');
+	}
+		
+	if ($arregloBuscar['buscaExt']) {
+		$miColumna5 = $oGrilla->AddColumna('txt');
+		$oGrilla->Setear('ancho_columna',$miColumna5,'55');		
+		$oGrilla->Setear('titulo_columna',$miColumna5,'Créd. Externa');
+		$oGrilla->Setear('campo_grilla',$miColumna5,'actext_creditos');
+		$oGrilla->Setear('align_columna',$miColumna5,'right');
+	}
+
+	if ($arregloBuscar['buscaFormal']) {
+		$miColumna5 = $oGrilla->AddColumna('txt');
+		$oGrilla->Setear('ancho_columna',$miColumna5,'55');		
+		$oGrilla->Setear('titulo_columna',$miColumna5,'Créd. Formal');
+		$oGrilla->Setear('campo_grilla',$miColumna5,'actform_creditos');
+		$oGrilla->Setear('align_columna',$miColumna5,'right');
+	}
+
+	if ($oGrilla->CargarGrilla($arrayAct)) {
+		$oGrilla->MostrarGrilla();					
+	} else {
+		$error=true;					
+		$txt_sys_mail = "Error Grilla='".$oGrilla->GetError();
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al mostrar actividades.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+	}		
+	
+	return $result;
+}
+//--------------------------------------------------------------------------------------------------
+function hayDatosCurso($array_fila_grilla) {
+
+if ( $array_fila_grilla['Curso'] == "si" )  
+ 	return true;
+else 
+	return false;
+}
+//--------------------------------------------------------------------------------------------------
+function hayDatosAuto($array_fila_grilla) {
+
+if ( $array_fila_grilla['Auto'] == "si" )  
+ 	return true;
+else 
+	return false;
+}
+
+//--------------------------------------------------------------------------------------------------
+function hayDatosForm($array_fila_grilla) {
+
+if ( $array_fila_grilla['Formal'] == "si" )  
+ 	return true;
+else 
+	return false;
+}
+//--------------------------------------------------------------------------------------------------
+function hayDatosExt($array_fila_grilla) {
+
+if ( $array_fila_grilla['Ext'] == "si" )  
+ 	return true;
+else 
+	return false;
+}
+
+if (isset($_POST['boton_buscar'])) {
+	$_SESSION['array_busqueda_actividad']=array();	
+	$_SESSION['array_busqueda_actividad']['formact_codigo']=$_POST['formact_codigo'];	
+	$_SESSION['array_busqueda_actividad']['tipoact_codigo']=$_POST['tipoact_codigo'];		
+	$_SESSION['array_busqueda_actividad']['act_codinap']=$_POST['act_codinap'];	
+	$_SESSION['array_busqueda_actividad']['act_nombre']=$_POST['act_nombre'];		
+	$_SESSION['array_busqueda_actividad']['idtextboxAddValorDis']=$_POST['idtextboxAddValorDis'];			
+}
+
+if (!isset($_SESSION['array_busqueda_actividad'])) {
+	$_SESSION['array_busqueda_actividad']=array();
+}
+
+if (!isset($_POST['boton_buscar']) && count($_GET)==0) { 
+	$destino_formulario=$_SERVER['PHP_SELF'];
+?>	
+
+
+
+	<form action="<?php echo $destino_formulario ?>" method="post" name="formulario" >
+	<table width="100%" class="textoTablaDato" align="center">
+		<tr>
+			<td width="25%"></td>
+			<td width="65%"></td>
+		</tr>
+		<tr>
+			<td class="textoEtiqueta">Código INAP</td>
+			<td class="textoEtiquetaDatoResaltado"><input type="text" name="act_codinap" id="act_codinap" class="textoInput"  onblur="PasarAMayusculas('act_codinap')" maxlength="20" size="20"></td>
+		</tr>
+		<tr>
+			<td class="textoEtiqueta">Nombre</td>
+			<td class="textoEtiquetaDatoResaltado">	<input type="text" name="act_nombre" id="act_nombre" class="textoInput"  onblur="PasarAMayusculas('act_nombre')" maxlength="255" size="30"></td>
+		</tr>
+		<tr>
+			<td class="textoEtiqueta">Formato</td>
+			<td class="textoEtiquetaDatoResaltado">
+			<?php 
+			$spnombre="sel_formato_actividad_orden";
+			$spparam =array('porderby'=>"formact_descripcion");
+
+			if(!$conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+				$txt_sys_mail="Error al buscar el formato.";
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al buscar el Formato de Actividades.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			?>
+			<select name="formact_codigo" id="formact_codigo"  class="combos" style="width: 370px" onchange="CambioFormato('formact_codigo','tipoact_codigo')">
+			<option value="*">-- Todos los Formatos</option>
+			<?php while ($fila_form = mysqli_fetch_assoc($resultado)) {
+				echo "<option value='".$fila_form['formact_codigo']."'>".$fila_form['formact_descripcion']."</option>";
+			}
+			?>
+			</select>
+			</td>
+		</tr>
+		<tr>
+			<td class="textoEtiqueta">Tipo</td>
+			<td class="textoEtiquetaDatoResaltado">
+			<select name="tipoact_codigo" id="tipoact_codigo"  class="combos" style="width: 370px">
+				<option value="*">-- Todos los Tipos</option>
+			</select>			
+			</td>
+		</tr>
+
+		<tr>
+			<td colspan="2" height="20"></td>
+		</tr>
+		<tr align="center">
+			<td colspan="2">
+
+				<input type="hidden" name="idtextboxAddValorDis" value="actividad_ver_dis.dhtml">&nbsp;&nbsp;&nbsp;&nbsp;
+				<input type="submit" name="boton_buscar" class="botones" value="Buscar Actividad" onClick="return Validar(formulario)">&nbsp;&nbsp;&nbsp;&nbsp;
+				<input type="reset" name="boton_limpiar" class="botones" value="Limpiar">
+			</td>
+		</tr>
+	</table>	
+	</form>	
+	
+<?php } else { 
+
+	$arregloBuscar = array();
+	$arregloBuscar['buscaCurso'] = false;
+	$arregloBuscar['buscaAuto'] = false;
+	$arregloBuscar['buscaExt']= false;
+	$arregloBuscar['buscaFormal'] = false;
+
+	switch ($_SESSION['array_busqueda_actividad']['formact_codigo'])  {
+	case FORMATOCURSO :
+		$arregloBuscar['buscaCurso'] = true;
+		break;
+	case FORMATOAUTO :
+		$arregloBuscar['buscaAuto'] = true;
+		break;
+	case FORMATOEXT :
+		$arregloBuscar['buscaExt'] = true;
+		break;
+	case FORMATOEFORMAL:
+		$arregloBuscar['buscaFormal'] = true;
+		break;
+		
+	case "*" :
+		$arregloBuscar['buscaCurso'] = true;
+		$arregloBuscar['buscaAuto'] = true;
+		$arregloBuscar['buscaExt'] = true;
+		$arregloBuscar['buscaFormal'] = true;
+	}
+ ?>	
+ 
+ <div align="right">
+<br/>
+<a class="linkListadoMenu" href="download_tablas_excel.dhtml?tabla=actividad_buscar&amp;">Listado de Actividades<img alt="Bajar en Formato .xls" title="Bajar en Formato .xls" src="./images/iconoexcel.jpg" border="0" width="15"></a>
+<br/>
+</div>
+
+ 
+ <table width="100%" class="textoTablaDato">
+		<tr> 
+			<td> 
+			<?php	// Muestra Actividades que son factibles de evaluacion
+			
+				$_SESSION['filtro_busqueda'] = $arregloBuscar;			 	
+				if(!MostrarGrillaSeleccion($conexion,$arregloBuscar))
+					$result=false;	
+			?>		
+			</td>
+		</tr>	
+	</table>	
+	<br><div align="center"><a href="<?php echo $_SERVER['PHP_SELF']?>" class="linkFondoBlanco">Volver a buscar</a></div><br>	
+<?php } 
+$oEncabezados->PieMenuEmergente(); 
+?>

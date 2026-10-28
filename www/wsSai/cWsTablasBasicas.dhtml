@@ -1,0 +1,142 @@
+<?php 
+//-----------------------------------------------------------------------------------------------------	
+// WebService de SAI
+//-----------------------------------------------------------------------------------------------------	
+// WebService => Tablas Básicas.  
+//-----------------------------------------------------------------------------------------------------	
+// - Implementa la interface del wsTablasBasicas.php 
+//-----------------------------------------------------------------------------------------------------	
+class cWsTablasBasicas {
+
+	var $conexion;
+	
+	private $error;				   // codigo de error
+	private $error_msg_detalle;    // amplia el detalle del error (según el caso)
+	
+	// Constantes de error	
+	const WS_NO_ERROR						=0; 
+	const WS_ERROR							=-1;    
+	const WS_ERROR_SYSTABLE					=-1;
+
+	// Descripcion de los errores
+	private $cte_ERROR = array ( 	
+					      			WS_ERROR_SYSTABLE	=>array ("descError"=>'Error al obtener la tabla de descriptores.')
+								);
+//-----------------------------------------------------------------------------------------------------	
+	function __construct(){
+		$this->conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+		$this->conexion->SeleccionBD(BASEDATOS);
+		FuncionesPHPLocal::CargarConstantes($this->conexion,array("roles"=>"si","sistema"=>SISTEMA));			
+		$this->error=WS_NO_ERROR;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function __destruct() {	
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	public function getError() {
+		return $this->error;
+	} 
+//-----------------------------------------------------------------------------------------------------	
+	public function getErrorDetalle($cod_error="") {
+		
+		if ($cod_error!="") {
+			if (isset($this->cte_ERROR[$cod_error]))
+				return $this->cte_ERROR[$cod_error]['descError'];
+			else 
+				return "Error indefinido";	
+		} else {
+			if ($this->getError()==0)
+				return "No ocurrio error";	
+			else 
+				return $this->cte_ERROR[$this->getError()]['descError'];
+		}		
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	private function setErrorDetalle($error_detalle) {
+		$this->error_msg_detalle=$error_detalle;		
+	}
+//-----------------------------------------------------------------------------------------------------	
+	public function getErrorDescripcion() {
+		return $this->error_msg_detalle;
+	} 
+//-----------------------------------------------------------------------------------------------------	
+	private function setError($error,$error_detalle="") {
+		$this->error=$error;
+		
+		if (isset($error_detalle) && $error_detalle!="") 
+			$this->setErrorDetalle($error_detalle) ;
+		
+		return (WS_ERROR);
+	} 
+//-----------------------------------------------------------------------------------------------------	
+	public function obtenerSysTable($vTabla) {
+
+		$this->error=WS_NO_ERROR;
+
+		switch ($vTabla) {
+			// Defino cual es el campo codigo y cual el campo descripcion.
+			// Defino el nombre de cada campo en el xml
+			// Defino el xls que describe la estructura
+			// Defino el stored de donde salen los datos
+			case  'sysTableFormatoActividad': 
+				$spnombre="sel_formato_actividad_orden";	
+				$sparam=array('porderby'=>'formact_codigo'); 
+				$campos=array('codigo'=>'formact_codigo','descripcion'=>'formact_descripcion');
+				$nom_campo_xml=array('codigo'=>'codigo','descripcion'=>'descripcion');
+				$xsd ='tablaBasica.xsd';
+				break;
+			case  'sysTableTipoActividad': 
+				$spnombre="sel_tipo_actividad_orden";	
+				$sparam=array('porderby'=>'tipoact_codigo'); 
+				$campos=array('codigo'=>'tipoact_codigo','descripcion'=>'tipoact_descripcion','formact_codigo'=>'formact_codigo');
+				$nom_campo_xml=array('codigo'=>'codigo','descripcion'=>'descripcion','formact_codigo'=>'codigo_formato');
+				$xsd ='tablaBasicaxFormato.xsd';
+				break;
+			case  'sysTableResolucion': 
+				$spnombre="sel_tipo_actividad_orden";	
+				$sparam=array('porderby'=>'tipoact_codigo'); 
+				$campos=array('codigo'=>'tipoact_codigo','descripcion'=>'tipoact_norma_legal', 'formact_codigo'=>'formact_codigo');
+				$nom_campo_xml=array('codigo'=>'codigo_tipoact','descripcion'=>'descripcion','formact_codigo'=>'codigo_formato');
+				$xsd ='tablaBasicaResolxTipo.xsd';
+				break;
+			default: 
+				$this->setError(WS_ERROR_SYSTABLE);	
+				return WS_ERROR ;
+				break;
+		}	
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$this->setError(WS_ERROR_SYSTABLE,": ".$vTabla);
+			return WS_ERROR ;
+		}
+		
+		$domDoc = new DOMDocument('1.0','utf-8');
+		$root = $domDoc->createElementNS(NAMESPACE,'resultado');
+		$root->setAttributeNS('http://www.w3.org/2000/xmlns/' ,'xmlns:xsi', DIRWS.$xsd);
+		$domResultado = $domDoc->appendChild($root);
+		$domElementFormatos = $domDoc->createElement('tabla_descriptores');
+		$domElementColeccionRegistros = $domDoc->appendChild($domElementFormatos);
+
+		while ($fila = mysqli_fetch_assoc($resultado))
+		{
+			$domElementRegistro = $domDoc->createElement('descriptor');
+			$domRegistro = $domElementColeccionRegistros->appendChild($domElementRegistro);
+			
+			foreach ($campos as $clave_campo => $valor) {			
+				$domElementAtributo = $domDoc->createElement($nom_campo_xml[$clave_campo]);
+				$domTextNode = $domRegistro->appendChild($domElementAtributo);
+				
+				$domTextNodeValue = $domDoc->createTextNode(htmlspecialchars($fila[$campos[$clave_campo]],ENT_QUOTES));
+				$domTextNode->appendChild($domTextNodeValue);		
+			}
+		}
+		
+		$domResultado = $domResultado->appendChild($domElementColeccionRegistros);
+		$domDoc->formatOutput = true;
+		$domDocXML = $domDoc->saveXML();
+		
+		return $domDocXML;				
+	}		
+}  // fin clase
+?>

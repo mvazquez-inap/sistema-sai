@@ -1,0 +1,741 @@
+<?php
+//----------------------------------------------------------------------------------------- 
+// Clase con la lógica para el manejo de roles
+
+/* La clase requiere que esten definidos:
+
+	Stored Básicos: 	sel_roles_orden
+						ins_roles	
+						upd_roles_xrolcod	
+						del_roles_xrolcod						
+						sel_roles_xusuariocod se reemplaza por sel_roles_jurisd_xusuariocod
+*/
+//-----------------------------------------------------------------------------------------
+class cRoles
+{
+	var $conexion;
+
+	public function __construct($conexion)
+	{
+		$this->conexion = &$conexion;
+	}
+
+//-----------------------------------------------------------------------------------------
+//							 PUBLICAS	
+//----------------------------------------------------------------------------------------- 
+// Tabla roles (rolcod, rolnom, roldesc, rolselecjurisd, ultmodusuario, ultmodfecha) 
+//----------------------------------------------------------------------------------------- 
+// Retorna el SP y los parametros para cargar los roles del sistema
+
+// Parámetros de Entrada:
+// Retorna:
+//		spnombre,spparam
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+
+	function RolesSP(&$spnombre,&$spparam)
+	{		
+		$spnombre="sel_roles_orden";
+		$spparam=array("porderby"=>"rolcod");
+		
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Retorna los valores posibles para cargar en el campo rolselecjurisd
+// Parámetros de Entrada:
+// Retorna:
+//		valores
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+
+	function ValoresPosibles($campo,&$valores)
+	{
+		$valores=array();
+
+		switch($campo)
+		{
+			case 'rolselecjurisd':
+				$valores=array('S','N');
+				break;
+			 default:
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error en la llamada a ValoresPosibles.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+		}				
+		
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Alta de un rol
+
+// Parámetros de Entrada:
+//		datos: un array asociativo con los datos a cargar
+
+// Retorna:
+//		rolcod: es el codigo del nuevo rol
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+
+	function AltaRol($datos,&$rolcod)
+	{
+		if(!$this->_DatosValidosAlta($datos,$datosvalidados))
+			return false;
+			
+		$spnombre="ins_roles";
+		$spparam =array("prolcod"=>$datosvalidados['rolcodnuevo']);
+		$spparam+=array("prolnom"=>$datosvalidados['rolnom']);
+		$spparam+=array("proldesc"=>$datosvalidados['roldesc']);
+		$spparam+=array("prolselecjurisd"=>$datosvalidados['rolselecjurisd']);
+		$spparam+=array("pultmodusuario"=>$_SESSION['usuariocod']);
+		$spparam+=array("pultmodfecha"=>date("Y/m/d H:i:s"));
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se ha podido insertar el rol.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		
+		$rolcod=$datosvalidados["rolcodnuevo"];
+		
+		return true;
+	}
+//----------------------------------------------------------------------------------------- 
+// Modificar un rol
+
+// Parámetros de Entrada:
+//		datos: un array asociativo con los datos nuevos
+//		rolcod: es el codigo del rol a modificar
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+
+	function ModificarRol($datos,$rolcod)
+	{
+		if(!$this->_DatosValidosModificacion($rolcod,$datos,$datosvalidados))
+			return false;
+
+		$spnombre="upd_roles_xrolcod";
+		$spparam =array("prolcodviejo"=>$datosvalidados['rolcodviejo']);
+		$spparam+=array("prolcodnuevo"=>$datosvalidados['rolcodnuevo']);
+		$spparam+=array("prolnom"=>$datosvalidados['rolnom']);
+		$spparam+=array("proldesc"=>$datosvalidados['roldesc']);
+		$spparam+=array("prolselecjurisd"=>$datosvalidados['rolselecjurisd']);
+		$spparam+=array("pultmodusuario"=>$_SESSION['usuariocod']);
+		$spparam+=array("pultmodfecha"=>date("Y/m/d H:i:s"));
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se ha podido actualizar el rol.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+				
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Borra un rol
+
+// Parámetros de Entrada:
+//		rolcod: es el codigo del rol a borrar
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+	
+	function BorrarRol($rolcod)
+	{	
+		if(!$this->_DatosValidosBorrado($rolcod))
+			return false;
+
+		$spnombre="del_roles_xrolcod";
+		$spparam =array("prolcod"=>$rolcod);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)
+		{
+			if($errno==MYSQLFORKEY)
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Existen datos relacionados con el rol '".$rolcod."'. Imposible borrarlo. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			else
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se han podido borrar el rol.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+
+			return false;
+		}
+
+		return true;
+	} 
+
+//-----------------------------------------------------------------------------------------
+//							 PRIVADAS	
+//----------------------------------------------------------------------------------------- 
+// Retorna si los datos enviados son válidos para dar de alta un nuevo rol
+
+// Parámetros de Entrada:
+//		datos: un array asociativo con los datos a cargar
+
+// Retorna:
+//		datosvalidados: datos habilitados para cargar en la base
+//		la función retorna true si los datos están correctos, false en caso contrario
+
+	function _DatosValidosAlta($datos,&$datosvalidados)
+	{
+		$datosvalidados=array();
+
+		$this->RolesSP($spnombre,$spparam);
+		$arraybusq=array("rolcod"=>$datos['rolcodnuevo']);
+		if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,$arraybusq,$query,$filalib,$numfilasmatcheo,$errno) || $numfilasmatcheo!=0)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Ya existe un rol con ese código. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		$arraybusq=array("rolnom"=>$datos['rolnom']);
+		if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,$arraybusq,$query,$filalib,$numfilasmatcheo,$errno) || $numfilasmatcheo!=0)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Ya existe un rol con ese nombre. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		if ($datos['rolcodnuevo']=="" || !FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['rolcodnuevo'],"NumericoEntero") )
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en el código de rol. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados['rolcodnuevo']=$datos['rolcodnuevo'];
+		
+		if ($datos['rolnom']=="")
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en el nombre del rol. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados['rolnom']=$datos['rolnom'];
+
+		if ($datos['roldesc']=='')
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en la descripción del rol. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados['roldesc']=$datos['roldesc'];
+		
+		$this->ValoresPosibles('rolselecjurisd',$valores_combo);		
+		if (!isset($datos['rolselecjurisd'])  || !in_array($datos['rolselecjurisd'],$valores_combo) ) 
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en el valor de selección de jurisdicción. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados['rolselecjurisd']=$datos['rolselecjurisd'];
+					
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Retorna si los datos enviados son válidos para actualizar un rol
+
+// Parámetros de Entrada:
+//		rolcod: es el rol a actualizar
+//		datos: un array asociativo con los datos a cargar
+
+// Retorna:
+//		datosvalidados: datos habilitados para actualizar el rol
+//		la función retorna true si los datos están correctos, false en caso contrario
+	
+	function _DatosValidosModificacion($rolcod,$datos,&$datosvalidados)
+	{
+		$datosvalidados=array();
+
+		$this->RolesSP($spnombre,$spparam);
+		$arraybusq=array("rolcod"=>$datos['rolcodnuevo']);
+		if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,$arraybusq,$query,$filalib,$numfilasmatcheo,$errno) || ($numfilasmatcheo!=0 && $filalib["rolcod"]!=$datos["rolcodviejo"]))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Ya existe un rol con ese código. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$arraybusq=array("rolcod"=>$datos['rolcodviejo']);
+		if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,$arraybusq,$query,$filalib,$numfilasmatcheo,$errno) || $numfilasmatcheo!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No existe el rol. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$arraybusq=array("rolnom"=>$datos['rolnom']);
+		if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,$arraybusq,$query,$filalib,$numfilasmatcheo,$errno) || ($numfilasmatcheo!=0 && $filalib["rolcod"]!=$datos["rolcodviejo"]))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Ya existe un rol con ese nombre. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		if ($datos['rolcodnuevo']=="" || !FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['rolcodnuevo'],"NumericoEntero") )
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en el código de rol. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados['rolcodviejo']=$datos['rolcodviejo'];
+		$datosvalidados['rolcodnuevo']=$datos['rolcodnuevo'];
+		
+		if ($datos['rolnom']=="")
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en el nombre del rol. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados['rolnom']=$datos['rolnom'];
+
+		if ($datos['roldesc']=='')
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en la descripción del rol. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados['roldesc']=$datos['roldesc'];
+
+		$this->ValoresPosibles('rolselecjurisd',$valores_combo);
+		if (!isset($datos['rolselecjurisd'])  || !in_array($datos['rolselecjurisd'],$valores_combo) ) 
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en el valor de selección de jurisdicción. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados['rolselecjurisd']=$datos['rolselecjurisd'];
+
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Retorna si el rol se puede borrar
+
+// Parámetros de Entrada:
+//		rolcod: es el rol a borrar
+
+// Retorna:
+//		la función retorna true si los datos están correctos, false en caso contrario
+
+	function _DatosValidosBorrado($rolcod)
+	{	
+		$this->RolesSP($spnombre,$spparam);
+		$arraybusq=array("rolcod"=>$rolcod);
+		if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,$arraybusq,$query,$filalib,$numfilasmatcheo,$errno) || $numfilasmatcheo!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No existe el rol. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Retorna una consulta con todos los roles asociados a un usuario
+
+// Parámetros de Entrada:
+//		usuariocod: buscar roles a los que acceda este usuario
+
+// Retorna:
+//		numfilas,resultado: cantidad de filas y query de resultado
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+
+	function RolesDeUnUsuario($usuariocod,&$numfilas,&$resultado)
+	{
+		$this->RolesDeUnUsuarioSP($usuariocod,$spnombre,$spparam);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando roles de un usuario. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Retorna el SP y los parametros para cargar los roles de un usuario
+
+// Parámetros de Entrada:
+//		usuariocod:
+
+// Retorna:
+//		spnombre,spparam
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+	
+	function RolesDeUnUsuarioSP($usuariocod,&$spnombre,&$spparam)	{
+		// Tengo que mandarle el rol del enlace para que si es enlace me deje la 
+		// jurisdicción que administra y no la propia.				
+		$spnombre="sel_roles_jurisd_xusuariocod";
+		$spparam=array("pusuariocod"=>$usuariocod);
+		$spparam+=array("prol_enlace"=>USUACTJUR);
+		$spparam+=array("porderby"=>'ro.rolcod');		
+				
+		return true;
+	}
+//----------------------------------------------------------------------------------------- 
+// Función retorna todos los datos de un rol.
+
+// Parámetros de Entrada:
+//		rolcod
+
+// Retorna:
+//		la función retorna true si no se produzco error, false en caso contrario
+//		$datosrol= Los datos de un rol
+
+	function TraerDatosRol($rolcod,&$error,&$datosrol)
+	{
+		$spnombre="sel_roles_xrolcod";
+		$spparammodif=array("prolcod"=>$rolcod);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparammodif,$query,$numfilas,$errno) || $numfilas!=1)
+		{
+			$error="DATOS ROLES";
+			return false;
+		}
+		$datosrol=mysqli_fetch_assoc($query);
+		return true;
+	}
+	
+//----------------------------------------------------------------------------------------- 
+// Retorna los roles que puede asignar un usuario a otro, eliminando los que ya tiene asignados
+
+// Parámetros de Entrada:
+//		rolcodactualiza:   es el rol del usuario logueado que quiere dar de alta el usuario/rol.  
+//		usuarioactualizar: es el usuariocod del usuario al cual se le quiere asignar el rol.
+
+// Retorna:
+//		numfilas,resultado: cantidad de filas y query de resultado
+//		la función retorna true o false si se pudo ejecutar con éxito o no.
+	
+	function RolesPosiblesAsignar($rolcodactualiza,$usuarioaactualizar,&$numfilas,&$roles_sin_asignar)
+	{
+	
+		$roles_sin_asignar=array();			
+
+		if(!$this->RolesDeUnUsuario($usuarioaactualizar,$numfilas,$resultado))
+			return false;
+	
+		$roles=array();
+		if($numfilas>0) {
+			while($fila=mysqli_fetch_assoc($resultado)) 
+				$roles_asignados[]=$fila["rolcod"];
+		} else
+			$roles_asignados[]=0; // rol falso para que no de error el "in" del sql cuando no tiene roles asignados
+	
+		// genero un string para el "in" con los roles que ya tiene asignado el usuario
+		$in_roles_asignados="(".implode(",",$roles_asignados).")";
+		$spnombre="sel_roles_abm_roles_sin_asignar_xrolactualiza";
+		$spparam=array("prolcodactualiza"=>$rolcodactualiza,"prolesasignados"=>$in_roles_asignados);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas_resu,$errno))		{
+			$txt_sys_mail = "Error seleccionando los roles sin asignar (sel_roles_abm_roles_sin_asignar_xrolactualiza)"."\nrolcodactualiza=".$rolcodactualiza."\nrolesasignados=".$rolesasignados;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando roles asignables.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail );
+			return false;
+		}
+
+		$roles_sin_asignar=array();
+		if($numfilas_resu>0) {
+			while($fila=mysqli_fetch_assoc($resultado))
+				$roles_sin_asignar[]=$fila["rolcod"];
+		}		
+		
+		$spnombre="sel_roles_asignables_xrolactualiza";
+		$spparam=array('prolcodactualiza'=>$rolcodactualiza);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas_resu,$errno))	{
+			$txt_sys_mail = "Error seleccionando los roles asignables (sel_roles_asignables_xrolactualiza)"."\nrolcodactualiza=".$rolcodactualiza;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando roles asignables.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		$todos_roles_asignables=array();
+		if($numfilas_resu>0) {
+			while($fila=mysqli_fetch_assoc($resultado))
+				$todos_roles_asignables[]=$fila["rolcod"];
+		} 
+
+		// Si tenia Coordinador Técnico o Usuario de Organismo 
+		// bajo determinadas condiciones puede volver a asignarlos
+		// pero no esta en roles_sin_asignar, por eso lo agrego a mano.
+
+		// Si el usuario puede asignar COORDINADOR TECNICO
+		// Si todos los coordinadores técnicos fueron asignados eliminar dicha posibilidad
+		if (in_array(COORDINADORTECNICO,$todos_roles_asignables)) {
+
+			$roles_sin_asignar[]=COORDINADORTECNICO;
+
+			$spnombre="sel_jurisdicciones_sin_coordinador";
+			$spparam=array('prolcod'=>COORDINADORTECNICO,'porderby'=>'jurisdnom');	
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas_resu,$errno))	{
+				$txt_sys_mail = "Error seleccionando las jurisdicciones sin coordinador (sel_jurisdicciones_sin_coordinador)";
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando roles asignables.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+				return false;
+			}			
+			// Saco Coordinador Técnico 
+			if ($numfilas_resu<=0)
+				$roles_sin_asignar=array_diff ($roles_sin_asignar, array(COORDINADORTECNICO));
+		}		
+
+		// Si el usuario puede asignar USUARIOS DE ORGANISMO
+		if (in_array(USUORGANISMO,$todos_roles_asignables)) {
+
+			$roles_sin_asignar[]=USUORGANISMO;
+
+			// Si el usuario no existe como usario de ese organismo.			
+			$spnombre='sel_usuarios_roles_jurisdiccion_inap_xusuariocod_rolcod_jurisdid';
+			$spparam=array('pusuariocod'=>$usuarioaactualizar);
+			$spparam+=array('prolcod'=>USUORGANISMO);
+			$spparam+=array('pjurisdid_inap'=>$_SESSION['jurisdid_inap']);
+			if(!($this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas_resu,$errno) )|| $numfilas_resu > 1)	{
+				$txt_sys_mail = "Error seleccionando las roles del usuario (sel_usuarios_roles_jurisdiccion_inap_xusuariocod_rolcod_jurisdid)";
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando roles asignables.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+				return false;
+			}			
+			// Saco ya es Usuario del Organismo con el cual estoy trabajando como coordinador
+			if ($numfilas_resu==1)
+				$roles_sin_asignar=array_diff ($roles_sin_asignar, array(USUORGANISMO));
+
+		}
+
+		// Si el usuario puede asignar Usuario Actualizador de Disposiciones Actividades Jurisdiccionales
+		if (in_array(USUDISJUR,$todos_roles_asignables)) {
+
+			$roles_sin_asignar[]=USUDISJUR;
+			
+			// Si el usuario no existe como usario de ese organismo.			
+			$spnombre='sel_usuarios_roles_jurisdiccion_inap_xusuariocod_rolcod_jurisdid';
+			$spparam=array('pusuariocod'=>$usuarioaactualizar);
+			$spparam+=array('prolcod'=>USUDISJUR);
+			$spparam+=array('pjurisdid_inap'=>$_SESSION['jurisdid_inap']);
+			if(!($this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas_resu,$errno) )|| $numfilas_resu > 1)	{
+				$txt_sys_mail = "Error seleccionando las roles del usuario (sel_usuarios_roles_jurisdiccion_inap_xusuariocod_rolcod_jurisdid)";
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando roles asignables.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+				return false;
+			}			
+			// Saco ya es Usuario del Organismo con el cual estoy trabajando como coordinador
+			if ($numfilas_resu==1)
+				$roles_sin_asignar=array_diff ($roles_sin_asignar, array(USUDISJUR));
+
+		}
+				
+		// Si el usuario puede asignar USUARIOS DE JURISDICCION (ENLACE)
+		// Si todos los organismos ya tienen enlace eliminar dicha posibilidad
+
+		if (in_array(USUACTJUR,$todos_roles_asignables)) {
+		
+			$spnombre="sel_jurisdicciones_sin_enlace";
+			$spparam=array('porderby'=>'jurisdnom');	
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas_resu,$errno))	{
+				$txt_sys_mail = "Error seleccionando las jurisdicciones sin enlace (sel_jurisdicciones_sin_enlace)";
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando roles asignables.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+				return false;
+			}
+
+			// Saco el enlace	
+			if ($numfilas_resu<=0)
+				$roles_sin_asignar=array_diff ($roles_sin_asignar, array(USUACTJUR));
+		}
+
+		$numfilas=count($roles_sin_asignar);
+
+		return true;
+	}
+//----------------------------------------------------------------------------------------- 
+// Retorna si se el rol/jurisdiccion puede asignar otro rol/jurisdiccion 
+	function TienePermisoAsignarRol($rolcod_actualiza,$jurisdid_actualiza,$rolcod_actualizado,$jurisdid_actualizado)
+	{
+		if(!$this->_TienePermisoSobreRol($rolcod_actualiza,$jurisdid_actualiza,$rolcod_actualizado,$jurisdid_actualizado))
+			return false;
+
+		return true;
+	}
+//----------------------------------------------------------------------------------------- 
+// Retorna si se el rol/jurisdiccion puede eliminar otro rol/jurisdiccion 
+	function TienePermisoDesasignarRol($rolcod_actualiza,$jurisdid_actualiza,$rolcod_actualizado,$jurisdid_actualizado)
+	{
+		if(!$this->_TienePermisoSobreRol($rolcod_actualiza,$jurisdid_actualiza,$rolcod_actualizado,$jurisdid_actualizado))
+			return false;
+
+		return true;
+	}
+//----------------------------------------------------------------------------------------- 
+// Retorna si se el rol/jurisdiccion puede modificación otro rol/jurisdiccion 
+	function TienePermisoModificarAsignacionRol($rolcod_actualiza,$jurisdid_actualiza,$rolcod_actualizado,$jurisdid_actualizado)
+	{
+		if(!$this->_TienePermisoSobreRol($rolcod_actualiza,$jurisdid_actualiza,$rolcod_actualizado,$jurisdid_actualizado))
+			return false;
+
+		return true;
+	}
+//----------------------------------------------------------------------------------------- 
+// Retorna si un rol tiene permiso de modificación sobre otro rol.
+	function _TienePermisoSobreRol($rolcod_actualiza,$jurisdid_actualiza,$rolcod_actualizado,$jurisdid_actualizado)
+	{
+		$spnombre="sel_roles_abm_roles_xrolactualiza_rolactualizado";
+		$spparam=array("prolcodactualiza"=>$rolcod_actualiza,"prolcodactualizado"=>$rolcod_actualizado);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas>1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando un rol. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+	
+		 // Si el rol tiene jurisdicción asociada COORDINADOR TECNICO O USUARIO DE ORGANISMO
+		if ($numfilas==0 || (USUORGANISMO==$jurisdid_actualizado && $jurisdid_actualiza!=$jurisdid_actualizado)  )
+		{	
+			$txt_sys_mail = "Error en permisos de acceso\n";
+			$txt_sys_mail.="\nrolcod_actualiza=".$rolcod_actualiza."\njurisdid_actualiza =".$jurisdid_actualiza;
+			$txt_sys_mail.="\nrolcod_actualizado =".$rolcod_actualizado."\njurisdid_actualizado =".$jurisdid_actualizado;
+			
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Ud. no tiene permisos de acceso sobre el rol.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+			
+		return true;
+	}
+//----------------------------------------------------------------------------------------- 
+// Asigna un rol a un usuario
+
+// Parámetros de Entrada:
+//		rolcodactualiza: es el rol que quiere asignarle a otro un rol
+//		usuariocod: es a quien se le quiere asignar
+//		rol_agregar: datos de un rol, que viene por post
+// Retorna:
+//		rolesagregados: es un string con los nombres de los roles agregados
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+	
+	function AsignarRol($rolcodactualiza,$usuariocod,$rol_agregar,&$error,&$errormail)
+	{
+	
+		$errorparam="\n rolcodactualiza=".$rolcodactualiza."\n usuariocod=".$usuariocod."\n rolcod=".$rol_agregar["rolcod"]."\n jurisdid_inap=".$rol_agregar["jurisdid_inap"];		
+		$error="Error al insertar el rol al usuario.";
+
+		if(!$this->RolesPosiblesAsignar($rolcodactualiza,$usuariocod,$numfilas_roles_asignables,$roles_asignables)) {
+			$errormail="Error al seleccionar los roles del usuario (RolesDeUnUsuario) "."\n".$errorparam;
+			return false;
+		}
+		
+		if ($numfilas_roles_asignables==0)  {
+			$errormail="Error al el usuario de actualización no tiene roles posibles a asignar "."\n".$errorparam;
+			return false;
+		}
+		
+		if(!in_array($rol_agregar['rolcod'],$roles_asignables)) {
+			$errormail="Error el rol no esta entre los factibles a agregar x el usuario "."\n".$errorparam;
+			return false;	
+		} else {	
+			if ($rol_agregar["rolcod"]==COORDINADORTECNICO) 
+				$jurisdid_inap=$rol_agregar["jurisdid_inap"];			
+			elseif ($rol_agregar["rolcod"]==USUORGANISMO || $rol_agregar["rolcod"]==USUDISJUR)					
+					$jurisdid_inap=$_SESSION["jurisdid_inap"];			
+				else 
+					$jurisdid_inap=0;			
+			
+			$spnombre="ins_usuarios_roles_jurisdiccion_inap";
+			$spparam=array("pusuariocod"=>$usuariocod);				
+			$spparam+=array("prolcod"=>$rol_agregar["rolcod"]);		
+			$spparam+=array("pjurisdid_inap"=>$jurisdid_inap);			
+			
+			$spparam+=array("pusuroljur_domicilio"=>($rol_agregar["rolcod"]==COORDINADORTECNICO)?$rol_agregar["usuroljur_domicilio"]:'NULL');				
+			$spparam+=array("pusuroljur_telefono"=>($rol_agregar["rolcod"]==COORDINADORTECNICO)?$rol_agregar["usuroljur_telefono"]:'NULL');				
+			$spparam+=array("pusuroljur_fax"=>($rol_agregar["rolcod"]==COORDINADORTECNICO)?$rol_agregar["usuroljur_fax"]:'NULL');				
+			
+			$spparam+=array("pultmodusuario"=>$_SESSION['usuariocod']);
+			$spparam+=array("pultmodfecha"=>date("Y/m/d H:i:s"));
+							
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)			{
+				$errormail="Error al insertar en ins_usuarios_roles_jurisdiccion_inap"."\n".$errorparam;
+				return false;
+			}
+		} 
+		
+		$oRol_Modulo=new cRoles_Modulos($this->conexion);
+		if(!$oRol_Modulo->Agregar_Modulos_De_Rol($usuariocod,$rol_agregar["rolcod"],$jurisdid_inap)) {
+			$errormail="Error al insertar módulos en Agregar_Modulos_De_Rol."."\n".$errorparam;
+			return false;
+		}		
+		
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Borra un rol a un usuario
+	function DesasignarRol($rolcodactualiza,$usuariocod,$rolcod,$jurisdid_inap,&$error,&$errormail)	{
+
+		$errorparam="\n rolcodactualiza=".$rolcodactualiza."\n usuariocod=".$usuariocod."\n rolcod=".$rolcod."\n jurisdid_inap=".$jurisdid_inap;		
+		$error="Error al eliminar el rol al usuario.";
+	
+		if(!$this->RolesDeUnUsuario($usuariocod,$numfilasroles,$resultadoroles)) {
+			$errormail="Error al al seleccionar los roles del usuario (RolesDeUnUsuario) "."\n".$errorparam;
+			return false;
+		}
+		
+		if ($numfilasroles==0)  {
+			$errormail="Error al el usuario no tiene roles "."\n".$errorparam;
+			return false;
+		}
+		
+		$roles_asignados=array();	
+		while ($fila_rol= mysqli_fetch_assoc($resultadoroles)) {
+			$roles_asignados[]=$fila_rol['rolcod'];
+		}
+		
+		if(!in_array($rolcod,$roles_asignados) ) {
+			$errormail="Error el rol no esta entre los factibles a eliminar al usuario "."\n".$errorparam;
+			return false;		
+		} else {
+			// Borrar (módulos) de usuarios_roles_jurisdiccion_inap_modulos del usuario/rol Falta (ver) 
+			$oRol_Modulo=new cRoles_Modulos($this->conexion);
+			if(!$oRol_Modulo->Eliminar_Modulos_De_Rol($usuariocod,$rolcod,$jurisdid_inap)) {
+				$errormail="Error al eliminar módulos en Eliminar_Modulos_De_Rol."."\n".$errorparam;
+				return false;
+			}		
+			// Borrar (enlaces) de usuarios_rol_jurisdiccion_enlace, en caso de ser USUACTJUR
+			if ($rolcod==USUACTJUR) {
+				$sparam =array("pusuariocod"=>$usuariocod);
+				$sparam+=array("prolcod"=>$rolcod);		
+				$spnombre="del_usuarios_enlace_jurisdiccion_inap_xusuariocod_rolcod";	
+				if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno)){
+					$errormail="Error al eliminar en usuarios_enlace_jurisdiccion_inap ".$errno."\n".$errorparam;
+					return false;
+				}
+				FuncionesPHPLocal::RegistrarAcceso($this->conexion,'034002',"Global/ usuariocod=".$usuariocod."-"." rolcod=".$rolcod,$_SESSION['usuariocod']);
+			}
+
+			// Borrar de (rol) usuarios_roles_jurisdiccion_inap			
+			$spnombre="del_usuarios_roles_jurisdiccion_inap_xusuariocod_rolcod_jurisdid";
+			$spparam=array("pusuariocod"=>$usuariocod);				
+			$spparam+=array("prolcod"=>$rolcod);				
+			$spparam+=array("pjurisdid_inap"=>$jurisdid_inap);				
+			
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1){
+				$errormail="Error al eliminar usuarios_roles_jurisdiccion_inap. \nnumfilas=".$numfilas."\n error=".$errno;
+				return false;
+			}	
+		} 
+
+		return true;
+	}
+//----------------------------------------------------------------------------------------- 
+// Modifica Datos asociados al Rol de usuario (por ahora sólo para el coordinador técnico)
+function ModificarAsignacionRol($rolcodactualiza,$usuariocod,$rolcod,$jurisdid_inap,$rol_act,&$error,&$errormail)	{
+
+	$errorparam="\n rolcodactualiza=".$rolcodactualiza."\n usuariocod=".$usuariocod."\n rolcod=".$rol_act["rolcod"]."\n jurisdid_inap=".$rol_act["jurisdid_inap"];		
+	$error="Error al modificar datos del rol del usuario.";
+
+	if(!$this->RolesPosiblesAsignar($rolcodactualiza,$usuariocod,$numfilas_roles_asignables,$roles_asignables)) {
+		$errormail="Error al al seleccionar los roles del usuario (RolesDeUnUsuario) "."\n".$errorparam;
+		return false;
+	}
+
+	if ($numfilas_roles_asignables==0)  {
+		$errormail="Error al el usuario de actualización no tiene roles posibles a asignar "."\n".$errorparam;
+		return false;
+	}
+
+	if(in_array($rol_act['rolcod'],$roles_asignables) ) { 
+		$errormail="Error al al seleccionar los roles del usuario (RolesDeUnUsuario) "."\n".$errorparam;
+		return false;
+	} else {
+		$spnombre="upd_usuarios_roles_jurisdiccion_inap";
+		$spparam=array("pusuariocod"=>$usuariocod);				
+		$spparam+=array("prolcod"=>$rolcod);				
+		$spparam+=array("pjurisdid_inap"=>$jurisdid_inap);				
+		$spparam+=array("pusuroljur_domicilio"=>$rol_act["usuroljur_domicilio"]);				
+		$spparam+=array("pusuroljur_telefono"=>$rol_act["usuroljur_telefono"]);				
+		$spparam+=array("pusuroljur_fax"=>$rol_act["usuroljur_fax"]);				
+		$spparam+=array("pultmodusuario"=>$_SESSION['usuariocod']);
+		$spparam+=array("pultmodfecha"=>date("Y/m/d H:i:s"));
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)			{
+			$errormail="Error modificando usuarios_roles_jurisdiccion_inap"."\n".$errorparam;
+			return false;
+		}
+	} 
+	
+	return true;
+	}
+//----------------------------------------------------------------------------------------- 
+}
+?>

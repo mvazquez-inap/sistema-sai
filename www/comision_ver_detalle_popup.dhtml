@@ -1,0 +1,52 @@
+<?php 
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+?>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 TRANSITIONAL//EN"> 
+<html>
+<head>
+<title>Detalle Comisi&oacute;n</title>
+<link rel="stylesheet" type="text/css" href="estilos.css">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+</head>
+<body>
+<script language="javascript" src="<?php echo DIR_JSComunes ?>funcionesjs.js" type="text/javascript"></script>
+<?php
+$oPersonas = new cPersonas($conexion);
+$oComision= new cComision($conexion);
+
+$filacomision=array();
+$filacomision['comi_codigo']=(isset($_GET['comi_codigo']))?$_GET['comi_codigo']:"";
+?>
+<div align="right">
+<br/>
+<a class="linkListadoMenu" href="download_tablas_excel.dhtml?tabla=actividad_comision&amp;comi_codigo=<?php echo $filacomision['comi_codigo'] ?>">Listado Detallado Actividad / Comisión <img alt="Bajar en Formato .xls" title="Bajar en Formato .xls" src="./images/iconoexcel.jpg" border="0" width="15"></a><br/><br/>
+<a class="linkListadoMenu" href="download_tablas_excel.dhtml?tabla=comision&amp;comi_codigo=<?php echo $filacomision['comi_codigo'] ?>">Listado Detallado Comisión <img alt="Bajar en Formato .xls" title="Bajar en Formato .xls" src="./images/iconoexcel.jpg" border="0" width="15"></a>
+<br/>
+</div>
+<?php
+if ( isset($_GET['comi_codigo']) ) {
+	if ($oComision->TraerDatosComision($filacomision['comi_codigo'],$filacomision,$es_modif)) {
+		if (!$es_modif) {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No se ha encontrado la Comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		} 
+	} // No se produjo error al buscar la comisión
+	$oComision->MostrarDatosComision($conexion,"V",$filacomision);
+}
+?>
+</body>
+</html>

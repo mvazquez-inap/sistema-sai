@@ -1,0 +1,157 @@
+<?php require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oMensajesInternos = new cMensajesInternos($conexion);
+$oUsuarios = new cUsuarios($conexion);
+//----------------------------------------------------------------------------------------- 
+?>
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 TRANSITIONAL//EN"> 
+<html>
+<head>
+<title>Detalle del Mensaje</title>
+<link rel="stylesheet" type="text/css" href="estilos.css">
+<link href="imprimir.css" rel="stylesheet" type="text/css" media="print" >
+</head>
+<body>
+
+<?php  require ('templates/rpt_imprimir.tpl.dhtml');  ?>
+<br><div class="textoTitulo" align="left"> Detalle del Mensaje </div><br>
+
+
+<?php 
+
+		$ok = true;
+		$ArregloDatos = array();
+		$ArregloDatos['msg_codigo'] = $_GET['msg_codigo'];
+
+		if (!$oMensajesInternos ->BuscarMensajesInternos($ArregloDatos,$numfilas_msg,$result_msg,$error,$errormail))
+		{
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error en la búsqueda de Mensajes internos. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$ok = false;
+			
+		}
+
+		if ($ok && ($numfilas_msg ==1)) {
+			$fila_mensaje = mysqli_fetch_assoc($result_msg);	
+	
+
+			if (!$oMensajesInternos ->CambioEstado($fila_mensaje['msg_codigo'],MENSAJELEIDO,$error,$errormail))
+			{
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al cambiar el estado del mensaje. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			
+			}
+
+					
+			if ($fila_mensaje['msg_usuariocod_origen'] != 0) { 	
+				if(!$oUsuarios->BuscarUsuariosXUsuariocod($fila_mensaje['msg_usuariocod_origen'],$numfilasusuarios,$resultadousuarios) || $numfilasusuarios!=1)
+				{
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error seleccionando usuarios. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				}
+				$filausuario_origen=mysqli_fetch_assoc($resultadousuarios);
+			} else {
+				$filausuario_origen=array(
+											'usuarionombre' => '-',
+											'usuarioapellido' => '-'											
+										);
+			
+			}
+
+			if(!$oUsuarios->BuscarUsuariosXUsuariocod($fila_mensaje['msg_usuariocod_destino'],$numfilasusuarios,$resultadousuarios) || $numfilasusuarios!=1)
+			{
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error seleccionando usuarios. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			}
+			$filausuario_destino=mysqli_fetch_assoc($resultadousuarios);
+
+			
+			
+				
+			?>
+				<table width="100%" class="textoTablaDatoBorde" align="center" border="1" cellpadding="4" cellspacing="0">
+                    <tr>
+                        <td class='textoEtiqueta' width="30%" align="left">Fecha</td>
+                        <td colspan="2" class="textoEtiquetaDatoResaltado" align="left"><?php echo date("d/m/Y H:i",strtotime($fila_mensaje['msg_fecha']))?></td>  
+                    </tr>  
+                    <tr>
+                        <td class='textoEtiqueta' width="30%" align="left">Asunto</td>
+                        <td colspan="2" class="textoEtiquetaDatoResaltado" align="left"><?php echo htmlspecialchars($fila_mensaje['msg_asunto'],ENT_QUOTES) ?></td>  
+                    </tr>  
+                    <tr>
+                        <td class='textoEtiqueta' width="30%" align="left">De</td>
+                        <td colspan="2" class="textoEtiquetaDatoResaltado" align="left"><?php echo htmlspecialchars($filausuario_origen['usuarionombre'],ENT_QUOTES) ." ". htmlspecialchars($filausuario_origen['usuarioapellido'],ENT_QUOTES) ?></td>  
+                    </tr>  
+                    <tr>
+                        <td class='textoEtiqueta' width="30%" align="left">Para</td>
+                        <td colspan="2" class="textoEtiquetaDatoResaltado" align="left"><?php echo htmlspecialchars($filausuario_destino['usuarionombre'],ENT_QUOTES) ." ". htmlspecialchars($filausuario_destino['usuarioapellido'],ENT_QUOTES) ?></td>  
+                    </tr>  
+                    <tr>
+                        <td class='textoEtiqueta' width="30%" align="left">Mensaje</td>
+                        <td colspan="2" class="textoEtiquetaDatoResaltado" align="left"><?php echo nl2br(htmlspecialchars($fila_mensaje['msg_mensaje'],ENT_QUOTES)) ?></td>  
+                    </tr>  
+                </table>
+                
+                <?php if ((RUN_ACTUAL == RUN_DESARROLLO) || ($_SESSION['rolcod'] == ADMIONTI)) { ?>
+                
+				<br><div class="textoTitulo" align="left"> Datos de Auditoría </div><br>
+				<table width="100%" class="textoTablaDatoBorde" align="center" border="1" cellpadding="4" cellspacing="0">
+                    <tr>
+                        <td class='textoEtiqueta' width="30%" align="left">Sistema</td>
+                        <td colspan="2" class="textoEtiquetaDatoResaltado" align="left"><?php echo htmlspecialchars($fila_mensaje['sis_nombre'],ENT_QUOTES) ?></td>  
+                    </tr>  
+                    <tr>
+                        <td class='textoEtiqueta' width="30%" align="left">IP Origen</td>
+                        <td colspan="2" class="textoEtiquetaDatoResaltado" align="left"><?php echo htmlspecialchars($fila_mensaje['msg_ip_origen'],ENT_QUOTES) ?></td>  
+                    </tr>  
+                    <tr>
+                        <td class='textoEtiqueta' width="30%" align="left">Nivel del Mensaje</td>
+                        <td colspan="2" class="textoEtiquetaDatoResaltado" align="left">
+						
+						
+						<?php echo htmlspecialchars($fila_mensaje['msg_nivel_mensaje'],ENT_QUOTES) ?></td>  
+                    </tr>  
+                    <tr>
+                        <td class='textoEtiqueta' width="30%" align="left">Archivo</td>
+                        <td colspan="2" class="textoEtiquetaDatoResaltado" align="left"><?php echo htmlspecialchars($fila_mensaje['msg_archivo_ejec'],ENT_QUOTES) ?></td>  
+                    </tr>  
+                    <tr>
+                        <td class='textoEtiqueta' width="30%" align="left">Función</td>
+                        <td colspan="2" class="textoEtiquetaDatoResaltado" align="left"><?php echo htmlspecialchars($fila_mensaje['msg_funcion'],ENT_QUOTES) ?></td>  
+                    </tr>  
+                    <tr>
+                        <td class='textoEtiqueta' width="30%" align="left">Variables de entorno</td>
+                        <td colspan="2" class="textoEtiquetaDatoResaltado" align="left"><?php echo nl2br(htmlspecialchars($fila_mensaje['msg_variables'],ENT_QUOTES)) ?></td>  
+                    </tr>  
+				</table>                
+                
+                <?php } ?>
+                
+
+			<?php
+		}
+		
+
+		
+
+
+
+		
+	
+
+?>
+
+
+

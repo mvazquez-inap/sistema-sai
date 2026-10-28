@@ -1,0 +1,97 @@
+<?php
+// Web Service
+ini_set("mysql.trace_mode",0);
+
+error_reporting (E_ALL); 
+
+define("DOCUMENT_ROOT",$_SERVER['DOCUMENT_ROOT']);
+
+// Cambiar Por el servidor 
+$servidor="10.1.10.173"; 					// Desarrollo	
+// $servidor="127.0.0.1"; 					// Local
+// $servidor="sai.sgp.gov.ar"; 				// Produccion
+// $servidor="sai-testing.sgp.gov.ar"; 	    // Testing 
+
+if ($servidor=="10.1.10.173" || $servidor=="127.0.0.1") { 
+	define("DIR_ROOT",$_SERVER['DOCUMENT_ROOT']."/sai/"); // directorio sobre el que está corriendo el sistema
+	define("DIRWS",$servidor."/sai/wsSai/"); 
+} else {
+
+	// Existe un dominio creado	
+	$pos=strrpos($_SERVER['DOCUMENT_ROOT'],'/',-2);
+	
+	// echo "<br>Pos=".$pos;
+	// echo "<br>sub=".substr($_SERVER['DOCUMENT_ROOT'],0,$pos+1);
+	// define("DIR_ROOT",$_SERVER['DOCUMENT_ROOT']); 
+	
+	define("DIR_ROOT",substr($_SERVER['DOCUMENT_ROOT'],0,$pos+1)); 
+	// define("DIR_ARCH",DOCUMENT_ROOT);
+	define("DIRWS",$servidor."/wsSai/"); 
+}
+
+// echo "<br>DIR_ARCH =".DIR_ARCH;
+if($servidor=="sai.sgp.gov.ar")
+	define("DIR_CLASES",DIR_ROOT."/clases/"); 
+else
+	define("DIR_CLASES",DIR_ROOT."clases/"); 
+
+define("NAMESPACE","ar.gov.sgp.sai"); 
+
+require_once("../parametros.dhtml");
+require_once(DIR_CLASES."accesoBD.dhtml");
+require_once(DIR_CLASES."funcionesphp.dhtml");
+require_once(DIR_CLASES."sesion.dhtml");
+
+require_once("SysONTIJurisdiccionesSai.dhtml");
+require_once('SysONTIMensajesInternos.dhtml');
+
+// Tablas descriptores simples.
+require_once(DIR_CLASES."cTablaSysDesc.dhtml");
+require_once(DIR_CLASES."cTablaAreaCursoInap.dhtml");
+require_once(DIR_CLASES."cTablaProgramaCursoInap.dhtml");
+
+require_once(DIR_CLASES."cTablaSede.dhtml");
+require_once(DIR_CLASES."cTablaTipoInscripcion.dhtml");
+require_once(DIR_CLASES."cTablaAgenteTipoFuncion.dhtml");
+
+require_once(DIR_CLASES."cTablaOrganismoPublico.dhtml");
+require_once(DIR_CLASES."cTablaOrganismoPrivado.dhtml");
+
+require_once(DIR_CLASES."cTablaAreaGeneral.dhtml");
+require_once(DIR_CLASES."cTablaAreaContextual.dhtml");
+require_once(DIR_CLASES."cTablaAreaEspecifica.dhtml");
+require_once(DIR_CLASES."cTablaTipoCertificacion.dhtml");
+
+require_once(DIR_CLASES."cPersonas.dhtml");
+require_once(DIR_CLASES."cAgentes.dhtml");
+require_once(DIR_CLASES."cEscalafones.dhtml");
+require_once(DIR_CLASES."cProvincias.dhtml");
+
+require_once(DIR_CLASES."cActividad.dhtml");
+require_once(DIR_CLASES."cActividadCurso.dhtml");
+require_once(DIR_CLASES."cActividadCursoInap.dhtml");
+require_once(DIR_CLASES."cActividadCursoJurisdiccional.dhtml");
+require_once(DIR_CLASES."cActividadCursoInstitucional.dhtml");
+require_once(DIR_CLASES."cActividadCursoPrestadorDocente.dhtml");
+require_once(DIR_CLASES."cActividadCursoInstitucionalPersona.dhtml");
+
+require_once(DIR_CLASES."cActividadAutodesarrollo.dhtml");
+require_once(DIR_CLASES."cActividadAutodesarrolloPersona.dhtml");
+require_once(DIR_CLASES."cActividadExterna.dhtml");
+require_once(DIR_CLASES."cActividadExternaPersona.dhtml");
+
+require_once(DIR_CLASES."cComision.dhtml");
+require_once(DIR_CLASES."cComisionPrestadorDocente.dhtml");
+require_once(DIR_CLASES."cComisionCronograma.dhtml");
+require_once(DIR_CLASES."cComisionPersona.dhtml");
+require_once(DIR_CLASES."cComisionPersonaCandidato.dhtml");
+
+require_once(DIR_CLASES."cDictamen.dhtml");
+require_once(DIR_CLASES."cPonderadorDictamen.dhtml");
+require_once(DIR_CLASES."cExpediente.dhtml");
+require_once(DIR_CLASES."cDisposicion.dhtml");
+
+require_once('cWsCreditosPersonales.dhtml');
+require_once('cWsTablasBasicas.dhtml');
+
+?>

@@ -1,0 +1,459 @@
+<?php 
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$jurisdicciones=new jurisdicciones($conexion);
+?>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 TRANSITIONAL//EN"> 
+<html>
+<head>
+<title>Ventana de Organismos Públicos &nbsp;</title>
+<link rel="stylesheet" type="text/css" href="estilos.css">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+</head>
+<body>
+<script language="javascript" src="<?php echo DIR_JSComunes ?>funcionesjs.js" type="text/javascript"></script>
+
+<SCRIPT type="text/javascript">
+//  Comienzo -->
+// -------------------------------------------------------------------------------------------------
+function SelObj(formname,selname,textname,str) {
+	this.formname = formname;
+	this.selname = selname;
+	this.textname = textname;
+	this.select_str = str || '';
+	this.selectArr = new Array();
+	this.initialize = initialize;
+	this.bldInitial = bldInitial;
+	this.bldUpdate = bldUpdate;
+}
+// -------------------------------------------------------------------------------------------------
+function initialize(formulario,selname) {
+	if (this.select_str =='') {
+		for(var i=0;i<document.forms[formulario][selname].options.length;i++) {
+		
+			this.selectArr[i] = document.forms[formulario][selname].options[i];
+			this.select_str += document.forms[formulario][selname].options[i].value+":"+
+			document.forms[formulario][selname].options[i].text;
+		if (i<document.forms[formulario][selname].options.length-1)
+			this.select_str += ",";
+		   }
+	} else {
+		var tempArr = this.select_str.split(',');
+		for(var i=0;i<tempArr.length;i++) {
+			var prop = tempArr[i].split(':');
+			this.selectArr[i] = new Option(prop[1],prop[0]);
+		}
+	}
+	return;
+}
+// -------------------------------------------------------------------------------------------------
+function bldInitial(formulario,selname) {
+
+	this.initialize(formulario,selname);
+	for(var i=0;i<this.selectArr.length;i++)
+		document.forms[formulario][selname].options[i] = this.selectArr[i];
+	document.forms[formulario][selname].options.length = this.selectArr.length;
+	return;
+}
+// -------------------------------------------------------------------------------------------------
+function bldUpdate(formulario,selname) {
+	var pattern1;
+ 	var str = document.forms[formulario][this.textname].value.replace('^\\s*','');
+	if(str == '') {this.bldInitial();return;}
+	this.initialize(formulario,selname);
+	var j = 0;
+
+// 	pattern1 = new RegExp("^"+str,"i");
+//	pattern1 = new RegExp("."+str+".","i");
+	pattern1 = new RegExp(""+str+"","i");
+	
+	for(var i=0;i<this.selectArr.length;i++)
+		if(pattern1.test(this.selectArr[i].text)) 
+			document.forms[formulario][selname].options[j++] = this.selectArr[i];
+
+	document.forms[formulario][selname].options.length = j;
+	if(j==1) {
+		document.forms[formulario][selname].options[0].selected = true;
+	}
+}
+// -------------------------------------------------------------------------------------------------
+function setUp() {
+	obj1 = new SelObj('formulario','org_codigo','entry');
+	obj1.bldInitial('formulario','org_codigo'); 
+}
+
+// -------------------------------------------------------------------------------------------------
+function SeleccionarItemLista(Lista,index) {
+	Lista.options[index].selected=true;
+}
+// -------------------------------------------------------------------------------------------------
+//  Fin -->
+</SCRIPT>
+<?php
+//----------------------------------------------------------------------------------------- 
+// Arma una lista con buscador con la informacion del SP enviado
+
+// Parametros:
+// 		->spnombre y spparam se usan para armar el query
+// 		->nomformulario es el nombre del formulario sobre el que está la lista
+// 		->nombrelista es el nombre de la lista
+// 		->clavelista y desclista son campos del query con los que arma la lista
+// 		->claveselec es el registro que hay que seleccionar
+// 		->textolineauno es el texto del primer option del combo, cuando no hay nada seleccionado
+// 		->regactual, en caso que se haya seleccionado un option se retorna la fila completa
+// 		->filas, es la cantidad de filas que muestra la lista
+//		->$onchange: la accion javascript al momento de seleccionar un elemento de la lista
+//		->$style: estilo a aplicar sobre el combo
+//		->$multiple: si se permite que en una lista se puedan elegir mas de un item
+//		->$onDbClick: la accion javascript al momento de hacer un doble click en la lista
+//		->$vertextocompleto: indica si se muestra el link abajo para ver texto completo
+
+function Armar_Lista_Buscador($conexion,$spnombre, $spparam, $nomformulario, $nombrelista,$clavelista, $desclista, $claveselec, $textolineauno, $regactual,$filas="10",$onchange="",$style="width: 370px",$multiple=false,$onDbClick="") {
+
+	// Cargo los registros del query seleccionado
+	if(!$conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$num_filas,$errno))
+		return false;
+
+?>
+	<table width="95%" class="textotabla" border="0" cellpadding="2" cellspacing="2" align="center">
+      <tr>
+        <td width="100%" class="textoTablaDatoResaltado"><p><?php echo $textolineauno; ?></p>
+        <p>	   <input onKeyUp="javascript:obj1.bldUpdate('<?php echo $nomformulario?>','<?php echo $nombrelista?>');" size=40 name="entry" class="textoInput">
+		</p></td>
+      </tr>
+      <tr>
+        <td width="100%">
+	<?php		echo "<select id= '".$nombrelista."' name='".$nombrelista."' size='".$filas."' class='combos' style='".$style."' onChange='".$onchange."'  ondblclick='".$onDbClick."' ".($multiple?"multiple":"").">\n";
+			// Recorre el cursor desde el principio, poniendo cada fila en una linea del combo
+			while ($fila = mysqli_fetch_assoc($resultado))
+			{ 
+				if($fila[$clavelista]==$claveselec) 
+				{
+					echo "<option selected value='".htmlspecialchars($fila[$clavelista],ENT_QUOTES)."'> ".htmlspecialchars($fila[$desclista],ENT_QUOTES)." </option>\n";
+					$seleccionado=true;
+					$regactual=$fila;
+				}
+				else
+					echo "<option value='".htmlspecialchars($fila[$clavelista],ENT_QUOTES)."'> ".htmlspecialchars($fila[$desclista],ENT_QUOTES)." </option>\n";
+			}
+			echo("</select>\n");
+			
+			?>
+        </td>
+      </tr>
+      <tr>
+        <td><div align="center">
+			<a href="javascript:void(0)" onClick="addValorPopupTipo(window.opener.document,'jurisdid',<?php echo $nombrelista?>.options[<?php echo $nombrelista?>.selectedIndex].value,<?php echo $nombrelista?>.options[<?php echo $nombrelista?>.selectedIndex].text,'tipoorg_codigo','<?php echo ORGANISMO_NO_APN?>','<?php echo $_GET['texto']?>');window.close();" title="Seleccionar"> <img src="images/activar.jpg" alt="Seleccionar" border="0"></a>
+        	</div>
+		</td>
+      </tr>
+</table>
+<script type="text/javascript">
+		var obj1;
+		obj1 = new SelObj('<?php echo $nomformulario?>','<?php echo $nombrelista?>','entry');
+		obj1.bldInitial('<?php echo $nomformulario?>','<?php echo $nombrelista?>'); 
+</script>
+<?php
+} //-----------------------------------------------------------------------------
+
+
+// ---------------------------------------------------------------------------------------------------------------- 
+// Arma una lista in con los tipos de Organismo que dependen del poder 
+// Ejecutivo Nacional.
+function InTipoOrgDepEjeNacional($objJurisdicciones) {
+
+	$objJurisdicciones->BuscarRaizTipoOrg(TABGRALES_TIPOORG_NAC_EJ,array(),TABGRALES_TS_ARRAY,$nodo_jurisd,array(),$CodError);
+	// Resetea el puntero al primer elemento y retorna el primer elemento.
+	reset($nodo_jurisd); 
+	$jurisd_raiz = current($nodo_jurisd);
+
+	// Tipos de Organismo dependientes de Ejecutivo Nacional		
+	// $jurisd_raiz['jurisdid']
+	if (!$objJurisdicciones->BuscarTipoOrgSubArbolDependiente($jurisd_raiz['jurisdid'],JURISD_TODOSLOSNIVELES,array('pjurisdestado'=>TABGRALES_JURISDACTIVA),TABGRALES_TS_ARRAY,$array_tipo_org,array(),$NumFilas,$CodError) )
+		return false;
+
+	foreach ($array_tipo_org as $keyTipoOrg=>$valorTipoOrg) {
+		$array_tipoOrg_ids[] = $valorTipoOrg['tipoorgid'];
+	}
+
+	$in_tipo_org=array();
+	$in_tipo_org=FuncionesPHPLocal::ArrayToArray_Delimitado($array_tipoOrg_ids," tipoorgid in (",",",")");
+
+	return $in_tipo_org;
+}
+//----------------------------------------------------------------------------------------- 
+
+//----------------------------------------------------------------------------------------- 
+function Comienzo_pagina($pagina,$tamano_pagina) {
+	$inicio = ($pagina - 1) * $tamano_pagina; 
+	return $inicio;
+}
+
+//----------------------------------------------------------------------------------------- 
+// FUNCIONES PARA LA BUSQUEDA DE FUNCIONARIOS, ORGANISMOS Y CARGOS
+// ---------------------------------------------------------------------------------------------------------------- 
+// Busca los organismos, por nombre del organismo ordenando el resultado cualquiera de los criterios posibles
+// 		1) Se obtiene la cantidad de organismos que cumplen con el filtro seleccionado.
+//		2) Se obtiene todos los organismos que cumplan con el filtro seleccionado.
+//			Si el orden es por organismo se limitan y ordenan los registros de salida.
+// 		    en otro caso no se limita ni ordena.
+// ---------------------------------------------------------------------------------------------------------------- 
+function ObtenerOrganismosxJurisd($idconexion,$objJurisdicciones,$oper_campo,$valor_buscado,
+								  $orden,$inicio,$resu_x_pag,$numero_pagina,&$cant_total,&$array_jurisd) {
+
+	$array_func=array();
+
+	// No debiera pero no tengo la funcionalidad para sacar la Raiz
+    $arrayin=array_merge(array(' and '),InTipoOrgDepEjeNacional($objJurisdicciones));
+    $arrayin=array_merge($arrayin,array(" and jurisdarboltiponodo != 'R'" ));
+
+	// Saco la cantidad total de jurisdicciones que cumplen la condición sobre el nombre
+	if (!$objJurisdicciones->SelectCantJurisdxCampo("jurisdnom",$oper_campo,$valor_buscado,array('pjurisdestado'=>TABGRALES_JURISDACTIVA,'pjurisdwhere'=>$arrayin),$cant_total,$CodError))
+		return false;
+	
+	if ($cant_total==0) 
+		return true;
+	
+	// Saco los organismos segun el criterio 
+	//	si el orden es por organismo se ordena y limita los registros a los posibles en una pagina
+	//  en caso contrario no se ordena ni limita la salida.
+	if (trim(strtolower($orden)) == 'jurisdnom asc' || trim(strtolower($orden)) == 'jurisdnom desc')
+		$param_juris=array('pjurisdestado'=>TABGRALES_JURISDACTIVA,'pjurisdwhere'=>$arrayin,'pjurisdorden'=>$orden,'pjurisdlimit'=>$inicio.",".$resu_x_pag);
+	else
+		$param_juris=array('pjurisdestado'=>TABGRALES_JURISDACTIVA,'pjurisdwhere'=>$arrayin);
+	
+	if (!$objJurisdicciones->SelectJurisdxCampo("jurisdnom",$oper_campo,$valor_buscado,$param_juris,TABGRALES_TS_ARRAY,$array_jurisd,array(),$NumFilas,$CodError))
+		return false;
+
+	
+	if($CodError)
+		return false;
+	
+	return true;
+}
+
+
+
+
+
+?>		
+	<form name="form_combo" action="<?php echo $_SERVER['PHP_SELF']?>" method="post">
+		<table  width="100%" class="textotabla">
+		<tr>
+			<td valign="top" width="20%"><span class='textoEtiqueta'>Tipo de Organismo</span></td>
+			<td  class="textoEtiquetaDatoResaltado">
+			<?php 	$querystring=FuncionesPHPLocal::ArmarQueryString("tipo_org");
+				$valores_combo = array();
+				switch ($_GET['tipo_organismo']) {
+					case "A" :
+						$valores_combo[1]['tipoorg_codigo'] = ORGANISMO_APN;
+						$valores_combo[1]['tipoorg_nombre'] = "Organismo del Poder Ejecutivo Nacional";
+						break;
+
+					case "N" :
+						$valores_combo[1]['tipoorg_codigo'] = ORGANISMO_NO_APN;
+						$valores_combo[1]['tipoorg_nombre'] = "Otro Organismo Público";
+						break;
+
+					case "T" :
+						$valores_combo[1]['tipoorg_codigo'] = ORGANISMO_APN;
+						$valores_combo[1]['tipoorg_nombre'] = "Organismo del Poder Ejecutivo Nacional";
+						$valores_combo[2]['tipoorg_codigo'] = ORGANISMO_NO_APN;
+						$valores_combo[2]['tipoorg_nombre'] = "Otro Organismo Público";					
+						break;
+				}
+				FuncionesPHPLocal::ArmarCombo_deArray($valores_combo,"form_combo","tipoorg_codigo","tipoorg_codigo","tipoorg_nombre",$querystring,"-- Seleccione un tipo",$regactual,$seleccion_tipoorg);
+			?> 
+			</td>
+		</tr>
+		</table>
+		</form>
+		
+		<?php if ((isset($_GET['tipoorg_codigo'])) && ($_GET['tipoorg_codigo'] ==ORGANISMO_APN))  { ?>
+			<form name="form_buscar" action="<?php echo $_SERVER['PHP_SELF']."?".$querystring?>" method="post">
+				<table  width="100%" class="textotabla" >
+				<tr>
+					<td valign="top" width="20%"><span class='textoEtiqueta'>Organismo</span></td>
+					<td  class="textoEtiquetaDatoResaltado" >
+						<input type="text" name="jurisdnom" id="jurisdnom" size="30" maxlength="200" class='textoInput' value="">					
+					</td>
+					<td class="textoEtiqueta">
+						<input type="submit" name="bot_buscar" value="Buscar" class="botones" />
+					</td>
+					
+				</tr>	
+				</table>
+			</form>
+	<?php } ?>
+
+		
+<?php
+if($seleccion_tipoorg) {
+?>
+	<form name="formulario"  id="formulario" action="<?php echo $_SERVER['PHP_SELF']?>" method="post">
+<?php
+		// buscador por organismo
+		if (isset($_POST['bot_buscar']))  {
+
+			$valor_buscado="%".$_POST['jurisdnom']."%";			
+			
+			$oper_campo=JURISD_BUSQCAMPOCONTIENE;
+			$orden = "jurisdnom ASC";
+			// no está paginado, se muestran LIMITE_BUSQUEDA_MEDIANO organismos
+			$numero_pagina = 1;
+			$resu_x_pag = LIMITE_BUSQUEDA_MEDIANO;
+	
+			$inicio = Comienzo_pagina($numero_pagina,$resu_x_pag);
+			$resultado_ok = ObtenerOrganismosxJurisd($conexion,$jurisdicciones,$oper_campo,$valor_buscado,$orden,$inicio,$resu_x_pag,$numero_pagina,$cant_total,$array_jurisd);
+				
+			
+			if ($resultado_ok) {
+	?>
+				<table width="95%" class="textotabla" border="1" cellpadding="2" cellspacing="2" align="center">
+	<?php
+						foreach($array_jurisd as $jurisdid=>$datos_jurisd)
+						{
+					?>
+							<tr>
+							<td width="90%" class="textoEtiquetaDato">
+								<?php echo htmlspecialchars($datos_jurisd["jurisdnom"],ENT_QUOTES) ?>
+							</td>
+							<td width="5%">
+					<?php
+					
+							if(!$jurisdicciones->SubArbolDependiente($datos_jurisd["jurisdid"],1,array('pjurisdestado'=>TABGRALES_JURISDACTIVA),TABGRALES_TS_ARRAY,$array_jurisd,array(),$NumFilas,$CodError))
+							{
+								FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"No se pudieron obtener los organismos dependientes de '".$datos_jurisd["jurisdid"]."'. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TABLA,"cantcols"=>2));
+								die();
+							}
+					
+							if($NumFilas>1)
+							{
+								$querystring=FuncionesPHPLocal::ArmarQueryString("inicio");
+								$querystring=FuncionesPHPLocal::ArmarQueryString("tipoorg_codigo");						
+								$querystring.="&amp;inicio=".$jurisdid;
+								$querystring.="&amp;tipoorg_codigo=".$_GET['tipoorg_codigo'];						
+					?>
+								<a href="<?php echo $_SERVER['PHP_SELF']."?".$querystring ?>" title="Ver Dependencias"><img src="images/bajar.png" border="0" alt="Ver Dependencias" align="middle"></a>
+					 
+					<?php		
+							}
+					?>		
+							</td>
+							<td width="5%">
+								<a href="javascript:void(0)" onClick="addValorPopupTipo(window.opener.document,'<?php echo $_GET['destino']?>','<?php echo $jurisdid ?>','<?php echo htmlspecialchars($datos_jurisd["jurisdnom"],ENT_QUOTES);?>','tipoorg_codigo','<?php echo ORGANISMO_APN ?>','<?php echo $_GET['texto']?>');window.close();" title="Seleccionar"> <img src="images/activar.jpg" alt="Seleccionar" border="0"></a>
+							</td>
+						</tr>	
+
+					<?php 	}  // foreach?>
+
+				</table>
+	<?php					
+			} // if (resultado_ok)
+		
+		} else { 
+			
+			// navegación en estructura
+
+			if (($_GET['tipoorg_codigo'] == ORGANISMO_APN)) {
+	
+					if(!$jurisdicciones->RamaAscendente($_GET["inicio"],JURISD_TODOSLOSNIVELES,array('pjurisdestado'=>TABGRALES_JURISDACTIVA),TABGRALES_TS_ARRAY,$array_ascend,array(),$NumFilas,$CodError))
+					{
+						FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"No se pudo obtener la rama ascendente de '".$_GET["inicio"]."'. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TABLA,"cantcols"=>2));
+						die();
+					}
+
+					echo "<br>";
+					
+					$margen=0;
+					foreach($array_ascend as $jurisdid=>$datos_jurisd)
+					{
+						$querystring=FuncionesPHPLocal::ArmarQueryString("inicio");
+						$querystring=FuncionesPHPLocal::ArmarQueryString("tipoorg_codigo");						
+						$querystring.="&amp;inicio=".$datos_jurisd["jurisdid"];
+						$querystring.="&amp;tipoorg_codigo=".$_GET['tipoorg_codigo'];						
+						
+					?>
+						<div style="margin-left:<?php echo $margen*15+10 ?>px">
+							<a href="javascript:void(0)" onClick="addValorPopupTipo(window.opener.document,'<?php echo $_GET['destino']?>','<?php echo $datos_jurisd["jurisdid"] ?>','<?php echo htmlspecialchars($datos_jurisd["jurisdnom"],ENT_QUOTES);?>','tipoorg_codigo','<?php echo ORGANISMO_APN ?>','<?php echo $_GET['texto']?>');window.close();" title="Seleccionar"> <img src="images/activar.jpg" alt="Seleccionar" border="0" style="vertical-align:-5px"></a>
+							<a href="<?php echo $_SERVER['PHP_SELF']."?".$querystring ?>" class="linkFondoBlanco">
+								<?php echo htmlspecialchars($datos_jurisd["jurisdnom"],ENT_QUOTES) ?>
+							</a>
+						</div>
+					<?php
+						$margen++;
+					}
+			
+				?>
+				<br>
+				
+				<table width="95%" class="textotabla" border="1" cellpadding="2" cellspacing="2" align="center">
+				<?php
+					if(!$jurisdicciones->SubArbolDependiente($_GET["inicio"],1,array('pjurisdestado'=>TABGRALES_JURISDACTIVA),TABGRALES_TS_ARRAY,$array_jurisd,array(),$NumFilas,$CodError))
+					{
+						FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"No se pudieron obtener los organismos dependientes de '".$_GET["inicio"]."'. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TABLA,"cantcols"=>2));
+						die();
+					}
+					//elimino el primer elemento, manteniendo las claves
+					unset($array_jurisd[key($array_jurisd)]);
+				
+					foreach($array_jurisd as $jurisdid=>$datos_jurisd)
+					{
+				?>
+					<tr>
+						<td width="90%" class="textoEtiquetaDato">
+							<?php echo htmlspecialchars($datos_jurisd["jurisdnom"],ENT_QUOTES) ?>
+						</td>
+						<td width="5%">
+				<?php
+						if(count($datos_jurisd["IDHijos"])>0)
+						{
+							$querystring=FuncionesPHPLocal::ArmarQueryString("inicio");
+							$querystring=FuncionesPHPLocal::ArmarQueryString("tipoorg_codigo");						
+							$querystring.="&amp;inicio=".$jurisdid;
+							$querystring.="&amp;tipoorg_codigo=".$_GET['tipoorg_codigo'];						
+				?>
+							<a href="<?php echo $_SERVER['PHP_SELF']."?".$querystring ?>" title="Ver Dependencias"><img src="images/bajar.png" border="0" alt="Ver Dependencias" align="middle"></a>
+				 
+				<?php		
+						}
+				?>		
+						</td>
+						<td width="5%">
+							<a href="javascript:void(0)" onClick="addValorPopupTipo(window.opener.document,'<?php echo $_GET['destino']?>','<?php echo $jurisdid ?>','<?php echo htmlspecialchars($datos_jurisd["jurisdnom"],ENT_QUOTES);?>','tipoorg_codigo','<?php echo ORGANISMO_APN ?>','<?php echo $_GET['texto']?>');window.close();" title="Seleccionar"> <img src="images/activar.jpg" alt="Seleccionar" border="0"></a>
+						</td>
+					</tr>
+				
+				<?php
+				}	?>	
+				</table>
+	<?php
+			}  else { 	//		if ($_GET['tipoorg_codigo'] == "ORGANISMO_APN") {
+					if (($_GET['tipoorg_codigo'] == ORGANISMO_NO_APN)) {
+						$spnombre = "sel_organismo_publico_xestado_orden";
+						$spparam = array("porgapub_estado"=>ESTADOACTIVO, "porderby"=>"orgapub_nombre");
+						Armar_Lista_Buscador($conexion,$spnombre, $spparam, "formulario", "org_codigo","orgapub_codigo", "orgapub_nombre", "","Ingrese el organismo o parte de su nombre",$regactual);
+					}
+			}
+			
+		} // if isset ($_POST['bot_buscar'])
+		?>
+</form>
+<?php }	?>
+</body>
+</html>

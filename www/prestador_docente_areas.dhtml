@@ -1,0 +1,317 @@
+<?php require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+
+$oPrestadorDocente = new cPrestadorDocente($conexion);
+$oPrestadorDocenteArea = new cPrestadorDocenteArea($conexion);
+//----------------------------------------------------------------------------------------- 	
+?>
+<script type="text/javascript">
+	<?php $oPrestadorDocenteArea->ValidarFormAltaPrestadorDocenteArea(); ?>
+</script>
+<?php
+//-----------------------------------------------------------------------------------------
+function MostrarGrillaSeleccion($conexion,$modulo,$presdoc_codigo) {
+
+	// Selecciono todos los relacionados
+	$oPrestadorDocenteArea = new cPrestadorDocenteArea($conexion);
+	$ArregloDatos= array();
+	$ArregloDatos['presdoc_codigo']=$presdoc_codigo;
+	$ArregloDatos['orderby']="areagen_descripcion, areaesp_descripcion";
+		
+	if(!$oPrestadorDocenteArea->BuscarPrestadorDocentexArea($ArregloDatos,$numfilas,$resultado,$error,$errormail)) {
+		$txt_sys_mail="Error al seleccionar las áreas asociadas al prestador docente. error=".$error."\n presdoc=".$presdoc_codigo;
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar las áreas asociadas al prestador docente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;			
+	}
+
+	$arrayresult=array();
+	while ($fila=mysqli_fetch_assoc($resultado))	{
+		$conexion->TraerCampo("area_general","areagen_descripcion",array("areagen_codigo='",$fila['areagen_codigo'],"'"),$areagendesc,$numfilasdesc,$errorcod);
+		$conexion->TraerCampo("area_especifica","areaesp_descripcion",array("areagen_codigo='",$fila['areagen_codigo'],"' and areaesp_codigo='",$fila['areaesp_codigo'],"'"),$areaespdesc,$numfilasdesc,$errorcod);
+		$fila+=array('areagen_descripcion'=>$areagendesc);
+		$fila+=array('areaesp_descripcion'=>$areaespdesc);
+		$arrayresult[]=$fila;
+	}
+		
+	$opciones=array(
+		"numPagina"=>isset($_GET['pagina'])?$_GET['pagina']:1,
+		"NombrePaginaQuery"=>"pagina",
+		"FilasPagina"=>$numfilas
+	);
+	
+	$oGrilla = new cGrilla($opciones);
+	$oGrilla->SetearTituloGrilla("Áreas Específicas del prestador Docente");
+	$oGrilla->SetearAnchoGrilla('90%');
+	
+	$miColumna2 = $oGrilla->AddColumna('txt');
+	$oGrilla->Setear('titulo_columna',$miColumna2,"Área General");
+	$oGrilla->Setear('campo_grilla',$miColumna2,"areagen_descripcion");
+	$oGrilla->Setear('align_columna',$miColumna2,'left');
+
+	$miColumna3 = $oGrilla->AddColumna('txt');
+	$oGrilla->Setear('titulo_columna',$miColumna3,"Área Específica");
+	$oGrilla->Setear('campo_grilla',$miColumna3,"areaesp_descripcion");
+	$oGrilla->Setear('align_columna',$miColumna3,'left');
+
+	$miColumna4 = $oGrilla->AddColumna('linkimg');
+	$oGrilla->Setear('titulo_columna',$miColumna4,'Eliminar');
+	$oGrilla->Setear('ancho_columna',$miColumna4,'60');
+	$oGrilla->Setear('url',$miColumna4,$modulo);
+	$oGrilla->Setear('imagen',$miColumna4,'images/borrar.jpg');
+	$oGrilla->Setear('altImagen',$miColumna4,'Eliminar');
+	$oGrilla->AddParametrosURL($miColumna4,"presdoc_codigo","presdoc_codigo");
+	$oGrilla->AddParametrosURL($miColumna4,"areagen_codigo","areagen_codigo");
+	$oGrilla->AddParametrosURL($miColumna4,"areaesp_codigo","areaesp_codigo");
+	$oGrilla->AddParametrosURL($miColumna4,"operacion","B","cte");
+
+	if (!$oGrilla->CargarGrilla($arrayresult))
+		return false;
+		
+	$oGrilla->MostrarGrilla();
+
+	return true;
+}
+	
+//----------------------------------------------------------------------------------------- 	
+$filaprestador=array();
+$filaprestador['presdoc_codigo']=(isset($_POST['presdoc_codigo']))?$_POST['presdoc_codigo']:"";
+
+$ok=false;
+//if ( isset($_GET['presdoc_codigo']) && isset($_GET['operacion'])=="B")
+//	$filaprestador['presdoc_codigo']=(isset($_GET['presdoc_codigo']))?$_GET['presdoc_codigo']:"";
+
+if (isset($_GET['presdoc_codigo']))
+	$filaprestador['presdoc_codigo']=$_GET['presdoc_codigo'];
+
+
+if ((isset($_POST['boton_cancela']) || $filaprestador['presdoc_codigo']=="" )) {
+	?>	
+	<form action="prestador_docente_areas.dhtml" method="post" name="formulario_seleccion" id="formulario_seleccion">
+		<table width="100%" class="textoTablaDato" align="center">
+		<tr>
+			<td><?php $oPrestadorDocente->PedirPrestador('formulario_seleccion','presdoc_codigo','Areas'); ?></td>
+		</tr>
+		</table>
+	</form>	
+	<?php
+	
+	if(isset($_POST['presdoc_codigo']) && !isset($_POST['boton_cancela']))
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"El prestador docente no se encuentra en el sistema.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+
+} else {
+
+	if ($oPrestadorDocente->TienePermisoModificar($filaprestador['presdoc_codigo'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap'])) {
+		$oPrestadorDocente->TraerDatosPrestadorDocente($filaprestador['presdoc_codigo'],$filaprestador,$es_modif);
+		$ok=true;			
+	} else {
+	?>	<br><div align="center"><a href="prestador_docente_areas.dhtml" class="linkFondoBlanco">Volver</a></div> <?php
+	}
+}
+
+if ($ok) { 
+	// Formulario donde se muestran los datos básicos del prestador
+?>	<form action="#" method="post" name="formulario_datos_basicos">
+		<table width="100%" class="textoTablaDato" align="center" cellpadding="2" cellspacing="2">
+			<tr>
+				<td colspan="2" >
+					<fieldset class="bordeDetalleRegistro">
+					<legend class="textoLeyendaDetalleRegistro"> Datos Básicos </legend>
+					<table width="100%" class="textoTablaDato" align="center">
+						<?php if ($filaprestador["presdoc_eventual"]=='N') {?>
+							<tr>
+								<td valign="top" width="25%" class='textoEtiqueta'>CUIT/CUIL</td>
+								<td class="textoEtiquetaDatoResaltado">
+									<input type="text" size="11" maxlength="11" name="presdoc_cuilt" class="inputReadonly" readonly="true" value="<?php echo ($es_modif) ? htmlspecialchars($filaprestador['presdoc_cuilt'],ENT_QUOTES):""; ?>" />						
+								</td>
+							</tr>
+					<?php } ?>					
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Apellido</td>
+						<td class="textoEtiquetaDatoResaltado"><input type="text" name="presdoc_apellido" id="presdoc_apellido" size="31" maxlength="30" class="inputReadonly" readonly="true" value="<?php echo ($es_modif) ? htmlspecialchars($filaprestador['presdoc_apellido'],ENT_QUOTES):""; ?>"></td>
+					</tr>
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Nombre</td>
+						<td class="textoEtiquetaDatoResaltado"><input type="text" name="presdoc_nombre" id="presdoc_nombre" size="31" maxlength="30" class="inputReadonly" readonly="true" value="<?php echo ($es_modif) ? htmlspecialchars($filaprestador['presdoc_nombre'],ENT_QUOTES):""; ?>"></td>
+					</tr>
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Sexo</td>
+						<td class="textoEtiquetaDatoResaltado">
+						<?php $conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","SEXO","' and constantecod='",$filaprestador['presdoc_sexo'],"'"),$descri,$numfilascaracter,$errorcod); 
+							echo $descri;
+						?>
+						</td>
+					</tr>
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Pais de Origen </td>
+						<td class="textoEtiquetaDatoResaltado">
+						<?php $conexion->TraerCampo("paises","paisnom",array("paiscod='",$filaprestador['presdoc_origen_pais_codigo'],"'"),$descri,$numfilascaracter,$errorcod); 
+							echo $descri;
+						?>
+						</td>
+					</tr>
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Caracter de alta</td>
+						<td class="textoEtiquetaDatoResaltado">
+						<?php $conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","PRESDOCCARACTER","' and constantecod='",$filaprestador['presdoc_caracter_alta'],"'"),$descri,$numfilascaracter,$errorcod); 
+							echo $descri;
+						?>
+						</td>
+					</tr>
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Tipo de Prestador </td>
+						<td class="textoEtiquetaDatoResaltado">
+						<?php $conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","PRESDOCEVENTUAL","' and constantecod='",$filaprestador['presdoc_eventual'],"'"),$descri,$numfilascaracter,$errorcod); 
+							echo $descri;
+						?>
+					  	</td>
+					</tr>
+					
+					</table>
+					</fieldset> 
+				</td>
+			</tr>
+		</table>
+	</form>
+<?php
+	$modulo_recarga= "prestador_docente_areas.dhtml";
+	$result = true;
+
+	//--------------------------
+	// Se confirmo la operacion 
+	//--------------------------
+	if (isset($_POST['boton_confirma'])) {
+	
+		$commit=true;
+		$conexion->ManejoTransacciones("B");
+	
+		// Alta - Baja - Modificación
+		if ($commit) {
+	
+			switch($_POST['operacion']) {
+	
+			case 'I': 				
+			
+				if ($oPrestadorDocenteArea->AltaDatosPrestadorDocenteArea($_POST)) {
+					FuncionesPHPLocal::RegistrarAcceso($conexion,"36201","presdoc_codigo=".$_POST['presdoc_codigo']."- areacon_gen_esp_codigo=".$_POST['area_con_gen_esp'],$_SESSION['usuariocod']);
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se ha insertado el área seleccionada. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				} else  
+					$commit=false;
+				break;	
+			
+			case 'B': 
+			
+				if ($oPrestadorDocenteArea->EliminarDatosPrestadorDocenteArea($_POST)) {
+					FuncionesPHPLocal::RegistrarAcceso($conexion,"36202","presdoc_codigo=".$_POST['presdoc_codigo']."\nareacon_gen_esp_codigo=".$_POST['areacon_codigo']."_".$_POST['areagen_codigo'].$_POST['areaesp_codigo'],$_SESSION['usuariocod']);
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se ha eliminado el área seleccionada. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				} else  
+					$commit=false;
+				break;	
+				
+			default: 
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error en operación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					$commit=false;
+			} // $switch
+			
+			if($commit)
+				$conexion->ManejoTransacciones("C");
+			else
+				$conexion->ManejoTransacciones("R");
+		}	// commit
+	} // seteado el confirma 
+	
+	//--------------------
+	// Se define la acción
+	//--------------------
+	if (!isset($_GET['operacion'])) {
+		$leyenda_operacion = "Agregar";
+		$boton_operacion = "Agregar";		
+		$operacion = "I";
+	} else {
+		switch ($_GET['operacion']) {		
+		case "B" :
+				$leyenda_operacion = "Eliminar";		
+				$boton_operacion = "Eliminar";		
+				$operacion = "B";				
+				break;
+		default:
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error de operación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$result=false;
+		}
+	}
+	//------- GRILLA VALORES A MODIFICAR 
+	if ($result)  { 	?>
+		<table width="100%" class="textoTablaDato">
+			<tr> 
+				<td align="center">						
+	<?php				if (!MostrarGrillaSeleccion($conexion,$modulo_recarga,$filaprestador['presdoc_codigo']))
+						FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar datos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+	?>			</td>
+			</tr>	
+		</table>
+		<br>
+<?php	}
+	//------- DATOS DE UN REGISTRO
+	if ($result) {  ?>
+		<table width="80%"  border="0" align="center" cellspacing="0" cellpadding="0">			
+			<!-- DATOS A MODIFICAR -->
+			<tr> 
+				<td>
+					<fieldset class="bordeDetalleRegistro">
+					<legend class="textoLeyendaDetalleRegistro">  Detalle del Registro  ( <?php echo $leyenda_operacion ?>  )</legend>
+					<form action="<?php echo $modulo_recarga; ?>" method="post" name="formulario">
+					<table width="100%" class="textoTablaDato" cellpadding="2" cellspacing="0">
+						<tr>
+							<td colspan="2" valign="top" class="textoEtiqueta">
+							<?php 	if($operacion!="B") { ?>
+									Seleccione Área
+									<a href='javascript:void(0)' onClick="Popup('prestador_docente_area_selector.dhtml?destino=area_con_gen_esp&amp;texto=area_con_gen_esp_texto','ventana_area_espcifica',540,250,screen.availWidth-560,screen.availHeight-310,'yes');" title="Seleccionar Área Específica"><img src="images/versai.jpg" border="0" style="vertical-align:-5px" alt="Seleccionar Área Específica"></a>
+									<input name="area_con_gen_esp" id="area_con_gen_esp" type="hidden" class="textoinput" value="">
+<?php 									} ?>								
+								<span id="area_con_gen_esp_texto">
+			<?php						$texto_salida="";											
+									if($operacion=="B") {
+										$areaEspecifica= new cTablaAreaEspecifica($conexion);
+										$areaEspecifica->TraerDatosCompletosAreaEspecifica($_GET['areagen_codigo'],$_GET['areaesp_codigo'],$texto_salida);
+									}	
+									echo "<BR>".$texto_salida."<BR>";
+			?>					</span>
+							</td>
+						</tr> 
+						<tr>
+							<td colspan="2" align="center">
+								<input type="submit" name="boton_confirma" value="<?php echo $boton_operacion; ?>" onClick="return ValidarFormAltaPrestadorDocenteArea(formulario,'<?php echo $operacion ?>'); " class="botones" />
+								<input type="submit" name="boton_cancela" value="Cancelar" class="botones" />
+								<input type="hidden" name="operacion" id="operacion" value="<?php echo $operacion;?>" />
+								<input type="hidden" name="presdoc_codigo" id="presdoc_codigo" value="<?php echo $filaprestador['presdoc_codigo'] ?>" />				  
+								<input type="hidden" name="areacon_codigo" id="areacon_codigo" value="<?php echo isset($_GET['areacon_codigo'])?$_GET['areacon_codigo']:"" ?>" />				  
+								<input type="hidden" name="areagen_codigo" id="areagen_codigo" value="<?php echo isset($_GET['areagen_codigo'])?$_GET['areagen_codigo']:"" ?>" />				  
+								<input type="hidden" name="areaesp_codigo" id="areaesp_codigo" value="<?php echo isset($_GET['areaesp_codigo'])?$_GET['areaesp_codigo']:""?>" />				  
+							</td>
+						</tr>					
+					</table>
+					</form>
+					</fieldset> 	
+				</td>
+			</tr>
+		</table>
+<?php 	} // result 
+} // fin if - ok
+$oEncabezados->PieMenuEmergente(); 
+?>

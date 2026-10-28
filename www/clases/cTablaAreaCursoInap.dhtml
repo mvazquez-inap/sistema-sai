@@ -1,0 +1,326 @@
+<?php 
+class cTablaAreaCursoInap extends cTablaSysDesc {
+
+//---------------------------------------------------------------
+	function ObtenerCampo($campo) {
+
+		if($campo=='descripcion')
+			return $this->campos_tabla['descripcion']['nombre_campo'];	
+
+		if($campo=='prefijo')
+			return $this->campos_tabla['prefijo']['nombre_campo'];	
+		
+		return $this->campos_tabla[$campo];	 
+	}
+//---------------------------------------------------------------
+	function ObtenerLongCampo($campo) {
+		if($campo=='descripcion')
+			return $this->campos_tabla['descripcion']['long_campo'];	
+		else {
+			if($campo=='prefijo')
+				return $this->campos_tabla['prefijo']['long_campo'];	
+			else
+				$this->error=true;
+				$this->errorMsg="No se definió long para el campo enviado";			
+		}	  
+	}
+//---------------------------------------------------------------
+	function ObtenerTituloCampo($campo) {
+		if($campo=='descripcion')
+			return $this->campos_tabla['descripcion']['titulo_campo'];	
+		else 
+			if($campo=='prefijo')
+				return $this->campos_tabla['prefijo']['titulo_campo'];	
+			else {
+				$this->error=true;
+				$this->errorMsg="No se definió titulo para el campo enviado";			
+			}	  
+	}
+//---------------------------------------------------------------	
+	function MostrarGrillaSeleccion($modulo, $valor_buscado="") {
+
+		$ArregloDatos= array();
+		$ArregloDatos['estado'] = ESTADOACTIVO;
+		$ArregloDatos['orden'] = $this->ObtenerCampo('descripcion');
+		
+		if ($valor_buscado!="") 
+			$ArregloDatos['descripcion']=$valor_buscado;		
+			
+		if (!$this->BuscarEnTabla($ArregloDatos,$numfilas,$result,$error,$errormail)) {
+			$txt_sys_mail="\nvalor_buscado_".$valor_buscado."\nmodulo=".$modulo."\nerror=".$errormail;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando datos a mostrar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;			
+		}			
+		
+		$opciones=array(
+			"numPagina"=>isset($_GET['pagina'])?$_GET['pagina']:1,
+			"NombrePaginaQuery"=>"pagina",
+			"FilasPagina"=>10
+		);
+		
+		if (isset($_GET['pagina']))	{
+			$querystring=FuncionesPHPLocal::ArmarQueryString("pagina","",false);	
+			$opciones['QueryString']=$querystring;
+		}
+		
+		$oGrilla = new cGrilla($opciones);
+	
+		if ($this->ObtenerTituloTabla() != "")
+			$oGrilla->SetearTituloGrilla('Tabla:'.$this->ObtenerTituloTabla());
+		
+		$oGrilla->SetearAnchoGrilla('90%');
+		
+		$miColumna1 = $oGrilla->AddColumna('txt');
+		$oGrilla->Setear('titulo_columna',$miColumna1,$this->ObtenerTituloCampo('descripcion'));
+		$oGrilla->Setear('campo_grilla',$miColumna1,$this->ObtenerCampo('descripcion'));
+		$oGrilla->Setear('align_columna',$miColumna1,'left');
+
+		$miColumna2 = $oGrilla->AddColumna('txt');
+		$oGrilla->Setear('titulo_columna',$miColumna2,$this->ObtenerTituloCampo('prefijo'));
+		$oGrilla->Setear('campo_grilla',$miColumna2,$this->ObtenerCampo('prefijo'));
+		$oGrilla->Setear('align_columna',$miColumna2,'center');
+	
+		$miColumna3 = $oGrilla->AddColumna('linkimg');
+		$oGrilla->Setear('titulo_columna',$miColumna3,'Editar');
+		$oGrilla->Setear('ancho_columna',$miColumna3,'60');
+		$oGrilla->Setear('url',$miColumna3,$modulo);
+		$oGrilla->Setear('imagen',$miColumna3,'images/editar.jpg');
+		$oGrilla->Setear('altImagen',$miColumna3,'Editar');						
+		$oGrilla->AddParametrosURL($miColumna3,$this->ObtenerCampo('clave'),$this->ObtenerCampo('clave'));
+		$oGrilla->AddParametrosURL($miColumna3,"operacion","M","cte");
+	
+		$miColumna4 = $oGrilla->AddColumna('linkimg');
+		$oGrilla->Setear('titulo_columna',$miColumna4,'Eliminar');
+		$oGrilla->Setear('ancho_columna',$miColumna4,'60');
+		$oGrilla->Setear('url',$miColumna4,$modulo);
+		$oGrilla->Setear('imagen',$miColumna4,'images/borrar.jpg');
+		$oGrilla->Setear('altImagen',$miColumna4,'Eliminar');
+		$oGrilla->AddParametrosURL($miColumna4,$this->ObtenerCampo('clave'),$this->ObtenerCampo('clave'));
+		$oGrilla->AddParametrosURL($miColumna4,"operacion","B","cte");
+	
+		if (!$oGrilla->CargarGrilla($result))
+			return false;
+			
+		$oGrilla->MostrarGrilla();
+
+		return true;
+	} 	
+	
+//---------------------------------------------------------------
+	function ValidarFormSysTabla() {
+	?>
+ 	function ValidarFormSysTabla(formulario,operacion) {
+
+		if (operacion=="I"  || operacion=="M") { 		
+			if (formulario.<?php echo $this->ObtenerCampo('descripcion') ?>.value=="")	{
+				alert("Debe ingresar la descripción");
+				formulario.<?php echo $this->ObtenerCampo('descripcion')?>.focus();
+				return false;
+			}
+		}		
+		if (operacion=="B"  || operacion=="M") { 		
+			if (formulario.<?php echo $this->ObtenerCampo('clave') ?>.value=="")	{
+				alert("Debe ingresar la descripción");
+				formulario.<?php echo $this->ObtenerCampo('clave')?>.focus();
+				return false;
+			}
+		}	
+		
+		if (operacion=="I") { 		
+			if (formulario.<?php echo $this->ObtenerCampo('prefijo') ?>.value=="")	{
+				alert("Debe ingresar el prefijo");
+				formulario.<?php echo $this->ObtenerCampo('prefijo')?>.focus();
+				return false;
+			}
+		}		
+		
+		return true;
+		}
+	//-->
+<?php } 
+	
+		
+//---------------------------------------------------------------
+	function _DatosValidosAlta($datos,&$datosvalidados) {
+
+		if (!$this->_DatosValidosComunes($datos,$datosvalidados))
+		   return false; 
+
+	
+		// el prefijo no puede ser vacía
+		if (trim($datos[$this->ObtenerCampo('prefijo')])=="") {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"el prefijo no puede quedar vacío.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;			
+		}
+
+		// el prefijo no puede superar el máximo definido.
+		if ( strlen(trim($datos[$this->ObtenerCampo('prefijo')])) > $this->ObtenerLongCampo('prefijo') ) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El prefijo no puede superar ".$this->ObtenerLongCampo('prefijo')." caracteres.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;			
+		}
+		
+		$spnombre="sel_".$this->ObtenerNombreTabla()."_x".(($this->_EsTablaConEstado())?$this->ObtenerCampo('estado')."_":"").$this->ObtenerCampo('prefijo');
+		$spparam=array("p".$this->ObtenerCampo('prefijo')=>trim($datos[$this->ObtenerCampo('prefijo')]));		
+
+		if ($this->_EsTablaConEstado())
+			$spparam+=array("p".$this->ObtenerCampo('estado')=>ESTADOACTIVO);		
+
+
+	// No debe existir el prefijo en un registro.
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod) ) {
+			$txt_sys_mail="\n".$this->ObtenerCampo('prefijo')."=".$datos[$this->ObtenerCampo('prefijo')];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionado de ".$this->ObtenerNombreTabla(),array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+			return false;
+		}
+	
+		if ($numfilas>0)	{
+			$fila = mysqli_fetch_assoc($query);
+			if ($fila[$this->ObtenerCampo('clave')] != $datos[$this->ObtenerCampo('clave')]) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Ya existe:".$datos[$this->ObtenerCampo('prefijo')]." en la tabla.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+		}
+
+		$datosvalidados[$this->ObtenerCampo('prefijo')]=trim($datos[$this->ObtenerCampo('prefijo')]);
+		
+		return true;
+	}
+		
+	
+	
+//---------------------------------------------------------------
+	function _DatosValidosComunes($datos,&$datosvalidados) {
+
+		// La descripcion no puede ser vacía
+		if (trim($datos[$this->ObtenerCampo('descripcion')])=="") {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La descripción no puede quedar vacía.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;			
+		}
+
+		// La descripción no puede superar el máximo definido.
+		if ( strlen(trim($datos[$this->ObtenerCampo('descripcion')])) > $this->ObtenerLongCampo('descripcion') ) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La descripción no puede superar ".$this->ObtenerLongCampo('descripcion')." caracteres.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;			
+		}
+		
+		$spnombre="sel_".$this->ObtenerNombreTabla()."_x".(($this->_EsTablaConEstado())?$this->ObtenerCampo('estado')."_":"").$this->ObtenerCampo('descripcion');
+		$spparam=array("p".$this->ObtenerCampo('descripcion')=>trim($datos[$this->ObtenerCampo('descripcion')]));		
+
+		if ($this->_EsTablaConEstado())
+			$spparam+=array("p".$this->ObtenerCampo('estado')=>ESTADOACTIVO);		
+		
+		// No debe existir la descripción en un registro.
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod) ) {
+			$txt_sys_mail="\n".$this->ObtenerCampo('descripcion')."=".$datos[$this->ObtenerCampo('descripcion')];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionado de ".$this->ObtenerNombreTabla(),array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+			return false;
+		}
+
+
+		if ($numfilas>0)	{
+			$fila = mysqli_fetch_assoc($query);
+			if ($fila[$this->ObtenerCampo('clave')] != $datos[$this->ObtenerCampo('clave')]) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Ya existe:".$datos[$this->ObtenerCampo('descripcion')]." en la tabla.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+		}
+		
+		$datosvalidados[$this->ObtenerCampo('descripcion')]=trim($datos[$this->ObtenerCampo('descripcion')]);			
+		
+		return true;
+	}
+
+
+//---------------------------------------------------------------	
+	function _SetearCampos($array_campos) {
+
+		if ($this->_ValidarCampos($array_campos)) {
+
+			$this->_SetearCampo('clave',$array_campos['clave']);
+			
+			if(isset($array_campos['estado']))	
+				$this->_SetearCampo('estado',$array_campos['estado']);
+			else 
+				$this->_SetearTablaEstado(false);
+					
+			$this->_SetearCampo('descripcion',$array_campos['descripcion']);
+			$this->_SetearCampo('prefijo',$array_campos['prefijo']);			
+			$this->_SetearCampo('fecha_alta',$array_campos['fecha_alta']);
+	
+			if($this->_EsTablaConEstado())	
+				$this->_SetearCampo('fecha_baja',$array_campos['fecha_baja']);
+		}				
+	}	
+
+
+//---------------------------------------------------------------
+	function AltaSysTabla($datos)	{
+
+		if(!$this->_DatosValidosAlta($datos,$datosvalidados))
+			return false;
+
+		$spnombre="ins_".$this->ObtenerNombreTabla();
+		$spparam=array(
+			'p'.$this->ObtenerCampo('descripcion')=>$datosvalidados[$this->ObtenerCampo('descripcion')],
+			'p'.$this->ObtenerCampo('prefijo')=>$datosvalidados[$this->ObtenerCampo('prefijo')],			
+			'p'.$this->ObtenerCampo('fecha_alta')=>date("Y/m/d H:i:s"),
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=>date("Y/m/d H:i:s")
+		);
+
+		if($this->_EsTablaConEstado()) 		
+			$spparam+=array('p'.$this->ObtenerCampo('estado')=>ESTADOACTIVO);
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod) || $numfilas!=1)	{
+			if($errorcod==MYSQLCLAVEDUP) {
+				$txt_sys_mail="\n".$this->ObtenerCampo('descripcion')."=".$datosvalidados[$this->ObtenerCampo('descripcion')];	
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Ya existe un registro con esa clave.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+			}
+			return false;
+		}
+		
+		return true;
+	}
+	
+//---------------------------------------------------------------	
+	function ModificarSysTabla($datos)	{
+	
+		if(!$this->_DatosValidosModificacion($datos,$datosvalidados))
+			return false;
+					
+		$spnombre="upd_".$this->ObtenerNombreTabla();
+		$spparam=array (
+			'p'.$this->ObtenerCampo('clave')=>$datosvalidados[$this->ObtenerCampo('clave')],
+			'p'.$this->ObtenerCampo('descripcion')=>$datosvalidados[$this->ObtenerCampo('descripcion')],
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=>date("Y/m/d H:i:s")
+		);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod) || $numfilas!=1)
+			return false;		
+
+		return true;
+	}
+		
+	
+	public function __construct($conexion) {
+		
+		$array_campos=array('clave'=> 'areacur_codigo',
+							'estado'=>'areacur_estado',
+							'descripcion'=>array('nombre_campo'=>'areacur_descripcion', 'long_campo'=>40 ,'titulo_campo'=>'Area'),
+							'prefijo'=>array('nombre_campo'=>'areacur_prefijo', 'long_campo'=>2 ,'titulo_campo'=>'Prefijo'),
+							'fecha_alta'=>'areacur_falta',
+							'fecha_baja'=>'areacur_fbaja');
+
+		parent::__construct($conexion,"area_curso_inap",$array_campos);
+		$this->SetearTituloTabla('Areas de las actividades INAP');
+	
+		// Array con los cógigos de operaciones a ser registradas
+		$array_log=array('ins'=>'35001', 'upd'=>'35003', 'del'=>'35002','chg_estado'=>'35004');
+		$this->SetearLogs($array_log);
+
+		// Array con las tablas en las que se busca para determinar si la baja es física o lógica.
+		$this->SetearTablasTipoBaja(array(array('nom_tabla'=>'actividad_curso_diseno_inap','campo_tabla'=>'areacur_codigo')));
+	}		
+}
+?>

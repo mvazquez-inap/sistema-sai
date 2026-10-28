@@ -1,0 +1,1882 @@
+<?php
+
+require_once("SysONTIfuncionesphp2.dhtml");
+
+// Parámetros Generales de Entrada:
+//		TipoSalida: TABGRALES_TS_ARRAY / TABGRALES_TS_CURSOR
+//		ParamSalida: es un array.
+//			si TipoSalida es TABGRALES_TS_CURSOR es necesario enviar los parámetros conexion y nombretabla
+
+// Parámetros Generales de Salida:
+//		Destino: 
+//			si TipoSalida es TABGRALES_TS_ARRAY retorna un array con los datos
+//			si TipoSalida es TABGRALES_TS_CURSOR genera, en la conexión provista, la/s tabla/s temporal/es con los resultados 
+//				y retorna un identificador de resultado de mysql a la primera tabla generada (la mas significativa)
+//		NumFilas: cantidad de registros devueltos
+//		CodError: es el codigo mysql que se produjo al ejecutar alguna sentencia en la base de datos
+
+class SysONTIjurisdicciones2
+{
+	var $conexion; // mantiene la conexión con su propia base de datos
+	
+	var $versionid; // mantiene cual es la version con la que se trabaja
+	var $versiontabla; // en que version de tabla está la version de jurisdicciones
+
+
+//----------------------------------------------------------------------------------------- 
+// Constructor del objeto. 
+
+// Realiza la conexión a la base de datos. Carga las constantes generales de Sistemas ONTI
+// Setea en la conexion cual es el codigo del ADMIONTI al cual se le enviaran los mails con errores.
+
+	function SysONTIjurisdicciones2($versionid=false,$version_oficial=true)
+	{
+		
+		$this->conexion=new SysONTIAccesoBD(getenv("SAI_DB_HOST") ?: "", getenv("SAI_DB_USER") ?: "", getenv("SAI_DB_PASSWORD") ?: "");
+		
+		
+		if ($version_oficial)
+			$this->conexion->SeleccionBD(getenv("SAI_DB_TABGRALES2") ?: "");
+		else
+			$this->conexion->SeleccionBD(getenv("SAI_DB_TABGRALES2_V0") ?: "");
+
+		FuncionesPHP::CargarConstantes($this->conexion,array("roles"=>"si","sistema"=>"SYSONTI"));
+		FuncionesPHP::CargarConstantes($this->conexion,array("sistema"=>"TABGRALES2"));
+
+		$this->conexion->SetearAdmiGeneral(TABGRALES_ADMIONTI);
+		
+		if($versionid!==false)
+		{
+			$spnombre="sel_versiones_xversionid";
+			$spparam=array("pversionid"=>$versionid);
+			
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultadosalida,$NumFilas,$CodError) || $NumFilas!=1 || !($fila=mysqli_fetch_assoc($resultadosalida)))
+				die("La versión seleccionada no es válida.");
+				
+			if(is_null($fila["versionfact"]))
+				die("La versión seleccionada no está activa");
+				
+			$this->versionid=$fila["versionid"];
+			$this->versiontabla=$fila["versiontabla"];
+		}
+		else
+		{
+			$spnombre="sel_versiones_activa";
+			$spparam=array();
+			
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultadosalida,$NumFilas,$CodError) || $NumFilas!=1 || !($fila=mysqli_fetch_assoc($resultadosalida)))
+				die("No existe versión activa");
+				
+			$this->versionid=$fila["versionid"];
+			$this->versiontabla=$fila["versiontabla"];
+		}
+
+	   $spparam=array('codtabla'=>$this->versiontabla,'pversionid'=>$this->versionid);
+	   if(!$this->conexion->ejecutarStoredProcedure("selc_tiposorganismos_activos",$spparam,$resultado,$numfilas,$errno))
+		   die("Error al cargar los tipos de organismos");
+
+	   while ($fila = mysqli_fetch_assoc($resultado))
+			if(!defined("TABGRALES_TIPOORG_".$fila['torgcod']))
+				define ("TABGRALES_TIPOORG_".$fila['torgcod'],$fila['torgid']);
+	}
+
+
+
+//----------------------------------------------------------------------------------------- 
+// Constructor del objeto. 
+
+// Realiza la conexión a la base de datos. Carga las constantes generales de Sistemas ONTI
+// Setea en la conexion cual es el codigo del ADMIONTI al cual se le enviaran los mails con errores.
+
+	function getversion()
+	{
+		return $this->versionid;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Retorna todos los datos de todas las jurisdicciones.
+
+// Parámetros de Entrada:
+//		ParamBusq: se usan pincluirbajas, pjurisdorden, pjurisdlimit
+//		ParamSalida: se usan conexion, nombretabla en caso que la salida sea en cursor
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+//MODIFICADA
+	function SelectJurisdicciones($ParamBusq,$TipoSalida,&$Destino,$ParamSalida,&$NumFilas,&$CodError)
+	{
+		$Destino="";
+		
+		$spnombre="selc_jurisdicciones";
+		$spparam=array("codtabla"=>$this->versiontabla,"pversionid"=>$this->versionid);
+
+
+		if(isset($ParamBusq["pincluirbajas"]) && $ParamBusq["pincluirbajas"])
+			$spparam+=array("pjurisdfbaja_filtro"=>0);
+		else
+			$spparam+=array("pjurisdfbaja_filtro"=>1);
+
+		if(isset($ParamBusq["pjurisdorden"]))
+			$spparam+=array("porderby"=>$ParamBusq["pjurisdorden"]);
+		else
+			$spparam+=array("porderby"=>GENERAL_JURISDORDEN);
+
+		if(isset($ParamBusq["pjurisdlimit"]))
+			$spparam+=array("plimit"=>"LIMIT ".$ParamBusq["pjurisdlimit"]);
+		else
+			$spparam+=array("plimit"=>""); 
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultadosalida,$NumFilas,$CodError))
+			return false;
+					
+		switch($TipoSalida)
+		{
+			case TABGRALES_TS_ARRAY:
+				$Destino=array();
+
+				if($NumFilas==0)
+					return true;
+
+				while($fila=mysqli_fetch_assoc($resultadosalida))
+					$Destino[$fila['jurisdid']]=$fila;
+
+				break;
+			case TABGRALES_TS_CURSOR: 
+				
+				if(!$this->_CrearJurisdTemp($ParamSalida["conexion"],$ParamSalida["nombretabla"],$CodError))
+					return false;
+				
+				if($NumFilas==0)
+					return true;
+
+				while($fila=mysqli_fetch_assoc($resultadosalida))
+				{
+					if(!$this->_InsertTablaTemp($ParamSalida["conexion"],$ParamSalida["nombretabla"],$fila,$CodError))
+						return false;
+				}
+				
+				$Destino=mysqli_query($ParamSalida["conexion"], "select * from ".$ParamSalida["nombretabla"]);
+				
+				if(!$Destino)
+				{
+					$CodError=mysqli_errno($ParamSalida["conexion"]);
+					return false;
+				}
+				
+				break;
+				
+			default:
+				$subjectmail="";
+				if(defined('SISTEMAMOSTRAR'))
+					$subjectmail=SISTEMAMOSTRAR;
+				elseif(defined('SISTEMA'))
+					$subjectmail=SISTEMA;				
+				$subjectmail.=" - Error en el sistema";
+				$textomail ="Se produjo un error: \n";
+				$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+				$textomail.="Tipo de Salida (".$TipoSalida.") en consulta de Todas las Jurisdicciones inválido.";
+
+				FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+				return false;
+		}
+		
+		return true;
+
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Retorna todos los datos de las jurisdicciones pedidas.
+
+// Parámetros de Entrada:
+//		IDBusq: Contiene los IDs de las jurisdicciones a buscar. Puede o no ser un array.
+//		ParamBusq: se usan pincluirbajas, pjurisdorden, pjurisdlimit
+//		ParamSalida: se usan conexion, nombretabla en caso que la salida sea en cursor
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+//MODIFICADA
+	function SelectJurisdxID($IDBusq,$ParamBusq,$TipoSalida,&$Destino,$ParamSalida,&$NumFilas,&$CodError)
+	{
+		$Destino="";
+		
+		$spnombre="selc_jurisdicciones_xjurisdid";
+		$spparam=array("codtabla1"=>$this->versiontabla,"codtabla2"=>$this->versiontabla,"pversionid"=>$this->versionid);
+
+		if(is_array($IDBusq) && count($IDBusq)>1)
+		{
+			$textoin="(".implode(",",$IDBusq).")";
+			$spparam+=array("pjurisdoper"=>"in","pjurisdid"=>$textoin);
+		}
+		elseif(is_array($IDBusq) && count($IDBusq)==0)
+		{
+			$subjectmail="";
+			if(defined('SISTEMAMOSTRAR'))
+				$subjectmail=SISTEMAMOSTRAR;
+			elseif(defined('SISTEMA'))
+				$subjectmail=SISTEMA;				
+			$subjectmail.=" - Error en el sistema";
+			$textomail ="Se produjo un error: \n";
+			$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']." \n\n";
+			$textomail.="Se recibió un array vacío en Valores de Búsqueda en SelectJurisdxID.";
+
+			FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+		
+			return false;
+		}
+		else
+		{
+			if(is_array($IDBusq))
+				$textoigual=$IDBusq[0];
+			else
+				$textoigual=$IDBusq;
+				
+			$spparam+=array("pjurisdoper"=>"=","pjurisdid"=>$textoigual);
+		}
+
+		if(isset($ParamBusq["pincluirbajas"]) && $ParamBusq["pincluirbajas"])
+			$spparam+=array("pjurisdfbaja_filtro"=>0);
+		else
+			$spparam+=array("pjurisdfbaja_filtro"=>1);
+
+		if(isset($ParamBusq["pjurisdorden"]))
+			$spparam+=array("porderby"=>$ParamBusq["pjurisdorden"]);
+		else
+			$spparam+=array("porderby"=>GENERAL_JURISDORDEN);
+
+		if(isset($ParamBusq["pjurisdlimit"]))
+			$spparam+=array("plimit"=>"LIMIT ".$ParamBusq["pjurisdlimit"]);
+		else
+			$spparam+=array("plimit"=>""); 
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultadosalida,$NumFilas,$CodError))
+			return false;
+					
+		switch($TipoSalida)
+		{
+			case TABGRALES_TS_ARRAY:
+				$Destino=array();
+
+				if($NumFilas==0)
+					return true;
+
+				while($fila=mysqli_fetch_assoc($resultadosalida))
+					$Destino[$fila['jurisdid']]=$fila;
+				
+				break;
+			case TABGRALES_TS_CURSOR: 
+
+				if(!$this->_CrearJurisdTemp($ParamSalida["conexion"],$ParamSalida["nombretabla"],$CodError))
+					return false;
+
+				if($NumFilas==0)
+					return true;
+
+				while($fila=mysqli_fetch_assoc($resultadosalida))
+				{
+					if(!$this->_InsertTablaTemp($ParamSalida["conexion"],$ParamSalida["nombretabla"],$fila,$CodError))
+						return false;
+				}
+			
+				$Destino=mysqli_query($ParamSalida["conexion"], "select * from ".$ParamSalida["nombretabla"]);
+				
+				if(!$Destino)
+				{
+					$CodError=mysqli_errno($ParamSalida["conexion"]);
+					return false;
+				}
+				
+				break;
+				
+			default:
+				$subjectmail="";
+				if(defined('SISTEMAMOSTRAR'))
+					$subjectmail=SISTEMAMOSTRAR;
+				elseif(defined('SISTEMA'))
+					$subjectmail=SISTEMA;				
+				$subjectmail.=" - Error en el sistema";
+				$textomail ="Se produjo un error: \n";
+				$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+				$textomail.="Tipo de Salida (".$TipoSalida.") en consulta de Jurisdicciones inválido.";
+
+				FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+				return false;
+		}
+		
+		return true;
+
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Retorna todos los datos del tipo de organismo al cual pertenece la jurisdicción solicitada.
+
+// Parámetros de Entrada:
+//		IDBusq: Contiene el ID de la jurisdicción a buscar.
+//		ParamBusq: no se usan pincluirbajas, pjurisdorden, pjurisdlimit.
+//		ParamSalida: se usan conexion, nombretabla en caso que la salida sea en cursor
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+//MODIFICADA
+	function BuscarTipoOrg($IDBusq,$ParamBusq,$TipoSalida,&$Destino,$ParamSalida,&$CodError)
+	{
+		$CodError=0;
+
+		$spnombre="selc_tiposorganismos_xjurisdid";
+		$spparam=array(
+					"codtabla1"=>$this->versiontabla,
+					"codtabla2"=>$this->versiontabla,
+					"codtabla3"=>$this->versiontabla,
+					"pversionid"=>$this->versionid,
+					"pjurisdid"=>$IDBusq
+					);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultadosalida,$NumFilas,$CodError))
+			return false;
+		
+		if($NumFilas!=1)
+			return false;
+			
+		$fila=mysqli_fetch_assoc($resultadosalida);
+
+		switch($TipoSalida)
+		{
+			case TABGRALES_TS_ARRAY:
+				$Destino=$fila;
+				
+				break;
+			case TABGRALES_TS_CURSOR:
+				if(!$this->_CrearTipoOrgTemp($ParamSalida["conexion"],$ParamSalida["nombretabla"],$CodError))
+					return false;
+				
+				if(!$this->_InsertTablaTemp($ParamSalida["conexion"],$ParamSalida["nombretabla"],$fila,$CodError))
+					return false;
+
+				$Destino=mysqli_query($ParamSalida["conexion"], "select * from ".$ParamSalida["nombretabla"]);
+				
+				if(!$Destino)
+				{
+					$CodError=mysqli_errno($ParamSalida["conexion"]);
+					return false;
+				}
+
+				break;
+				
+			default:
+				$subjectmail="";
+				if(defined('SISTEMAMOSTRAR'))
+					$subjectmail=SISTEMAMOSTRAR;
+				elseif(defined('SISTEMA'))
+					$subjectmail=SISTEMA;				
+				$subjectmail.=" - Error en el sistema";
+				$textomail ="Se produjo un error: \n";
+				$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+				$textomail.="Tipo de Salida (".$TipoSalida.") en BuscarTipoOrg inválido.";
+
+				FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+				return false;
+		}
+
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Retorna todos los datos de la jurisdicción buscada y todas las superiores, 
+// 	hasta llegar al arbolnivel igual a 1 o cumplir con la cantidad de niveles especificados
+
+// Parámetros de Entrada:
+//		IDBusq: Contiene el ID de la jurisdicción a buscar.
+//		CantNiveles: No incluye a la jurisdicción mencionada en IDBusq. (CantNiveles=1 retornaría 2 registros)
+//		ParamBusq: no se usan pjurisdestado, pjurisdorden, pjurisdlimit.
+//		ParamSalida: se usan conexion, nombretabla en caso que la salida sea en cursor
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+//MODIFICADA	
+	function RamaAscendente($IDBusq,$CantNiveles,$ParamBusq,$TipoSalida,&$Destino,$ParamSalida,&$NumFilas,&$CodError)
+	{
+
+		$DestinoInterno=array();
+		$NumFilas=0;
+		
+		if(!$this->_RamaAscendente($IDBusq,$CantNiveles,$ParamBusq,$DestinoInterno,$NumFilas,$CodError))
+			return false;
+
+		$DestinoInterno=array_reverse($DestinoInterno,true);
+		
+		switch($TipoSalida)
+		{
+			case TABGRALES_TS_ARRAY:
+				$Destino=$DestinoInterno;
+
+				break;
+			case TABGRALES_TS_CURSOR:
+				if(!$this->_CrearJurisdTemp($ParamSalida["conexion"],$ParamSalida["nombretabla"],$CodError))
+					return false;
+				
+				foreach($DestinoInterno as $fila)
+				{
+					if(!$this->_InsertTablaTemp($ParamSalida["conexion"],$ParamSalida["nombretabla"],$fila,$CodError))
+						return false;
+				}
+				
+				$Destino=mysqli_query($ParamSalida["conexion"], "select * from ".$ParamSalida["nombretabla"]);
+				
+				if(!$Destino)
+				{
+					$CodError=mysqli_errno($ParamSalida["conexion"]);
+					return false;
+				}
+				break;
+				
+			default:
+				$subjectmail="";
+				if(defined('SISTEMAMOSTRAR'))
+					$subjectmail=SISTEMAMOSTRAR;
+				elseif(defined('SISTEMA'))
+					$subjectmail=SISTEMA;				
+				$subjectmail.=" - Error en el sistema";
+				$textomail ="Se produjo un error: \n";
+				$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+				$textomail.="Tipo de Salida (".$TipoSalida.") en consulta de Rama Ascendente inválido.";
+
+				FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+				return false;
+		}
+		
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Retorna todos los datos de las jurisdicciones pedidas
+
+// Parámetros de Entrada:
+//		NombreCampo: nombre en la tabla jurisdicciones sobre el cual se va a buscar
+//		OperCampo: JURISD_BUSQCAMPOIGUAL / JURISD_BUSQCAMPOCOMIENZA / JURISD_BUSQCAMPOTERMINA / JURISD_BUSQCAMPOCONTIENE
+//		ValoresCampo: debe ser un único valor excepto si OperCampo es JURISD_BUSQCAMPOIGUAL, en cuyo caso puede ser un array
+//		ParamBusq: se usan pincluirbajas, pjurisdorden, pjurisdlimit, pjurisdwhere
+//		ParamSalida: se usan conexion, nombretabla en caso que la salida sea en cursor
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+	
+// SE ELIMINO el torgid del retorno (se estaba haciendo solo para array y no para cursor ¿¿¿???)
+//MODIFICADA
+	function SelectJurisdxCampo($NombreCampo,$OperCampo,$ValoresCampo,$ParamBusq,$TipoSalida,&$Destino,$ParamSalida,&$NumFilas,&$CodError)
+	{
+	
+		$Destino="";
+		
+		$spnombre="selc_jurisdicciones_xcampovariable";
+		$spparam=array("codtabla"=>$this->versiontabla,"pversionid"=>$this->versionid);
+
+		if($NombreCampo=="")
+		{
+			$subjectmail="";
+			if(defined('SISTEMAMOSTRAR'))
+				$subjectmail=SISTEMAMOSTRAR;
+			elseif(defined('SISTEMA'))
+				$subjectmail=SISTEMA;				
+			$subjectmail.=" - Error en el sistema";
+			$textomail ="Se produjo un error: \n";
+			$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+			$textomail.="Se recibió el nombre del campo vacío en SelectJurisdxCampo.";
+
+			FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+		
+			return false;
+		}
+		
+		$spparam+=array("pnombrecampo"=>$NombreCampo);
+
+		switch($OperCampo)
+		{
+			case JURISD_BUSQCAMPOIGUAL:
+				if(is_array($ValoresCampo) && count($ValoresCampo)>1)
+				{
+					$arrayin=FuncionesPHP::ArrayToArray($ValoresCampo,"('","','","')");
+					$spparam+=array("pjurisdoper"=>"in","pjurisdvalor"=>$arrayin);
+				}
+				elseif(is_array($ValoresCampo) && count($ValoresCampo)==0)
+				{
+					$subjectmail="";
+					if(defined('SISTEMAMOSTRAR'))
+						$subjectmail=SISTEMAMOSTRAR;
+					elseif(defined('SISTEMA'))
+						$subjectmail=SISTEMA;				
+					$subjectmail.=" - Error en el sistema";
+					$textomail ="Se produjo un error: \n";
+					$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+					$textomail.="Se recibió un array vacío en Valores de Búsqueda en SelectJurisdxCampo.";
+	
+					FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+				
+					return false;
+				}
+				else
+				{
+					if(is_array($ValoresCampo))
+						$textoigual=$ValoresCampo[0];
+					else
+						$textoigual=$ValoresCampo;
+						
+					$spparam+=array("pjurisdoper"=>"=","pjurisdvalor"=>array("'",$textoigual,"'"));
+				}
+				
+				break;
+
+			case JURISD_BUSQCAMPOCOMIENZA:
+			case JURISD_BUSQCAMPOTERMINA:
+			case JURISD_BUSQCAMPOCONTIENE:
+				if(is_array($ValoresCampo))
+				{
+					$subjectmail="";
+					if(defined('SISTEMAMOSTRAR'))
+						$subjectmail=SISTEMAMOSTRAR;
+					elseif(defined('SISTEMA'))
+						$subjectmail=SISTEMA;				
+					$subjectmail.=" - Error en el sistema";
+					$textomail ="Se produjo un error: \n";
+					$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+					$textomail.="Se esperaba un escalar y se recibió un array en Valores de Búsqueda por Campo.";
+	
+					FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+				
+					return false;
+				}
+				if($OperCampo==JURISD_BUSQCAMPOCOMIENZA)
+					$arrayigual=array("'",$ValoresCampo,"%'");
+				elseif($OperCampo==JURISD_BUSQCAMPOTERMINA)
+					$arrayigual=array("'%",$ValoresCampo,"'");
+				elseif($OperCampo==JURISD_BUSQCAMPOCONTIENE)
+					$arrayigual=array("'%",$ValoresCampo,"%'");
+				
+				$spparam+=array("pjurisdoper"=>"like","pjurisdvalor"=>$arrayigual);
+				break;
+
+			default:
+				$subjectmail="";
+				if(defined('SISTEMAMOSTRAR'))
+					$subjectmail=SISTEMAMOSTRAR;
+				elseif(defined('SISTEMA'))
+					$subjectmail=SISTEMA;				
+				$subjectmail.=" - Error en el sistema";
+				$textomail ="Se produjo un error: \n";
+				$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+				$textomail.="Operación no definida (".$OperCampo.") en Búsqueda por Campo.";
+
+				FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+				return false;
+				
+				break;
+		}
+
+		if(isset($ParamBusq["pincluirbajas"]) && $ParamBusq["pincluirbajas"])
+			$spparam+=array("pjurisdfbaja_filtro"=>0);
+		else
+			$spparam+=array("pjurisdfbaja_filtro"=>1);
+
+		if(isset($ParamBusq["pjurisdorden"]))
+			$spparam+=array("porderby"=>$ParamBusq["pjurisdorden"]);
+		else
+			$spparam+=array("porderby"=>GENERAL_JURISDORDEN);
+
+		if(isset($ParamBusq["pjurisdlimit"]))
+			$spparam+=array("plimit"=>"LIMIT ".$ParamBusq["pjurisdlimit"]);
+		else
+			$spparam+=array("plimit"=>""); 
+
+
+		if(isset($ParamBusq["pjurisdwhere"])) 
+			if(!is_array($ParamBusq["pjurisdwhere"]) ) {
+					$subjectmail="";
+					if(defined('SISTEMAMOSTRAR'))
+						$subjectmail=SISTEMAMOSTRAR;
+					elseif(defined('SISTEMA'))
+						$subjectmail=SISTEMA;				
+					$subjectmail.=" - Error en el sistema";
+					$textomail ="Se produjo un error: \n";
+					$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+					$textomail.="Se esperaba un array en el campo where y se recibió un escalar.";
+	
+					FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+					return false;
+			} elseif(is_array($ParamBusq["pjurisdwhere"]) && count($ParamBusq["pjurisdwhere"])==0) {
+					$subjectmail="";
+					if(defined('SISTEMAMOSTRAR'))
+						$subjectmail=SISTEMAMOSTRAR;
+					elseif(defined('SISTEMA'))
+						$subjectmail=SISTEMA;				
+					$subjectmail.=" - Error en el sistema";
+					$textomail ="Se produjo un error: \n";
+					$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+					$textomail.="Se recibió un array vacío en el campo where de SelectJurisdxCampo.";
+	
+					FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+					return false;
+			} else		
+				$spparam+=array("pjurisdwhere"=>$ParamBusq["pjurisdwhere"]);
+		else
+			$spparam+=array("pjurisdwhere"=>""); 
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultadosalida,$NumFilas,$CodError))
+			return false;
+			
+		switch($TipoSalida)
+		{
+			case TABGRALES_TS_ARRAY:
+				$Destino=array();
+
+				if($NumFilas==0)
+					return true;
+
+				while($fila=mysqli_fetch_assoc($resultadosalida))
+					$Destino[$fila['jurisdid']]=$fila;
+				
+				break;
+				
+			case TABGRALES_TS_CURSOR:
+				if(!$this->_CrearJurisdTemp($ParamSalida["conexion"],$ParamSalida["nombretabla"],$CodError))
+					return false;
+				
+				if($NumFilas==0)
+					return true;
+
+				while($fila=mysqli_fetch_assoc($resultadosalida))
+				{
+					if(!$this->_InsertTablaTemp($ParamSalida["conexion"],$ParamSalida["nombretabla"],$fila,$CodError))
+						return false;
+				}
+				
+				$Destino=mysqli_query($ParamSalida["conexion"], "select * from ".$ParamSalida["nombretabla"]);
+				
+				if(!$Destino)
+				{
+					$CodError=mysqli_errno($ParamSalida["conexion"]);
+					return false;
+				}
+			
+				break;
+				
+			default:
+				$subjectmail="";
+				if(defined('SISTEMAMOSTRAR'))
+					$subjectmail=SISTEMAMOSTRAR;
+				elseif(defined('SISTEMA'))
+					$subjectmail=SISTEMA;				
+				$subjectmail.=" - Error en el sistema";
+				$textomail ="Se produjo un error: \n";
+				$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+				$textomail.="Tipo de Salida (".$TipoSalida.") en Búsqueda por Campo en Jurisdicciones inválido.";
+
+				FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+				return false;
+		}
+		
+		return true;
+	
+	}	
+
+//----------------------------------------------------------------------------------------- 
+// Retorna la cantidad de jurisdicciones pedidas
+
+// Parámetros de Entrada:
+//		NombreCampo: nombre en la tabla jurisdicciones sobre el cual se va a buscar
+//		OperCampo: JURISD_BUSQCAMPOIGUAL / JURISD_BUSQCAMPOCOMIENZA / JURISD_BUSQCAMPOTERMINA / JURISD_BUSQCAMPOCONTIENE
+//		ValoresCampo: debe ser un único valor excepto si OperCampo es JURISD_BUSQCAMPOIGUAL, en cuyo caso puede ser un array
+//		ParamBusq: se usan pincluirbajas, pjurisdorden
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+//MODIFICADA	
+	function SelectCantJurisdxCampo($NombreCampo,$OperCampo,$ValoresCampo,$ParamBusq,&$Cantjurisd,&$CodError)
+	{
+		$spnombre="selc_cantjurisdicciones_xcampovariable";
+		$spparam=array("codtabla"=>$this->versiontabla,"pversionid"=>$this->versionid);
+
+		if($NombreCampo=="")
+		{
+			$subjectmail="";
+			if(defined('SISTEMAMOSTRAR'))
+				$subjectmail=SISTEMAMOSTRAR;
+			elseif(defined('SISTEMA'))
+				$subjectmail=SISTEMA;				
+			$subjectmail.=" - Error en el sistema";
+			$textomail ="Se produjo un error: \n";
+			$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+			$textomail.="Se recibió el nombre del campo vacío en SelectCantJurisdxCampo.";
+
+			FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+		
+			return false;
+		}
+		
+		$spparam+=array("pnombrecampo"=>$NombreCampo);
+
+		switch($OperCampo)
+		{
+			case JURISD_BUSQCAMPOIGUAL:
+				if(is_array($ValoresCampo) && count($ValoresCampo)>1)
+				{
+					$arrayin=FuncionesPHP::ArrayToArray($ValoresCampo,"('","','","')");
+					$spparam+=array("pjurisdoper"=>"in","pjurisdvalor"=>$arrayin);
+				}
+				elseif(is_array($ValoresCampo) && count($ValoresCampo)==0)
+				{
+					$subjectmail="";
+					if(defined('SISTEMAMOSTRAR'))
+						$subjectmail=SISTEMAMOSTRAR;
+					elseif(defined('SISTEMA'))
+						$subjectmail=SISTEMA;				
+					$subjectmail.=" - Error en el sistema";
+					$textomail ="Se produjo un error: \n";
+					$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+					$textomail.="Se recibió un array vacío en Valores de Búsqueda en SelectCantJurisdxCampo.";
+	
+					FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+				
+					return false;
+				}
+				else
+				{
+					if(is_array($ValoresCampo))
+						$textoigual=$ValoresCampo[0];
+					else
+						$textoigual=$ValoresCampo;
+						
+					$spparam+=array("pjurisdoper"=>"=","pjurisdvalor"=>array("'",$textoigual,"'"));
+				}
+				
+				break;
+
+			case JURISD_BUSQCAMPOCOMIENZA:
+			case JURISD_BUSQCAMPOTERMINA:
+			case JURISD_BUSQCAMPOCONTIENE:
+				if(is_array($ValoresCampo))
+				{
+					$subjectmail="";
+					if(defined('SISTEMAMOSTRAR'))
+						$subjectmail=SISTEMAMOSTRAR;
+					elseif(defined('SISTEMA'))
+						$subjectmail=SISTEMA;				
+					$subjectmail.=" - Error en el sistema";
+					$textomail ="Se produjo un error: \n";
+					$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+					$textomail.="Se esperaba un escalar y se recibió un array en Valores de Búsqueda en SelectCantJurisdxCampo.";
+	
+					FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+				
+					return false;
+				}
+				if($OperCampo==JURISD_BUSQCAMPOCOMIENZA)
+					$arrayigual=array("'",$ValoresCampo,"%'");
+				elseif($OperCampo==JURISD_BUSQCAMPOTERMINA)
+					$arrayigual=array("'%",$ValoresCampo,"'");
+				elseif($OperCampo==JURISD_BUSQCAMPOCONTIENE)
+					$arrayigual=array("'%",$ValoresCampo,"%'");
+				
+				$spparam+=array("pjurisdoper"=>"like","pjurisdvalor"=>$arrayigual);
+				break;
+
+			default:
+				$subjectmail="";
+				if(defined('SISTEMAMOSTRAR'))
+					$subjectmail=SISTEMAMOSTRAR;
+				elseif(defined('SISTEMA'))
+					$subjectmail=SISTEMA;				
+				$subjectmail.=" - Error en el sistema";
+				$textomail ="Se produjo un error: \n";
+				$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+				$textomail.="Operación no definida (".$OperCampo.") en Búsqueda por Campo.";
+
+				FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+				return false;
+				
+				break;
+		}
+
+		if(isset($ParamBusq["pincluirbajas"]) && $ParamBusq["pincluirbajas"])
+			$spparam+=array("pjurisdfbaja_filtro"=>0);
+		else
+			$spparam+=array("pjurisdfbaja_filtro"=>1);
+
+		if(isset($ParamBusq["pjurisdwhere"])) 
+			if(!is_array($ParamBusq["pjurisdwhere"]) ) 
+			{
+					$subjectmail="";
+					if(defined('SISTEMAMOSTRAR'))
+						$subjectmail=SISTEMAMOSTRAR;
+					elseif(defined('SISTEMA'))
+						$subjectmail=SISTEMA;				
+					$subjectmail.=" - Error en el sistema";
+					$textomail ="Se produjo un error: \n";
+					$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+					$textomail.="Se esperaba un array en el campo where y se recibió un escalar en SelectCantJurisdxCampo.";
+	
+					FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+					return false;
+			} 
+			elseif(is_array($ParamBusq["pjurisdwhere"]) && count($ParamBusq["pjurisdwhere"])==0) 
+			{
+					$subjectmail="";
+					if(defined('SISTEMAMOSTRAR'))
+						$subjectmail=SISTEMAMOSTRAR;
+					elseif(defined('SISTEMA'))
+						$subjectmail=SISTEMA;				
+					$subjectmail.=" - Error en el sistema";
+					$textomail ="Se produjo un error: \n";
+					$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+					$textomail.="Se recibió un array vacío en el campo where en SelectCantJurisdxCampo.";
+	
+					FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+					return false;
+			}
+			else		
+				$spparam+=array("pjurisdwhere"=>$ParamBusq["pjurisdwhere"]);
+		else
+			$spparam+=array("pjurisdwhere"=>""); 
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultadosalida,$NumFilas,$CodError))
+			return false;
+			
+		$fila=mysqli_fetch_assoc($resultadosalida);
+		$Cantjurisd=$fila['jurisdcant'];
+		return true;
+	
+	}	
+
+//----------------------------------------------------------------------------------------- 
+// Retorna todos los datos de la jurisdicción y sus dependientes
+// 	hasta llegar a las hojas o cumplir con la cantidad de niveles especificados
+
+// Para orden por "nivel, orden" enviar en el parametro ParamBusq porderby=>"b.torgnivel,a.jurisdorden"
+
+// Parámetros de Entrada:
+//		IDBusq: Contiene el ID de la jurisdicción a buscar.
+//		CantNiveles: No incluye a la jurisdicción mencionada en IDBusq. (CantNiveles=1 retornaría 2 niveles del arbol)
+//		ParamBusq: no se utilizan específicamente, pero si en funciones llamadas.
+//		ParamSalida: se usan conexion, nombretabla en caso que la salida sea en cursor
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+
+//-------------------------------------------------------------------//
+// OJO!! Puede cancelar al pedir TODO el arbol con salida en cursor  //
+//-------------------------------------------------------------------//
+//MODIFICADA
+	function SubArbolDependiente($IDBusq,$CantNiveles,$ParamBusq,$TipoSalida,&$Destino,$ParamSalida,&$NumFilas,&$CodError)
+	{
+		$NumFilas=0;
+		$CodError=0;
+		
+		if($IDBusq=="")
+		{
+			$subjectmail="";
+			if(defined('SISTEMAMOSTRAR'))
+				$subjectmail=SISTEMAMOSTRAR;
+			elseif(defined('SISTEMA'))
+				$subjectmail=SISTEMA;				
+			$subjectmail.=" - Error en el sistema";
+			$textomail ="Se produjo un error: \n";
+			$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+			$textomail.="Se recibió el ID vacío en SubArbolDependiente.";
+
+			FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+			return false;
+		}	
+		
+		if(!$this->SelectJurisdxID($IDBusq,$ParamBusq,TABGRALES_TS_ARRAY,$PrimerNodo,array(),$NumFilasPN,$CodError))
+			return false;
+		
+		
+		
+		if($NumFilasPN==0)
+		{
+			$subjectmail="";
+			if(defined('SISTEMAMOSTRAR'))
+				$subjectmail=SISTEMAMOSTRAR;
+			elseif(defined('SISTEMA'))
+				$subjectmail=SISTEMA;				
+			$subjectmail.=" - Error en el sistema";
+			$textomail ="Se produjo un error: \n";
+			$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+			$textomail.="Se recibió un ID no válido (".$IDBusq.") en SubArbolDependiente.";
+
+			FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+			return false;
+		}	
+		
+		
+		//----------------------------------------------------------------------//
+		if(!$this->SelectTipoOrgxID($PrimerNodo[$IDBusq]['torgid'],$ParamBusq,TABGRALES_TS_ARRAY,$PrimerNodoTipo,array(),$NumFilasTipoOrg,$CodError))
+			return false;
+		
+		if($NumFilasTipoOrg==0)
+		{
+			$subjectmail="";
+			if(defined('SISTEMAMOSTRAR'))
+				$subjectmail=SISTEMAMOSTRAR;
+			elseif(defined('SISTEMA'))
+				$subjectmail=SISTEMA;				
+			$subjectmail.=" - Error en el sistema";
+			$textomail ="Se produjo un error: \n";
+			$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+			$textomail.="Se recibió un Tipo Id no válido (".$PrimerNodo[$IDBusq]['torgid'].") en SubArbolDependiente.";
+
+			FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+			return false;
+		}	
+		
+		$PrimerNodo[$IDBusq]['torgnivel']=$PrimerNodoTipo[$PrimerNodo[$IDBusq]['torgid']]['torgnivel'];
+		//----------------------------------------------------------------------//
+
+
+
+		$DestinoInterno=array();
+	
+		$DestinoInterno[$IDBusq]=$PrimerNodo[$IDBusq];
+		$DestinoInterno[$IDBusq]["IDHijos"]=array();
+
+		$NumFilas++;
+		
+/*		if($PrimerNodo[$IDBusq]["jurisdarboltiponodo"]!="H")
+		{			*/
+			if(!$this->_HijosDe($IDBusq,$CantNiveles,$ParamBusq,$DestinoInterno,$NumFilas,$CodError))
+				return false;
+//		}
+
+		switch($TipoSalida)
+		{
+			case TABGRALES_TS_ARRAY:
+				
+				$Destino=$DestinoInterno;
+								
+				break;
+			case TABGRALES_TS_CURSOR: 
+				if(!$this->_CrearJurisdTemp($ParamSalida["conexion"],$ParamSalida["nombretabla"],$CodError))
+					return false;
+				if(!$this->_CrearJurisdHijoTemp($ParamSalida["conexion"],$ParamSalida["nombretabla"]."_hijos",$CodError))
+					return false;
+				
+				foreach($DestinoInterno as $fila)
+				{
+					$arrayhijos=$fila["IDHijos"];
+					unset($fila["IDHijos"]);
+					
+					if(!$this->_InsertTablaTemp($ParamSalida["conexion"],$ParamSalida["nombretabla"],$fila,$CodError))
+						return false;
+
+					foreach($arrayhijos as $filahijos)
+					{
+						$inshijos=array();
+						$inshijos["jurisdid"]=$fila["jurisdid"];
+						$inshijos["jurisdidhijo"]=$filahijos;
+						
+						if(!$this->_InsertTablaTemp($ParamSalida["conexion"],$ParamSalida["nombretabla"]."_hijos",$inshijos,$CodError))
+							return false;
+					}
+				}
+				
+				$Destino=mysqli_query($ParamSalida["conexion"], "select * from ".$ParamSalida["nombretabla"]);
+				
+				if(!$Destino)
+				{
+					$CodError=mysqli_errno($ParamSalida["conexion"]);
+					return false;
+				}
+
+				break;
+				
+			default:
+				$subjectmail="";
+				if(defined('SISTEMAMOSTRAR'))
+					$subjectmail=SISTEMAMOSTRAR;
+				elseif(defined('SISTEMA'))
+					$subjectmail=SISTEMA;				
+				$subjectmail.=" - Error en el sistema";
+				$textomail ="Se produjo un error: \n";
+				$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+				$textomail.="Tipo de Salida (".$TipoSalida.") en SubArbolDependiente inválido.";
+
+				FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+				return false;
+		}
+		
+		return true;
+	}
+
+
+
+
+	function EsRaiz($IDBusq,&$RaizSiNo)
+	{
+		// VER QUE el "Poder Ejecutivo" TIENE CODIGO 2 SI SE MODIFICA
+		// MODIFICAR ESTA FUNCION
+		if ($IDBusq!=2)
+			return false;
+			
+		return true;
+	}
+
+
+
+//----------------------------------------------------------------------------------------- 
+// Retorna si un nodo de jurisdicciones es raiz de arbol.
+// En caso afirmativo retorna todos los datos del tipo de organismo al cual pertenece la jurisdicción solicitada.
+
+// Parámetros de Entrada:
+//		IDBusq: Contiene el ID de la jurisdicción a buscar.
+//		ParamBusq: no se usan pjurisdestado, pjurisdorden, pjurisdlimit.
+//		ParamSalida: se usan conexion, nombretabla en caso que la salida sea en cursor
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+//		RaizSiNo: true o false si es raiz o no
+//BORRAR
+	function _1EsRaiz($IDBusq,$ParamBusq,$TipoSalida,&$Destino,&$RaizSiNo,$ParamSalida,&$CodError)
+	{
+		$CodError=0;
+
+		$spnombre="sel_tipoorganismos_xtipoorgraizarbol";
+		$spparam=array("ptipoorgraizarbol"=>$IDBusq);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultadosalida,$NumFilas,$CodError))
+			return false;
+			
+		if($NumFilas>1)
+			return false;
+		elseif($NumFilas==1 || $NumFilas==0)
+		{
+			$RaizSiNo=false;
+			
+			$fila=mysqli_fetch_assoc($resultadosalida);
+
+			switch($TipoSalida)
+			{
+				case TABGRALES_TS_ARRAY:
+					$Destino=array();
+					
+					if($NumFilas==1)
+					{
+						$Destino=$fila;
+						$RaizSiNo=true;
+					}
+					
+					break;
+				case TABGRALES_TS_CURSOR:
+					if(!$this->_CrearTipoOrgTemp($ParamSalida["conexion"],$ParamSalida["nombretabla"],$CodError))
+						return false;
+					
+					if($NumFilas==1)
+					{
+						if(!$this->_InsertTablaTemp($ParamSalida["conexion"],$ParamSalida["nombretabla"],$fila,$CodError))
+							return false;
+						$RaizSiNo=true;
+					}
+
+					$Destino=mysqli_query($ParamSalida["conexion"], "select * from ".$ParamSalida["nombretabla"]);
+					
+					if(!$Destino)
+					{
+						$CodError=mysqli_errno($ParamSalida["conexion"]);
+						return false;
+					}
+
+					break;
+					
+				default:
+					$subjectmail="";
+					if(defined('SISTEMAMOSTRAR'))
+						$subjectmail=SISTEMAMOSTRAR;
+					elseif(defined('SISTEMA'))
+						$subjectmail=SISTEMA;				
+					$subjectmail.=" - Error en el sistema";
+					$textomail ="Se produjo un error: \n";
+					$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+					$textomail.="Tipo de Salida (".$TipoSalida.") en EsRaiz inválido.";
+	
+					FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+					return false;
+			}
+			
+			return true;
+		}
+	}
+//----------------------------------------------------------------------------------------- 
+// Retorna todos los datos de la jurisdicción y sus hermanos
+
+// Parámetros de Entrada:
+//		IDBusq: Contiene el ID de la jurisdicción a buscar.
+//		ParamBusq: no se utilizan específicamente, pero si en funciones llamadas.
+//		ParamSalida: se usan conexion, nombretabla en caso que la salida sea en cursor
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+
+	function HijosDeMiPadre($IDBusq,$ParamBusq,$TipoSalida,&$Destino,$ParamSalida,&$NumFilas,&$CodError)
+	{
+		$NumFilas=0;
+
+		if(!$this->RamaAscendente($IDBusq,1,$ParamBusq,TABGRALES_TS_ARRAY,$SalidaPadre,array(),$NumFilasPadre,$CodError))
+			return false;
+		
+		if($NumFilasPadre!=2)
+		{
+			$subjectmail="";
+			if(defined('SISTEMAMOSTRAR'))
+				$subjectmail=SISTEMAMOSTRAR;
+			elseif(defined('SISTEMA'))
+				$subjectmail=SISTEMA;				
+			$subjectmail.=" - Error en el sistema";
+			$textomail ="Se produjo un error: \n";
+			$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+			$textomail.="No es posible obtener padre de (".$IDBusq.") en HijosDeMiPadre.";
+
+			FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+			return false;
+		}
+
+//		$SalidaPadre=array_reverse($SalidaPadre);
+		reset($SalidaPadre);
+		
+		$Padre=current($SalidaPadre);
+		
+		if(!$this->SubArbolDependiente($Padre["jurisdid"],1,$ParamBusq,TABGRALES_TS_ARRAY,$DestinoHermanos,array(),$NumFilas,$CodError))
+			return false;
+
+		unset($DestinoHermanos[$Padre["jurisdid"]]);
+		
+		$NumFilas=count($DestinoHermanos);
+		
+		switch($TipoSalida)
+		{
+			case TABGRALES_TS_ARRAY:
+				$Destino=$DestinoHermanos;
+				break;
+				
+			case TABGRALES_TS_CURSOR:
+				if(!$this->_CrearJurisdTemp($ParamSalida["conexion"],$ParamSalida["nombretabla"],$CodError))
+					return false;
+				
+				foreach($DestinoHermanos as $fila)
+				{
+					unset($fila["IDHijos"]);
+					
+					if(!$this->_InsertTablaTemp($ParamSalida["conexion"],$ParamSalida["nombretabla"],$fila,$CodError))
+						return false;
+				}
+				
+				$Destino=mysqli_query($ParamSalida["conexion"], "select * from ".$ParamSalida["nombretabla"]);
+				
+				if(!$Destino)
+				{
+					$CodError=mysqli_errno($ParamSalida["conexion"]);
+					return false;
+				}
+			
+				break;
+				
+			default:
+				$subjectmail="";
+				if(defined('SISTEMAMOSTRAR'))
+					$subjectmail=SISTEMAMOSTRAR;
+				elseif(defined('SISTEMA'))
+					$subjectmail=SISTEMA;				
+				$subjectmail.=" - Error en el sistema";
+				$textomail ="Se produjo un error: \n";
+				$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+				$textomail.="Tipo de Salida (".$TipoSalida.") en HijosDeMiPadre inválido.";
+
+				FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+				return false;
+		}
+		
+		return true;
+		
+	}
+//----------------------------------------------------------------------------------------- 
+// Retorna si un nodo de jurisdicciones es descendiente de otro, a cualquier distancia.
+
+// Parámetros de Entrada:
+//		IDDescendiente/IDPadre: Contiene los IDs de las jurisdicciones a verificar.
+//		ParamBusq: no se usan pincluirbajas, pjurisdorden, pjurisdlimit.
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+//		EsDescendienteSiNo: true o false si IDDescendiente es descendiente de IDPadre
+//		CantNiveles: si EsDescendienteSiNo es true, contiene la cantidad de niveles que los separa
+//			Es la resta de IDPadre-IDDescendiente. Si son Padre/Hijo retornaría 1.
+//MODIFICADA
+	function EsDescendiente($IDDescendiente,$IDPadre,$ParamBusq,&$EsDescendienteSiNo,&$CantNiveles,&$CodError)
+	{
+		$CantNiveles=0; // Cantidad de Niveles que separan Padre e Hijo. 
+		$IDBusq=$IDDescendiente;
+		$EsDescendienteSiNo=false;
+//		$NivelArbol=99; // Cualquier valor mayor a 1
+		
+		if($IDDescendiente==$IDPadre)
+			return true;
+			
+//		while(!$EsDescendienteSiNo && $NivelArbol>1)
+		while(!$EsDescendienteSiNo)
+		{
+			$spnombre="selc_jurisdicciones_xjurisdid";
+			$spparam=array("codtabla1"=>$this->versiontabla,"codtabla2"=>$this->versiontabla,"pversionid"=>$this->versionid);
+			$spparam+=array("pjurisdoper"=>"=","pjurisdid"=>$IDBusq);
+			$spparam+=array("porderby"=>GENERAL_JURISDORDEN);
+			$spparam+=array("pjurisdfbaja_filtro"=>1);
+			$spparam+=array("plimit"=>""); 
+	
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultadosalida,$NumFilas,$CodError))
+				return false;
+			
+			if($NumFilas!=1)
+				return false;
+				
+			$CantNiveles++;
+			$fila=mysqli_fetch_assoc($resultadosalida);
+			
+			if($fila["jurisdsuperior"]==$IDPadre)
+			{
+				$EsDescendienteSiNo=true;
+				return true;
+			}
+			elseif(is_null($fila["jurisdsuperior"]))
+			{
+				$CantNiveles=0;
+				return true;
+			}
+
+			if(!$this->BuscarTipoOrg($IDBusq,array(),TABGRALES_TS_ARRAY,$DestinoTO,array(),$CodError))
+				return false;
+			
+			
+			$NivelArbol=$DestinoTO["torgnivel"];
+			$IDBusq=$fila["jurisdsuperior"];
+		}			
+		
+		$CantNiveles=0;
+		return true;
+	
+	}
+//----------------------------------------------------------------------------------------- 
+// Retorna todos los datos de los tipos de organismos pedidos
+
+// Parámetros de Entrada:
+//		IDBusq: Contiene los IDs de los tipos de organismos a buscar. Puede o no ser un array.
+//		ParamBusq: se usan ptipoorgorden, ptipoorglimit
+//		ParamSalida: se usan conexion, nombretabla en caso que la salida sea en cursor
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+//MODIFICADA
+	function SelectTipoOrgxID($IDBusq,$ParamBusq,$TipoSalida,&$Destino,$ParamSalida,&$NumFilas,&$CodError)
+	{
+		$Destino="";
+		
+		$spnombre="selc_tipoorganismos_xtorgid";
+		$spparam=array("codtabla"=>$this->versiontabla,"pversionid"=>$this->versionid);
+
+		if(is_array($IDBusq) && count($IDBusq)>1)
+		{
+			$textoin="(".implode(",",$IDBusq).")";
+			$spparam+=array("ptipoorgoper"=>"in","ptorgid"=>$textoin);
+		}
+		elseif(is_array($IDBusq) && count($IDBusq)==0)
+		{
+			$subjectmail="";
+			if(defined('SISTEMAMOSTRAR'))
+				$subjectmail=SISTEMAMOSTRAR;
+			elseif(defined('SISTEMA'))
+				$subjectmail=SISTEMA;				
+			$subjectmail.=" - Error en el sistema";
+			$textomail ="Se produjo un error: \n";
+			$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']." \n\n";
+			$textomail.="Se recibió un array vacío en Valores de Búsqueda en SelectTipoOrgxID.";
+
+			FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+		
+			return false;
+		}
+		else
+		{
+			if(is_array($IDBusq))
+				$textoigual=$IDBusq[0];
+			else
+				$textoigual=$IDBusq;
+				
+			$spparam+=array("ptipoorgoper"=>"=","ptorgid"=>$textoigual);
+		}
+
+		if(isset($ParamBusq["ptipoorgorden"]))
+			$spparam+=array("porderby"=>$ParamBusq["ptipoorgorden"]);
+		else
+			$spparam+=array("porderby"=>GENERAL_TIPOORGORDEN);
+
+		if(isset($ParamBusq["ptipoorglimit"]))
+			$spparam+=array("plimit"=>"LIMIT ".$ParamBusq["ptipoorglimit"]);
+		else
+			$spparam+=array("plimit"=>""); 
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultadosalida,$NumFilas,$CodError))
+			return false;
+					
+		switch($TipoSalida)
+		{
+			case TABGRALES_TS_ARRAY:
+				$Destino=array();
+
+				if($NumFilas==0)
+					return true;
+
+				while($fila=mysqli_fetch_assoc($resultadosalida))
+					$Destino[$fila['torgid']]=$fila;
+				
+				break;
+			case TABGRALES_TS_CURSOR: 
+				
+				if(!$this->_CrearTipoOrgTemp($ParamSalida["conexion"],$ParamSalida["nombretabla"],$CodError))
+					return false;
+				
+				if($NumFilas==0)
+					return true;
+
+				while($fila=mysqli_fetch_assoc($resultadosalida))
+				{
+					if(!$this->_InsertTablaTemp($ParamSalida["conexion"],$ParamSalida["nombretabla"],$fila,$CodError))
+						return false;
+				}
+				
+				$Destino=mysqli_query($ParamSalida["conexion"], "select * from ".$ParamSalida["nombretabla"]);
+				
+				if(!$Destino)
+				{
+					$CodError=mysqli_errno($ParamSalida["conexion"]);
+					return false;
+				}
+				
+				break;
+				
+			default:
+				$subjectmail="";
+				if(defined('SISTEMAMOSTRAR'))
+					$subjectmail=SISTEMAMOSTRAR;
+				elseif(defined('SISTEMA'))
+					$subjectmail=SISTEMA;				
+				$subjectmail.=" - Error en el sistema";
+				$textomail ="Se produjo un error: \n";
+				$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+				$textomail.="Tipo de Salida (".$TipoSalida.") inválido en SelectTipoOrgxID. ";
+
+				FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+				return false;
+		}
+		
+		return true;
+
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Retorna todos los tipos de organismo de la jurisdicción 
+// y sus dependientes hasta la cantidad de niveles solicitados
+
+// Parámetros de Entrada:
+//		IDBusq: Contiene el ID de la jurisdicción a buscar.
+//		CantNiveles: No incluye a la jurisdicción mencionada en IDBusq. (CantNiveles=1 retornaría 2 niveles del arbol)
+//		ParamBusq: no se utilizan específicamente, pero si en funciones llamadas.
+//		ParamSalida: se usan conexion, nombretabla en caso que la salida sea en cursor
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+//MODIFICADA
+	function BuscarTipoOrgSubArbolDependiente($IDBusq,$CantNiveles,$ParamBusq,$TipoSalida,&$Destino,$ParamSalida,&$NumFilas,&$CodError)
+	{
+		$NumFilas=0;
+		$CodError=0;
+		
+		if($IDBusq=="")
+		{
+			$subjectmail="";
+			if(defined('SISTEMAMOSTRAR'))
+				$subjectmail=SISTEMAMOSTRAR;
+			elseif(defined('SISTEMA'))
+				$subjectmail=SISTEMA;				
+			$subjectmail.=" - Error en el sistema";
+			$textomail ="Se produjo un error: \n";
+			$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+			$textomail.="Se recibió el ID vacío en BuscarTipoOrgSubArbolDependiente.";
+
+			FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+			return false;
+		}	
+		if(!$this->SubArbolDependiente($IDBusq,$CantNiveles,$ParamBusq,TABGRALES_TS_ARRAY,$arrayJD,array(),$NumFilasJD,$CodError))
+			return false;
+		
+		if($NumFilasJD==0)
+		{
+			$subjectmail="";
+			if(defined('SISTEMAMOSTRAR'))
+				$subjectmail=SISTEMAMOSTRAR;
+			elseif(defined('SISTEMA'))
+				$subjectmail=SISTEMA;				
+			$subjectmail.=" - Error en el sistema";
+			$textomail ="Se produjo un error: \n";
+			$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+			$textomail.="Se recibió un ID no válido (".$IDBusq.") en BuscarTipoOrgSubArbolDependiente.";
+
+			FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+			return false;
+		}	
+		
+		$arrayTO=array();
+
+		foreach($arrayJD as $jurisdid => $registrojurisd)
+		{
+			$tipoorgidbusq=$arrayJD[$jurisdid]["torgid"];
+			$arrayTO[]=$tipoorgidbusq;
+		}
+/*		$i=0;
+		$arraytipoorg=array();
+		foreach($arrayTO as $tipoorgid => $valortipoorg)
+		{
+			$arraytipoorg[$i]=$arrayTO[$tipoorgid];
+			$i++;
+		}*/
+		
+		return $this->SelectTipoOrgxID($arrayTO,$ParamBusq,$TipoSalida,$Destino,$ParamSalida,$NumFilas,$CodError);
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Retorna el nodo de jurisdicciones que corresponde a la raiz del tipo de organismo solicitado.
+
+// Parámetros de Entrada:
+//		TipoOrgID: ID del tipo de organismo buscado
+//		ParamBusq: no se utilizan específicamente, pero si en funciones llamadas.
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+//MODIFICADA
+	function BuscarRaizTipoOrg($TipoOrgID,$ParamBusq,$TipoSalida,&$Destino,$ParamSalida,&$CodError)
+	{
+		$spnombre="selc_jurisdicciones_xtorgid";
+		$spparam=array("codtabla"=>$this->versiontabla,"pversionid"=>$this->versionid);
+		$spparam+=array("ptorgid"=>$TipoOrgID);
+
+		if(isset($ParamBusq["pincluirbajas"]) && $ParamBusq["pincluirbajas"])
+			$spparam+=array("pjurisdfbaja_filtro"=>0);
+		else
+			$spparam+=array("pjurisdfbaja_filtro"=>1);
+
+		if(isset($ParamBusq["pjurisdorden"]))
+			$spparam+=array("porderby"=>$ParamBusq["pjurisdorden"]);
+		else
+			$spparam+=array("porderby"=>GENERAL_JURISDORDEN);
+
+		$spparam+=array("plimit"=>""); 
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultadosalida,$NumFilas,$CodError))
+			return false;
+
+		if($NumFilas!=1)
+			return false;
+
+		$filatipoorg=mysqli_fetch_assoc($resultadosalida);
+
+		return $this->SelectJurisdxID($filatipoorg["jurisdid"],$ParamBusq,$TipoSalida,$Destino,$ParamSalida,$NumFilas,$CodError);
+
+	}
+	
+	
+	
+//----------------------------------------------------------------------------------------- 
+// Código de la jurisdicción que es raiz del arbol
+
+// Retorna:
+//		retorna el ID de la jurisdicción
+
+function IdNodoDios()
+{
+	return 1;
+}
+
+//----------------------------------------------------------------------------------------- 
+// Código de la jurisdicción que es raiz del arbol del poder ejecutivo nacional
+
+// Retorna:
+//		retorna el ID de la jurisdicción
+
+
+function IdNodoNAC_EJ()
+{
+	return 2;
+}
+	
+	
+	
+//----------------------------------------------------------------------------------------- 
+//                                FUNCIONES PRIVADAS
+//----------------------------------------------------------------------------------------- 
+// Agrega en el nodo del padre, un array con todos los IDs de sus hijos. 
+// Si por la cantidad de niveles solicitados corresponde, agrega la información general de cada uno de sus hijos
+// y se llama a si misma
+
+// Parámetros de Entrada:
+//		IDBusq: ID del padre
+//		CantNiveles: No incluye a la jurisdicción mencionada en IDBusq. (CantNiveles=1 retornaría el primer nivel de hijos)
+//		TipoOrgID: Si el nodo hijo no es raiz de un tipo de organismo, entonces utiliza el tipo de organismo de su padre
+//		ParamBusq: se usan pjurisdestado, pjurisdorden. No se usa pjurisdlimit.
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+//		DestinoInterno: un array con el resultado
+
+//ojo TipoOrg function _HijosDe($IDBusq,$CantNiveles,$TipoOrgid,$ParamBusq,&$DestinoInterno,&$NumFilas,&$CodError)
+//MODIFICADA
+	function _HijosDe($IDBusq,$CantNiveles,$ParamBusq,&$DestinoInterno,&$NumFilas,&$CodError)
+	{
+		$spnombre="selc_jurisdicciones_xjurisdsuperior";
+		$spparam=array("codtabla1"=>$this->versiontabla,"codtabla2"=>$this->versiontabla,"pversionid"=>$this->versionid,"pjurisdsuperior"=>$IDBusq);
+
+
+		if(isset($ParamBusq["pincluirbajas"]) && $ParamBusq["pincluirbajas"])
+			$spparam+=array("pjurisdfbaja_filtro"=>0);
+		else
+			$spparam+=array("pjurisdfbaja_filtro"=>1);
+
+		if(isset($ParamBusq["pjurisdorden"]))
+			$spparam+=array("porderby"=>$ParamBusq["pjurisdorden"]);
+		else
+			$spparam+=array("porderby"=>GENERAL_JURISDORDEN);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultadosalida,$NumFilasHijos,$CodError))
+			return false;
+
+		$CantNiveles--;
+		
+		while($filahijos=mysqli_fetch_assoc($resultadosalida))
+		{
+			$DestinoInterno[$IDBusq]["IDHijos"][]=$filahijos["jurisdid"];
+			if($CantNiveles>=0)
+			{
+				
+				//----------------------------------------------------------------------//
+				//AGREGADO PARA VER EL TIPO DE ORGANISMO Y PONER EL NIVEL.
+				if(!$this->SelectTipoOrgxID($filahijos["torgid"],$ParamBusq,TABGRALES_TS_ARRAY,$PrimerNodoTipo,array(),$NumFilasTipoOrg,$CodError))
+					return false;
+				
+				if($NumFilasTipoOrg==0)
+				{
+					$subjectmail="";
+					if(defined('SISTEMAMOSTRAR'))
+						$subjectmail=SISTEMAMOSTRAR;
+					elseif(defined('SISTEMA'))
+						$subjectmail=SISTEMA;				
+					$subjectmail.=" - Error en el sistema";
+					$textomail ="Se produjo un error: \n";
+					$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+					$textomail.="Se recibió un Tipo Id no válido (".$PrimerNodo[$IDBusq]['torgid'].") en SubArbolDependiente.";
+		
+					FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+					return false;
+				}	
+				
+				$filahijos["torgnivel"]=$PrimerNodoTipo[$filahijos["torgid"]]['torgnivel'];
+				//----------------------------------------------------------------------//
+				
+				$DestinoInterno[$filahijos["jurisdid"]]=$filahijos;
+				$DestinoInterno[$filahijos["jurisdid"]]["IDHijos"]=array();
+				$NumFilas++;
+				
+/*				if(!$this->EsRaiz($filahijos["jurisdid"],$ParamBusq,TABGRALES_TS_ARRAY,$SalidaTO,$RaizSiNo,array(),$CodError))
+					return false;*/
+				
+/*				if($filahijos["jurisdarboltiponodo"]!="H")
+				{*/
+					if(!$this->_HijosDe($filahijos["jurisdid"],$CantNiveles,$ParamBusq,$DestinoInterno,$NumFilas,$CodError))
+						return false;
+//				}
+			}
+		}
+
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Retorna todos los datos de la jurisdicción buscada y todas las superiores, 
+// 	hasta llegar al arbolnivel igual a 1 o llegar a CantNiveles=0
+
+
+// Parámetros de Entrada:
+//		IDBusq: Contiene el ID de la jurisdicción a buscar.
+//		CantNiveles: Utilizada como una de las condiciones de corte. (CantNiveles=0 corta el ciclo)
+//		ParamBusq: no se utilizan específicamente, pero si en funciones llamadas.
+//		ParamSalida: se usan conexion, nombretabla en caso que la salida sea en cursor
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+//		DestinoInterno: un array con el resultado
+//		ELIMINADO TipoOrg: en caso que el nodo no sea raiz de arbol, utiliza este dato para asignar el tipo de organismo al nodo
+//MODIFICADA	
+	function _RamaAscendente($IDBusq,$CantNiveles,$ParamBusq,&$DestinoInterno,&$NumFilas,&$CodError)
+	{
+
+		if(!$this->SelectJurisdxID($IDBusq,$ParamBusq,TABGRALES_TS_ARRAY,$JurisdBuscada,array(),$NumFilasJB,$CodError))
+			return false;
+
+		if($NumFilasJB!=1)
+			return false;
+		
+		$FilaJurisd=$JurisdBuscada[$IDBusq];
+		
+		if($FilaJurisd["jurisdsuperior"]==$IDBusq) // Es el padre de si mismo. No debería suceder.
+			return false;
+		
+		$DestinoInterno[]=$JurisdBuscada[$IDBusq];
+
+		if(!$this->BuscarTipoOrg($IDBusq,array(),TABGRALES_TS_ARRAY,$TOrgBuscada,array(),$CodError))
+			return false;
+
+		$NumFilas++;
+		
+		$CondicionCorte=($TOrgBuscada["torgnivel"]<=1 || $CantNiveles<=0);
+		
+		if(!$CondicionCorte)
+		{
+			if(!$this->_RamaAscendente($FilaJurisd["jurisdsuperior"],$CantNiveles-1,$ParamBusq,$DestinoInterno,$NumFilas,$CodError))
+				return false;
+		}
+
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Genera una tabla temporal con todos los campos de la tabla de jurisdicciones mas el tipo de organismo 
+
+// Parámetros de Entrada:
+//		conexion: la conexión con la base de datos sobre la cual va a quedar la tabla temporal
+//		nombretabla: el nombre con el que se va a generar la tabla temporal
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+
+//MODIFICADA		
+//PEND: Actualizar a la ultima version de la tabla, eliminar constraint
+	function _CrearJurisdTemp($conexion,$nombretabla,&$CodError)
+	{
+
+		$sql="
+			CREATE TEMPORARY TABLE IF NOT EXISTS `".$nombretabla."` (
+				  `versionid` int(10) unsigned NOT NULL default '0',
+				  `jurisdid` mediumint(8) unsigned NOT NULL default '0',
+				  `torgid` int(10) unsigned NOT NULL default '0',
+				  `jurisdnom` varchar(150) default NULL,
+				  `jurisdcod01` varchar(28) default NULL,
+				  `jurisdsuperior` mediumint(8) unsigned default '0',
+				  `jurisdfalta` datetime default NULL,
+				  `jurisdfbaja` datetime default NULL,
+				  `jurisdorden` mediumint(8) NOT NULL default '0',
+				  `jurisdobj` text,
+				  `jurisdrespprim` text,
+				  `jurisdacciones` text,
+				  `versionidinicial` int(10) unsigned NOT NULL default '0',
+				  `ultmodusuario` int(10) unsigned NOT NULL default '0',
+				  `ultmodfecha` datetime default NULL,
+			  PRIMARY KEY  (`versionid`,`jurisdid`),
+			  KEY `jurisdsuperior` (`versionid`,`jurisdsuperior`),
+			  KEY `versionid` (`versionid`,`torgid`),
+			  KEY `versionidinicial` (`versionidinicial`)
+			) TYPE=InnoDB COMMENT='Jurisdicciones Temporal';
+			";
+
+		if(!mysqli_query($conexion, $sql))
+		{
+			$CodError=mysqli_errno($conexion);
+
+			$subjectmail="";
+			if(defined('SISTEMAMOSTRAR'))
+				$subjectmail=SISTEMAMOSTRAR;
+			elseif(defined('SISTEMA'))
+				$subjectmail=SISTEMA;				
+			$subjectmail.=" - Error en el sistema";
+			$textomail ="Se produjo un error: \n";
+			$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+			$textomail.="No se pudo crear Tabla Jurisdicciones Temporal \n";
+			$textomail.="Conexión      ".$conexion." \n";
+			$textomail.="Nombre tabla  ".$nombretabla." \n";
+			$textomail.="Error MySql   ".$CodError." - ".mysqli_error($conexion)." \n";
+
+			FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+		
+			return false;
+		}
+		
+		return true;
+	}
+//----------------------------------------------------------------------------------------- 
+// Genera una tabla temporal de relación con IDs de Padre e Hijo de jurisdicciones
+
+// Parámetros de Entrada:
+//		conexion: la conexión con la base de datos sobre la cual va a quedar la tabla temporal
+//		nombretabla: el nombre con el que se va a generar la tabla temporal
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+//MODIFICADA		
+	function _CrearJurisdHijoTemp($conexion,$nombretabla,&$CodError)
+	{
+		$sql="CREATE TEMPORARY TABLE IF NOT EXISTS ".$nombretabla." (";
+  		$sql.="jurisdid mediumint(8) unsigned NOT NULL,";
+  		$sql.="jurisdidhijo mediumint(8) unsigned NOT NULL,";
+  		$sql.="PRIMARY KEY  (jurisdid,jurisdidhijo)";
+  		$sql.=") TYPE=INNODB COMMENT='Jurisdicciones Relación Padre-Hijos Temporal';";
+
+		if(!mysqli_query($conexion, $sql))
+		{
+			$CodError=mysqli_errno($conexion);
+
+			$subjectmail="";
+			if(defined('SISTEMAMOSTRAR'))
+				$subjectmail=SISTEMAMOSTRAR;
+			elseif(defined('SISTEMA'))
+				$subjectmail=SISTEMA;				
+			$subjectmail.=" - Error en el sistema";
+			$textomail ="Se produjo un error: \n";
+			$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+			$textomail.="No se pudo crear Tabla Jurisdicciones Relación Padre-Hijos Temporal \n";
+			$textomail.="Conexión      ".$conexion." \n";
+			$textomail.="Nombre tabla  ".$nombretabla." \n";
+			$textomail.="Error MySql   ".$CodError." - ".mysqli_error($conexion)." \n";
+
+			FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+		
+			return false;
+		}
+		
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Genera una tabla temporal con todos los campos de la tabla de tipos de organismo 
+
+// Parámetros de Entrada:
+//		conexion: la conexión con la base de datos sobre la cual va a quedar la tabla temporal
+//		nombretabla: el nombre con el que se va a generar la tabla temporal
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+//MODIFICADA
+//PEND: Actualizar a la ultima version de la tabla, eliminar constraint, agregar catnom
+	function _CrearTipoOrgTemp($conexion,$nombretabla,&$CodError)
+	{
+		$sql="
+			CREATE TEMPORARY TABLE IF NOT EXISTS `".$nombretabla."` (
+			  `versionid` int(10) unsigned NOT NULL default '0',
+			  `torgid` int(10) unsigned NOT NULL default '0',
+			  `catid` int(10) unsigned default '0',
+			  `catnom` varchar(150) default NULL,
+			  `torgnom` varchar(150) default NULL,
+			  `torgcod` varchar(50) default NULL,
+			  `torgnivel` tinyint(3) unsigned NOT NULL default '0',
+			  `torgcte` varchar(50) default NULL,
+			  `torgraizarbol` int(10) unsigned default NULL,
+			  `torgfalta` datetime default NULL,
+			  `torgfbaja` datetime default NULL,
+			  `versionidinicial` int(10) unsigned NOT NULL default '0',
+			  `ultmodusuario` int(10) unsigned NOT NULL default '0',
+			  `ultmodfecha` datetime default NULL,
+			  PRIMARY KEY  (`versionid`,`torgid`),
+			  UNIQUE KEY `versionid` (`versionid`,`catid`,`torgcod`),
+			  UNIQUE KEY `catid` (`versionid`,`catid`,`torgnom`),
+			  KEY `versionidinicial` (`versionidinicial`)
+			) TYPE=InnoDB COMMENT='Tipos de Organismos';
+			";
+
+		if(!mysqli_query($conexion, $sql))
+		{
+			$CodError=mysqli_errno($conexion);
+
+			$subjectmail="";
+			if(defined('SISTEMAMOSTRAR'))
+				$subjectmail=SISTEMAMOSTRAR;
+			elseif(defined('SISTEMA'))
+				$subjectmail=SISTEMA;				
+			$subjectmail.=" - Error en el sistema";
+			$textomail ="Se produjo un error: \n";
+			$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+			$textomail.="No se pudo crear Tabla Tipos de Organismos Temporal \n";
+			$textomail.="Conexión      ".$conexion." \n";
+			$textomail.="Nombre tabla  ".$nombretabla." \n";
+			$textomail.="Error MySql   ".$CodError." - ".mysqli_error($conexion)." \n";
+
+			FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+		
+			return false;
+		}
+		
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Inserta datos en una tabla
+
+// Parámetros de Entrada:
+//		conexion: la conexión con la base de datos donde está la tabla a ser cargada
+//		nombretabla: el nombre de la tabla sobre la cual se van a ingresar el registro
+//		arraydatos: array asociativo que tiene los nombre de sus campos y sus valores para un registro de la tabla
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+//MODIFICADA		
+	function _InsertTablaTemp($conexion,$nombretabla,$arraydatos,&$CodError)
+	{
+		$sqlnombrecampo=array();
+		$sqlvalorcampo=array();
+		
+		foreach($arraydatos as $nombrecampo => $valorcampo)
+		{
+			$sqlnombrecampo[]=$nombrecampo;
+			if(is_null($valorcampo))
+				$sqlvalorcampo[]="NULL";
+			else
+				$sqlvalorcampo[]="'".mysqli_real_escape_string($conexion, $valorcampo)."'";
+		}
+		
+//		$sqlnombrecampo=substr($sqlnombrecampo,0,strlen($sqlnombrecampo)-1);
+//		$sqlvalorcampo=substr($sqlvalorcampo,0,strlen($sqlvalorcampo)-1);
+		
+		$sql="INSERT INTO ".$nombretabla." (";
+		$sql.=implode(",",$sqlnombrecampo);
+		$sql.=") VALUES (";
+		$sql.=implode(",",$sqlvalorcampo);
+		$sql.=");";
+
+		if(!mysqli_query($conexion, $sql))
+		{
+			$CodError=mysqli_errno($conexion);
+			
+			$subjectmail="";
+			if(defined('SISTEMAMOSTRAR'))
+				$subjectmail=SISTEMAMOSTRAR;
+			elseif(defined('SISTEMA'))
+				$subjectmail=SISTEMA;				
+			$subjectmail.=" - Error en el sistema";
+			$textomail ="Se produjo un error: \n";
+			$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n\n";
+			$textomail.="No se pudo insertar en Tabla Temporal \n";
+			$textomail.="Conexión      ".$conexion." \n";
+			$textomail.="Nombre tabla  ".$nombretabla." \n";
+			$textomail.="Error MySql   ".$CodError." - ".mysqli_error($conexion)." \n";
+
+			FuncionesPHP::MandarMail($this->conexion,$this->conexion->admigeneral,"",$subjectmail,$textomail);
+
+			return false;
+		}
+		
+		return true;
+	}
+	
+	
+	
+	
+	
+}
+?>

@@ -1,0 +1,778 @@
+<?php
+//-----------------------------------------------------------------------------------------
+class cActividadEducacionFormal extends cActividad {
+
+	public function __construct($conexion) {
+		parent::__construct($conexion);
+	}
+
+//-----------------------------------------------------------------------------------------
+	function TraerDatosActividadDetalles($act_codigo,$tipoact_codigo,&$datosresult,&$es_modif) {
+
+		if (!$this->TraerDatosActividadEducacionFormal($act_codigo,$datosresult_detalle,$es_modif)) {
+			return false;
+		} else {
+			$datosresult['act_codigo']=$datosresult_detalle['actividad']['act_codigo'];
+			$datosresult['act_formato']=FORMATOEFORMAL;
+			$datosresult['tipoact_codigo']=$tipoact_codigo;
+			$datosresult['act_nombre']=$datosresult_detalle['actividad']['act_nombre'];
+			$datosresult['act_codinap']=$datosresult_detalle['actividad']['act_codinap'];
+			$datosresult['act_estado']=$datosresult_detalle['actividad_eformal']['actform_estado'];
+			return true;
+		}
+	}
+//-----------------------------------------------------------------------------------------
+	function TraerDatosActividadEducacionFormal($act_codigo,&$datosresult,&$es_modif) {
+
+		$datosresult=array();
+		$es_modif = false;
+
+		if (!$this->TraerDatosActividad($act_codigo,$result_actividad,$es_modif_act))
+			return false;
+
+		if ($es_modif_act) {
+		
+			$datosresult['actividad']=$result_actividad; // Datos de la actividad
+			$sparam=array('pact_codigo'=>$act_codigo);
+			$spnombre="sel_actividad_eformal_xact_codigo";
+		
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+			{
+				$errormail="\nact_codigo".$act_codigo;
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+				return false;
+			}
+			if ($numfilas == 1)	{
+				$datosresult['actividad_eformal'] = mysqli_fetch_assoc($resultado);
+				$es_modif = true;
+			}
+		} // $es_modif_act
+
+		return true;
+	}
+	
+	//-----------------------------------------------------------------------------------------------------
+
+	function BuscarActividadEducacionFormal($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+
+		$sparam=array('pxact_codigo'=>0);
+		$sparam+=array('pact_codigo'=>"");
+				
+		$sparam+=array('pxact_codinap'=>0);
+		$sparam+=array('pact_codinap'=>"");
+		
+		$sparam+=array('pxtipoact_codigo'=>0);
+		$sparam+=array('ptipoact_codigo'=>"-1");
+
+		$sparam+=array('pxact_nombre'=>0);
+		$sparam+=array('pact_nombre'=>"");
+
+		$sparam+=array('pxactform_estado'=>0);
+		$sparam+=array('pactform_estado'=>"");
+
+			
+		if (isset($ArregloDatos['act_codigo']) &&  $ArregloDatos['act_codigo']!="")
+		{
+			$sparam['pact_codigo']= $ArregloDatos['act_codigo'];
+			$sparam['pxact_codigo']= 1;
+		}	
+
+		if (isset ($ArregloDatos['act_nombre']) && $ArregloDatos['act_nombre']!="")
+		{
+			$sparam['pact_nombre']= $ArregloDatos['act_nombre'];
+			$sparam['pxact_nombre']= 1;
+		}	
+	
+		if (isset($ArregloDatos['act_codinap']) &&  $ArregloDatos['act_codinap']!="")
+		{
+			$sparam['pact_codinap'] = $ArregloDatos['act_codinap'];
+			$sparam['pxact_codinap'] = 1;
+		}	
+	
+		if (isset($ArregloDatos['actform_estado']) &&  $ArregloDatos['actform_estado']!="")
+		{
+			$sparam['pactform_estado'] = $ArregloDatos['actform_estado'];
+			$sparam['pxactform_estado'] = 1;
+		}	
+		
+		if (isset($ArregloDatos['tipoact_codigo']) &&  $ArregloDatos['tipoact_codigo']!="")
+		{
+			$sparam['ptipoact_codigo'] = $ArregloDatos['tipoact_codigo'];
+			$sparam['pxtipoact_codigo']= 1;
+		}				
+		
+		$sparam+=array('porderby'=>"act_nombre");
+		if (isset ($ArregloDatos['orderby']) && $ArregloDatos['orderby']!="")
+		{
+			$sparam['porderby'] = $ArregloDatos['orderby'];
+		}
+		$spnombre="sel_actividad_eformal_xdatos";	
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar en Actividad Educación Formal.";
+			$errormail="Error al buscar en Actividad Educación Formal.".$errno;
+			return false;
+		}
+	
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function AltaDatosActividadEducacionFormal($datos,&$act_codigo_nuevo,&$act_codinap) {
+
+		$datosvalidados=array();
+		$this->_AguparDatosPost($datos,$datos_agrup,false);
+
+		$datos_act=$datos_agrup['actividad'];
+	
+		if(!$this->AltaDatosActividad($datos_act,$act_codigo_nuevo,true,"EF",$act_codinap))
+			return false;
+		FuncionesPHPLocal::RegistrarAcceso($this->conexion,"38001","act_codigo=".$act_codigo_nuevo,$_SESSION['usuariocod']);
+			
+		if(!$this->_DatosValidosAltaEducacionFormal($datos_agrup['actividad_eformal'],$datosvalidados))
+			return false;
+
+		$spnombre="ins_actividad_eformal";
+		$spparam=array('pact_codigo'=>$act_codigo_nuevo,
+					  'ptipoact_codigo'=>$datosvalidados['tipoact_codigo'],
+					  'pactform_estado'=>$datosvalidados['actform_estado'],
+		  			  'pultmodusuario'=>$_SESSION['usuariocod'],
+  			          'pultmodfecha'=> date("Y/m/d H:i:s")
+		);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al insertar la Actividad .",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function EliminarDatosActividadEducacionFormal($act_codigo) {
+
+		if(!$this->_DatosValidosEliminarActividadEducacionFormal($act_codigo,$datosvalidados))
+			return false;
+
+		$oActividadEducacionFormalPersona  = new cActividadEducacionFormalPersona($this->conexion);
+
+		$ArregloDatos= array();
+		$ArregloDatos['act_codigo'] = $act_codigo;		
+			
+		if (!$oActividadEducacionFormalPersona->BuscarActividadAsignadaPersonaAvanzada($ArregloDatos,$numfilas_personas_asig,$result_personas,$error,$errormail)) {
+			$txt_sys_mail="\nvalor_buscado_".$fila_eformal['actividad_eformal']['act_codigo']."\nerror=".$errormail;
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al buscar las personas asignadas a la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;			
+		}			
+			
+		if ($numfilas_personas_asig> 0)		
+		{	
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"La actividad no puede eliminarse pues tiene personas asignadas.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		$spnombre="del_actividad_eformal_xact_codigo";
+		$spparam=array('pact_codigo'=>$act_codigo);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			$txt_sys_mail="\nact_codigo=".$act_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al eliminar la Actividad de Educación Formal.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		if(!$this->EliminarDatosActividad($act_codigo, FORMATOEFORMAL))
+			return false;
+		FuncionesPHPLocal::RegistrarAcceso($this->conexion,"38002","act_codigo=".$act_codigo,$_SESSION['usuariocod']);
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function ModifDatosActividadEducacionFormal($datos)	{
+
+		$this->_AguparDatosPost($datos,$datos_agrup,true);
+
+		$datos_eformal['actividad']=$datos_agrup['actividad'];
+		$datos_eformal['actividad_eformal']=$datos_agrup['actividad_eformal'];
+
+		if(!$this->ModifDatosActividad($datos_eformal['actividad']))
+			return false;
+		FuncionesPHPLocal::RegistrarAcceso($this->conexion,"38003","act_codigo=".$datos_agrup['actividad']['act_codigo'],$_SESSION['usuariocod']);
+
+		if(!$this->_DatosValidosModifActividadEducacionFormal($datos_agrup['actividad_eformal'],$datosvalidados))
+			return false;
+
+		$spnombre="upd_actividad_eformal_xact_codigo";
+		$spparam=array('pact_codigo'=>$datosvalidados['act_codigo'],
+					  'pactform_estado'=>$datosvalidados['actform_estado'],
+					  'pultmodusuario'=>$_SESSION['usuariocod'],
+  			          'pultmodfecha'=> date("Y/m/d H:i:s")
+		);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			$txt_sys_mail='\nact_codigo='.$datosvalidados['act_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al modificar la Actividad de Educación Formal.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------
+	function TienePermisoBaja($act_codigo,$rolcod,$jurisdid) {
+		return  $this->TienePermisoModificar($act_codigo,$rolcod,$jurisdid) ;
+	} 
+
+//-----------------------------------------------------------------------------------------------------
+	function TienePermisoModificar($act_codigo,$rolcod,$jurisdid) {
+	
+		// Valida el estado con rol y la jurisdicción
+		if (!$this->TraerDatosActividadEducacionFormal($act_codigo,$fila_actividad,$es_modif))
+			return false;
+
+		$txt_sys_mail="\nact_codigo=".$act_codigo;
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error no existe la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+		
+		if ($fila_actividad['actividad_eformal']['actform_estado'] == ACTFORMALACTIVO)
+			return true;
+		else 
+		{
+			$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","ACTFORMALESTADO","' and constantecod='",$fila_actividad['actform_estado'],"'"),$descri,$numfilas,$errorcod);
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado de la Actividad de Educación Formal (".$descri."), <br> no le permite realizar la operacion.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		if (!($rolcod == USUACTJUR || $rolcod==COORDINADORTECNICO)) 
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene acceso a la Actividad de Educación Formal.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		return true;
+	}
+	
+//-----------------------------------------------------------------------------------------------------
+	function ValidarFormAltaActividadEducacionFormal() {
+
+	$this->ValidarFormAltaActividad();
+?>
+	function ValidarFormAltaActividadEducacionFormal(formulario,operacion) {
+            	
+			if ((trim(formulario.act_nombre.value)=="")) {
+				alert("Debe ingresar el nombre de la actividad.");
+				formulario.act_nombre.focus();
+				return false;
+			}
+
+			// Tipo de actividad		- [tipoact_codigo] 			- [OBLIG]
+			if ((trim(formulario.tipoact_codigo.value)=="")) {
+				alert("Debe ingresar el tipo de la actividad.");
+				formulario.tipoact_codigo.focus();
+				return false;
+			}
+			var s = trim(formulario.act_nombre.value);			
+			if (s.length >255) {
+				alert("Debe ingresar un nombre de la actividad, con menos de 255 caracteres.");
+				formulario.act_nombre.focus();
+				return false;
+			}	
+ 
+			return true;
+		}
+<?php }
+
+//-----------------------------------------------------------------------------------------------------
+	function MostrarDatosActividadEducacionFormal($conexion,$operacion,$fila_eformal=array()) {
+
+	// si queda esta opcion no mandar la conexion
+	if ($operacion=="A") {
+	   $es_modif = false;
+	} elseif ($operacion=="M" || $operacion=="V") {
+	   	$es_modif = true;
+	   } else {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error en la llamada, operación inválida.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+	   }
+	?>
+	<!-- Datos comunes de actividad -->
+	<table width="100%" class="textoTablaDato" align="center" cellpadding="2">
+		<tr>
+			<td colspan="2" >
+				<fieldset class="bordeDetalleRegistro">
+				<legend class="textoLeyendaDetalleRegistro">Datos Actividad </legend>
+				<table width="100%" class="textoTablaDato" align="center">
+
+                <tr>
+                    <td valign="top" width="15%" class='textoEtiqueta'>Nombre</td>
+                    <td class="textoEtiquetaDatoResaltado">
+                    <input type="text" name="act_nombre" id="act_nombre"  cols="100" rows="2" value="<?php echo ($es_modif)?htmlspecialchars($fila_eformal['actividad']['act_nombre'],ENT_QUOTES):""; ?>" class=<?php echo ($operacion=="V" || $operacion=="M")?"'inputReadonly' readonly='readonly'":"'textoInput'" ?> onblur="PasarAMayusculas('act_nombre')" style="width:400px" > 
+                    </td>
+                </tr>
+
+				<tr>
+					<?php  
+                    if ($es_modif) 
+                    { 
+                    ?>
+                      <td valign="top" width="15%" class='textoEtiqueta'>Código INAP</td>
+                      <td class="textoEtiquetaDatoResaltado">
+                          <input type="text" name="act_codinap" id="act_codinap" class="inputReadonly" readonly="readonly" size="21" maxlength="20" value="<?=htmlspecialchars($fila_eformal['actividad']['act_codinap'],ENT_QUOTES)?>">
+                      </td>
+                    <?php  
+                    } 
+                    else 
+                    { 
+                    ?>
+                        <td> 
+                            <input type="hidden" name="act_codinap" id="act_codinap" size="21" maxlength="20" value="##">
+                        </td>
+                    <?php	
+                    } 
+                    ?>
+				</tr>
+
+                <tr>
+                    <td valign="top" width="25%" class='textoEtiqueta'>Observación</td>
+                    <td class="textoEtiquetaDatoResaltado">
+                    <textarea cols="100" rows="5" name="act_obs"  id="act_obs" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?>  style="width:400px" ><?php echo ($es_modif)?htmlspecialchars($fila_eformal['actividad']['act_obs'],ENT_QUOTES):"" ?></textarea>
+                    </td>
+                </tr>
+          
+
+		        
+				</table>
+				</fieldset>
+			</td>
+            
+		</tr>
+	</table>
+
+	<table width="100%" class="textoTablaDato" align="center" cellpadding="2">
+		<tr>
+			<td colspan="2" >
+				<fieldset class="bordeDetalleRegistro">
+				<legend class="textoLeyendaDetalleRegistro">Datos Actividad de Educación Formal</legend>
+				<table width="100%" class="textoTablaDato" align="center">
+
+                    <tr>
+                        <td valign="top" width="25%" class='textoEtiqueta'>Tipo de Actividad</td>
+                        <td class="textoEtiquetaDatoResaltado">
+                       	<?php 
+							if ($operacion=="V" || $operacion=="M") 
+							{
+								$conexion->TraerCampo("tipo_actividad","tipoact_descripcion",array("tipoact_codigo='",$fila_eformal['actividad_eformal']['tipoact_codigo'],"'"),$tipoact_descripcion,$numfilas,$errno);
+								?> 
+                                <input type="hidden" name="tipoact_codigo" class="textoinput" value="<?php echo $fila_eformal['actividad_eformal']['tipoact_codigo'] ?>" />
+                                <input name="tipoact_desc" class="inputReadonly" readonly='readonly' size="65" value="<?php echo $tipoact_descripcion;?>" />
+								<?php
+							}
+							else
+							{
+								$spnombre="sel_tipo_actividad_xformact_codigo_orden";
+								$spparam=array('pformact_codigo'=>FORMATOEFORMAL,'porderby'=>"tipoact_descripcion");
+								FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","tipoact_codigo","tipoact_codigo","tipoact_descripcion",isset($fila_eformal['actividad_eformal']['tipoact_codigo'])?$fila_eformal['actividad_eformal']['tipoact_codigo']:"","-- Seleccione un Tipo de Actividad",$filaagfuncion,$seleagfuncion,"1");
+							}
+						?>
+                        </td>
+                    </tr>
+				</table>
+				</fieldset>
+			</td>
+		</tr>
+	</table>
+<?php return true;
+}
+
+
+//-----------------------------------------------------------------------------------------------------
+
+	function PedirActividad($codinap,$formularioName,$inputName,$accion,$submit=true) {
+?>	<table width="100%" class="textoTablaDato" align="center">
+		<tr>
+			<td valign="middle" width="15%" class='textoEtiqueta'>Código INAP</td>
+			<td class="textoEtiquetaDato" valign="middle" align="left" width="50">
+				<input type="text" size="21" maxlength="20" name="<?php echo $inputName ?>" id="<?php echo $inputName ?>" onblur="PasarAMayusculas('<?php echo $inputName ?>')" value="<?php echo trim($codinap) ;?>">
+			</td>
+			<td class="textoEtiquetaDato" align="center" width="7%">
+				<a href='javascript:void(0)' onClick="Popup('actividad_selector.dhtml?formulario=<?php echo $formularioName ?>&amp;destino=<?php echo $inputName."&amp;submit=".$submit."&amp;tipoact_codigo=&amp;accion=".$accion ?>&amp;volver=1','ventana_descripciones',630,360,screen.availWidth-650,screen.availHeight-420,'yes');"><img src="images/searchsai.jpg" alt="Buscar" border="0" style="vertical-align:-5px"></a>
+			</td>
+			<td class="textoEtiquetaDato"  valign="middle" align="left">
+				<input type="submit" name="Confirma" value="Confirma" class="botones" />
+			</td>
+
+		</tr>
+	</table>
+<?php	unset($_SESSION['array_busqueda_basica_actividad']);
+	unset($_SESSION['filtro_busqueda']);
+	}
+//-----------------------------------------------------------------------------------------------------
+	function PidoActividadAsignable($formularioName,$inputNameAct,$inputNameFormato,$inputNameTipo,$inputPersCuilt,$accion,$submit=true) { 
+?>		<table width="100%" class="textoTablaDato" align="center" cellpadding="0" cellspacing="0" border="0" >
+			<tr>
+				<td class="textoEtiquetaClave" align="left">
+					Seleccione Actividad  &nbsp;&nbsp;&nbsp;
+					<a href='javascript:void(0)' onClick="Popup('actividad_asignable_selector.dhtml?formulario=<?php echo $formularioName."&amp;submit=".$submit."&amp;accion=".$accion."&amp;act_codigo_seleccion=".$inputNameAct."&amp;formact_codigo_seleccion=".$inputNameFormato."&amp;tipoact_codigo_seleccion=".$inputNameTipo."&amp;pers_cuilt=".$inputPersCuilt ?>&amp;volver=1','ventana_descripciones',700,500,screen.availWidth-710,screen.availHeight-550,'yes');"><img src="images/searchsai.jpg" alt="Buscar" border="0" style="vertical-align:-5px"></a>
+					<input type="hidden" name="<?php echo $inputNameAct?>" id="<?php echo $inputNameAct?>" value="" />		
+					<input type="hidden" name="<?php echo $inputNameFormato?>" id="<?php echo $inputNameFormato?>" value="" />		
+					<input type="hidden" name="<?php echo $inputNameTipo?>" id="<?php echo $inputNameTipo?>" value="" />		
+					<input type="hidden" name="<?php echo $inputPersCuilt?>" id="<?php echo $inputPersCuilt?>" value="" />
+				</td>			
+			</tr>
+		</table>
+<?php		unset($_SESSION['array_busqueda_basica_actividad']);	
+		unset($_SESSION['filtro_busqueda']);
+?>
+<?php	} 	
+//-----------------------------------------------------------------------------------------------------
+/*
+	function PidoActividadProgramacion($formularioName,$inputNameAct,$inputNameFormato,$inputNameTipo,$inputNameSec,$accion,$submit=true) {
+?>		<table width="100%" class="textoTablaDato" align="center" cellpadding="0" cellspacing="0" border="0" >
+			<tr>
+				<td class="textoEtiquetaClave" align="left">
+					Seleccione Actividad/Programación  &nbsp;&nbsp;&nbsp;
+					<a href='javascript:void(0)' onClick="Popup('actividad_asignable_selector.dhtml?formulario=<? echo $formularioName."&amp;submit=".$submit."&amp;accion=".$accion."&amp;act_codigo_seleccion=".$inputNameAct."&amp;formact_codigo_seleccion=".$inputNameFormato."&amp;tipoact_codigo_seleccion=".$inputNameTipo."&amp;actprog_sec_seleccion=".$inputNameSec ?>&amp;volver=1','ventana_descripciones',700,500,screen.availWidth-710,screen.availHeight-550,'yes');"><img src="images/searchsai.jpg" alt="Buscar" border="0" style="vertical-align:-5px"></a>
+					<input type="hidden" name="<? echo $inputNameAct?>" id="<? echo $inputNameAct?>" value="" />
+					<input type="hidden" name="<? echo $inputNameFormato?>" id="<? echo $inputNameFormato?>" value="" />
+					<input type="hidden" name="<? echo $inputNameTipo?>" id="<? echo $inputNameTipo?>" value="" />
+					<input type="hidden" name="<? echo $inputNameSec?>" id="<? echo $inputNameSec?>" value="" />
+				</td>
+			</tr>
+		</table>
+<?		unset($_SESSION['array_busqueda_basica_actividad']);
+		unset($_SESSION['filtro_busqueda']);
+?>
+<?	}
+*/
+//-----------------------------------------------------------------------------------------------------
+
+	function ListarDisenoActividadPDF($act_codigo) {
+
+		function GenerarActividadDiseno(&$pdf,$fila_eformal) {
+			$pdf->AddAcividadDiseno();
+			$pdf->Set('datos_actividad',$fila_eformal);
+			$pdf->Set('formact_codigo',FORMATOEFORMAL);
+			$pdf->Set('tipoact_codigo',$fila_eformal['actividad_eformal']['tipoact_codigo']);
+		} 
+
+		if (!$this->TraerDatosActividadEducacionFormal($act_codigo,$fila_eformal,$es_modif))  {
+			$txt_sys_mail="\nact_codigo=".$act_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error, buscando la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} elseif (!$es_modif) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha encontrado la Actividad con el formato buscado.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		$descri="";
+		if ($this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","ACTFORMALESTADO","' and constantecod='",$fila_eformal['actividad_eformal']['actform_estado'],"'"),$descri,$numfilas,$errorcod))
+			$fila_eformal['actividad_eformal'] += array('actform_estado_desc'=>$descri);
+
+		$descri="";
+		$this->conexion->TraerCampo("tipo_actividad","tipoact_descripcion",array("tipoact_codigo='",$fila_eformal['actividad_eformal']['tipoact_codigo'],"'"),$descri,$numfilas,$errno);
+			$fila_eformal['actividad_eformal'] += array('actform_tipoact_desc'=>$descri);
+		
+		$pdf = new cActividadDisenoPDF();
+		GenerarActividadDiseno($pdf,$fila_eformal);
+		$pdf->MostrarActividadDiseno($this->conexion);
+		$pdf->Output("disenoActividad.pdf","I");
+
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------
+function ListarDisenoActividad($act_codigo) {
+
+    $ok=true;
+
+    if (!$this->TraerDatosActividadEducacionFormal($act_codigo,$fila_eformal,$es_modif))  {
+        $txt_sys_mail="\nact_codigo=".$act_codigo;
+        FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error, buscando la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+        $ok=false;
+    } elseif (!$es_modif) {
+        FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha encontrado la Actividad con el formato buscado.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+        $ok=false;
+    }
+
+    if (!$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","ACTFORMALESTADO","' and constantecod='",$fila_eformal['actividad_eformal']['actform_estado'],"'"),$descri_estado,$numfilas,$errorcod)){
+        FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar el estado de la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+        $ok=false;
+    }
+
+   if (!$this->conexion->TraerCampo("tipo_actividad","tipoact_descripcion",array("tipoact_codigo='",$fila_eformal['actividad_eformal']['tipoact_codigo'],"'"),$descri_tipo,$numfilas,$errorcod)){
+        FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar el estado de la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+        $ok=false;
+    }
+
+?>
+    <br><div class="textoTitulo" align="left">Detalle de la Actividad de Educación Formal<?php echo ($fila_eformal['actividad_eformal']['actform_estado'] != ACTFORMALACTIVO)?"(Estado ".$descri_estado.")":""?></div><br>
+<?php
+    if ($ok) {    ?>
+        <table width="100%" class="textoTablaDatoBorde" align="center" border="1" cellpadding="4" cellspacing="0">
+            <tr>
+                <td width="30%" class='textoTablaDato'>Nombre</td>
+                <td class='textoEtiquetaDatoResaltado'><?= htmlspecialchars($fila_eformal['actividad']['act_nombre'],ENT_QUOTES); ?></td>
+            </tr>
+            <tr>
+                <td class='textoTablaDato'>Código INAP</td>
+                <td class='textoEtiquetaDatoResaltado'><?= htmlspecialchars($fila_eformal['actividad']['act_codinap'],ENT_QUOTES); ?></td>
+            </tr>
+            
+            
+            <tr>
+                <td class='textoTablaDato'>Tipo de Actividad</td>
+                <td class='textoEtiquetaDatoResaltado'><?= htmlspecialchars($descri_tipo,ENT_QUOTES); ?></td>
+            </tr>
+            <tr>
+                <td class='textoTablaDato'>Observación</td>
+                <td class='textoEtiquetaDatoResaltado'><?= htmlspecialchars($fila_eformal['actividad']['act_obs'],ENT_QUOTES)."&nbsp;"; ?></td>
+            </tr>
+            
+            
+            
+        </table>
+        <br />
+<?php        }    // ok
+    return $ok;
+}
+
+//-----------------------------------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------------------------------
+/*
+	function DescargarExcelDisenoActividad($act_codigo, &$oExcel, $nuevo_excel=true) {
+
+		 if (!$this->TraerDatosActividadCursoJurisdiccional($act_codigo,$fila_eformal,$es_modif)) {
+		 	FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se pueden obtener los datos de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		 }
+
+		if ($nuevo_excel) {
+			$nombrearchivo="actividad.xls";
+			$oExcel= new cEscribirExcel($nombrearchivo);
+		}
+
+		$oExcel->AddHoja('Actividad');
+		$ancho_columna['leyenda']=30;
+		$ancho_columna['valor']=70;
+
+		$oExcel->FormatoColumna (0,$ancho_columna['leyenda']);
+		$oExcel->FormatoColumna (1,$ancho_columna['valor']);
+
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",12);
+		$oExcel->AddFormato ("Color","azul");
+		$oExcel->AddFormato ("FgColor",22);
+		$oExcel->CargarDatosVariasCeldas (0,0,0,1,'Detalle de la Actividad Curso Jurisdiccional',true);
+
+		// Titulos de las columnas
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("TextWrap","");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",12);
+		$oExcel->AddFormato ("Color","negro");
+		$oExcel->AddFormato ("FgColor","gris");
+
+		$arrayclaves=array('leyenda','valor');
+
+		$array_datos[]  = array('leyenda' => "Actividad",
+								'valor' => $fila_eformal['actividad']['act_nombre']);
+
+		$array_datos[] = array('leyenda' => "Código de Actividad",
+								'valor' => $fila_eformal['actividad']['act_codinap']);
+
+		$oExcel->BorrarFormato("");
+		$oExcel->AddFormato ("Tamaño",8);
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("TextWrap","");
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Color","negro");
+		$oExcel->AddFormato ("FgColor","gris");
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("VAlign","vcenter");
+		$formato_leyenda=$oExcel->GetFormato();
+
+		$oExcel->BorrarFormato("");
+		$oExcel->AddFormato ("Tamaño",8);
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("TextWrap","");
+		$oExcel->AddFormato ("FgColor","blanco");
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("VAlign","vcenter");
+		$formato_dato=$oExcel->GetFormato();
+
+		foreach ($arrayclaves as $clave => $valor) {
+			if ($valor == 'leyenda')
+	 			$arrayformato[$valor]=$formato_leyenda;
+			else
+	 			$arrayformato[$valor]=$formato_dato;
+		}
+
+		if (!$this->conexion->TraerCampo("jurisdiccion_inap","jurisdnom",array("jurisdid='",$fila_eformal['actividad_curso']['jurisdid_inap'],"'"),$descri_organismo,$numfilascaracter,$errorcod))  {
+				 	FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se pueden obtener los datos del Organismo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		 }
+
+		$array_datos[] = array('leyenda' => "Organismo",
+								'valor' => $descri_organismo);
+		$array_datos[] = array('leyenda' => "Fundamentación",
+								'valor' => $fila_eformal['actividad_curso_jurisdiccional']['actdisjurisd_fundamentacion']);
+		$array_datos[] = array('leyenda' => "Contribución esperada",
+								'valor' => $fila_eformal['actividad_curso_jurisdiccional']['actdisjurisd_contribucion']);
+		$array_datos[] = array('leyenda' => "Perfil del participante",
+								'valor' => $fila_eformal['actividad_curso_jurisdiccional']['actdisjurisd_perfil']);
+		$array_datos[] = array('leyenda' => "Objetivos",
+								'valor' => $fila_eformal['actividad_curso_jurisdiccional']['actdisjurisd_objetivos']);
+		$array_datos[] = array('leyenda' => "Contenido",
+								'valor' => $fila_eformal['actividad_curso_jurisdiccional']['actdisjurisd_contenido']);
+		$array_datos[] = array('leyenda' => "Metodología",
+								'valor' => $fila_eformal['actividad_curso_jurisdiccional']['actdisjurisd_metodologia']);
+		$array_datos[] = array('leyenda' => "Descripción de la modalidad",
+								'valor' => $fila_eformal['actividad_curso_jurisdiccional']['actdisjurisd_modaldesc']);
+		$array_datos[] = array('leyenda' => "Bibliografía",
+								'valor' => $fila_eformal['actividad_curso_jurisdiccional']['actdisjurisd_bibliografia']);
+		$array_datos[] = array('leyenda' => "Evaluación de los aprendizajes",
+								'valor' => $fila_eformal['actividad_curso_jurisdiccional']['actdisjurisd_eval']);
+		$array_datos[] = array('leyenda' => "Instrumentos para la evaluación",
+								'valor' => $fila_eformal['actividad_curso_jurisdiccional']['actdisjurisd_evalinstru']);
+		$array_datos[] = array('leyenda' => "Requisitos de Asistencia y aprobación",
+								'valor' => $fila_eformal['actividad_curso_jurisdiccional']['actdisjurisd_requiaprobacion']);
+		$array_datos[] = array('leyenda' => "Duración (Hs.)",
+								'valor' => $fila_eformal['actividad_curso_jurisdiccional']['actdisjurisd_duracionhs']);
+		$array_datos[] = array('leyenda' => "Detalle sobre la duración",
+								'valor' => $fila_eformal['actividad_curso_jurisdiccional']['actdisjurisd_duraciondetalle']);
+		$array_datos[] = array('leyenda' => "Cronograma tentativo",
+								'valor' => $fila_eformal['actividad_curso_jurisdiccional']['actdisjurisd_cronogramatentativo']);
+		$array_datos[] = array('leyenda' => "Lugar",
+								'valor' => $fila_eformal['actividad_curso_jurisdiccional']['actdisjurisd_lugar']);
+		$array_datos[] = array('leyenda' => "Perfil Instructor",
+								'valor' => $fila_eformal['actividad_curso_jurisdiccional']['actdisjurisd_perfil_instructor']);
+		$array_datos[]  = array('leyenda' => "Origen de la demanda",
+								'valor' => $fila_eformal['actividad_curso_jurisdiccional']['actdisjurisd_origen']);
+		$fila_datos = array();
+
+		foreach ($array_datos as $i => $valor) {
+			$fila_datos['leyenda'] = $array_datos[$i]['leyenda'];
+			$fila_datos['valor'] = $array_datos[$i]['valor'];
+			// Saco los /r que no se lo banca el excel.
+			$fila_datos['valor']=str_replace("\r\n","\n", $array_datos[$i]['valor']);
+			$oExcel->CargarGrilla ($fila_datos,2+$i,0,$arrayclaves,$arrayformato);
+		}
+		if ($nuevo_excel)
+			$oExcel->Enviar();
+	}
+*/
+//-----------------------------------------------------------------------------------------------------
+	function _AguparDatosPost($datos,&$datos_agrup,$es_modif)	{
+
+		$datos_agrup['actividad']=array('act_codinap'=>$datos['act_codinap'],
+										'act_nombre'=>trim($datos['act_nombre']),
+										'act_obs'=>$datos['act_obs']);
+
+		if ($es_modif) {
+			$datos_agrup['actividad']+=array('act_codigo'=>$datos['act_codigo']);
+		} else
+			$datos_agrup['actividad']+=array('formact_codigo'=>FORMATOEFORMAL);
+
+		//-------------------------------------------------------------
+		$datos_agrup['actividad_eformal']=array(
+								  'tipoact_codigo'=>$datos['tipoact_codigo'],
+								  'actform_estado'=>ACTPRESDOCACTIVO
+							);
+		if ($es_modif) 
+			$datos_agrup['actividad_eformal']+=array('act_codigo'=>$datos['act_codigo']);
+		
+	}
+//-----------------------------------------------------------------------------------------------------
+	function _DatosValidosAltaEducacionFormal($datos,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		if (!$this->_DatosValidosComunesActividadEducacionFormal($datos,$datosvalidados))
+		   return false;
+
+		return true;
+	}
+	
+//-----------------------------------------------------------------------------------------------------
+	function _DatosValidosEliminarActividadEducacionFormal($act_codigo,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		if (!$this->TienePermisoBaja($act_codigo,$_SESSION['rolcod'],$_SESSION['jurisdid_inap'])) {
+			return false;
+		}
+
+		$error=false;
+		$tiene_formato=false;
+		
+		if (!$this->TieneFormato($act_codigo,FORMATOEFORMAL,$tiene_formato)) {
+			$errormail="\nact_codigo=".$act_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		} 
+
+		if(!$tiene_formato) {
+			$errormail="\nact_codigo=".$act_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se ha encontrado la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function _DatosValidosModifActividadEducacionFormal($datos,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		if (!$this->TienePermisoModificar($datos['act_codigo'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap'])) {
+			return false;
+		}
+
+		if (!$this->_DatosValidosComunesActividadEducacionFormal($datos,$datosvalidados))
+		   return false;
+
+		
+		$error=false;
+		$tiene_formato=false;
+		
+		if (!$this->TieneFormato($datos['act_codigo'],FORMATOEFORMAL,$tiene_formato)) {
+			$errormail="\nact_codigo=".$act_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		} 
+		
+		if(!$tiene_formato) {
+			$errormail="\nact_codigo=".$datos['act_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se ha encontrado la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		$datosvalidados['act_codigo'] = $datos['act_codigo'];
+	
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function _DatosValidosComunesActividadEducacionFormal($datos,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		
+		// Los tipos de actividad deben estar entre los de educación formal
+
+		// Tipo de Actividad							- [tipoact_codigo] 				- [OBLIG]
+		$spnombre = "sel_tipo_actividad_xformact_codigo_orden";
+		$spparam = array("pformact_codigo"=>FORMATOEFORMAL,"porderby"=>'tipoact_codigo' );
+		
+		if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("tipoact_codigo"=>$datos['tipoact_codigo']),$resultado,$filatipoact,$numfilas,$errno) || $numfilas!=1)	
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en el tipo de actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["tipoact_codigo"]=$datos["tipoact_codigo"];
+
+		$datosvalidados["actform_estado"]=$datos["actform_estado"];
+
+		return true;
+	}
+	
+} // class
+?>

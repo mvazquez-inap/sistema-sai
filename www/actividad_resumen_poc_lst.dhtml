@@ -1,0 +1,223 @@
+<?php require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+//---------------------------------------------------------------------------------------------------------
+
+	 	 $oActividad = new cActividadCursoJurisdiccional($conexion);
+	 	 $oPoc = new cPoc($conexion);
+
+		// filtros del buscador
+		$ArregloDatos = array();
+		$error = false;
+		if ($_POST['codigo_inap'] != "") 		
+				$ArregloDatos += array("act_codinap"=>$_POST['codigo_inap']);
+
+		if ($_POST['poc_desde'] != ""){
+			if(!$oPoc->TraerDatosPoc($_POST['poc_desde'],$datos_poc,$es_modif)) 
+				$error = true;
+			else
+				$ArregloDatos += array("poc_ano_desde"=>$datos_poc['poc_ano']);	
+		}
+
+		if ($_POST['poc_hasta'] != ""){
+			if(!$oPoc->TraerDatosPoc($_POST['poc_hasta'],$datos_poc,$es_modif)) 
+				$error = true;
+			else 
+				$ArregloDatos += array("poc_ano_hasta"=>$datos_poc['poc_ano']);	
+		}
+
+		if ($_POST['dic_estado'] != "") 		
+				$ArregloDatos += array("dic_estado"=>$_POST['dic_estado']);
+
+		$ArregloDatos += array("jurisdid_inap"=>$_SESSION['jurisdid_inap']);
+				
+				
+		if (!$error) { 
+			// traigo todos las actividades distintas que complen con los filtros seleccionados
+			$oActividad->BuscarActividadResumen($ArregloDatos,$numfilas,$resultado,$error,$errormail);
+			if ($numfilas >=1) {
+				while ($fila_datos = mysqli_fetch_assoc($resultado)) {
+				
+
+				?>
+                    <table width="100%" class="textoTablaDatoBorde" align="center" border="1" cellpadding="4" cellspacing="0">
+                    <tr>
+                        <td width="20%" class='textoEtiquetaDatoResaltado'><?= htmlspecialchars($fila_datos['act_codinap'],ENT_QUOTES);?> </td>
+                        <td class='textoEtiquetaDatoResaltado'><?= htmlspecialchars($fila_datos['act_nombre'],ENT_QUOTES);?></td>
+                    </tr>	
+                    
+                    <?php 
+						// Por cada actividad, busco los POCs
+						$ArregloDatos['act_codigo'] = $fila_datos['act_codigo'];
+						$oActividad->BuscarActividadResumenPoc($ArregloDatos,$numfilas_poc,$resultado_poc,$error,$errormail);
+						
+						while ($fila_poc = mysqli_fetch_assoc($resultado_poc)) {
+						
+						if (($_POST['poc_estado'] == "") ||
+							(($_POST['poc_estado'] != "") && ($fila_poc['poc_estado'] == $_POST['poc_estado'])))
+						  {
+						
+						?>
+                            <tr>
+                                <td width="20%" class='textoEtiquetaDatoResaltado'>POC: <?= htmlspecialchars($fila_poc['poc_ano'],ENT_QUOTES);?> </td>
+                              <td class=''>
+                                <table width="100%">
+                                	<tr class="textoTitulo">
+                                    	<td width="33%">En Carga</td>
+	                                    <td width="33%">Carga Finalizada</td>
+    	                                <td width="33%">Carga Confirmada</td>
+                                    </tr>
+                                	<tr>
+                                	  <td >
+                                      			<?php
+												// busco las ActPoc de un POC asociadas a la Actividad
+												$oPocActividadActividad = new cPocActividadActividad($conexion);				
+												$filtro = array( 'act_codigo'=>$ArregloDatos['act_codigo'],
+																 'poc_codigo'=>$fila_poc['poc_codigo'],
+																 'pocactact_estado'=>POCACTIVIDADACTIVIDADNUEVA.",".POCACTIVIDADACTIVIDADRECHAZADA,
+																 );
+												
+									
+												if (!$oPocActividadActividad->BuscarPocActividadActividad($filtro,$numfilas,$result_act_asignadas,$error,$errormail)) {
+													FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+													$error = false;
+												}
+												
+												if (!$error) {
+													if ($numfilas >= 1) { ?>
+		                                      		<table width="100%"> <?php
+														while ($fila_act = mysqli_fetch_assoc($result_act_asignadas)) { ?>
+															<tr><td class="<?php echo ($_SESSION['rolcod']== COORDINADORTECNICO)?"textoAtencion":"textoTablaDato"?>">
+																<?php echo htmlspecialchars($fila_act['pocact_nombre_tentativo'],ENT_QUOTES);?>
+                                                            </td></tr>
+														<?php } ?>
+													</table>
+                                                        
+												<?php } 
+												}?>
+                                      
+                                      </td>
+                                	  <td >
+                                      			<?php
+												// busco las ActPoc de un POC asociadas a la Actividad
+												$filtro = array( 'act_codigo'=>$ArregloDatos['act_codigo'],
+																 'poc_codigo'=>$fila_poc['poc_codigo'],
+																 'pocactact_estado'=>POCACTIVIDADACTIVIDADPEDAPROB,
+																 );
+												
+									
+												if (!$oPocActividadActividad->BuscarPocActividadActividad($filtro,$numfilas,$result_act_asignadas,$error,$errormail)) {
+													FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+													$error = false;
+												}
+												
+												if (!$error) {
+													if ($numfilas >= 1) { ?>
+												
+		                                      		<table width="100%"> <?php
+														while ($fila_act = mysqli_fetch_assoc($result_act_asignadas)) { ?>
+															<tr><td class="<?php echo ($_SESSION['rolcod']== USUACTJUR)?"textoAtencion":"textoTablaDato"?>"><?= htmlspecialchars($fila_act['pocact_nombre_tentativo'],ENT_QUOTES);?></td></tr>
+														<?php } ?>
+													</table>
+                                                        
+												<?php } 
+												}?>
+                                      
+                                      </td>
+                                	    <td >
+                                      			<?php
+												// busco las ActPoc de un POC asociadas a la Actividad
+												$filtro = array( 'act_codigo'=>$ArregloDatos['act_codigo'],
+																 'poc_codigo'=>$fila_poc['poc_codigo'],
+																 'pocactact_estado'=>POCACTIVIDADACTIVIDADAPROBADA,
+																 );
+												
+									
+												if (!$oPocActividadActividad->BuscarPocActividadActividad($filtro,$numfilas,$result_act_asignadas,$error,$errormail)) {
+													FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+													$error = false;
+												}
+												
+												if (!$error) {
+													if ($numfilas >= 1) { ?>
+                                                        <table width="100%"> 
+                                                        <?php
+                                                            while ($fila_act = mysqli_fetch_assoc($result_act_asignadas)) { ?>
+                                                                <tr><td class="textoTablaDato"><?= htmlspecialchars($fila_act['pocact_nombre_tentativo'],ENT_QUOTES);?></td></tr>
+                                                            <?php } ?>
+                                                            
+                                                        </table>
+												<?php } 
+												}?>
+                                      
+                                      </td>
+                              	  </tr>
+                                </table>
+                              </td>
+                            </tr>	
+                        <?php
+						
+							} // se muestra POC
+
+						} // while $fila_poc
+					?>
+                    
+                    <?php 
+						// Traigo los Dictámenes
+						
+						
+						/*						
+						$oDictamen = new cDictamen($conexion);
+						$ArregloDatosDic = array();
+						$ArregloDatosDic += array("act_codigo"=>$fila_datos['act_codigo']);	
+//						$ArregloDatosDic += array("formact_codigo"=>array(FORMATOCURSO));							
+						
+						$oDictamen->BuscarDictamen($ArregloDatosDic,$numfilas,$array_resultado_dictamen,$error,$errormail);
+						
+						foreach ($array_resultado_dictamen as $clave=>$valor) { ?>
+                        <tr>
+                            <td width="20%" class='textoEtiquetaDatoResaltado'>DICTAMEN </td>
+                            <td class='textoEtiquetaDatoResaltado'><?= htmlspecialchars($fila_datos['act_nombre'],ENT_QUOTES);?></td>
+                        </tr>	
+                        
+                        <?
+							print_r($valor);
+						}
+						
+						*/
+					?>
+                    
+                    </table>
+                <br /><br />
+                <?php
+				} // while $fila_datos
+			} else { // if ($numfilas >1)
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No hay datos para la búsqueda seleccionada",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			}
+		} else { //if (!$error) { 
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al realizar la búsqueda Avanzada",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		}		
+
+
+?>
+
+
+<?php
+$oEncabezados->PieMenuEmergente(); 
+?>

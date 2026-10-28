@@ -1,0 +1,3399 @@
+<?php
+class cComision {
+	var $conexion;
+	public function __construct($conexion) {
+		$this->conexion = &$conexion;
+	}
+//-----------------------------------------------------------------------------------------
+	function TraerDatosComision($comi_codigo,&$datosresult,&$es_modif){
+		
+		$datosresult=array();
+		$es_modif = false;		
+		$sparam=array('pcomi_codigo'=>$comi_codigo);
+		$spnombre="sel_comision_xcomi_codigo";	
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno)) {
+			$errormail="\ncomi_codigo=".$comi_codigo."\nerror=".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		if ($numfilas == 1)	{
+			$datosresult = mysqli_fetch_assoc($resultado);
+			$es_modif = true;
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function PedirComision($codinap,$formularioName,$inputName,$accion,$submit=true) { 
+
+?>		
+
+<table width="100%" class="textoTablaDato" align="center">
+			<tr>
+				<td valign="middle" width="25%" class='textoEtiqueta'>Código Comisión INAP</td>
+				<td class="textoEtiquetaDato" valign="middle" align="left" width="50">
+					<input type="text" size="21" maxlength="20" name="<?php echo $inputName ?>" id="<?php echo $inputName ?>" onblur="PasarAMayusculas('<?php echo $inputName ?>')"  value="<?php echo trim($codinap) ;?>">
+				</td>			
+				<td class="textoEtiquetaDato" align="center" width="7%">
+					<a href='javascript:void(0)' onClick="Popup('comision_selector.dhtml?formulario=<?php echo $formularioName ?>&amp;destino=<?php echo $inputName."&amp;submit=".$submit."&amp;accion=".$accion ?>&amp;volver=1','ventana_descripciones',630,360,screen.availWidth-650,screen.availHeight-420,'yes');"><img src="images/searchsai.jpg" alt="Buscar" border="0" style="vertical-align:-5px"></a>
+				</td>			
+				<td class="textoEtiquetaDato"  valign="middle" align="left">
+					<input type="submit" name="Confirma" value="Confirma" class="botones" />
+				</td>			
+			</tr>
+</table>
+<?php		unset($_SESSION['array_busqueda_basica_comision']);	
+		unset($_SESSION['filtro_busqueda']);
+?>
+<?php	} 
+
+//-----------------------------------------------------------------------------------------------------	
+	function PedirComisionWeb($codinap,$formularioName,$inputName,$accion,$submit=true) { 
+?>		<table width="100%" class="textoTablaDato" align="center">
+			<tr>
+				<td valign="middle" width="25%" class='textoEtiqueta'>Código Comisión INAP</td>
+				<td class="textoEtiquetaDato" valign="middle" align="left" width="50">
+					<input type="text" size="21" maxlength="20" name="<?php echo $inputName ?>" id="<?php echo $inputName ?>" onblur="PasarAMayusculas('<?php echo $inputName ?>')"  value="<?php echo trim($codinap) ;?>">
+				</td>			
+				<td class="textoEtiquetaDato" align="center" width="7%">
+					<a href='javascript:void(0)' onClick="Popup('comision_selector.dhtml?formulario=<?php echo $formularioName ?>&amp;destino=<?php echo $inputName."&amp;submit=".$submit."&amp;accion=".$accion ?>&amp;volver=1','ventana_descripciones',630,360,screen.availWidth-650,screen.availHeight-420,'yes');"><img src="images/searchsai.jpg" alt="Buscar" border="0" style="vertical-align:-5px"></a>
+				</td>			
+				<td class="textoEtiquetaDato"  valign="middle" align="left">
+					<input type="submit" name="Confirma" value="Confirma" class="botones" />
+				</td>			
+			</tr>
+		</table>
+<?php		unset($_SESSION['array_busqueda_basica_comision']);	
+		unset($_SESSION['filtro_busqueda']);
+?>
+<?php	} 
+
+
+//-----------------------------------------------------------------------------------------------------	
+	function BuscarComisionInscriptos($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+		
+		$spnombre="sel_comision_persona_xcomi_codigo_pers_apellido";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$ArregloDatos,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar los inscriptos.";
+			$errormail="Error al buscar los inscriptos \nerror=.".$errno;
+			return false;
+		}
+		
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function BuscarComisionInscriptosFiltro($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+		$spnombre="sel_comision_persona_xcomi_codigo_pers_apellido_desde_hasta";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$ArregloDatos,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar los inscriptos.";
+			$errormail="Error al buscar los inscriptos \nerror=.".$errno;
+			return false;
+		}
+		
+		return true;
+	}
+//-----------------------------------------------------------------------------------------
+	function ValidarFormAltaComision()	{
+?>		
+		
+		function VerificarExistenciaCodigoInapComision(formulario,valor_buscado,codigo_buscado) {
+		
+			var ajax=nuevoAjax();
+			var variables="?tipo=C&valor_buscado="+valor_buscado+"&valor_codigo_unico="+codigo_buscado;
+			var direccion= "verifico_existencia_codigo_ajax.dhtml"+variables;
+			var ejecutook=false;
+			
+			if (valor_buscado=='') {
+				alert('Código INAP no puede quedar en blanco.');
+				return false;				
+			}
+			
+			ajax.open("GET",direccion,true);
+			ajax.onreadystatechange=function() {
+				if (ajax.readyState==4) {	
+					if (ajax.responseText.substr(0,15)=="//tienepermisos") 	{				
+						eval (ajax.responseText);
+						if (!ejecutook){	
+							alert('El código INAP ingresado ya existe.');
+							formulario.comi_codinap.value = "";
+							formulario.comi_codinap.focus();
+							return false;
+						} else {
+							alert('El código INAP ingresado no existe, puede continuar la carga.');
+							return true;
+						}
+					} else {	
+						alert (ajax.responseText);
+						return false;
+					}
+				}
+				return true;
+			}	
+			ajax.send(null);		
+			return false;
+		}
+	
+		function ValidarFormAltaComision(formulario,operacion) {
+
+
+			if(formulario.tipoins_codigo.value==""){
+				alert("Debe seleccionar el tipo de inscripción");
+				formulario.tipoins_codigo.focus();
+				return false;
+			}	
+
+			if ((!formulario.comi_web[0].checked) && (!formulario.comi_web[1].checked))
+			{
+				alert("Debe seleccionar la posibilidad de Inscribir vía web");
+				return false;
+			}
+			
+
+			if(formulario.comi_vacantes.value=="" || !ValidarContenido(formulario.comi_vacantes.value,"NumericoEntero") || formulario.comi_vacantes.value<=0){
+				alert("Debe ingresar la cantidad de vacantes y debe ser un número entero mayor a cero");
+				formulario.comi_vacantes.focus();
+				return false;
+			}	
+			if(formulario.comi_sobreventa.value!="")
+			{
+				if(!ValidarContenido(formulario.comi_sobreventa.value,"NumericoEntero") || formulario.comi_sobreventa.value < 0){
+					alert("La sobreventa debe ser un valor número mayor o igual a cero");
+					formulario.comi_sobreventa.focus();
+					return false;
+				}	
+			}
+			
+			if ((trim(formulario.pais_codigo.value)=="")) {
+				alert("Debe ingresar un pais");
+				formulario.pais_codigo.focus();
+				return false;
+			}	
+
+			if ((trim(formulario.pais_codigo.value)== <?php echo ARGENTINA?>)){
+				if ((trim(formulario.prov_codigo.value)=="")){
+					alert("Debe ingresar una provincia");
+					formulario.prov_codigo.focus();
+					return false;
+				}					
+			}
+
+			if ((trim(formulario.sede_codigo.value)=="")) {
+				alert("Debe seleccionar la sede");
+				formulario.sede_codigo.focus();
+				return false;
+			}	
+
+			if (trim(formulario.comi_domicilio.value).length > 150) {
+				alert("El domicilio no puede superar los 150 caracteres.");
+				formulario.comi_domicilio.focus();
+				return false;
+			}	
+			return true;
+		}			
+
+	function SeleccionPais(formulario){
+		var elSelect = document.getElementById('datos_provincia');
+		if (formulario.pais_codigo.value == <?php echo ARGENTINA ?>) {
+			elSelect.style.display ="block";
+		} else {
+			elSelect.style.display ="none";
+		}
+	}
+<?php }
+//-----------------------------------------------------------------------------------------
+	function MostrarDatosComision($conexion,$operacion,$filacomision=array()) {
+
+	if ($operacion=="A") {
+	   $es_modif = false;
+	} elseif ($operacion=="M" || $operacion=="V") {   
+		$es_modif = true;
+	} else {
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error en la llamada, operación inválida.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;
+	}		   
+?>	
+	<table width="100%" class="textoTablaDato" align="center" cellpadding="2">
+		<tr>
+			<td colspan="2" >
+				<fieldset class="bordeDetalleRegistro">
+				<legend class="textoLeyendaDetalleRegistro"> Datos Comisión</legend>
+				<table width="100%" class="textoTablaDato" align="center">
+			<?php 	if($operacion=="V") { ?>
+					<tr>
+						<td colspan="2" align="right">
+						<?php 	$ArregloDatos = array();
+							$ArregloDatos['act_codigo'] = $filacomision['act_codigo'];
+							$ArregloDatos['actprog_sec'] = $filacomision['actprog_sec'];		
+							
+							$oActividad = new cActividadCurso($this->conexion);	
+														
+							if(!$oActividad->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas,$result,$error,$errormail)){
+								FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando la programación de la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+							} elseif ($numfilas != 1) {
+								FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando la programación de la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+							} else {
+								$fila_actividad_dictamen = mysqli_fetch_assoc($result);
+								$formact_codigo = FORMATOCURSO;
+								$tipoact_codigo = $fila_actividad_dictamen['tipoact_codigo']; 
+								?><a class="linkListadoMenu" href='javascript:void(0)' onClick="Popup('dictamen_ver_detalle.dhtml?dic_codigo=<?= $fila_actividad_dictamen['dic_codigo'] ?>&amp;formact_codigo=<?= $formact_codigo ?>&amp;tipoact_codigo=<?= $tipoact_codigo ?>','ventana_descripciones_detalle_dictamen',650,420,screen.availWidth-670,screen.availHeight-460,'yes');"> Ver Detalles Actividad / Dictamen </a><?php
+							} ?>
+						</td>
+					</tr>			
+		<?php 		}	
+				if($operacion=="M") {		?>						
+					<tr>
+						<td colspan="2" align="right">  
+							<a href="comision_cronograma.dhtml?comi_codigo=<?php echo htmlspecialchars($filacomision['comi_codigo'],ENT_QUOTES); ?>" >Cronograma</a>
+							
+							<?php 	if($_SESSION['rolcod']!=SUPERUSUARIO){ ?>
+								-
+								<a href="comision_docente.dhtml?comi_codigo=<?php echo htmlspecialchars($filacomision['comi_codigo'],ENT_QUOTES); ?>" >Docentes</a>
+								<?php } ?>
+							<br />
+						</td>
+					</tr>			
+		<?php		} 		
+			
+					if($operacion=="V" || $operacion=="M") { ?>
+						<tr>
+							<td valign="top" width="30%" class='textoEtiqueta'>Código Comisión INAP</td>
+							<td class="textoEtiquetaDatoResaltado">
+								<input type="text" name="comi_codinap" id="comi_codinap"  class="inputReadonly" readonly="readonly" size="21" maxlength="20" value="<?php echo htmlspecialchars($filacomision['comi_codinap'],ENT_QUOTES); ?>">
+							</td>
+						</tr>
+				<?php	} 		
+
+
+				if($operacion=="V") {		
+					$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","COMISIONESTADO","' and constantecod='",$filacomision['comi_estado'],"'"),$descri_estado,$numfilas,$errorcod);	?>						
+					<tr>
+						<td valign="top" width="30%" class='textoEtiqueta'>Comisión Estado</td>
+						<td class="textoEtiquetaDatoResaltado">
+						<input name="estado_descri" id="estado_descri" class='inputReadonly' readonly='readonly' value="<?=htmlspecialchars($descri_estado,ENT_QUOTES) ?>" />
+						</td>
+					</tr>			
+			<?php } ?>		
+			<tr>
+				<td valign="top" width="30%" class='textoEtiqueta'>Tipo de Inscripción</td>
+				<td class="textoEtiquetaDatoResaltado"> 
+	<?php				if ($operacion=="V") {
+						if ($conexion->TraerCampo("tipo_inscripcion","tipoins_descripcion",array("tipoins_codigo='",$filacomision['tipoins_codigo'],"'"),$descri,$numfilas,$errorcod)) {
+	?>						<input name="tipoins_codigo" id="tipoins_codigo" class='inputReadonly' readonly='readonly' value="<?php echo htmlspecialchars($descri,ENT_QUOTES)?>" />
+	<?php					}
+					} else {				
+						$spnombre="sel_tipo_inscripcion_xestado_orden";
+						$spparam=array("ptipoins_estado"=>TIPOINSCACTIVO,"porderby"=>"tipoins_descripcion");
+						FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","tipoins_codigo","tipoins_codigo","tipoins_descripcion",($es_modif)?$filacomision['tipoins_codigo']:"","-- Seleccione el tipo de inscripción",$filatipo_inscrip,$seletipo_inscrip,1,"",$style="width:260px");
+					}
+	?>			</td>
+			</tr>
+	<?php 		if ($es_modif) { ?>
+				<tr> 
+					<td colspan="2">
+						<table width="100%" class="textoTablaDato" align="center" cellpadding="2" cellspacing="0" border="0">
+							<tr>
+								<td valign="middle" width="30%" class='textoEtiqueta'>Fecha de Inicio </td>
+								<td class="textoEtiquetaDatoResaltado"><input type="text" name="comi_fecha_inicio" id="comi_fecha_inicio"  class="inputReadonly" readonly="readonly" size="11"  value="<?php echo FuncionesPHPLocal::ConvertirFecha($filacomision['comi_fecha_inicio'],'aaaa-mm-dd','dd/mm/aaaa'); ?>"></td>
+								<td valign="middle" width="15%" class='textoEtiqueta'>Fecha de Finalización</td>
+								<td class="textoEtiquetaDatoResaltado"><input type="text" name="comi_fecha_fin" id="comi_fecha_fin"  class="inputReadonly" readonly="readonly" size="11"  value="<?php echo FuncionesPHPLocal::ConvertirFecha($filacomision['comi_fecha_fin'],'aaaa-mm-dd','dd/mm/aaaa'); ?>"></td>
+							</tr>				
+						</table>	
+					</td>
+				</tr>
+				<tr>
+					<td valign="top" width="30%" class='textoEtiqueta'>Acta</td>
+					<td class="textoEtiquetaDatoResaltado">
+						<input type="text" class='inputReadonly' style="text-align:right" readonly='readonly' size="8" maxlength="8" name="comi_acta_numero" value="<?php echo ($es_modif) ? htmlspecialchars($filacomision['comi_acta_numero'],ENT_QUOTES):""; ?>"/>
+					</td>
+				</tr>
+			<?php } ?>					
+			<tr>
+				<td valign="top" width="30%" class='textoEtiqueta'>Vacantes</td>
+				<td class="textoEtiquetaDatoResaltado">
+					<input type="text"  class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="text-align:right" size="4" maxlength="4" name="comi_vacantes" value="<?php echo ($es_modif) ? htmlspecialchars($filacomision['comi_vacantes'],ENT_QUOTES):""; ?>"/>
+				</td>
+			</tr>
+			<tr>
+				<td valign="top" width="30%" class='textoEtiqueta'>Sobreventa</td>
+				<td class="textoEtiquetaDatoResaltado">
+					<input type="text"  class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="text-align:right" size="4" maxlength="4" name="comi_sobreventa" value="<?php echo ($es_modif) ? htmlspecialchars($filacomision['comi_sobreventa'],ENT_QUOTES):""; ?>"/>
+				</td>
+            </tr>
+				<?php if 	($_SESSION["rolcod"] == USUCURSOINAP || $_SESSION["rolcod"] == COORDINADORTECNICO || $_SESSION["rolcod"] == USUORGANISMO) { 
+				
+								?>
+		            <tr>
+		                <td valign="top" width="30%" class='textoEtiqueta'>Permitir inscripción via Web?</td>
+					  <td class="textoEtiquetaDatoResaltado">
+							<input type="radio" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> <?php echo ($es_modif && $filacomision["comi_web"]=="S")?"checked='checked'":"" ?> style="text-align:right" size="4" maxlength="4" name="comi_web" id="S" value="S" /><?php echo "SI"?>	
+						  <input name="comi_web" type="radio" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='readonly'":"'textoInput'" ?> id="N" style="text-align:right"  value="N" size="4" maxlength="4" <?php echo ($es_modif && $filacomision["comi_web"]=="N")?"checked='checked'":"" ?> />
+							<?php echo "NO" ?>&nbsp;
+							<?php if($operacion=="M") { ?>
+								<a href='javascript:void(0)' onClick="Popup('comision_codigohtml_popup.dhtml?comi_codigo=<?php echo $filacomision['comi_codigo']?>','ventana_descripciones',630,360,screen.availWidth-650,screen.availHeight-420,'yes');"><img src="images/searchsai.jpg" alt="Buscar" border="0" style="vertical-align:-5px"></a>
+							<?php } ?>
+		                </td>
+					</tr>
+			<?php } ?>
+			</table>
+			</fieldset> 
+			</td>
+		</tr>
+	</table>
+
+    
+		<?php if ($operacion=="V") { ?>
+
+        <table width="100%" class="textoTablaDato" align="center" cellpadding="2">
+            <tr>
+                <td colspan="2" >
+                    <fieldset class="bordeDetalleRegistro">
+                    <legend class="textoLeyendaDetalleRegistro">Fechas de Realización </legend>
+						<?php	
+						$oComisionCronograma = new cComisionCronograma($this->conexion);
+                        if (!$oComisionCronograma->MostrarDatosComisionCronograma($filacomision['comi_codigo'])) {
+                            FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al mostrar los datos del Cronograma.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+                         } 
+                         ?>
+			        </fieldset>
+	          </td>
+          </tr>
+        </table> 
+       <?php } ?> 
+    
+
+	<table width="100%" class="textoTablaDato" align="center" cellpadding="2">
+		<tr>
+			<td colspan="2" >
+				<fieldset class="bordeDetalleRegistro">
+				<legend class="textoLeyendaDetalleRegistro">Lugar de Realización </legend>
+				<table width="100%" class="textoTablaDato" align="center">
+				
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Pais</td>
+					<td class="textoEtiquetaDatoResaltado">
+<?php						if ($operacion=="V") {
+							if ($conexion->TraerCampo("paises","paisnom",array("paiscod='",$filacomision['pais_codigo'],"'"),$descri,$numfilas,$errorcod)) {
+?>								<input name="pais_codigo" id="pais_codigo" class='inputReadonly' readonly='readonly' style="width:400px" value="<?php echo htmlspecialchars($descri,ENT_QUOTES)?>" />
+<?php							}
+						} else {				
+							$spnombre = "sel_paises_xestado";
+							$spparam = array("ppaisestado"=>ESTADOACTIVO, "porderby"=>"paisnom");
+							FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","pais_codigo","paiscod","paisnom",($es_modif)?$filacomision['pais_codigo']:ARGENTINA,"-- Seleccione un País",$filapais_codigo,$selepais_codigo,1,"SeleccionPais(formulario)");
+						}
+?>	
+					</td>
+				</tr>
+				<tr>
+					<td colspan="2">
+						<div id="datos_provincia" style="display: <?php echo (!$es_modif || ($es_modif && $filacomision['pais_codigo'] == ARGENTINA))?'block':'none'; ?>">
+						<table width="100%" align="center" class="textoTablaDato" cellpadding="1" cellspacing="0">
+							<tr>
+								<td valign="top" width="25%" class='textoEtiqueta'>Provincia</td>
+								<td class="textoEtiquetaDatoResaltado">
+		<?php						if ($operacion=="V") {
+									if ($conexion->TraerCampo("provincias","provincianom",array("provinciacod='",$filacomision['prov_codigo'],"'"),$descri,$numfilas,$errorcod)) {
+		?>								<input name="prov_codigo" id="prov_codigo" class='inputReadonly' readonly='readonly' style="width:400px" value="<?php echo htmlspecialchars($descri,ENT_QUOTES)?>" />
+		<?php							}
+								} else {				
+									$oprovincia = new cProvincias($conexion);
+									$oprovincia->ProvinciasSP($spnombre,$spparam);
+									FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","prov_codigo","provinciacod","provincianom",($es_modif)?$filacomision['prov_codigo']:PARTIDO_CAPITAL,"-- Seleccione una Provincia",$filaprov_codigo,$seleprov_codigo);
+								}
+		?>						</td>
+							</tr> 
+						</table>
+						</div>		
+					</td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Sede</td>
+					<td class="textoEtiquetaDatoResaltado">	
+<?php						if ($operacion=="V") {
+							if ($conexion->TraerCampo("sede","sede_descripcion",array("sede_codigo='",$filacomision['sede_codigo'],"'"),$descri,$numfilas,$errorcod)) {
+?>								<input name="sede_codigo" id="sede_codigo" class='inputReadonly' readonly='readonly' style="width:400px" value="<?php echo htmlspecialchars($descri,ENT_QUOTES)?>" />
+<?php							}
+						} else {				
+								$osede = new cTablaSede($conexion);
+								$osede->TablaDescriptoresSP($spnombre,$spparam);
+								FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","sede_codigo","sede_codigo","sede_descripcion",($es_modif)?$filacomision['sede_codigo']:"","-- Seleccione una Sede",$filasede_codigo,$selesede_codigo);
+						} ?>				
+					</td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Domicilio</td>
+					<td class="textoEtiquetaDatoResaltado">
+						<textarea cols="100"  name="comi_domicilio"  style="width:400px" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?>><?php echo ($es_modif) ? htmlspecialchars($filacomision['comi_domicilio'],ENT_QUOTES):"" ?></textarea>
+						<?php if ($operacion!="V") {  ?>
+							<br><span class="textoAclaraciones">Nota: La longitud del domicilio debe ser menor a 150 caracteres. </span>
+						<?php } ?>
+					</td>
+				</tr>							
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Detalle</td>
+					<td class="textoEtiquetaDatoResaltado">
+						<textarea cols="100"  name="comi_detalle"  style="width:400px" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?>><?php echo ($es_modif) ? htmlspecialchars($filacomision['comi_detalle'],ENT_QUOTES):"" ?></textarea>
+						<?php if ($operacion!="V") { ?>
+							<br><span class="textoAclaraciones">Nota: La longitud del detalle debe ser menor a 150 caracteres. </span>
+						<?php } ?>
+					</td>
+				</tr>							
+				</table>
+				</fieldset> 
+			</td>
+		</tr>
+		
+<?php		if ($operacion=="V") { ?>
+		<tr>
+			<td colspan="2" align="right">
+				<?php 	$oComisionPrestadorDocente = new cComisionPrestadorDocente($this->conexion);
+					$oComisionPrestadorDocente->MostrarPrestadoresComision($this->conexion,$filacomision['comi_codigo']);	
+				?>	
+			</td>
+		</tr>
+<?php 		} ?>		
+
+	</table>		
+<?php 
+	return true;
+  } 
+//-----------------------------------------------------------------------------------------
+	function AltaDatosComision($datos,&$comi_codigo_nuevo, &$comi_codinap) {
+
+		
+
+		// busco el número de secuencia
+		$spnombre="sel_valor_unico";
+		$spparam=array();
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)	{
+			$txt_sys_mail = "Error al generar el código único de actividad. (codigo temporal)";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al dar el alta de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato), $txt_sys_mail );
+			return false;
+		}
+		$fila = mysqli_fetch_assoc($resultado);
+
+		$datos["comi_codinap"]= $_SESSION['usuariocod'].$fila['time_seg'];
+
+		if(!$this->_DatosValidosAltaComision($datos,$datosvalidados))
+			return false;
+		
+		$spnombre="ins_comision";
+		$spparam=array(
+				'pact_codigo'=>$datosvalidados['act_codigo'] ,
+				'pactprog_sec'=>$datosvalidados['actprog_sec'] ,
+				'pcomi_codinap'=> $datosvalidados['comi_codinap'],
+				'ptipoins_codigo'=> $datosvalidados['tipoins_codigo'],
+				'pcomi_fecha_inicio'=> "NULL",
+				'pcomi_fecha_fin'=> "NULL",
+				'ppais_codigo'=> $datosvalidados['pais_codigo'],
+				'pprov_codigo'=> $datosvalidados['prov_codigo'],
+				'psede_codigo'=> $datosvalidados['sede_codigo'],
+				'pcomi_acta_numero'=> "NULL",
+				'pcomi_domicilio'=> $datosvalidados['comi_domicilio'],
+				'pcomi_detalle'=> $datosvalidados['comi_detalle'],
+				'pcomi_vacantes'=> $datosvalidados['comi_vacantes'],
+				'pcomi_sobreventa'=> $datosvalidados['comi_sobreventa'],
+				'pcomi_web'=> $datosvalidados['comi_web'],
+				'pcomi_estado'=>COMISIONNUEVA,
+			  	'pultmodusuario'=>$_SESSION['usuariocod'],
+  			          'pultmodfecha'=> date("Y/m/d H:i:s") 
+		);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al insertar la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		} 
+		$comi_codigo_nuevo = $this->conexion->ultimocodigoinsertado();
+
+
+		if(!$this->ObtenerCodigoInap($datos['act_codigo'],$comi_codinap)){
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al generar el Código de Comisión INAP.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;			
+		}				
+		$datosvalidados['comi_codinap'] = $comi_codinap."-".$comi_codigo_nuevo;
+		
+		$spnombre="upd_comision_codinap_xcomi_codigo";
+		$spparam=array(
+				'pcomi_codinap'=> $datosvalidados['comi_codinap'],
+				'pcomi_codigo'=> $comi_codigo_nuevo,
+			  	'pultmodusuario'=>$_SESSION['usuariocod'],
+  			    'pultmodfecha'=> date("Y/m/d H:i:s") 
+		);
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)	{
+			$txt_sys_mail="Error al modificar la comision\ncomi_codigo=".$datosvalidados['comi_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al modificar la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}		
+		
+		$comi_codinap = $datosvalidados['comi_codinap'];
+		
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------
+	function ModifDatosComision($datos)	{
+
+		
+		if(!$this->_DatosValidosModifComision($datos,$datosvalidados))
+			return false;
+			
+		//print_r($datosvalidados);
+
+		$spnombre="upd_comision";
+		$spparam=array(
+				'pcomi_codigo'=> $datosvalidados['comi_codigo'],
+				'ptipoins_codigo'=> $datosvalidados['tipoins_codigo'],
+				'ppais_codigo'=> $datosvalidados['pais_codigo'],
+				'pprov_codigo'=> $datosvalidados['prov_codigo'],
+				'psede_codigo'=> $datosvalidados['sede_codigo'],
+				'pcomi_domicilio'=> $datosvalidados['comi_domicilio'],
+				'pcomi_detalle'=> $datosvalidados['comi_detalle'],
+				'pcomi_vacantes'=> $datosvalidados['comi_vacantes'],
+				'pcomi_sobreventa'=> $datosvalidados['comi_sobreventa'],
+				'pcomi_web'=> $datosvalidados['comi_web'],
+			  	'pultmodusuario'=>$_SESSION['usuariocod'],
+  			    'pultmodfecha'=> date("Y/m/d H:i:s") 
+		);
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)	{
+			$txt_sys_mail="Error al modificar la comision\ncomi_codigo=".$datosvalidados['comi_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al modificar la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------
+	function EliminarDatosComision($comi_codigo) {
+
+		if(!$this->_DatosValidosEliminarComision($comi_codigo,$datosvalidados))
+			return false;
+
+		// Eliminar cronograma 
+		$oComisionCronograma= new cComisionCronograma($this->conexion);
+		if(!$oComisionCronograma->EliminarCronogramaComision($comi_codigo))
+			return false;
+		FuncionesPHPLocal::RegistrarAcceso($this->conexion,"50202","Global / comi_codigo=".$comi_codigo,$_SESSION['usuariocod']);
+
+		// Eliminar docentes
+		$oComisionPrestadorDocente = new cComisionPrestadorDocente($this->conexion);
+		if(!$oComisionPrestadorDocente->EliminarComisionPrestadorDocenteTodos($comi_codigo))
+			return false;		
+		FuncionesPHPLocal::RegistrarAcceso($this->conexion,"50302","Global / comi_codigo=".$comi_codigo,$_SESSION['usuariocod']);
+
+		// Eliminar los inscriptos de la comisión
+		$oComisionPersona = new cComisionPersona($this->conexion);
+		if(!$oComisionPersona->EliminarDatosComisionAlumnos($comi_codigo))
+			return false;		
+		FuncionesPHPLocal::RegistrarAcceso($this->conexion,"50402","Global /comi_codigo=".$comi_codigo,$_SESSION['usuariocod']);
+
+		// Eliminar comisión 
+		$spnombre="del_comision";
+		$spparam=array('pcomi_codigo'=>$comi_codigo);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			$txt_sys_mail="Error al eliminar la comisión\ncomi_codigo=".$comi_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al eliminar la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+			
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------
+	function AbrirComision($datos) {
+
+		if (!$this->_DatosValidosAbrirComision($datos,$datosvalidados))
+		   return false; 
+
+		$spnombre="upd_comision_cambio_estado";
+		$spparam=array(
+				'pcomi_codigo'=> $datosvalidados['comi_codigo'],
+				'pcomi_estado'=> COMISIONABIERTA,
+			  	'pultmodusuario'=>$_SESSION['usuariocod'],
+	            'pultmodfecha'=> date("Y/m/d H:i:s") 
+		);
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)	{
+			$txt_sys_mail="Error al abrir la comision\ncomi_codigo=".$datosvalidados['comi_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al abrir la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		$spnombre="sel_comision_proximo_nro_acta";
+		$spparam=array();
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)	{
+			$txt_sys_mail="Error al abrir la comisión obteniendo el proximo nro de acta\ncomi_codigo=".$datosvalidados['comi_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al abrir la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+		$fila_nro_acta = mysqli_fetch_assoc($resultado);
+
+		$spnombre="upd_comision_xcomi_acta_numero";
+		$spparam=array(
+				'pcomi_acta_numero'=>$fila_nro_acta['proximo_nro_acta'], // Ya lo trae + 1 
+				'pcomi_codigo'=> $datosvalidados['comi_codigo'],
+			  	'pultmodusuario'=> $_SESSION['usuariocod'],
+	            'pultmodfecha'=> date("Y/m/d H:i:s") 
+		);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)	{
+			$txt_sys_mail="Error al abrir la comisión actualizando el número de acta \ncomi_codigo=".$datosvalidados['comi_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al abrir la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+		FuncionesPHPLocal::RegistrarAcceso($this->conexion,'50105',"comi_codigo=".$datosvalidados['comi_codigo']."-"."acta_numero=".$fila_nro_acta['proximo_nro_acta'],$_SESSION['usuariocod']);
+
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function CerrarComision($datos) {
+		$oComisionPersonaCandidato= new cComisionPersonaCandidato($this->conexion);
+
+		if (!$this->_DatosValidosCerrarComision($datos,$datosvalidados,$otros_errores))
+		   return false; 
+
+		// elimino todos los candidatos para la comisión
+		if (!$oComisionPersonaCandidato->EliminarDatosInscripcionWebdeComision($datosvalidados,$resultado,$numfilas))
+		   return false; 
+
+		$spnombre="upd_comision_cambio_estado";
+		$spparam=array(
+				'pcomi_codigo'=> $datosvalidados['comi_codigo'],
+				'pcomi_estado'=> COMISIONCERRADA,
+			  	'pultmodusuario'=>$_SESSION['usuariocod'],
+	            'pultmodfecha'=> date("Y/m/d H:i:s") 
+		);
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)	{
+			$txt_sys_mail="Error al cerrar la comisión\ncomi_codigo=".$datosvalidados['comi_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al cerrar la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function CertificarComision($datos) {
+
+		if (!$this->DatosValidosCertificarComision($datos,$datosvalidados,$array_errores))
+		   return false; 
+
+		$spnombre="upd_comision_cambio_estado";
+		$spparam=array(
+				'pcomi_codigo'=> $datosvalidados['comi_codigo'],
+				'pcomi_estado'=> COMISIONCERTIFICADA,
+			  	'pultmodusuario'=>$_SESSION['usuariocod'],
+	            'pultmodfecha'=> date("Y/m/d H:i:s") 
+		);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)	{
+			$txt_sys_mail="Error al cerfificar la comisión\ncomi_codigo=".$datosvalidados['comi_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al cerfificar la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+		
+		return true;
+	}		
+//-----------------------------------------------------------------------------------------	
+	function BuscarComision($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		$sparam=array('pxact_codigo'=>0);
+		$sparam+=array('pxcomi_codigo'=>0);
+		$sparam+=array('pxcomi_estado'=>0);
+		$sparam+=array('pxcomi_codinap'=>0);
+		$sparam+=array('pxcomi_codinap_exacto'=>0);
+				
+		$sparam+=array('pact_codigo'=>"");
+		$sparam+=array('pcomi_codigo'=>"");
+		$sparam+=array('pcomi_estado'=>"-1");
+		$sparam+=array('pcomi_codinap'=>"");
+		$sparam+=array('pcomi_codinap_exacto'=>"");
+		
+		$sparam+=array('porderby'=>"act_codigo");
+			
+		if (isset ($ArregloDatos['act_codigo'])) {
+			if ($ArregloDatos['act_codigo']!="") {	
+				$sparam['pact_codigo']= $ArregloDatos['act_codigo'];
+				$sparam['pxact_codigo']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['comi_codigo'])) {
+			if ($ArregloDatos['comi_codigo']!="") {	
+				$sparam['pcomi_codigo']= $ArregloDatos['comi_codigo'];
+				$sparam['pxcomi_codigo']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['comi_estado'])) {
+			if ($ArregloDatos['comi_estado']!="") 	{	
+				$sparam['pcomi_estado']= $ArregloDatos['comi_estado'];
+				$sparam['pxcomi_estado']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['comi_codinap'])) 	{
+			if ($ArregloDatos['comi_codinap']!="")	{	
+				$sparam['pcomi_codinap']= $ArregloDatos['comi_codinap'];
+				$sparam['pxcomi_codinap']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['comi_codinap_exacto'])) {
+			if ($ArregloDatos['comi_codinap_exacto']!="") {	
+				$sparam['pcomi_codinap_exacto']= $ArregloDatos['comi_codinap_exacto'];
+				$sparam['pxcomi_codinap_exacto']= 1;
+			}
+		}	
+		
+		if (isset ($ArregloDatos['orderby'])) {
+			if ($ArregloDatos['orderby']!="") 	{	
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+
+		$spnombre="sel_comision_xdatos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar comisión.";
+			$errormail="Error al buscar en comision.".$errno;
+			return false;
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------
+	function BuscarComisionAvanzada($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		$sparam=array('pxcomi_codigo'=>0);
+		$sparam+=array('pxcomi_codinap'=>0);
+		$sparam+=array('pxcomi_codinap_exacto'=>0);
+		$sparam+=array('pxact_codigo'=>0);		
+		$sparam+=array('pxactprog_sec'=>0);
+		$sparam+=array('pxcomi_estado'=>0);
+		$sparam+=array('pxact_nombre'=>0);
+		$sparam+=array('pxact_codinap'=>0);
+		$sparam+=array('pxtipoact_codigo'=>0);
+		$sparam+=array('pxjurisdid_inap'=>0);
+		$sparam+=array('pxcomi_fecha_inicio'=>0);
+		$sparam+=array('pxcomi_fecha_fin'=>0);
+		$sparam+=array('pxcomi_web'=>0);
+		$sparam+=array('pxprogcur_codigo'=>0);
+		$sparam+=array('pxareacur_codigo'=>0);
+		
+		
+
+		$sparam+=array('pcomi_codigo'=>"");
+		$sparam+=array('pcomi_codinap'=>"");
+		$sparam+=array('pcomi_codinap_exacto'=>"");				
+		$sparam+=array('pact_codigo'=>"");
+		$sparam+=array('pactprog_sec'=>"");			
+		$sparam+=array('pcomi_estado'=>"-1");		
+		$sparam+=array('pact_nombre'=>"");
+		$sparam+=array('pact_codinap'=>"");
+		$sparam+=array('ptipoact_codigo'=>"");
+		$sparam+=array('pjurisdid_inap'=>"");
+		$sparam+=array('pcomi_fecha_inicio'=>"");
+		$sparam+=array('pcomi_fecha_fin'=>"");
+		$sparam+=array('pcomi_web'=>"");
+		$sparam+=array('pprogcur_codigo'=>"");
+		$sparam+=array('pareacur_codigo'=>"");
+		
+
+
+		$sparam+=array('porderby'=>"act_codigo");
+
+		if (isset ($ArregloDatos['comi_codigo'])) {
+			if ($ArregloDatos['comi_codigo']!="") {	
+				$sparam['pcomi_codigo']= $ArregloDatos['comi_codigo'];
+				$sparam['pxcomi_codigo']= 1;
+			}
+		}	
+			
+		if (isset ($ArregloDatos['comi_codinap'])) {
+			if ($ArregloDatos['comi_codinap']!="") {	
+				$sparam['pcomi_codinap']= $ArregloDatos['comi_codinap'];
+				$sparam['pxcomi_codinap']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['comi_codinap_exacto'])) {
+			if ($ArregloDatos['comi_codinap_exacto']!="") {	
+				$sparam['pcomi_codinap_exacto']= $ArregloDatos['comi_codinap_exacto'];
+				$sparam['pxcomi_codinap_exacto']= 1;
+			}
+		}	
+			
+		if (isset ($ArregloDatos['act_codigo'])) {
+			if ($ArregloDatos['act_codigo']!="") 	{	
+				$sparam['pact_codigo']= $ArregloDatos['act_codigo'];
+				$sparam['pxact_codigo']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['actprog_sec'])) {
+			if ($ArregloDatos['actprog_sec']!="") 	{	
+				$sparam['pactprog_sec']= $ArregloDatos['actprog_sec'];
+				$sparam['pxactprog_sec']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['comi_estado'])) {
+			if ($ArregloDatos['comi_estado']!="") {	
+				$sparam['pcomi_estado']= $ArregloDatos['comi_estado'];
+				$sparam['pxcomi_estado']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['act_nombre'])) {
+			if ($ArregloDatos['act_nombre']!="") {	
+				$sparam['pact_nombre']= $ArregloDatos['act_nombre'];
+				$sparam['pxact_nombre']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['act_codinap'])) {
+			if ($ArregloDatos['act_codinap']!="") {	
+				$sparam['pact_codinap']= $ArregloDatos['act_codinap'];
+				$sparam['pxact_codinap']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['tipoact_codigo'])) {
+			if ($ArregloDatos['tipoact_codigo']!="") {	
+				$sparam['ptipoact_codigo']= $ArregloDatos['tipoact_codigo'];
+				$sparam['pxtipoact_codigo']= 1;
+			}
+		}	
+		
+		if (isset ($ArregloDatos['jurisdid_inap'])) {
+			if ($ArregloDatos['jurisdid_inap']!="") {	
+				$sparam['pjurisdid_inap']= $ArregloDatos['jurisdid_inap'];
+				$sparam['pxjurisdid_inap']= 1;
+			}
+		}	
+
+		if (isset($ArregloDatos['comi_fecha_inicio']))	{
+			if ($ArregloDatos['comi_fecha_inicio']!="")
+			{	
+				$sparam['pcomi_fecha_inicio']= $ArregloDatos['comi_fecha_inicio'];
+				$sparam['pxcomi_fecha_inicio']= 1;
+			}
+		}	
+		if (isset($ArregloDatos['comi_fecha_fin']))	{
+			if ($ArregloDatos['comi_fecha_fin']!="")
+			{	
+				$sparam['pcomi_fecha_fin']= $ArregloDatos['comi_fecha_fin'];
+				$sparam['pxcomi_fecha_fin']= 1;
+			}
+		}	
+		if (isset($ArregloDatos['comi_web']))	{
+			if ($ArregloDatos['comi_web']!="")
+			{	
+				$sparam['pcomi_web']= $ArregloDatos['comi_web'];
+				$sparam['pxcomi_web']= 1;
+			}
+		}	
+
+		
+		if (isset($ArregloDatos['progcur_codigo']))	{
+			if ($ArregloDatos['progcur_codigo']!="")
+			{	
+				$sparam['pprogcur_codigo']= $ArregloDatos['progcur_codigo'];
+				$sparam['pxprogcur_codigo']= 1;
+			}
+		}	
+		
+		if (isset($ArregloDatos['areacur_codigo']))	{
+			if ($ArregloDatos['areacur_codigo']!="")
+			{	
+				$sparam['pareacur_codigo']= $ArregloDatos['areacur_codigo'];
+				$sparam['pxareacur_codigo']= 1;
+			}
+		}			
+
+
+		if (isset ($ArregloDatos['orderby'])) {
+			if ($ArregloDatos['orderby']!="") {	
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+
+		$spnombre="sel_comision_avanzada_xdatos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar comisión.";
+			$errormail="Error al buscar en comisión.".$errno;
+			return false;
+		}
+		return true;
+	}
+
+
+
+//-----------------------------------------------------------------------------------------
+	function BuscarComisionPresDocAvanzada($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		$sparam=array('pxcomi_codigo'=>0);
+		$sparam+=array('pxcomi_codinap'=>0);
+		$sparam+=array('pxcomi_codinap_exacto'=>0);
+		$sparam+=array('pxact_codigo'=>0);		
+		$sparam+=array('pxactprog_sec'=>0);
+		$sparam+=array('pxcomi_estado'=>0);
+		$sparam+=array('pxact_nombre'=>0);
+		$sparam+=array('pxact_codinap'=>0);
+		$sparam+=array('pxtipoact_codigo'=>0);
+		$sparam+=array('pxjurisdid_inap'=>0);
+		$sparam+=array('pxcomi_fecha_inicio'=>0);
+		$sparam+=array('pxcomi_fecha_fin'=>0);
+		$sparam+=array('pxapeynom'=>0);		
+
+		$sparam+=array('pcomi_codigo'=>"");
+		$sparam+=array('pcomi_codinap'=>"");
+		$sparam+=array('pcomi_codinap_exacto'=>"");				
+		$sparam+=array('pact_codigo'=>"");
+		$sparam+=array('pactprog_sec'=>"");			
+		$sparam+=array('pcomi_estado'=>"-1");		
+		$sparam+=array('pact_nombre'=>"");
+		$sparam+=array('pact_codinap'=>"");
+		$sparam+=array('ptipoact_codigo'=>"");
+		$sparam+=array('pjurisdid_inap'=>"");
+		$sparam+=array('pcomi_fecha_inicio'=>"");
+		$sparam+=array('pcomi_fecha_fin'=>"");
+		$sparam+=array('papeynom'=>"");		
+		
+		$sparam+=array('porderby'=>"act_codigo");
+
+		if (isset ($ArregloDatos['comi_codigo'])) {
+			if ($ArregloDatos['comi_codigo']!="") {	
+				$sparam['pcomi_codigo']= $ArregloDatos['comi_codigo'];
+				$sparam['pxcomi_codigo']= 1;
+			}
+		}	
+			
+		if (isset ($ArregloDatos['comi_codinap'])) {
+			if ($ArregloDatos['comi_codinap']!="") {	
+				$sparam['pcomi_codinap']= $ArregloDatos['comi_codinap'];
+				$sparam['pxcomi_codinap']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['comi_codinap_exacto'])) {
+			if ($ArregloDatos['comi_codinap_exacto']!="") {	
+				$sparam['pcomi_codinap_exacto']= $ArregloDatos['comi_codinap_exacto'];
+				$sparam['pxcomi_codinap_exacto']= 1;
+			}
+		}	
+			
+		if (isset ($ArregloDatos['act_codigo'])) {
+			if ($ArregloDatos['act_codigo']!="") 	{	
+				$sparam['pact_codigo']= $ArregloDatos['act_codigo'];
+				$sparam['pxact_codigo']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['actprog_sec'])) {
+			if ($ArregloDatos['actprog_sec']!="") 	{	
+				$sparam['pactprog_sec']= $ArregloDatos['actprog_sec'];
+				$sparam['pxactprog_sec']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['comi_estado'])) {
+			if ($ArregloDatos['comi_estado']!="") {	
+				$sparam['pcomi_estado']= $ArregloDatos['comi_estado'];
+				$sparam['pxcomi_estado']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['act_nombre'])) {
+			if ($ArregloDatos['act_nombre']!="") {	
+				$sparam['pact_nombre']= $ArregloDatos['act_nombre'];
+				$sparam['pxact_nombre']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['act_codinap'])) {
+			if ($ArregloDatos['act_codinap']!="") {	
+				$sparam['pact_codinap']= $ArregloDatos['act_codinap'];
+				$sparam['pxact_codinap']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['tipoact_codigo'])) {
+			if ($ArregloDatos['tipoact_codigo']!="") {	
+				$sparam['ptipoact_codigo']= $ArregloDatos['tipoact_codigo'];
+				$sparam['pxtipoact_codigo']= 1;
+			}
+		}	
+		
+		if (isset ($ArregloDatos['jurisdid_inap'])) {
+			if ($ArregloDatos['jurisdid_inap']!="") {	
+				$sparam['pjurisdid_inap']= $ArregloDatos['jurisdid_inap'];
+				$sparam['pxjurisdid_inap']= 1;
+			}
+		}	
+
+		if (isset($ArregloDatos['comi_fecha_inicio']))	{
+			if ($ArregloDatos['comi_fecha_inicio']!="")
+			{	
+				$sparam['pcomi_fecha_inicio']= $ArregloDatos['comi_fecha_inicio'];
+				$sparam['pxcomi_fecha_inicio']= 1;
+			}
+		}	
+		if (isset($ArregloDatos['comi_fecha_fin']))	{
+			if ($ArregloDatos['comi_fecha_fin']!="")
+			{	
+				$sparam['pcomi_fecha_fin']= $ArregloDatos['comi_fecha_fin'];
+				$sparam['pxcomi_fecha_fin']= 1;
+			}
+		}	
+		if (isset($ArregloDatos['apeynom']))	{
+				$sparam['papeynom']= $ArregloDatos['apeynom'];
+				$sparam['pxapeynom']= 1;
+		}	
+		if (isset ($ArregloDatos['orderby'])) {
+			if ($ArregloDatos['orderby']!="") {	
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+
+		$spnombre="sel_comision_avanzada_presdoc_xdatos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar comisión.";
+			$errormail="Error al buscar en comisión.".$errno;
+			return false;
+		}
+		return true;
+	}
+
+
+//-----------------------------------------------------------------------------------------------------	
+	function TraerDatosCaratulaActa($ArregloDatos,&$datos_caratula) {
+		$ok = true;
+
+		$oActividad = new cActividad($this->conexion);
+		if (!$this->TraerDatosComision($ArregloDatos['comi_codigo'],$filacomision,$es_modif)) {
+			if (!$es_modif) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha encontrado la Comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				$ok = false;
+			}
+		}
+	
+		if ($ok) {
+			if ($oActividad->TraerDatosActividad($filacomision['act_codigo'],$filaact,$es_modif)) {
+				if (!$es_modif) {
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha encontrado la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					$ok = false;
+				}	// Se encontró la actividad 
+			} // N se produjo error al buscar la actividad
+		}	
+		
+		
+		if ($ok) {
+			if(!$this->conexion->TraerCampo("sede","sede_descripcion",array("sede_codigo='",$filacomision['sede_codigo'],"'"),$sededesc,$numfilas,$errorcod))
+				return false;
+	
+			$oActividadCurso = new cActividadCurso($this->conexion);
+			$oActividadCursoInap = new cActividadCursoInap ($this->conexion);
+		
+			$tipoinap=$oActividadCursoInap->EsActividadCursoTipo($filacomision['act_codigo'],TIPOACTCURSOINAP,$error,$errormsg);
+		
+			$datos_caratula['es_curso_inap']=false;		
+			if ($tipoinap) {
+				if ($oActividadCursoInap->TraerDatosActividadCursoInap($filacomision['act_codigo'],$filacurso,$es_modif)) {
+					if (!$es_modif) {
+						FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha encontrado la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					} else {
+						$datos_caratula['es_curso_inap']=true;		
+						if ($this->conexion->TraerCampo("programa_curso_inap","progcur_descripcion",array("progcur_codigo='",$filacurso['actividad_curso_inap']['progcur_codigo'],"'"),$descri,$numfilas,$errorcod)) 
+							$datos_cabecera['progcur_descripcion'] = htmlspecialchars($descri,ENT_QUOTES); 
+					}
+				}
+			}	
+				
+			// busco organismo del curso		
+			if (!$oActividadCurso->TraerDatosActividadCurso($filacomision['act_codigo'],$fila_actividad_curso,$es_modif_act_curso)) 
+				return false;
+	
+			$txt_sys_mail="\nact_codigo=".$filacomision['act_codigo'];		
+			if (!$es_modif_act_curso)	{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe la Actividad Curso.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			} 
+	
+			if(!$this->conexion->TraerCampo("jurisdiccion_inap","jurisdnom",array("jurisdid='",$fila_actividad_curso['jurisdid_inap'],"'"),$jurisdnom,$numfilas,$errorcod))
+				return false;
+	
+			$datos_caratula['jurisdnom'] = $jurisdnom;
+		
+		
+			$datos_caratula['datos'] = array(
+						'comi_codinap' => $filacomision['comi_codinap'],						
+						'comi_acta_numero' => $filacomision['comi_acta_numero'],
+						'act_nombre' => $filaact['act_nombre'],
+						'sede' => $sededesc,						
+						'comi_domicilio' => $filacomision['comi_domicilio'],
+						'comi_detalle' => $filacomision['comi_detalle']
+			);
+				
+			$ArregloDatos= array();
+			$ArregloDatos['porderby'] = "comifec_fecha, comifec_hora_inicio, comifec_hora_fin";
+			$ArregloDatos['comi_codigo'] = $filacomision['comi_codigo'];
+
+			$oComisionCronograma = new cComisionCronograma($this->conexion);
+			if (!$oComisionCronograma->BuscarComiCronograma($ArregloDatos,$numfilas,$result_cronograma,$error,$errormail)) {
+				$txt_sys_mail="\ncomi_codigo=".$comi_codigo."\nerror=".$errormail;
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando datos del cronograma de la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				$ok =  false;			
+			}			
+
+			if (count($result_cronograma) == 0) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"La comisión debe tener definida la fecha de realización.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				$ok =  false;							
+			}
+			if ($ok) {
+				$datos_caratula['cronograma'] = $result_cronograma;
+		
+				$ArregloDatos= array();
+				$ArregloDatos['porderby'] = "";
+				$ArregloDatos['comi_codigo'] = $filacomision['comi_codigo'];
+
+				$oComisionPrestadorDocente=new cComisionPrestadorDocente($this->conexion);
+				if (!$oComisionPrestadorDocente->BuscarComisionPrestadorDocente($ArregloDatos,$numfilas_presdoc,$resultado_presdoc,$error,$errormail)) {
+					$errormail="\ncomi_codigo=".$ArregloDatos['comi_codigo'];		
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al buscar el Prestador Docente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+					$ok =  false;			
+				}
+
+				if ($numfilas_presdoc == 0) {
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"La comisión debe tener por lo menos un docente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					$ok =  false;							
+				}
+				if ($ok) {
+					$datos_caratula['prestador_docente'] = array();
+					while ($fila_presdoc = mysqli_fetch_assoc($resultado_presdoc)) {
+						$datos_caratula['prestador_docente'][] = array('campo_mostrar'=>$fila_presdoc['campo_mostrar']);
+					}
+				}
+			
+			}
+			
+			
+			
+		}
+		
+		return $ok;
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function TraerDatosCabeceraActa($ArregloDatos,&$datos_cabecera) {
+		$ok = true;
+		$oActividad = new cActividad($this->conexion);
+		if (!$this->TraerDatosComision($ArregloDatos['comi_codigo'],$filacomision,$es_modif)) {
+			if (!$es_modif) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha encontrado la Comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				$ok = false;
+			}
+		}
+	
+		if ($ok) {
+			if ($oActividad->TraerDatosActividad($filacomision['act_codigo'],$filaact,$es_modif)) {
+				if (!$es_modif) {
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha encontrado la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					$ok = false;
+				}	// Se encontró la actividad 
+			} // N se produjo error al buscar la actividad
+		}	
+		
+		if ($ok) {
+			$datos_cabecera = array(
+						'comi_codigo' => $filacomision['comi_codigo'],
+						'comi_codinap' => $filacomision['comi_codinap'],						
+						'comi_acta_numero' => $filacomision['comi_acta_numero'],
+						'act_nombre' => $filaact['act_nombre'],
+						'act_codinap' => $filaact['act_codinap']
+			);
+		}
+		
+		return $ok;
+	}
+	
+	
+//-----------------------------------------------------------------------------------------------------	
+	function MostrarDatosComisionCabecera($conexion,$comi_codigo) {
+	$ok = true;
+
+	$ArregloDatos = array();
+	$ArregloDatos['comi_codigo'] = $comi_codigo;
+	if (!$this->TraerDatosCabeceraActa($ArregloDatos,$datos_cabecera)) {
+		$ok = false;
+	}
+
+	if ($ok) {
+?>			<fieldset class="bordeDetalleRegistro">
+			<legend class="textoLeyendaDetalleRegistro">Datos Comisión </legend>
+			<table width="100%" class="textoTablaDato" align="center" cellpadding="2" cellspacing="0" border="0">
+				<tr>
+					<td>
+						<table width="100%" class="textoTablaDato" align="center" border="0" cellpadding="2" cellspacing="2">
+						<tr>
+							<td valign="top" width="25%" class='textoEtiqueta'>Comisión</td>
+							<td class="textoEtiquetaDatoResaltado"><input type="text" name="comi_codinap" id="comi_codinap"  class="inputReadonly" readonly="readonly" size="21" maxlength="20" value="<?php echo htmlspecialchars($datos_cabecera['comi_codinap'],ENT_QUOTES) ?>">
+						</tr>				
+						<tr>
+							<td valign="top" width="15%" class='textoEtiqueta'>Nro de Acta</td>
+							<td class="textoEtiquetaDatoResaltado"><input type="text"  style="text-align:right" name="comi_acta_numero" id="comi_acta_numero" class="inputReadonly" readonly="readonly" size="8" maxlength="8" value="<?php echo htmlspecialchars($datos_cabecera['comi_acta_numero'],ENT_QUOTES) ?>">
+							</td>
+						</tr>
+						<tr>
+							<td valign="top" width="25%" class='textoEtiqueta'>Nombre de Actividad</td>
+							<td class="textoEtiquetaDatoResaltado">
+							<textarea cols="100" rows="2" class="inputReadonly" readonly="readonly" name="act_nombre"  id="act_nombre"  style="width:400px" ><?php echo htmlspecialchars($datos_cabecera['act_nombre'],ENT_QUOTES); ?></textarea>
+							</td>
+						</tr>				
+						<tr>
+							<td valign="top" width="15%" class='textoEtiqueta'>Código INAP de Actividad</td>
+							<td class="textoEtiquetaDatoResaltado"><input type="text" name="act_codinap" id="act_codinap"  class="inputReadonly" readonly="readonly" size="21" maxlength="20" value="<?php echo htmlspecialchars($datos_cabecera['act_codinap'],ENT_QUOTES) ?>">
+							</td>
+						</tr>						
+						<tr>
+							<td valign="top" width="15%" class='textoEtiqueta'></td>
+							<td class="textoEtiqueta"><img src="images/verdetalle.gif" alt="" width="25" height="25" /><a href="javascript:Popup('comision_ver_detalle_popup.dhtml?comi_codigo=<?php echo $datos_cabecera['comi_codigo'] ?>','ventana_comision',540,540,screen.availWidth-560,screen.availHeight-540,'yes');" >Ver Detalle Comisi&oacute;n</a>
+							</td>
+						</tr>						
+
+						</table>
+					</td>
+			  </tr>
+</table>
+			</fieldset>
+		<?php }  // if ok 
+		return $ok;
+ 	}
+ 
+//--------------------------------------------------------------------------------------------------------
+function ImprimirActaVolante ($datos_caratula, $datos_cabecera, $datos_inscriptos, $formato) {
+
+	function GenerarActa(&$pdf,$datos_caratula,$datos_cabecera,$datos_inscriptos) {
+	
+		$pdf->AddActa();
+		$pdf->Set('comi_codinap',$datos_caratula['datos']['comi_codinap']);
+		$pdf->Set('comi_acta_numero',$datos_caratula['datos']['comi_acta_numero']);		
+		$pdf->Set('act_nombre',$datos_caratula['datos']['act_nombre']);
+		$pdf->Set('sede',$datos_caratula['datos']['sede']);
+		$pdf->Set('comi_domicilio',$datos_caratula['datos']['comi_domicilio']);
+		$pdf->Set('comi_detalle',$datos_caratula['datos']['comi_detalle']);
+		$pdf->Set('cronograma',$datos_caratula['cronograma']);
+		$pdf->Set('prestador_docente',$datos_caratula['prestador_docente']);
+		$pdf->Set('datos_cabecera',$datos_cabecera);			
+		$pdf->Set('datos_inscriptos',$datos_inscriptos);	
+		if ($datos_caratula['es_curso_inap'])
+			$pdf->Set('jurisdnom','Curso organizado por INAP');
+		else
+			$pdf->Set('jurisdnom',$datos_caratula['jurisdnom']);
+	
+	} // GenerarActa
+
+	$pdf = new cActaPDF();
+	GenerarActa($pdf,$datos_caratula,$datos_cabecera,$datos_inscriptos); 
+	$pdf->MostrarActa($this->conexion,$formato);
+	$pdf->Output("acta.pdf","I");
+
+	return true;
+}
+//-----------------------------------------------------------------------------------------------------	
+	function MostrarInscriptosEvaluar($conexion,$comi_codigo) {
+	?>
+	<script language="javascript" type="text/javascript">
+	
+	function CambioComboEval(docu,cambio_eval_codigo_name) {
+
+		var objCambioEval = docu.getElementById(cambio_eval_codigo_name);
+
+		objCambioEval.value = 1; 
+		return true;
+	}
+	//-----------------------------------------------------------
+	function CambiarEvaluacion (docu, formulario, eval_codigo) {
+	
+		if (eval_codigo == "") {
+			alert ("Debe ingresar la evaluación");
+			return false;
+		}
+		
+		for (var i=0; i< document.forms[formulario].elements.length; i++)  {
+			var e= document.forms[formulario].elements[i];
+			if ( e.name.substr(0,12) == "eval_codigo_" )  {
+				e.value = eval_codigo;
+				CambioComboEval(docu,"cambio_"+e.name);
+			}
+		}
+		return true;
+	}
+	</script>
+<?php
+//----------------------------------------------------------------------------
+	$ok = true;
+
+	if (isset($_POST['boton_confirma'])) {
+
+		// Validación 
+		$oComisionPersona =	new cComisionPersona($conexion);
+		$ok_actualiza = true;
+		foreach($_POST as $clave=>$valor) {
+		
+			if (substr($clave,0, 12) =="eval_codigo_") {
+			
+				$pers_codigo = substr($clave,12);
+				
+				if (isset($_POST['cambio_eval_codigo_'.$pers_codigo]) && $_POST['cambio_eval_codigo_'.$pers_codigo]==1)  {
+
+					$datos_evaluacion = array(	'comi_codigo'=>$comi_codigo,
+												'pers_codigo'=>$pers_codigo,
+												'eval_codigo'=>$valor
+					);
+					
+					$conexion->ManejoTransacciones("B");
+					if ($oComisionPersona->ModifDatosComisionVolcarResultados($datos_evaluacion)) {
+						FuncionesPHPLocal::RegistrarAcceso($conexion,"50404","pers_codigo=".$datos_evaluacion['pers_codigo']." - comi_codigo=".$comi_codigo." - eval_codigo=".$datos_evaluacion['eval_codigo'],$_SESSION['usuariocod']);
+						$conexion->ManejoTransacciones("C");
+					} else {
+						$conexion->ManejoTransacciones("R");
+						$ok_actualiza = false;
+					}
+
+				}	// cambio la evaluacion
+			} // es un combo de evaluacion
+			
+		} // for each 
+
+		// solo se muestra el mensaje de OK, porque el error lo informa ModifDatosComisionVolcarResultados
+		if ($ok_actualiza) 
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"Se han actualizado los datos de Evaluación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+	
+	}
+	$limite_filtro = 400;
+	if (!isset($_POST['buscado']) && !isset($_GET['pagina']) ) {
+		$_SESSION['array_busqueda_tabla']['valor_buscado']="";
+		$_SESSION['array_busqueda_tabla']['filtro_desde']=1;
+		$_SESSION['array_busqueda_tabla']['filtro_hasta']=$limite_filtro;
+	} 
+
+	if (isset($_POST['buscado'])) {
+		$_SESSION['array_busqueda_tabla']['valor_buscado']=$_POST['buscado'];
+		$_SESSION['array_busqueda_tabla']['filtro_desde']=($_POST['filtro_desde']>0)?$_POST['filtro_desde']:1;
+		$_SESSION['array_busqueda_tabla']['filtro_hasta']=($_POST['filtro_hasta']>0)?$_POST['filtro_hasta']:$limite_filtro;
+	}
+
+
+	if (!$this->TraerDatosComision($comi_codigo,$filacomision,$es_modif)) {
+		$txt_sys_mail="\nvalor_buscado_".$comi_codigo."\nerror=".$errormail;
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		$ok = false;
+	}
+	
+	
+
+	if ($ok) {
+		$ArregloDatos= array();
+		$ArregloDatos['ppers_apellido'] = $_SESSION['array_busqueda_tabla']['valor_buscado'];
+		$ArregloDatos['pfiltro_desde'] = $_SESSION['array_busqueda_tabla']['filtro_desde']-1;
+		$ArregloDatos['pfiltro_hasta'] = $_SESSION['array_busqueda_tabla']['filtro_hasta']-$_SESSION['array_busqueda_tabla']['filtro_desde']+1;
+		$ArregloDatos['porderby'] = "pers_apellido, pers_nombre";
+		$ArregloDatos['pcomi_codigo'] = $comi_codigo;
+			
+		if (!$this->BuscarComisionInscriptosFiltro($ArregloDatos,$numfilas,$result,$error,$errormail)) {
+			$txt_sys_mail="\nvalor_buscado_".$comi_codigo."\nerror=".$errormail;
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando datos a mostrar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			$ok = false;			
+		}			
+	}		
+		
+	if ($ok) {
+?>
+
+			<div align="left">
+			        <img src="images/imprimir.gif"  alt="Imprimir" />
+				    <a href="javascript:Popup('comision_emitir_acta_download.dhtml?comi_codigo=<?= $filacomision['comi_codigo']?>&amp;formato=C','ventana_acta_2',630,500,screen.availWidth-680,screen.availHeight-550,'yes')">Imprimir Acta</a>
+	            </div>
+	            <br>
+	            
+
+			<fieldset class="bordeDetalleRegistro">
+			<legend class="textoLeyendaDetalleRegistro">Inscriptos en la Comisión </legend>
+			<table width="100%" border="0" cellpadding="1" cellspacing="1" >
+				<tr> 
+					<td align="left">
+					<form action="<?php echo $_SERVER['PHP_SELF'] ?>" method="post" name="formulario_buscar"> Apellido:
+						<input name="buscado" type="text" size="40" maxlength="41" value ="<?php echo $_SESSION['array_busqueda_tabla']['valor_buscado'] ?>">  
+                        <br />
+                        Limitar los resultados entre los números <input name="filtro_desde" type="text" id="filtro_desde" size="5" maxlength="5" value="1" /> y <input name="filtro_hasta" type="text" id="filtro_hasta" size="5" maxlength="5" value="<?php echo $limite_filtro?>" /><br />
+					  <input type="submit" name="boton_buscar" value="Buscar" class="botones" />
+						<div class="textoAclaraciones">Nota: Para filtrar los datos mostrados, ingrese el valor a buscar. </div>
+						<input type="hidden" name="comi_codinap_seleccion" value="<?php echo $filacomision['comi_codinap']?>"  />
+					</form>
+					</td>	
+				</tr>		
+			</table>
+			<br />
+			
+			<form name="formulario_evaluacion" action="<?php echo $_SERVER['PHP_SELF']?>?comi_codigo=<?=$comi_codigo?>" method="post">
+			<table width="100%" class="textoTablaDato" border="0" cellpadding="1" cellspacing="1">
+				<tr>
+					<td  align="right"> Asignar a todos los inscriptos: 
+					<?php 	$spnombre="sel_evaluacion_orden";
+						$spparam=array('porderby'=>"eval_descripcion");
+						$funcion_evaluar = "CambiarEvaluacion(document, \"formulario_evaluacion\",eval_todos.value)";
+						FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario_evaluacion","eval_todos","eval_codigo","eval_descripcion","","-- Seleccione Evaluación",$fila_tipo,$sele_tipo,"1",$funcion_evaluar,"",false,false);
+					?>	
+					</td>
+				</tr>
+			</table>
+
+			<table width="100%" class="textoTablaDato" border="1" cellpadding="4" cellspacing="1" align="center">
+				
+				<tr class='colorTitulosGrupo textoTituloGrupo'>
+                	<td align="center"> N°</td>
+					<td align="center"> Apellido y Nombre</td>
+					<td align="center"> CUIT/CUIL</td>					
+					<td align="center"> Organismo</td>					
+					<td align="center"> Evaluación</td>															
+				</tr>
+				
+				<?php 
+				$i=0;
+				$orden = $_SESSION['array_busqueda_tabla']['filtro_desde'];
+				
+				while ($fila_inscripto = mysqli_fetch_assoc($result)) { 
+										
+					if ($fila_inscripto['jurisdid_inap'] != "") {
+						// busco el organismo de coordinación
+						$oAgentes = new cAgentes($conexion);
+						
+						$oAgentes->Jurisdid_InapSP($spnombre,$spparam);
+						if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("jurisdid"=>$fila_inscripto["jurisdid_inap"]),$resultado,$filaret,$numfilasmatcheo,$errno))
+						{
+							FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar el organismo de coordinación. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+							return false;
+						}
+					} else {
+						$filaret['jurisdnom'] = "No corresponde";
+					}					
+
+				?>
+				<tr onmouseover="setPointer(this, <?php echo ($i+1) ?>, 'over', '<?php echo COLOR_FILA_FONDO_DEFAULT ?>','<?php echo COLOR_FILA_OVER ?>', '<?php echo COLOR_FILA_FONDO_CLARO ?>');" onmouseout="setPointer(this, <?php echo ($i+1) ?>, 'out', '<?php echo COLOR_FILA_FONDO_DEFAULT ?>', '<?php echo COLOR_FILA_OVER ?>', '<?php echo COLOR_FILA_FONDO_CLARO ?>');">
+					<td align="center" bgcolor="<?php echo COLOR_FILA_FONDO_DEFAULT; ?>"><?php echo $orden ?></td>
+					<td align="left" bgcolor="<?php echo COLOR_FILA_FONDO_DEFAULT; ?>"><?php echo $fila_inscripto['pers_apellido'].",",$fila_inscripto['pers_nombre']  ?></td>
+					<td align="left" bgcolor="<?php echo COLOR_FILA_FONDO_DEFAULT; ?>"><?php echo $fila_inscripto['pers_cuilt'] ?></td>					
+					<td align="left" bgcolor="<?php echo COLOR_FILA_FONDO_DEFAULT; ?>"><?php echo $filaret['jurisdnom'] ?></td>					
+					<td align="left" bgcolor="<?php echo COLOR_FILA_FONDO_DEFAULT; ?>">
+					<?php 	$spnombre="sel_evaluacion_orden";
+						$spparam=array('porderby'=>"eval_descripcion");				
+						$funcion_evaluar = "CambioComboEval(document,\"cambio_eval_codigo_".$fila_inscripto['pers_codigo']."\")";
+						FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario_evaluacion","eval_codigo_".$fila_inscripto['pers_codigo'],"eval_codigo","eval_descripcion",$fila_inscripto['eval_codigo'],"",$fila_tipo,$sele_tipo,"0",$funcion_evaluar,"",false,false);
+					?>
+						<input type="hidden" name="<?="cambio_eval_codigo_".$fila_inscripto['pers_codigo']?>"  id="<?="cambio_eval_codigo_".$fila_inscripto['pers_codigo']?>" value="0"/>
+					</td>								
+				</tr>							
+				
+				<?php $i++;
+				   $orden++;
+				
+				} ?>
+				
+				<tr>
+					<td align="center" colspan="5"><input type="submit" name="boton_confirma" id="boton_confirma" class="botones" value="Confirma"  /></td>
+				</tr>
+			  </table>
+			</form>
+			</fieldset>
+			<br /><br />
+		<?php }  // if ok 
+		return $ok;
+ 	}
+//-----------------------------------------------------------------------------------------------------	
+	function ResumenComision($comi_codigo, &$datos_evaluacion) {
+		
+		$ok = true;
+		$datos_evaluacion = array();
+	
+		$spparam=array('porderby'=>"eval_descripcion");
+		if(!$this->conexion->ejecutarStoredProcedure("sel_evaluacion_orden",$spparam,$resultado,$numfilas,$errno)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al cargar las evaluaciones.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$ok = false;
+		} else { 	
+		    $total_inscriptos = 0;
+			while ($fila_evaluacion = mysqli_fetch_assoc($resultado)) {
+				$array_evaluacion=array();							
+				if ($this->ResumenEvaluacion($comi_codigo, $fila_evaluacion['eval_codigo'],$array_evaluacion)) {
+
+					$datos_evaluacion[$fila_evaluacion['eval_codigo']] = array ('eval_codigo' => $fila_evaluacion['eval_codigo'],
+											     'eval_descripcion'=> $fila_evaluacion['eval_descripcion'],				
+											     'cantidad' => $array_evaluacion['cantidad']);								
+
+					 $total_inscriptos = $total_inscriptos + $array_evaluacion['cantidad'];
+				} else 
+					$ok = false;			
+			}
+		}	
+		
+		if ($ok)  // Agrego el Total
+			$datos_evaluacion[] = array ('eval_codigo' => 0,'eval_descripcion'=> "TOTAL",'cantidad' => $total_inscriptos);								
+		
+		return $ok;
+	}
+	
+//-----------------------------------------------------------------------------------------------------	
+	function ObtenerCodigoInap ($act_codigo, &$comi_codinap) {
+
+		if ( ($_SESSION['rolcod']==COORDINADORTECNICO) || ($_SESSION['rolcod']==USUORGANISMO)) {
+			// es Comision Jurisdiccional
+
+			if (!$this->conexion->TraerCampo("jurisdiccion_inap","jurisd_prefijo_comision",array("jurisdid='",$_SESSION['jurisdid_inap'],"'"),$prefijo,$numfilas,$errorcod)) {
+				$errormail="\nact_codigo".$act_codigo;
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar el Organismo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+				return false;
+			}
+			$tipo = "JU";
+
+		} else { 
+			// es Comisión INAP
+			$sparam=array('pact_codigo'=>$act_codigo);
+			$spnombre="sel_actividad_curso_diseno_inap_xact_codigo";
+		
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+			{
+				$errormail="\nact_codigo".$act_codigo;
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+				return false;
+			}
+			
+			if ($numfilas == 1)	{
+				$fila_diseno= mysqli_fetch_assoc($resultado);
+			} 
+	
+			if (!$this->conexion->TraerCampo("area_curso_inap","areacur_prefijo",array("areacur_codigo='",$fila_diseno['areacur_codigo'],"'"),$prefijo,$numfilas,$errorcod)) {
+				$errormail="\nact_codigo".$act_codigo;
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar el Area de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+				return false;
+			}
+			
+			$tipo = "IN";
+		}
+
+		$comi_codinap = $tipo."-".$prefijo;
+
+		return true;
+	}
+	
+
+//-----------------------------------------------------------------------------------------------------	
+	function DescargarExcelComision($comi_codigo, &$oExcel, $nuevo_excel=true) {	
+
+
+		if ($this->TraerDatosComision($comi_codigo, $filacomision, $es_modif)) {
+			if (!$es_modif) {
+			 	FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se pueden obtener los datos de la Comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+		}
+
+		if ($nuevo_excel) {
+			$nombrearchivo="comision.xls";  
+			$oExcel= new cEscribirExcel($nombrearchivo);
+		}		
+
+		$oExcel->AddHoja('Comision');
+		$ancho_columna['leyenda']=30;
+		$ancho_columna['valor']=70;
+
+		$oExcel->FormatoColumna (0,$ancho_columna['leyenda']); 
+		$oExcel->FormatoColumna (1,$ancho_columna['valor']); 				
+
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",12);
+		$oExcel->AddFormato ("Color","azul");
+		$oExcel->AddFormato ("FgColor",22);
+		$oExcel->CargarDatosVariasCeldas (0,0,0,1,'Detalle de la Comisión',true);
+				
+		$oExcel->BorrarFormato("");	
+		$oExcel->AddFormato ("Tamaño",8);
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("TextWrap","");
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Color","negro");
+		$oExcel->AddFormato ("FgColor","gris");
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("VAlign","vcenter");
+		$formato_leyenda=$oExcel->GetFormato(); 	
+
+		$oExcel->BorrarFormato("");
+		$oExcel->AddFormato ("Tamaño",8);
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("TextWrap","");
+		$oExcel->AddFormato ("FgColor","blanco");
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("VAlign","vcenter");
+		$formato_dato=$oExcel->GetFormato(); 	
+
+
+		// Titulos de las columnas
+
+		$arrayclaves=array(	'leyenda','valor');
+
+
+		foreach ($arrayclaves as $clave => $valor) {	
+			if ($valor == 'leyenda')
+	 			$arrayformato[$valor]=$formato_leyenda;
+			else 
+	 			$arrayformato[$valor]=$formato_dato;
+		}
+
+
+		$array_datos[0]['leyenda'] = "Código de Comisión";
+		$array_datos[0]['valor'] = $filacomision['comi_codinap'];
+
+
+		// estado comisión
+		if (!$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","COMISIONESTADO","' and constantecod='",$filacomision['comi_estado'],"'"),$descri_estado,$numfilas,$errorcod)){
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se ha encontrado el estado de la Comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		}						
+		$array_datos[1]['leyenda'] = "Estado de Comisión";
+		$array_datos[1]['valor'] = $descri_estado;
+						
+		// tipo de inscripción
+		if (!$this->conexion->TraerCampo("tipo_inscripcion","tipoins_descripcion",array("tipoins_codigo='",$filacomision['tipoins_codigo'],"'"),$descri_tipo,$numfilas,$errorcod)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se ha encontrado el tipo de inscripción.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		}
+		$array_datos[2]['leyenda'] = "Tipo de Inscripción";
+		$array_datos[2]['valor'] = $descri_tipo;
+
+		$array_datos[3]['leyenda'] = "Fecha de Inicio";
+		$array_datos[3]['valor'] = $filacomision['comi_fecha_inicio_ddmmaaaa'];
+		
+		$array_datos[4]['leyenda'] = "Fecha de Fin";
+		$array_datos[4]['valor'] = $filacomision['comi_fecha_fin_ddmmaaaa'];
+		
+		$array_datos[5]['leyenda'] = "Acta";
+		$array_datos[5]['valor'] = $filacomision['comi_acta_numero'];
+
+		$array_datos[6]['leyenda'] = "Vacantes";
+		$array_datos[6]['valor'] = $filacomision['comi_vacantes'];
+
+		$array_datos[7]['leyenda'] = "Sobreventa";
+		$array_datos[7]['valor'] = $filacomision['comi_sobreventa'];
+
+
+		// País
+		if (!$this->conexion->TraerCampo("paises","paisnom",array("paiscod='",$filacomision['pais_codigo'],"'"),$descri_pais,$numfilas,$errorcod)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se ha encontrado el país.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		}
+		$array_datos[8]['leyenda'] = "País";
+		$array_datos[8]['valor'] = $descri_pais;
+
+		// Provincia
+		if (!$this->conexion->TraerCampo("provincias","provincianom",array("provinciacod='",$filacomision['prov_codigo'],"'"),$descri_prov,$numfilas,$errorcod)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se ha encontrado la provincia.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		}
+		$array_datos[9]['leyenda'] = "Provincia";
+		$array_datos[9]['valor'] = $descri_prov;
+
+		// Sede
+		if (!$this->conexion->TraerCampo("sede","sede_descripcion",array("sede_codigo='",$filacomision['sede_codigo'],"'"),$descri_sede,$numfilas,$errorcod)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se ha encontrado la sede.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		}
+		$array_datos[10]['leyenda'] = "Sede";
+		$array_datos[10]['valor'] = $descri_sede;
+
+		$array_datos[11]['leyenda'] = "Domicilio";
+		$array_datos[11]['valor'] = $filacomision['comi_domicilio'];
+
+		$array_datos[12]['leyenda'] = "Detalle";
+		$array_datos[12]['valor'] = $filacomision['comi_detalle'];
+
+
+		$fila_datos = array();
+		
+		foreach ($array_datos as $i => $valor) {
+			$fila_datos['leyenda'] = $array_datos[$i]['leyenda'];
+			$fila_datos['valor'] = $array_datos[$i]['valor'];
+			// Saco los /r que no se lo banca el excel. 
+			$fila_datos['valor']=str_replace("\r\n","\n", $array_datos[$i]['valor']);
+			$oExcel->CargarGrilla ($fila_datos,2+$i,0,$arrayclaves,$arrayformato);	
+		}	
+
+		if ($nuevo_excel) 
+			$oExcel->Enviar();			
+	
+	}	
+
+
+//-----------------------------------------------------------------------------------------------------	
+	function DescargarExcelComisionBuscar($ArregloDatos, &$oExcel, $nuevo_excel=true) {	
+		
+		 // echo  "Sacar 1 ";
+		 // print_r($ArregloDatos);
+		
+		if (isset($ArregloDatos['tipoact_codigo']) && $ArregloDatos['tipoact_codigo']!="")   
+			$array_tipos = array($ArregloDatos['tipoact_codigo']); 	
+		else 
+			$array_tipos = array(TIPOACTCURSOINAP,TIPOACTCURSOJURISD); 	
+
+
+		if ($nuevo_excel) {
+			$nombrearchivo="comision_listado.xls";  
+			$oExcel= new cEscribirExcel($nombrearchivo);
+		}		
+
+
+		$numfilas=0;
+	
+		// paso los parámetros a un arreglo auxiliar para eliminar las fechas si es que se selecciona algún filtro por fechas
+		$ArregloDatosFechas = $ArregloDatos;
+		
+		if ($ArregloDatos['tipo_fecha'] != "no_filtra") {
+			$ArregloDatosFechas['comi_fecha_inicio'] ="";
+			$ArregloDatosFechas['comi_fecha_fin'] ="";
+		}
+		// se busca por prestador docente	
+		if (isset($ArregloDatos['apeynom']) && $ArregloDatos['apeynom']!="") {   
+				if(!$this->BuscarComisionPresDocAvanzada($ArregloDatosFechas, $numfilas, $resultComision, $error, $errormail)) {
+					return false;
+				} 
+		} else {
+				if(!$this->BuscarComisionAvanzada($ArregloDatosFechas, $numfilas, $resultComision, $error, $errormail)) {
+					return false;
+				} 
+		
+		}
+		$jurisdicciones	 = new jurisdicciones;
+		$comsiones_seleccionadas = array();				
+		while ($fila_comision = mysqli_fetch_assoc($resultComision)) {  
+	
+
+				$jurisdnom = "---";			
+				if (($fila_comision['tipoact_codigo'] == TIPOACTCURSOJURISD))
+					if ($jurisdicciones->SelectJurisdxID($fila_comision['jurisdid_inap'],array(),TABGRALES_TS_ARRAY,$fila_jurisd,array(),$NumFilas,$CodError)) 
+						$jurisdnom=htmlspecialchars($fila_jurisd[$fila_comision['jurisdid_inap']]['jurisdnom'],ENT_QUOTES);
+
+				$fila_comision['jurisdnom'] = $jurisdnom;
+
+			$se_muestra = false;
+			switch ($ArregloDatos['tipo_fecha']) {
+				
+				case "dia":
+						$spnombre="sel_comision_fecha_xcomi_codigo_comifec_fecha_comifec";
+						$spparam_fecha=array('pcomi_codigo'=>$fila_comision['comi_codigo'],'pcomifec_fecha'=>$ArregloDatos['comi_fecha_inicio']);
+						if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam_fecha,$resultado,$numfilas,$errno))
+							return false;
+						if ($numfilas == 1) 
+							$se_muestra = true;
+						break;
+
+				case "inicio":
+						$spnombre="sel_comision_xcomi_codigo_fechainicio";
+						$spparam_fecha=array('pcomi_codigo'=>$fila_comision['comi_codigo'],'pcomi_fecha_inicio'=>$ArregloDatos['comi_fecha_inicio'],'pcomi_fecha_fin'=>$ArregloDatos['comi_fecha_fin']);
+						if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam_fecha,$resultado,$numfilas,$errno))	
+							return false;
+						if ($numfilas == 1) 
+							$se_muestra = true;
+						break;
+
+
+				case "fin":
+						$spnombre="sel_comision_xcomi_codigo_fechafin";
+						$spparam_fecha=array('pcomi_codigo'=>$fila_comision['comi_codigo'],'pcomi_fecha_inicio'=>$ArregloDatos['comi_fecha_inicio'],'pcomi_fecha_fin'=>$ArregloDatos['comi_fecha_fin']);
+						if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam_fecha,$resultado,$numfilas,$errno))	
+							return false;
+						if ($numfilas == 1) 
+							$se_muestra = true;
+				
+				break;
+
+				case "no_filtra":
+					$se_muestra = true;
+				break;					
+			
+			}
+
+			// $se_muestra = true;
+			if ($se_muestra) {
+
+				// echo  "Sacar  = entro en se muestra ";
+			
+				$this->conexion->TraerCampo("tipo_actividad","tipoact_descripcion",array("tipoact_codigo='",$fila_comision['tipoact_codigo'],"'"),$tipoact_descripcion,$numfilas,$errorcod); 
+
+				if ($fila_comision['tipoact_codigo'] == TIPOACTCURSOINAP) {
+					
+					// echo  "Sacar = tipo de actividad ";
+					
+					$sparam=array('pact_codigo'=>$fila_comision['act_codigo']);
+					$spnombre="sel_actividad_curso_diseno_inap_xact_codigo";
+				
+					if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+						return false;
+					
+					if ($numfilas == 1)	{
+						$fila_diseno= mysqli_fetch_assoc($resultado);
+					}
+
+					if ($this->conexion->TraerCampo("programa_curso_inap","progcur_descripcion",array("progcur_codigo='",$fila_diseno['progcur_codigo'],"'"),$descri,$numfilas,$errorcod)) 
+						$fila_comision['progcur_descripcion']=$descri;
+
+					if ($this->conexion->TraerCampo("area_curso_inap","areacur_descripcion",array("areacur_codigo='",$fila_diseno['areacur_codigo'],"'"),$descri,$numfilas,$errorcod)) 
+						$fila_comision['areacur_descripcion']=$descri;
+				} else {
+						$fila_comision['progcur_descripcion']="----";
+						$fila_comision['areacur_descripcion']="----";
+				}
+				
+					if ($this->conexion->TraerCampo("tipo_inscripcion","tipoins_descripcion",array("tipoins_codigo='",$fila_comision['tipoins_codigo'],"'"),$descri,$numfilas,$errorcod)) 
+						$fila_comision['tipoins_descripcion']=$descri;
+
+				
+				$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","COMISIONESTADO","' and constantecod='",$fila_comision['comi_estado'],"'"),$estado_descripcion,$numfilas,$errorcod);							
+
+				
+				$oActividadCurso = new cActividadCurso($this->conexion);
+				if (!$oActividadCurso->TraerDatosActividadCurso($fila_comision['act_codigo'],$fila_actividad_curso,$es_modif_act_curso)) 
+					return false;
+				$fila_comision['actcur_creditos']=$fila_actividad_curso['actcur_creditos'];
+
+				// echo  "Sacar = Antes de dictamen";
+
+				$oDictamen = new cDictamen($this->conexion);
+				if (!$oDictamen->TraerDatosActividadProgramacion($fila_comision["act_codigo"], $fila_comision["actprog_sec"], $fila_progact, $es_modif) ) 
+					return false;
+				if (!$oDictamen->TraerDatosDictamen($fila_progact["dic_codigo"], $fila_dictamen, $es_modif) ) 
+					return false;
+
+				$oDisposicion = new cDisposicion($this->conexion);
+				$ArregloDatosDis=array();
+				$ArregloDatosDis['dis_codigo']=$fila_dictamen['dis_codigo'];
+				if(!$oDisposicion->BuscarDisposicion($ArregloDatosDis,$numfilas,$result_dis,$error,$errormail))
+					return false;
+				if ($numfilas==1) {
+					$fila=mysqli_fetch_assoc($result_dis);
+					$fila_comision['dis_numero']=$fila['dis_numero'];
+				}	else 
+					$fila_comision['dis_numero'] = "----";
+				
+				$oComisionPrestadorDocente = new cComisionPrestadorDocente($this->conexion);
+				$ArregloDatosPres=array("comi_codigo"=>$fila_comision['comi_codigo']);	
+				if (!$oComisionPrestadorDocente->BuscarComisionPrestadorDocente($ArregloDatosPres,$numfilas,$resultado,$error,$errormail)) 
+					return false;
+
+				$fila_comision['pres_doc'] = "";
+				while ($fila = mysqli_fetch_assoc($resultado))
+					$fila_comision['pres_doc'] .= $fila['campo_mostrar'];
+
+
+				if(!$this->conexion->TraerCampo("sede","sede_descripcion",array("sede_codigo='",$fila_comision['sede_codigo'],"'"),$sededesc,$numfilas,$errorcod))
+					return false;
+				$fila_comision['sede_descripcion']=htmlspecialchars($sededesc,ENT_QUOTES);
+
+				
+				if (!$this->conexion->TraerCampo("provincias","provincianom",array("provinciacod='",$fila_comision['prov_codigo'],"'"),$descri_prov,$numfilas,$errorcod))
+					return false;
+				$fila_comision['provincia_descripcion']=htmlspecialchars($descri_prov,ENT_QUOTES);
+
+				$resultados_evaluacion=array();
+				if (!($this->ResumenComision($fila_comision['comi_codigo'],$resultados_evaluacion)))
+					return false;		
+
+				$fila_comision['cant_vacantes']=$fila_comision['comi_vacantes'];
+				$fila_comision['cant_sobreventa']=$fila_comision['comi_sobreventa'];	
+				$fila_comision['cant_aprobados']=$resultados_evaluacion[EVALAPROBADO]['cantidad'];
+				$fila_comision['cant_cursando']=$resultados_evaluacion[EVALCURSANDO]['cantidad'];
+				$fila_comision['cant_presentes']=$resultados_evaluacion[EVALPRESENTE]['cantidad'];
+				$fila_comision['cant_ausentes']=$resultados_evaluacion[EVALAUSENTE]['cantidad'];
+				$fila_comision['cant_ausentesjustificados']=$resultados_evaluacion[EVALAUSENTEJUSTIFICADO]['cantidad'];
+				$fila_comision['cant_libres']=$resultados_evaluacion[EVALLIBRE]['cantidad'];																									
+				$fila_comision['cant_desaprobados']=$resultados_evaluacion[EVALDESAPROBADO]['cantidad'];																									
+				$fila_comision['cant_totales']=$fila_comision['cant_aprobados'] + $fila_comision['cant_cursando'] + $fila_comision['cant_presentes'] + $fila_comision['cant_ausentes'] + $fila_comision['cant_ausentesjustificados'] + $fila_comision['cant_libres'] + $fila_comision['cant_desaprobados'] ;																									
+
+				$fila_comision['tipoact_descripcion']=$tipoact_descripcion;
+				$fila_comision['estado_descripcion']=$estado_descripcion;				
+				$fila_comision['fecha_desde_hasta'] = isset($fila_comision['comi_fecha_inicio_ddmmaaaa'])?$fila_comision['comi_fecha_inicio_ddmmaaaa']."\na\n".$fila_comision['comi_fecha_fin_ddmmaaaa']:"Indefinida";
+				$comsiones_seleccionadas[]=$fila_comision;				
+				
+			}
+			
+		} // while $fila_asignacion = mysql_fetch_assoc($resultComision)
+		
+		// echo  "Sacar 3 (quedaron seleccionadas)= ";
+		// print_r($comsiones_seleccionadas)	;
+
+		if (count($comsiones_seleccionadas >0)) {
+		
+			$nombrearchivo="comision_listado.xls";  
+	
+			$oExcel= new cEscribirExcel($nombrearchivo);
+			$oExcel->AddHoja('comisiones');
+			$oExcel->EsconderGrillas();
+			$oExcel->PaginaHorizontal();
+
+			$arrayclaves = array ('progcur_descripcion','areacur_descripcion','act_codinap','act_nombre','jurisdnom','dis_numero','comi_codinap','estado_descripcion','tipoins_descripcion','actcur_creditos',
+									'pres_doc','sede_descripcion','provincia_descripcion','comi_domicilio',
+									'comi_fecha_inicio_ddmmaaaa','comi_fecha_fin_ddmmaaaa',
+									'cant_aprobados','cant_cursando','cant_presentes','cant_ausentes','cant_ausentesjustificados','cant_libres','cant_desaprobados','cant_totales','cant_vacantes','cant_sobreventa');
+								
+
+			// Ancho de cada columna, las claves tienen que coincidir con arrayclaves
+			$ancho_columna = array ('progcur_descripcion'=>30,'areacur_descripcion'=>30,
+									'act_codinap'=>20,'act_nombre'=>50,'jurisdnom'=>30,'dis_numero'=>15,				
+									'comi_codinap'=>15,'estado_descripcion'=>9,'tipoins_descripcion'=>9, 'actcur_creditos'=>10,
+									'pres_doc'=>50,'sede_descripcion'=>20,
+									'provincia_descripcion'=>20,'comi_domicilio'=>40,'comi_fecha_inicio_ddmmaaaa'=>15,
+									'comi_fecha_fin_ddmmaaaa'=>15, 'cant_aprobados'=>10,'cant_cursando'=>10,	
+									'cant_presentes'=>10,'cant_ausentes'=>10,								
+									'cant_ausentesjustificados'=>10,'cant_libres'=>10,  'cant_desaprobados'=>15,'cant_totales'=>10,'cant_vacantes'=>10,'cant_sobreventa'=>10);					
+								
+			$titulos_columna = array ('Programa','Area','Código Actividad', 'Nombre Actividad','Organismo del Coordinador Técnico de Capacitación',
+									'Disp. Aprobatoria','Cód. Comisión','Estado','Tipo','Créditos',
+									'Docentes','Sede','Provincia','Domicilio','Fecha de Inicio.', 'Fecha de Fin.',
+									'Cant. Aprobados','Cant. Cursando', 'Cant Presentas','Cant Ausentes','Cant Aus Justificados','Cant Libres','Cant Desaprobados','Cant Inscriptos','Vacantes','Sobreventa');
+			
+			
+			
+			
+			for ($i=0; $i<count($arrayclaves); $i++) 
+				$oExcel->FormatoColumna ($i,$ancho_columna[$arrayclaves[$i]]); 
+												
+
+
+			// Titulos 
+			// $oExcel->AddFormato ("Align","left");
+			// $oExcel->AddFormato ("Border",1);
+			// $oExcel->AddFormato ("Font","Times New Roman");
+			// $oExcel->AddFormato ("Tamaño",12);
+			// $oExcel->AddFormato ("Color","azul");
+			// $oExcel->AddFormato ("FgColor",22);
+			// $oExcel->CargarDatosVariasCeldas (0,0,0,count($titulos_columna)-1,'Listado de Comisiones',true);
+
+			// Titulos de las columnas
+			$oExcel->AddFormato ("Align","center");
+			$oExcel->AddFormato ("TextWrap","");
+			$oExcel->AddFormato ("Border",1);
+			$oExcel->AddFormato ("Font","Times New Roman");
+			$oExcel->AddFormato ("Tamaño",10);
+			$oExcel->AddFormato ("VAlign","vcenter");
+			
+			$oExcel->AddFormato ("Color","negro");
+			$oExcel->AddFormato ("FgColor","gris");
+						
+			//$formato_celda = array("NumFormat"=>"dd/mm/yyyy");
+			//$formato_celda = array("NumFormat"=>"D/M/YYYY h:mm:ss");
+			$formato_celda = array("NumFormat"=>14, "Align"=>"right");
+			$arregloformatos['comi_fecha_inicio_ddmmaaaa']=$formato_celda;
+			$arregloformatos['comi_fecha_fin_ddmmaaaa']=$formato_celda;
+
+			for ($i=0; $i<count($titulos_columna); $i++) 
+				$oExcel->CargarDatos (0,$i,$titulos_columna[$i],true);
+			
+			$i=1;
+			foreach ($comsiones_seleccionadas as $datos) {
+				$oExcel->CargarGrilla ($datos,$i,0,$arrayclaves,array());	
+				$oExcel->CargarGrilla ($datos,$i,0,$arrayclaves,$arregloformatos);	
+				
+				
+				$i++;
+			}
+			$oExcel->Enviar();			
+		}	
+	
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function ResumenEvaluacion ($comi_codigo, $eval_codigo, &$datos_evaluacion) {
+
+		$ok = true;
+		$datos_evaluacion = array();
+		$cComisionPersona = new cComisionPersona($this->conexion);
+		
+		// Busco las personas inscriptas
+		$spnombre="sel_comision_persona_xcomi_codigo_eval_codigo";	
+		$spparam=array(	'pcomi_codigo'=>$comi_codigo,
+						'peval_codigo'=>$eval_codigo);
+
+		if(!($this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))) {
+			$errormail="\ncomi_codigo=".$comi_codigo."\neval_codigo=".$eval_codigo."\nerror=".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar el resumen de la evaluación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			$ok = false;
+		}
+	
+		if ($ok) {
+			if ($numfilas == 1) 
+				$datos_evaluacion = mysqli_fetch_assoc($resultado);
+			else 
+				$ok =  false;
+		}
+
+		return $ok;
+	}		
+//-----------------------------------------------------------------------------------------
+	function _DatosValidosModifComision($datos,&$datosvalidados)	{
+
+
+		if (!$this->_DatosValidosComunesComision($datos,$datosvalidados))
+		   return false; 
+		// 	El usuario tiene permiso de modificar la comisión
+		if (!$this->TienePermisoModificar($datos['comi_codigo'],$_SESSION['rolcod'], $_SESSION['jurisdid_inap'])) {
+			return false; 
+		}
+		$datosvalidados["comi_codigo"]=$datos["comi_codigo"];
+		$datosvalidados["comi_codinap"]=$datos["comi_codinap"];
+
+		return true;	
+	}
+//-----------------------------------------------------------------------------------------
+	function _DatosValidosEliminarComision($comi_codigo,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		
+		// 	El usuario tiene permiso de eliminar la comisión
+		if (!$this->TienePermisoModificar($comi_codigo,$_SESSION['rolcod'], $_SESSION['jurisdid_inap'])) {
+			return false; 
+		}
+		$datosvalidados["comi_codigo"]=$comi_codigo;
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------
+	function _DatosValidosAltaComision($datos,&$datosvalidados)	{
+
+		$datosvalidados = array();
+	
+		if (!$this->_DatosValidosComunesComision($datos,$datosvalidados))
+		   return false; 
+
+		// La comisión tiene que tener dictamen aprobado
+		$ArregloDatos= array();
+		$ArregloDatos['act_codigo'] = $datos["act_codigo"];		
+		$ArregloDatos['actprog_sec'] = $datos["actprog_sec"];		
+		$ArregloDatos['dic_estado'] = DICTAMENACTIVO;		
+		$ArregloDatos['formact_codigo'] = FORMATOCURSO;
+
+		$oActividad = new cActividadCurso($this->conexion);
+		if(!$oActividad->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas,$result,$error,$errormail)){
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar el dictamen de la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;								
+		}	
+		if($numfilas!=1) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La programación de la actividad debe tener el dictamen aprobado.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;								
+		}
+		$fila_act = mysqli_fetch_assoc ($result);
+
+		if ($fila_act['tipoact_codigo'] == TIPOACTCURSOJURISD ) { 
+			// debe existir al menos una relación ActPOC / Act aprobada
+			$oDictamen = new cDictamen($this->conexion);
+			if (!$oDictamen->TraerDatosActividadProgramacion($datos["act_codigo"], $datos["actprog_sec"], $fila_progact, $es_modif) ) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se encontró dictámen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			}			
+			if ($es_modif)	{
+				// obtengo todos los Años de vigencia
+				$a_inicio = substr($fila_progact['actprog_fecha_inicio'],0,4);
+				$a_fin = substr($fila_progact['actprog_fecha_fin'],0,4);
+				$total_relaciones_aprobadas = 0;
+				for ($a = $a_inicio; $a<=$a_fin;$a++){
+					// por cada año, busco las Act Poc relacionadas APROBADAS
+					
+					$oPoc = new cPoc($this->conexion);
+					$ArregloDatos = array(
+										'poc_ano'=>$a,
+										'jurisdid_inap'=>$_SESSION['jurisdid_inap'],
+										'poc_estado'=>POCAPROBADO
+									);
+					
+					if(!$oPoc->BuscarPoc($ArregloDatos,$numfilas_poc,$resultado_poc,$error,$errormail)) 
+					{
+						$txt_sys_mail="\npoc_codigo_".$a."\nerror=".$errormail;
+						FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+						return false;			
+	
+					} else { 
+	
+						// Si hay POC, busco todas las Act Poc / Act aprobadas				
+						if ($numfilas_poc == 1) {
+	
+							$fila_poc=mysqli_fetch_assoc($resultado_poc);
+						
+							$oPocActividadActividad = new cPocActividadActividad($this->conexion);				
+						
+							$filtro = array( 
+											'poc_codigo'=>$fila_poc['poc_codigo'],
+											'act_codigo'=>$datos['act_codigo'],							
+											'pocactact_estado'=>POCACTIVIDADACTIVIDADAPROBADA						
+											);
+							if (!$oPocActividadActividad->BuscarPocActividadActividad($filtro,$numfilas_act_asignadas,$result_act_asignadas,$error,$errormail)) {
+								FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+								return false;
+							}
+							$total_relaciones_aprobadas += $numfilas_act_asignadas;
+						}
+											
+					}
+			
+				} // for $a = $a_inicio; $a<=$a_fin;$a++
+		
+				if ($total_relaciones_aprobadas == 0) {
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"La actividad no tiene relaciones Aprobadas con Actividades del POC.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;		
+				}
+			} // $es_modif
+		} 
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------
+	function _DatosValidosComunesComision($datos,&$datosvalidados)	{
+		
+		// La actividad programacion tiene que tener el dictamen aprobado.
+		switch ($_SESSION['rolcod']) {
+		case SUPERUSUARIO:
+			$oActividadCurso = new cActividadCursoInap($this->conexion); 
+			$formact_codigo=FORMATOCURSO;
+			$tipoact_codigo=TIPOACTCURSOINAP;
+			break;
+		case USUCURSOINAP:
+			$oActividadCurso = new cActividadCursoInap($this->conexion); 
+			$formact_codigo=FORMATOCURSO;
+			$tipoact_codigo=TIPOACTCURSOINAP;
+			break;
+		case USUORGANISMO:
+		case COORDINADORTECNICO:
+			$oActividadCurso = new cActividadCursoJurisdiccional($this->conexion); 
+			$formact_codigo=FORMATOCURSO;
+			$tipoact_codigo=TIPOACTCURSOJURISD;
+			break;
+		}		
+	
+		$ArregloDatos=array();
+		$datosvalidados=array();
+		if (!isset($datos['comi_web']))
+			$datos['comi_web'] = "";
+		$datosvalidados['comi_web']=$datos['comi_web'];
+		$ArregloDatos['act_codigo']=$datos['act_codigo'];
+		$ArregloDatos['actprog_sec']=$datos['actprog_sec'];
+		$ArregloDatos['formact_codigo']=$formact_codigo;
+		$ArregloDatos['tipoact_codigo']=$tipoact_codigo;
+		$ArregloDatos['dic_estado']=DICTAMENACTIVO;
+		if(!$oActividadCurso->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas,$result,$error,$errormail)){
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando el dictamen de la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;			
+		}	
+		if ($numfilas!=1 && $_SESSION['rolcod']!=SUPERUSUARIO) 	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en el estado del dictamen de la actividad asociada a la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados['act_codigo']=$datos['act_codigo'];		
+		$datosvalidados['actprog_sec']=$datos['actprog_sec'];		
+
+		$spnombre="sel_tipo_inscripcion_xtipoins_codigo";	
+		$spparam=array("ptipoins_codigo"=>$datos["tipoins_codigo"]);	
+		if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("tipoins_codigo"=>$datos["tipoins_codigo"]),$query,$filaret,$numfilasmatcheo,$errorcod) || $numfilasmatcheo!=1)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en la selección del tipo de inscripción.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}		
+		$datosvalidados["tipoins_codigo"]=$datos["tipoins_codigo"];
+
+		if($datos['comi_vacantes']=="" || !FuncionesPHPLocal::ValidarContenido($this->conexion,$_POST['comi_vacantes'],"NumericoEntero") || $datos['comi_vacantes']<=0) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en la cantidad de vacantes, debe ser un número entero mayor a cero.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}	
+		$datosvalidados["comi_vacantes"]=$datos["comi_vacantes"];
+		
+		if ($datos['comi_sobreventa']!="" ) {
+	
+			if(!FuncionesPHPLocal::ValidarContenido($this->conexion,$_POST['comi_sobreventa'],"NumericoEntero") || $datos['comi_sobreventa']<0) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en la sobreventa, debe ser un número entero mayor o igual a cero.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}	
+			$datosvalidados["comi_sobreventa"]=$datos["comi_sobreventa"];
+		} else {
+			$datosvalidados["comi_sobreventa"]=0;		
+		}
+				
+		$spnombre = "sel_paises_xestado";
+		$spparam = array("ppaisestado"=>ESTADOACTIVO, "porderby"=>"paisnom");
+		if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("paiscod"=>$datos['pais_codigo']),$resultado,$filapais,$numfilas,$errno) || $numfilas!=1)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar el pais.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["pais_codigo"]=$datos['pais_codigo'];
+
+		if ($datos['pais_codigo'] == ARGENTINA) {
+			$oprovincia = new cProvincias($this->conexion);
+			$oprovincia->ProvinciasSP($spnombre,$spparam);
+			if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("provinciacod"=>$datos['prov_codigo']),$resultado,$filaprov,$numfilas,$errno) || $numfilas!=1)	{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar la provincia. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["prov_codigo"]=$datos['prov_codigo'];
+		} else 
+			$datosvalidados["prov_codigo"]="NULL";
+
+		$oSede = new cTablaSede($this->conexion);		
+		$oSede->TablaDescriptoresSP($spnombre,$spparam);
+		if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("sede_codigo"=>$datos["sede_codigo"]),$query,$filaret,$numfilas,$errorcod) || $numfilas!=1)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar la sede.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["sede_codigo"]=$datos['sede_codigo'];
+
+		if (strlen(trim($datos['comi_domicilio'])) >150 ) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error el domicilio no puede superar los 150 caracteres",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["comi_domicilio"]=$datos['comi_domicilio'];
+		$datosvalidados["comi_detalle"]=$datos['comi_detalle'];
+		$datosvalidados["comi_codinap"]= $datos["comi_codinap"];
+
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------
+	function _DatosValidosAbrirComision($datos,&$datosvalidados) {
+
+		// 	El usuario tiene permiso de modificar la comisión y tiene que estar nueva
+		if (!$this->TienePermisoModificar($datos['comi_codigo'],$_SESSION['rolcod'], $_SESSION['jurisdid_inap'])) {
+			return false; 
+		}			
+
+		// Busco los datos de la comision.
+		$ArregloDatos=array("comi_codigo"=>$datos['comi_codigo'],"comi_estado"=>COMISIONNUEVA);	
+		if(!$this->BuscarComision($ArregloDatos,$numfilas,$resulcomi,$error,$errormail)) {
+			$txt_sys_mail="Error al buscar para la comisión NUEVA - \ncomi_codigo=".$datos['comi_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} elseif ($numfilas!=1) {
+			$txt_sys_mail="Hay cero o más de un registros para la comisión (si fue seleccionada debería poder abrirse)\ncomi_codigo=".$datos['comi_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado de la comisión no permite su apertura.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;			
+		} 
+
+		$fila_comision=mysqli_fetch_assoc($resulcomi);
+		if (!isset($fila_comision['comi_fecha_inicio']) || !isset($fila_comision['comi_fecha_fin'])) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"La comisión debe tener definida la fecha de realización.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false; 
+		}
+		
+		// La comisión tiene definido el cronograma.
+		$ArregloDatos=array("comi_codigo"=>$datos['comi_codigo']);	
+		$oComisionCronograma = new cComisionCronograma($this->conexion);
+
+		if (!$oComisionCronograma->BuscarComiCronograma($ArregloDatos,$numfilas,$result,$error,$errormail)) {
+			$txt_sys_mail="\ncomi_codigo=".$comi_codigo."\nerror=".$errormail;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando datos del cronograma.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;			
+		} elseif ($numfilas==0) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"La comisión debe tener definida la fecha de realización.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false; 
+		}
+		
+		// La comisión tiene asignado por lo menos un docente. 
+		$ArregloDatos=array("comi_codigo"=>$datos['comi_codigo']);	
+		$oComisionPrestadorDocente = new cComisionPrestadorDocente($this->conexion);
+
+		if (!$oComisionPrestadorDocente->BuscarComisionPrestadorDocente($ArregloDatos,$numfilas,$resultado,$error,$errormail)) {
+ 			$txt_sys_mail="Error al buscar docentes - \ncomi_codigo=".$datos['comi_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al verificar la cantidad de docentes de la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false; 
+		} elseif ($numfilas==0) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"La comisión debe tener por lo menos un docente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false; 
+		}
+				
+		$datosvalidados = array();
+		$datosvalidados['comi_codigo']=$datos['comi_codigo'];
+		
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosCerrarComision($datos,&$datosvalidados,&$hay_otros_errores) {
+
+		// 	El usuario tiene permiso de cerrar la comisión y la comision tiene que estar abierta
+		if (!$this->TienePermisoCerrar($datos['comi_codigo'],$_SESSION['rolcod'], $_SESSION['jurisdid_inap'])) {
+			return false; 
+		}			
+
+		$hay_otros_errores = false;
+		// La comisión tiene todos sus alumnos con evaluación
+		/*
+		$ArregloDatos= array();
+		$ArregloDatos['comi_codigo'] = $datos['comi_codigo'];
+		$ArregloDatos['eval_codigo'] = EVALCURSANDO;		// Unico estado no final es cursando 
+
+		$oComisionPersona = new cComisionPersona($this->conexion);
+		if (!$oComisionPersona->BuscarActividadAsignadaPersonaAvanzada($ArregloDatos,$numfilas,$result,$error,$errormail)) {
+			$txt_sys_mail="\nvalor_buscado_".$datos['comi_codigo']."\nerror=".$errormail;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando inscriptos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false; 
+		}			
+		
+		if ($numfilas>0) {
+			$hay_otros_errores = true;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Existen personas inscriptas en la comisión que no tienen el resultado cargado.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		}		
+*/
+		// La comisión tiene definido el cronograma.
+		$ArregloDatos=array("comi_codigo"=>$datos['comi_codigo']);	
+		$oComisionCronograma = new cComisionCronograma($this->conexion);
+
+		if (!$oComisionCronograma->BuscarComiCronograma($ArregloDatos,$numfilas,$result,$error,$errormail)) {
+			$txt_sys_mail="\ncomi_codigo=".$comi_codigo."\nerror=".$errormail;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando datos del cronograma.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;			
+		} elseif ($numfilas==0) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"La comisión debe tener definida la fecha de realización.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false; 
+		}
+		
+		// La comisión tiene asignado por lo menos un docente. 
+		$ArregloDatos=array("comi_codigo"=>$datos['comi_codigo']);	
+		$oComisionPrestadorDocente = new cComisionPrestadorDocente($this->conexion);
+
+		if (!$oComisionPrestadorDocente->BuscarComisionPrestadorDocente($ArregloDatos,$numfilas,$resultado,$error,$errormail)) {
+ 			$txt_sys_mail="Error al buscar docentes - \ncomi_codigo=".$datos['comi_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al verificar la cantidad de docentes de la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false; 
+		} elseif ($numfilas==0) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"La comisión debe tener por lo menos un docente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false; 
+		}
+
+		$datosvalidados = array();
+		$datosvalidados['comi_codigo']=$datos['comi_codigo'];		
+		
+		if ($hay_otros_errores) 
+			return false;
+
+		return true;
+			
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ObtenerErroresCertificacionViejo($comi_codigo, &$array_errores) {
+
+		$array_errores= array();
+
+		$ArregloDatos=array("comi_codigo"=>$comi_codigo);	
+		if(!$this->BuscarComision($ArregloDatos,$numfilas,$result_comi,$error,$errormail)) {
+			return false;
+		} elseif ($numfilas!=1) {
+			$txt_sys_mail="Error en la cantidad de registros para la comisión (".$numfilas.")\ncomi_codigo=".$comi_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"El estado de la comisión no permite su certificación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;			
+		} else 
+			$fila_comision = mysqli_fetch_assoc($result_comi);
+		
+		// Veo si existen alumnos sin definir el resultado volcado (Unico estado no final es cursando) 
+		$ArregloDatos= array();
+		$ArregloDatos['comi_codigo'] = $comi_codigo;
+		$ArregloDatos['eval_codigo'] = EVALCURSANDO;		
+		$ArregloDatos['orderby'] = 'pers_apellido,pers_nombre';		
+
+		$oComisionPersona = new cComisionPersona($this->conexion);
+		if (!$oComisionPersona->BuscarActividadAsignadaPersonaAvanzada($ArregloDatos,$numfilas,$result,$error,$errormail)) {
+			$txt_sys_mail="\nvalor_buscado_".$comi_codigo."\nerror=".$errormail;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando inscriptos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false; 
+		}			
+		
+		if ($numfilas>0) {
+			$array_errores['inscriptos_cursando'] = array();			
+			while($fila_inscripto = mysqli_fetch_assoc($result)) {
+				$array_errores['inscriptos_cursando'][]=$fila_inscripto['pers_codigo'];
+			}			
+		}
+		
+		// Ver si existen alumnos que ya tengan acreditada la actividad de la comisión
+		$ArregloDatos= array();
+		$ArregloDatos['comi_codigo'] = $comi_codigo;
+		if (!$oComisionPersona->BuscarActividadAsignadaPersonaAvanzada($ArregloDatos,$numfilas,$result_inscriptos_comi,$error,$errormail)) {
+			$txt_sys_mail="\nvalor_buscado_".$comi_codigo."\nerror=".$errormail;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando inscriptos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false; 
+		}			
+
+		$array_errores['inscriptos_ya_acreditados'] = array();			
+
+		$ArregloDatos = array();
+		$ArregloDatos['act_codigo'] = $fila_comision['act_codigo'];
+
+		// Ver si tiene la actividada esa persona 										
+		while ($fila_inscripto=mysqli_fetch_assoc($result_inscriptos_comi)) {
+			
+			// Busco si ya la tiene certificada x otra comision (ACTIVIDAD CURSO)
+			$ArregloDatos['pers_codigo'] = $fila_inscripto['pers_codigo'];
+			if (!$oComisionPersona->BuscarActividadPersonaCertificada($ArregloDatos,$numfilas,$result,$error,$errormail)) {
+				$txt_sys_mail="\nvalor_buscado_".$datos['comi_codigo']."\nerror=".$errormail;
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando inscriptos certificados.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false; 
+			}
+
+			if ($numfilas!=0) {
+				$this->conexion->TraerCampo("tipo_actividad","tipoact_descripcion",array("tipoact_codigo='",$fila_inscripto['tipoact_codigo'],"'"),$tipo_act_descripcion,$numfilastipo,$errorcod); 
+				$array_errores['inscriptos_ya_acreditados'][]= array('pers_codigo'=>$fila_inscripto['pers_codigo'],'tipoact_descripcion'=>$tipo_act_descripcion);
+			}				
+
+			// Busco si ya la tiene certificada x otro formato (ACTIVIDAD AUTODESARROLLO)
+			$oActividadAutodesarrolloPersona = new cActividadAutodesarrolloPersona($this->conexion);
+			if(!$oActividadAutodesarrolloPersona -> BuscarActividadPersonaCertificada($ArregloDatos, $numfilasAuto, $resultAuto, $error, $errormail)) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+				return false;
+			} 
+			if ($numfilasAuto != 0) {
+				$fila_inscripto_auto=mysqli_fetch_assoc($resultAuto);
+				$this->conexion->TraerCampo("tipo_actividad","tipoact_descripcion",array("tipoact_codigo='",$fila_inscripto_auto['tipoact_codigo'],"'"),$tipo_act_descripcion,$numfilastipo,$errorcod); 
+				$array_errores['inscriptos_ya_acreditados'][]= array('pers_codigo'=>$fila_inscripto['pers_codigo'],'tipoact_descripcion'=>$tipo_act_descripcion);
+			}				
+		}
+		return true;
+	} 
+	
+//-----------------------------------------------------------------------------------------------------	
+function ObtenerErroresCertificacion($comi_codigo, &$array_errores, &$array_tipo_errores) {
+
+	$array_tipo_errores=array(	'hay_error_certificacion'=>false, 			// errores
+								'error_inscriptos_cursando'=>false,
+								'error_acreditada_curso'=>false,
+								'error_acreditada_autodesarrollo'=>false);
+
+	// Datos a mostrar en caso de error
+	$array_errores=array();
+	$array_errores['inscriptos_ya_acreditados'] = array();			
+	$array_errores['inscriptos_cursando'] = array();			
+
+
+	$ArregloDatos=array("comi_codigo"=>$comi_codigo,"comi_estado"=>COMISIONCERRADA);	
+	if(!$this->BuscarComision($ArregloDatos,$numfilas,$resulcomi,$error,$errormail)) {
+		$txt_sys_mail="Error al buscar para la comisión CERRADA - \ncomi_codigo=".$comi_codigo;
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	} elseif ($numfilas!=1) {
+		$txt_sys_mail="Hay cero o más de un registros para la comisión (si fue seleccionada debería poder abrirse)\ncomi_codigo=".$comi_codigo;
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado de la comisión no permite su certificación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;			
+	} 
+	$fila_comision=mysqli_fetch_assoc($resulcomi);
+
+	$oActividad = new cActividadCurso($this->conexion);
+	
+	// Obtengo el tipo dentro del formato curso de la actividad  - 
+	$tipo_act_descripcion="";
+	if ($oActividad->TieneFormatoTipo($fila_comision['act_codigo'],FORMATOCURSO,TIPOACTCURSOINAP,$tiene_formato_tipo)) 
+		if ($tiene_formato_tipo)
+			$this->conexion->TraerCampo("tipo_actividad","tipoact_descripcion",array("tipoact_codigo='",TIPOACTCURSOINAP,"'"),$tipo_act_descripcion,$numfilastipo,$errorcod); 
+		else 	
+			$this->conexion->TraerCampo("tipo_actividad","tipoact_descripcion",array("tipoact_codigo='",TIPOACTCURSOJURISD,"'"),$tipo_act_descripcion,$numfilastipo,$errorcod); 
+
+	$oComisionPersona = new cComisionPersona($this->conexion);
+
+	// Los inscriptos a la comisión no deben tener acreditada la actividad
+	$verifico_inscripcion = true;
+	
+	if ($tiene_formato_tipo ) { 
+	
+		// obtengo el diseño de la actividad
+		$oActividadCursoInap= new cActividadCursoInap($this->conexion);
+		
+		if (!$oActividadCursoInap->TraerDatosActividadCursoInap($fila_comision['act_codigo'],$filacurso,$es_modif))  {
+			$txt_sys_mail="\nact_codigo=".$act_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error, buscando la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;		
+		}
+
+		if ($filacurso['actividad_curso_inap']['actdisinap_unico'] == NO) 		
+			$verifico_inscripcion = false;
+		
+	}
+	
+	
+	// Obtengo todos los inscriptos de la comisión 
+	$ArregloDatos= array();
+	$ArregloDatos['comi_codigo'] = $comi_codigo;
+	if (!$oComisionPersona->BuscarActividadAsignadaPersonaAvanzada($ArregloDatos,$numfilas,$result,$error,$errormail)) {
+		$txt_sys_mail="\nvalor_buscado_".$comi_codigo."\nerror=".$errormail;
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando inscriptos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false; 
+	}			
+
+	$ArregloDatos = array();
+	$ArregloDatos['act_codigo'] = $fila_comision['act_codigo'];		
+
+	// Armo todas las personas de la comision. (1)
+	$arreglo_personas_inscriptas = array();
+	$personas_inscriptas = "";
+
+	while ($fila_inscripto=mysqli_fetch_assoc($result)) {
+		$arreglo_personas_inscriptas[$fila_inscripto['pers_codigo']] = $fila_inscripto;
+		$personas_inscriptas .= $fila_inscripto['pers_codigo'].",";			
+
+		if ($fila_inscripto['eval_codigo'] == EVALCURSANDO) {
+			$array_tipo_errores['error_inscriptos_cursando']=true;
+			$array_errores['inscriptos_cursando'][]=$fila_inscripto['pers_codigo'];
+		}	
+	}	
+	$personas_inscriptas = substr($personas_inscriptas, 0, -1);  		
+	
+	if ($array_tipo_errores['error_inscriptos_cursando']) {
+		$array_tipo_errores['hay_error_certificacion']=true;
+	}
+
+	// Armo todas las evaluaciones que certifican 
+	$spnombre="sel_evaluacion_orden";
+	$spparam=array('porderby'=>"eval_descripcion");	
+	if(!$this->conexion->ejecutarStoredProcedure("sel_evaluacion_orden",$spparam,$resultado,$numfilas,$errno)) {
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al cargar las evaluaciones.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;
+	}
+
+	$evaluaciones = "";
+	while ($fila_evaluacion=mysqli_fetch_assoc($resultado)) {
+		if ($fila_evaluacion['eval_certifica']=="S") 
+			$evaluaciones .= $fila_evaluacion['eval_codigo'].",";			
+	}
+	$evaluaciones = substr($evaluaciones, 0, -1);  		
+
+	// (*) 	Busco los incriptos de la comision  (personas de 1) que tengan la actividad certificada (presente o aprobados)
+	// 		la actividad en otra comisión a la actual.
+	
+	// comision - comision_incripto  
+	$ArregloDatos = array();
+	$ArregloDatos['comi_codigo'] = $fila_comision['comi_codigo'];
+	$ArregloDatos['act_codigo'] = $fila_comision['act_codigo'];		
+	$ArregloDatos['pers_codigo'] = $personas_inscriptas;
+	$ArregloDatos['eval_codigo'] = $evaluaciones;
+	
+	
+	if ($verifico_inscripcion) {
+		// Busco Personas de la comisión (1) que tienen acreditada (certificada) la misma actividad en otra comisión. 
+		if (!$oComisionPersona->BuscarPersonasValidasComisionCertificar($ArregloDatos,$numfilas,$result_inscriptos_curso,$error,$errormail)) {
+			$txt_sys_mail="\ncomi_codigo".$fila_comision['comi_codigo']."\nerror=".$errormail;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando inscriptos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false; 
+		}			
+		
+		// Si el inscripto estaba cursando ver si termino por error o acumulo el error 
+	
+		// Si el inscripto esta en la busqueda (*) error termino o acumulo
+		if ($numfilas!=0) {
+			$array_tipo_errores['hay_error_certificacion']=true;
+			$array_tipo_errores['error_acreditada_curso']=true;
+			while ($fila=mysqli_fetch_assoc($result_inscriptos_curso)) {
+				$array_errores['inscriptos_ya_acreditados'][] = array('pers_codigo'=>$fila['pers_codigo'],'tipoact_descripcion'=>$tipo_act_descripcion);
+			}
+		}
+	} //if
+		
+	
+	$oActividadAutodesarrolloPersona = new cActividadAutodesarrolloPersona($this->conexion);
+	// (*)(*) Busco asignados si alguna de las pesonas inscriotas tiene acreditada la actividad de 
+	// autodesarrollo (personas de 1) 
+	
+	// actividad_autodesarrollo - actividad_autodesarrollo - dictamen (estado DICTAMENACTIVO / pertinencia SI)
+	// Ver si tiene la actividada esa persona en otro formato										
+	$ArregloDatos = array();
+	$ArregloDatos['act_codigo'] = $fila_comision['act_codigo'];		
+	$ArregloDatos['pers_codigo'] = $personas_inscriptas;
+
+	if (!$oActividadAutodesarrolloPersona->BuscarPersonasValidasComisionCertificar($ArregloDatos,$numfilas,$result_inscriptos_auto,$error,$errormail)) {
+		$txt_sys_mail="\nact_codigo".$fila_comision['act_codigo']."\nerror=".$errormail;
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error buscando acreditaciones de autodesarrollo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false; 
+	}			
+	
+	// Existen personas que tienen acreditada la actividad por autodesarrollo.
+	if ($numfilas!=0) {
+		$array_tipo_errores['hay_error_certificacion']=true;
+		$array_tipo_errores['error_acreditada_autodesarrollo']=true;
+		while ($fila=mysqli_fetch_assoc($result_inscriptos_auto)) {
+			$this->conexion->TraerCampo("tipo_actividad","tipoact_descripcion",array("tipoact_codigo='",$fila['tipoact_codigo'],"'"),$tipo_act_descripcion,$numfilastipo,$errorcod); 
+			$array_errores['inscriptos_ya_acreditados'][]= array('pers_codigo'=>$fila['pers_codigo'],'tipoact_descripcion'=>$tipo_act_descripcion);
+		}
+	}
+	
+	return true;
+}
+//-----------------------------------------------------------------------------------------------------	
+function DatosValidosCertificarComision($datos,&$datosvalidados,&$hay_otros_errores) {
+
+	// 	El usuario tiene permiso de certicar la comisión y la comisión tiene que estar cerrada
+	if (!$this->TienePermisoCertificar($datos['comi_codigo'],$_SESSION['rolcod'], $_SESSION['jurisdid_inap'])) 
+		return false; 
+
+	// Busco los datos de la comision.
+	$ArregloDatos=array("comi_codigo"=>$datos['comi_codigo'],"comi_estado"=>COMISIONCERRADA);	
+	if(!$this->BuscarComision($ArregloDatos,$numfilas,$resulcomi,$error,$errormail)) {
+		$txt_sys_mail="Error al buscar para la comisión CERRADA - \ncomi_codigo=".$datos['comi_codigo'];
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	} elseif ($numfilas!=1) {
+		$txt_sys_mail="Hay cero o más de un registros para la comisión (si fue seleccionada debería poder abrirse)\ncomi_codigo=".$datos['comi_codigo'];
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado de la comisión no permite su certificación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;			
+	} 
+	$fila_comision=mysqli_fetch_assoc($resulcomi);
+	
+	// La actividad de la comisión tiene que tener dictamen aprobado con disposición
+	$ArregloDatos= array();
+	$ArregloDatos['act_codigo'] = $fila_comision["act_codigo"];
+	$ArregloDatos['actprog_sec'] = $fila_comision["actprog_sec"];
+	$ArregloDatos['dic_estado'] = DICTAMENACTIVO;
+	$ArregloDatos['formact_codigo'] = FORMATOCURSO;
+	$ArregloDatos['con_disposicion'] = 1;				
+
+	$oActividad = new cActividadCurso($this->conexion);
+	if(!$oActividad->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas,$result,$error,$errormail)){
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar el dictamen de la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;								
+	}	
+	if($numfilas!=1) {
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"La comisión no puede ser certificada hasta que <br> el dictamen de la actividad este aprobado y tenga disposición.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;								
+	}
+
+	$datosvalidados = array();
+	$datosvalidados['comi_codigo']=$datos['comi_codigo'];
+
+	// tiene un POC asociado a la actividad		
+	if ($oActividad->EsActividadCursoTipo($fila_comision["act_codigo"],TIPOACTCURSOJURISD,$error,$errormsg)) {
+		if (!$this->ValidarActividadPoc($datos['comi_codigo'],$_SESSION['jurisdid_inap'])) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"La comisión no puede ser certificada pues la actividad <br> no esta asociada al POC del año de la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false; 			
+		}
+	}
+
+		
+///////////////////////////////////////////////////////////////////////////////-----				
+//---- Luego sacar -----
+/*
+	$hay_otros_errores= false;		// Errores de inscriptos
+
+	$oComisionPersona = new cComisionPersona($this->conexion);
+
+	// Los inscriptos a la comisión no deben tener acreditada la actividad
+	
+	// Obtengo todos los inscriptos de la comisión 
+	$ArregloDatos= array();
+	$ArregloDatos['comi_codigo'] = $datos['comi_codigo'];
+	if (!$oComisionPersona->BuscarActividadAsignadaPersonaAvanzada($ArregloDatos,$numfilas,$result,$error,$errormail)) {
+		$txt_sys_mail="\nvalor_buscado_".$datos['comi_codigo']."\nerror=".$errormail;
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando inscriptos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false; 
+	}			
+
+	$ArregloDatos = array();
+	$ArregloDatos['act_codigo'] = $fila_comision['act_codigo'];		
+
+	$error_acreditada = false;
+	$error_acreditada_autodesarrollo = false;
+	$hay_inscriptos_cursando = false;
+	
+	// Armo todas las personas de la comision. (1)
+	$arreglo_personas_inscriptas = array();
+	$personas_inscriptas = "";
+	while ($fila_inscripto=mysql_fetch_assoc($result)) {
+
+		$arreglo_personas_inscriptas[$fila_inscripto['pers_codigo']] = $fila_inscripto;
+		$personas_inscriptas .= $fila_inscripto['pers_codigo'].",";			
+		
+		if ($fila_inscripto['eval_codigo'] == EVALCURSANDO) 
+			$hay_inscriptos_cursando = true;
+	}	
+	$personas_inscriptas = substr($personas_inscriptas, 0, -1);  		
+	
+	if ($hay_inscriptos_cursando) {
+		$hay_otros_errores = true;
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Existen personas inscriptas en la comisión que no tienen el resultado cargado.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+	}
+
+	// Armo todas las evaluaciones que certifican 
+	$spnombre="sel_evaluacion_orden";
+	$spparam=array('porderby'=>"eval_descripcion");	
+	if(!$this->conexion->ejecutarStoredProcedure("sel_evaluacion_orden",$spparam,$resultado,$numfilas,$errno)) {
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al cargar las evaluaciones.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;
+	}
+
+	$evaluaciones = "";
+	while ($fila_evaluacion=mysql_fetch_assoc($resultado)) {
+		if ($fila_evaluacion['eval_certifica']=="S") 
+			$evaluaciones .= $fila_evaluacion['eval_codigo'].",";			
+	}
+	$evaluaciones = substr($evaluaciones, 0, -1);  		
+
+	// (*) 	Busco los incriptos de la comision  (personas de 1) que tengan la actividad certificada (presente o aprobados)
+	// 		la actividad en otra comisión a la actual.
+	
+	// comision - comision_incripto  
+	$ArregloDatos = array();
+	$ArregloDatos['comi_codigo'] = $fila_comision['comi_codigo'];
+	$ArregloDatos['act_codigo'] = $fila_comision['act_codigo'];		
+	$ArregloDatos['pers_codigo'] = $personas_inscriptas;
+	$ArregloDatos['eval_codigo'] = $evaluaciones;
+
+	// Busco Personas de la comisión (1) que tienen acreditada (certificada) la misma actividad en otra comisión. 
+	if (!$oComisionPersona->BuscarPersonasValidasComisionCertificar($ArregloDatos,$numfilas,$result2,$error,$errormail)) {
+		$txt_sys_mail="\ncomi_codigo".$fila_comision['comi_codigo']."\nerror=".$errormail;
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando inscriptos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false; 
+	}			
+	
+	// Si el inscripto estaba cursando ver si termino por error o acumulo el error 
+	
+	// Si el inscripto esta en la busqueda (*) error termino o acumulo
+	if ($numfilas!=0) {
+		$hay_otros_errores = true;
+		$error_acreditada = true;
+	}
+
+	$oActividadAutodesarrolloPersona = new cActividadAutodesarrolloPersona($this->conexion);
+	// (*)(*) Busco asignados si alguna de las pesonas inscriotas tiene acreditada la actividad de 
+	// autodesarrollo (personas de 1) 
+	
+	// actividad_autodesarrollo - actividad_autodesarrollo - dictamen (estado DICTAMENACTIVO / pertinencia SI)
+	// Ver si tiene la actividada esa persona en otro formato										
+	$ArregloDatos = array();
+	$ArregloDatos['act_codigo'] = $fila_comision['act_codigo'];		
+	$ArregloDatos['pers_codigo'] = $personas_inscriptas;
+
+	if (!$oActividadAutodesarrolloPersona->BuscarPersonasValidasComisionCertificar($ArregloDatos,$numfilas,$result2,$error,$errormail)) {
+		$txt_sys_mail="\nact_codigo".$fila_comision['act_codigo']."\nerror=".$errormail;
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error buscando acreditaciones de autodesarrollo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false; 
+	}			
+	
+	// Existen personas que tienen acreditada la actividad por autodesarrollo.
+	if ($numfilas!=0) {
+		$hay_otros_errores = true;
+		$error_acreditada_autodesarrollo = true;
+	}
+
+	if ($error_acreditada) 	 
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Alguna de las personas inscriptas ya tienen acreditada la actividad.<br> Deberá eliminarla para poder certificar la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+
+	if ($error_acreditada_autodesarrollo) 	 
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Alguna de las personas inscriptas ya tienen acreditada <br>la actividad con formato Autodesarrollo.<br> Deberá eliminarla para poder certificar la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+
+	if ($hay_otros_errores) 
+		return false;
+
+	///////////////////////////////////////////////////				
+*/
+
+	$hay_otros_errores=false;
+	
+	if ($this->ObtenerErroresCertificacion($datos['comi_codigo'], $array_errores, $array_tipo_errores)) {
+
+		if($array_tipo_errores['error_inscriptos_cursando'])
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Existen personas inscriptas en la comisión que no tienen el resultado cargado.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+	
+		if($array_tipo_errores['error_acreditada_curso'])
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Alguna de las personas inscriptas ya tienen acreditada la actividad.<br> Deberá eliminarla para poder certificar la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+	
+		if($array_tipo_errores['error_acreditada_autodesarrollo'])
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Alguna de las personas inscriptas ya tienen acreditada <br>la actividad con formato Autodesarrollo.<br> Deberá eliminarla para poder certificar la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+
+
+		$hay_otros_errores=$array_tipo_errores['hay_error_certificacion'];
+		
+		// Es valida la certificación si no hay error.				
+		return (!$array_tipo_errores['hay_error_certificacion']);
+
+	
+	} else {
+	
+			return false; 	// se produjo otro error
+	
+	}
+	
+}
+//-----------------------------------------------------------------------------------------------------	
+function DatosValidosCertificarComisionViejo($datos,&$datosvalidados,&$hay_otros_errores) {
+
+	// 	El usuario tiene permiso de certicar la comisión y la comisión tiene que estar cerrada
+	if (!$this->TienePermisoCertificar($datos['comi_codigo'],$_SESSION['rolcod'], $_SESSION['jurisdid_inap'])) 
+		return false; 
+
+	// Busco los datos de la comision.
+	$ArregloDatos=array("comi_codigo"=>$datos['comi_codigo'],"comi_estado"=>COMISIONCERRADA);	
+	if(!$this->BuscarComision($ArregloDatos,$numfilas,$resulcomi,$error,$errormail)) {
+		$txt_sys_mail="Error al buscar para la comisión CERRADA - \ncomi_codigo=".$datos['comi_codigo'];
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	} elseif ($numfilas!=1) {
+		$txt_sys_mail="Hay cero o más de un registros para la comisión (si fue seleccionada debería poder abrirse)\ncomi_codigo=".$datos['comi_codigo'];
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado de la comisión no permite su certificación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;			
+	} 
+	$fila_comision=mysqli_fetch_assoc($resulcomi);
+	
+	// La actividad de la comisión tiene que tener dictamen aprobado con disposición
+	$ArregloDatos= array();
+	$ArregloDatos['act_codigo'] = $fila_comision["act_codigo"];
+	$ArregloDatos['actprog_sec'] = $fila_comision["actprog_sec"];
+	$ArregloDatos['dic_estado'] = DICTAMENACTIVO;
+	$ArregloDatos['formact_codigo'] = FORMATOCURSO;
+	$ArregloDatos['con_disposicion'] = 1;				
+
+	$oActividad = new cActividadCurso($this->conexion);
+	if(!$oActividad->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas,$result,$error,$errormail)){
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar el dictamen de la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;								
+	}	
+	if($numfilas!=1) {
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"La comisión no puede ser certificada hasta que <br> el dictamen de la actividad este aprobado y tenga disposición.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;								
+	}
+
+	$datosvalidados = array();
+	$datosvalidados['comi_codigo']=$datos['comi_codigo'];
+	// tiene un POC asociado a la actividad		
+	if ($oActividad->EsActividadCursoTipo($fila_comision["act_codigo"],TIPOACTCURSOJURISD,$error,$errormsg)) {
+		if (!$this->ValidarActividadPoc($datos['comi_codigo'],$_SESSION['jurisdid_inap'])) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"La comisión no puede ser certificada pues la actividad <br> no esta asociada al POC del año de la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false; 			
+		}
+	}
+		
+	$hay_otros_errores= false;		// Errores de inscriptos
+
+	// La comisión tiene todos sus alumnos con evaluación
+	$ArregloDatos= array();
+	$ArregloDatos['comi_codigo'] = $datos['comi_codigo'];
+	$ArregloDatos['eval_codigo'] = EVALCURSANDO;		// Unico estado no final es cursando 
+
+	$oComisionPersona = new cComisionPersona($this->conexion);
+	if (!$oComisionPersona->BuscarActividadAsignadaPersonaAvanzada($ArregloDatos,$numfilas,$result,$error,$errormail)) {
+		$txt_sys_mail="\nvalor_buscado_".$datos['comi_codigo']."\nerror=".$errormail;
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando inscriptos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false; 
+	}			
+	
+	if ($numfilas>0) {
+		$hay_otros_errores = true;
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Existen personas inscriptas en la comisión que no tienen el resultado cargado.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+	}
+
+	// Los inscriptos a la comisión no deben tener acreditada la actividad
+	
+	// Obtengo todos los inscriptos de la comisión
+	$ArregloDatos= array();
+	$ArregloDatos['comi_codigo'] = $datos['comi_codigo'];
+	if (!$oComisionPersona->BuscarActividadAsignadaPersonaAvanzada($ArregloDatos,$numfilas,$result,$error,$errormail)) {
+		$txt_sys_mail="\nvalor_buscado_".$datos['comi_codigo']."\nerror=".$errormail;
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando inscriptos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false; 
+	}			
+
+	$ArregloDatos = array();
+	$ArregloDatos['act_codigo'] = $fila_comision['act_codigo'];		
+
+	$error_acreditada = false;
+	$error_acreditada_autodesarrollo = false;
+		
+	// Ver si tiene la actividada esa persona en otro formato										
+	while ($fila_inscripto=mysqli_fetch_assoc($result)) {
+				
+		// Busco si ya la tiene certificada x otra comision (ACTIVIDAD CURSO)
+		$ArregloDatos['pers_codigo'] = $fila_inscripto['pers_codigo'];
+		if (!$oComisionPersona->BuscarActividadPersonaCertificada($ArregloDatos,$numfilas,$resultComiPers,$error,$errormail)) {
+			$txt_sys_mail="\nvalor_buscado_".$datos['comi_codigo']."\nerror=".$errormail;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando inscriptos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false; 
+		}
+		if ($numfilas!=0) {
+			$hay_otros_errores = true;
+			$error_acreditada = true;
+		}
+
+		// Busco si ya la tiene certificada x otro formato (ACTIVIDAD AUTODESARROLLO)
+		$oActividadAutodesarrolloPersona = new cActividadAutodesarrolloPersona($this->conexion);
+		if(!$oActividadAutodesarrolloPersona -> BuscarActividadPersonaCertificada($ArregloDatos, $numfilasAuto, $resultAuto, $error, $errormail)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		} 
+
+		if ($numfilasAuto != 0) {
+			$error_acreditada_autodesarrollo = true;
+			$hay_otros_errores = true;
+		}
+	} // while
+
+	if ($error_acreditada) 	 
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Alguna de las personas inscriptas ya tienen acreditada la actividad.<br> Deberá eliminarla para poder certificar la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+
+	if ($error_acreditada_autodesarrollo) 	 
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Alguna de las personas inscriptas ya tienen acreditada <br>la actividad con formato Autodesarrollo.<br> Deberá eliminarla para poder certificar la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+
+	if ($hay_otros_errores) 
+		return false;
+	
+	return true;
+}
+//-----------------------------------------------------------------------------------------------------	
+function ValidarActividadPoc ($comi_codigo,$jurisdid_inap) {
+		
+		// obtener las fechas de la comisión
+		if (!$this->TraerDatosComision($comi_codigo,$fila_comi,$es_modif)) 
+			return false;
+
+		$txt_sys_mail="\comi_codigo=".$comi_codigo;			
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe la comisión a certificar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+	
+		$comi_fecha_inicio = $fila_comi['comi_fecha_inicio'];
+	
+		// obtener todos los poc de la jurisdicción del usuario logeado asociados a la actividad de la comisión 
+	
+		$spnombre="sel_poc_actividad_actividad_xact_codigo_jurisdid";	
+		$spparam=array(	'pact_codigo'=>$fila_comi['act_codigo'],
+						'pjurisdid_inap'=>$jurisdid_inap);
+
+		if(!($this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))) {
+			$errormail="\ncomi_codigo=".$comi_codigo."\nact_codigo=".$fila_comi['act_codigo']."\njurisdid_inap=".$jurisdid_inap."\nerror=".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar los poc asociados a la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+
+		// determinar si la fecha de inicio de la comisión está incluida en algún POC seleccionado
+		$pertenece = false;
+		while (($fila_poc = mysqli_fetch_assoc($resultado)) && !$pertenece) {
+			if (substr($comi_fecha_inicio,0,4)==$fila_poc['poc_ano'])
+				$pertenece = true;	
+		}
+		
+	
+	return $pertenece;
+}	
+
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoBaja($comi_codigo,$rolcod,$jurisdid) {
+		return ($this->TienePermisoModificar($comi_codigo,$rolcod,$jurisdid));
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoModificar($comi_codigo,$rolcod,$jurisdid) {
+
+		// Valida el estado con rol y la jurisdicción
+		if (!$this->TraerDatosComision($comi_codigo,$fila_comi,$es_modif)) 
+			return false;
+
+		$txt_sys_mail="\comi_codigo=".$comi_codigo;			
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe la comisión a modificar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+
+	 if($rolcod==SUPERUSUARIO){
+	
+					if($fila_comi['comi_estado']==COMISIONCERTIFICADA){
+					$titulo = "Modificar Comision Certificada";
+					}
+					if($fila_comi['comi_estado']==COMISIONCERRADA){
+					$titulo = "Modificar Comision Cerrada";
+					}
+					if($fila_comi['comi_estado']==COMISIONNUEVA){
+					$titulo = "Comision Nueva";
+					}
+					if($fila_comi['comi_estado']==COMISIONABIERTA){
+					$titulo = "Modificar Comision Abierta";
+					}
+					
+			  ?> 
+			  <br />
+			  <div align="center" style="font-weight:bold; color:#666666">
+				  <?php echo "$titulo"?>
+			  </div> 
+			  <br />
+			  
+		<?php	 
+		  if($fila_comi['comi_estado']==COMISIONCERTIFICADA || $fila_comi['comi_estado']==COMISIONCERRADA){
+				$numfilas=0;
+				$ArregloDatos = array();
+				$ArregloDatos['comi_estado']=COMISIONCERTIFICADA.",".COMISIONCERRADA;
+				$ArregloDatos['act_codigo']=$fila_comi['act_codigo'];
+				$ArregloDatos['comi_codigo']=$fila_comi['comi_codigo'];
+		    }else{
+					$ArregloDatos = array();
+					$ArregloDatos['comi_estado']=COMISIONNUEVA.",".COMISIONABIERTA;
+					$ArregloDatos['act_codigo']=$fila_comi['act_codigo'];
+					$ArregloDatos['comi_codigo']=$fila_comi['comi_codigo'];
+			}//cierre del else			
+		
+	 }// cierre del if
+			
+			
+		if($rolcod!=SUPERUSUARIO){
+			if (($fila_comi['comi_estado'] != COMISIONNUEVA) && 
+				($fila_comi['comi_estado'] != COMISIONABIERTA) ) {
+				$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","COMISIONESTADO","' and constantecod='",$fila_comi['comi_estado'],"'"),$descri,$numfilas,$errorcod);
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"El estado de la Comisión (".$descri."), no le permite realizar la operación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			}
+		}
+
+		if($rolcod!=SUPERUSUARIO){
+			$numfilas=0;
+			$ArregloDatos = array();
+			$ArregloDatos['comi_estado']=COMISIONNUEVA.",".COMISIONABIERTA;
+			$ArregloDatos['act_codigo']=$fila_comi['act_codigo'];
+			$ArregloDatos['comi_codigo']=$fila_comi['comi_codigo'];
+		}
+		if 	($rolcod == USUCURSOINAP )  { //  Si la actividad de la comision es curso INAP esta todo OK.
+			$ArregloDatos['tipoact_codigo']=TIPOACTCURSOINAP;
+		} elseif ($rolcod == COORDINADORTECNICO  ||  $rolcod ==  USUORGANISMO) {  //  Si la actividad de la comision es curso de la jurisdiccion del usuario logueado esta OK.
+			$ArregloDatos['jurisdid_inap']=$_SESSION['jurisdid_inap'];
+ 			$ArregloDatos['tipoact_codigo']=TIPOACTCURSOJURISD;
+		} 
+		
+		if(!$this->BuscarComisionAvanzada($ArregloDatos,$numfilas,$result,$error,$errormail)){
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al verificar el acceso el acceso a al comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;	
+		}
+		if ($numfilas == 1) 
+			return true;	
+
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para modificar la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoCerrar($comi_codigo,$rolcod,$jurisdid) {
+
+		// Valida el estado con rol y la jurisdicción
+		if (!$this->TraerDatosComision($comi_codigo,$fila_comi,$es_modif)) 
+			return false;
+
+		$txt_sys_mail="\ncomi_codigo=".$comi_codigo;			
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe la comisión a modificar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+
+		if ($fila_comi['comi_estado'] != COMISIONABIERTA)  {
+			$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","COMISIONESTADO","' and constantecod='",$fila_comi['comi_estado'],"'"),$descri,$numfilas,$errorcod);
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"El estado de la Comisión (".$descri."), no le permite enviarla a certificación.<br><br> Recuerde que debe emitir el Acta de la Comisión para poder Certificarla",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		$numfilas=0;
+		$ArregloDatos = array();
+		$ArregloDatos['comi_estado']=COMISIONABIERTA;
+		$ArregloDatos['act_codigo']=$fila_comi['act_codigo'];
+		$ArregloDatos['comi_codigo']=$fila_comi['comi_codigo'];
+		
+		if 	($rolcod == USUCURSOINAP )  { //  Si la actividad de la comision es curso INAP esta todo OK.
+			$ArregloDatos['tipoact_codigo']=TIPOACTCURSOINAP;
+		} elseif ($rolcod == COORDINADORTECNICO  ||  $rolcod ==  USUORGANISMO) {  //  Si la actividad de la comision es curso de la jurisdiccion del usuario logueado esta OK.
+			$ArregloDatos['jurisdid_inap']=$_SESSION['jurisdid_inap'];
+ 			$ArregloDatos['tipoact_codigo']=TIPOACTCURSOJURISD;
+		} 
+		
+		if(!$this->BuscarComisionAvanzada($ArregloDatos,$numfilas,$result,$error,$errormail)){
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al verificar el acceso el acceso a al comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;	
+		}
+		if ($numfilas == 1) 
+			return true;	
+
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para enviar a certificar la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoCertificar($comi_codigo,$rolcod,$jurisdid) {
+
+		// Valida el estado con rol y la jurisdicción
+		if (!$this->TraerDatosComision($comi_codigo,$fila_comi,$es_modif)) 
+			return false;
+
+		$txt_sys_mail="\comi_codigo=".$comi_codigo;			
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe la comisión a modificar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+
+		if ($fila_comi['comi_estado'] != COMISIONCERRADA)  {
+			$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","COMISIONESTADO","' and constantecod='",$fila_comi['comi_estado'],"'"),$descri,$numfilas,$errorcod);
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"El estado de la Comisión (".$descri."), no le permite certificarla.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		$numfilas=0;
+		$ArregloDatos = array();
+		$ArregloDatos['comi_estado']=COMISIONCERRADA;
+		$ArregloDatos['act_codigo']=$fila_comi['act_codigo'];
+		$ArregloDatos['comi_codigo']=$fila_comi['comi_codigo'];
+		
+		if 	($rolcod == USUCURSOINAP )  { //  Si la actividad de la comision es curso INAP esta todo OK.
+			$ArregloDatos['tipoact_codigo']=TIPOACTCURSOINAP;
+		} elseif ($rolcod == COORDINADORTECNICO  ||  $rolcod ==  USUORGANISMO) {  //  Si la actividad de la comision es curso de la jurisdiccion del usuario logueado esta OK.
+			$ArregloDatos['jurisdid_inap']=$_SESSION['jurisdid_inap'];
+ 			$ArregloDatos['tipoact_codigo']=TIPOACTCURSOJURISD;
+		} 
+		
+		if(!$this->BuscarComisionAvanzada($ArregloDatos,$numfilas,$result,$error,$errormail)){
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al verificar el acceso el acceso a la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;	
+		}
+		if ($numfilas == 1) 
+			return true;	
+
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para certificar la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	}	
+//-----------------------------------------------------------------------------------------
+	function TienePermisoVolcarResultados($comi_codigo,$rolcod,$jurisdid) {
+
+		// Valida el estado con rol y la jurisdicción
+		if (!$this->TraerDatosComision($comi_codigo,$fila_comi,$es_modif)) 
+			return false;
+
+		$txt_sys_mail="\comi_codigo=".$comi_codigo;			
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Error, no existe la Comisión para volcar resultados.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+
+		if ($fila_comi['comi_estado'] != COMISIONABIERTA)  {
+			$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","COMISIONESTADO","' and constantecod='",$fila_comi['comi_estado'],"'"),$descri,$numfilas,$errorcod);
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"El estado de la Comisión (".$descri."), no le permite volcar resultados.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		$numfilas=0;
+		$ArregloDatos = array();
+		$ArregloDatos['comi_estado']=COMISIONABIERTA;
+		$ArregloDatos['act_codigo']=$fila_comi['act_codigo'];
+		$ArregloDatos['comi_codigo']=$fila_comi['comi_codigo'];
+		
+		if 	($rolcod == USUCURSOINAP )  { //  Si la actividad de la comision es curso INAP esta todo OK.
+			 $ArregloDatos['tipoact_codigo']=TIPOACTCURSOINAP;
+		} elseif ($rolcod == COORDINADORTECNICO  ||  $rolcod ==  USUORGANISMO) {  //  Si la actividad de la comision es curso de la jurisdiccion del usuario logueado esta OK.
+			 $ArregloDatos['jurisdid_inap']=$_SESSION['jurisdid_inap'];
+ 			 $ArregloDatos['tipoact_codigo']=TIPOACTCURSOJURISD;
+		} 
+		
+		if(!$this->BuscarComisionAvanzada($ArregloDatos,$numfilas,$result,$error,$errormail)){
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al verificar el acceso a al comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;	
+		}
+		if ($numfilas == 1) 
+			return true;	
+
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para volcar resultados en la Comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	}	
+	
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoRectificarResultados($comi_codigo,$rolcod,$jurisdid) {
+
+		// Valida el estado con rol y la jurisdicción
+		if (!$this->TraerDatosComision($comi_codigo,$fila_comi,$es_modif)) 
+			return false;
+
+		$txt_sys_mail="\comi_codigo=".$comi_codigo;			
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Error, no existe la Comisión para rectificar resultados.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+		
+		 if($rolcod==SUPERUSUARIO){
+	
+					if($fila_comi['comi_estado']==COMISIONCERTIFICADA){
+					$titulo = "Volcar resultados en Comision Certificada";
+					}
+					if($fila_comi['comi_estado']==COMISIONCERRADA){
+					$titulo = "Volcar resultados en Comision Cerrada";
+					}
+					if($fila_comi['comi_estado']==COMISIONNUEVA){
+					$titulo = "Volcar resultados en Comision Nueva";
+					}
+					if($fila_comi['comi_estado']==COMISIONABIERTA){
+					$titulo = "Volcar resultados en Comision Abierta";
+					}
+					
+			  ?> 
+			  <br />
+			  <div align="center" style="font-weight:bold; color:#666666">
+				  <?php echo "$titulo"?>
+			  </div> 
+			  <br />
+			  
+		<?php	 
+		  if($fila_comi['comi_estado']==COMISIONCERTIFICADA || $fila_comi['comi_estado']==COMISIONCERRADA){
+				$numfilas=0;
+				$ArregloDatos = array();
+				$ArregloDatos['comi_estado']=COMISIONCERTIFICADA.",".COMISIONCERRADA;
+				$ArregloDatos['act_codigo']=$fila_comi['act_codigo'];
+				$ArregloDatos['comi_codigo']=$fila_comi['comi_codigo'];
+		    }else{
+					$ArregloDatos = array();
+					$ArregloDatos['comi_estado']=COMISIONNUEVA.",".COMISIONABIERTA;
+					$ArregloDatos['act_codigo']=$fila_comi['act_codigo'];
+					$ArregloDatos['comi_codigo']=$fila_comi['comi_codigo'];
+			}//cierre del else			
+		
+		 }// cierre del if
+	 
+		if($rolcod!=SUPERUSUARIO){
+	 		
+			if ($fila_comi['comi_estado'] != COMISIONCERRADA)  {
+				
+				
+				$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","COMISIONESTADO","' and constantecod='",$fila_comi['comi_estado'],"'"),$descri,$numfilas,$errorcod);
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"El estado de la Comisión (".$descri."), no le permite rectificar resultados.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			}
+		}
+		
+		
+		if($rolcod!=SUPERUSUARIO){
+			$numfilas=0;
+			$ArregloDatos = array();
+			$ArregloDatos['comi_estado']=COMISIONCERRADA;
+			$ArregloDatos['act_codigo']=$fila_comi['act_codigo'];
+			$ArregloDatos['comi_codigo']=$fila_comi['comi_codigo'];
+		}
+		
+	
+		if 	($rolcod == USUCURSOINAP )  { //  Si la actividad de la comision es curso INAP esta todo OK.
+			 $ArregloDatos['tipoact_codigo']=TIPOACTCURSOINAP;
+		} elseif ($rolcod == COORDINADORTECNICO  ||  $rolcod ==  USUORGANISMO) {  //  Si la actividad de la comision es curso de la jurisdiccion del usuario logueado esta OK.
+			 $ArregloDatos['jurisdid_inap']=$_SESSION['jurisdid_inap'];
+ 			 $ArregloDatos['tipoact_codigo']=TIPOACTCURSOJURISD;
+		} 
+		
+		if(!$this->BuscarComisionAvanzada($ArregloDatos,$numfilas,$result,$error,$errormail)){
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al verificar el acceso a al comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;	
+		}
+		if ($numfilas == 1) 
+			return true;	
+
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para rectificar resultados en la Comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	}	
+
+
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoEmitirActa($comi_codigo,$rolcod,$jurisdid) {
+
+		// Valida el estado con rol y la jurisdicción
+		if (!$this->TraerDatosComision($comi_codigo,$fila_comi,$es_modif)) 
+			return false;
+
+		$txt_sys_mail="\comi_codigo=".$comi_codigo;			
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Error, no existe la Comisión para rectificar resultados.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+
+		if (($fila_comi['comi_estado'] != COMISIONABIERTA) &&
+			($fila_comi['comi_estado'] != COMISIONNUEVA)  &&
+			($fila_comi['comi_estado'] != COMISIONCERRADA)  &&
+			($fila_comi['comi_estado'] != COMISIONCERTIFICADA)  
+			
+			)
+		  {
+			$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","COMISIONESTADO","' and constantecod='",$fila_comi['comi_estado'],"'"),$descri,$numfilas,$errorcod);
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"El estado de la Comisión (".$descri."), no le permite emitir el acta.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		$numfilas=0;
+		$ArregloDatos = array();
+		$ArregloDatos['comi_estado']=COMISIONABIERTA.",".COMISIONNUEVA.",".COMISIONCERRADA.",".COMISIONCERTIFICADA;
+		$ArregloDatos['act_codigo']=$fila_comi['act_codigo'];
+		$ArregloDatos['comi_codigo']=$fila_comi['comi_codigo'];
+		
+		if 	($rolcod == USUCURSOINAP )  { //  Si la actividad de la comision es curso INAP esta todo OK.
+			 $ArregloDatos['tipoact_codigo']=TIPOACTCURSOINAP;
+		} elseif ($rolcod == COORDINADORTECNICO  ||  $rolcod ==  USUORGANISMO) {  //  Si la actividad de la comision es curso de la jurisdiccion del usuario logueado esta OK.
+			 $ArregloDatos['jurisdid_inap']=$_SESSION['jurisdid_inap'];
+ 			 $ArregloDatos['tipoact_codigo']=TIPOACTCURSOJURISD;
+		} 
+		
+		if(!$this->BuscarComisionAvanzada($ArregloDatos,$numfilas,$result,$error,$errormail)){
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al verificar el acceso a al comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;	
+		}
+		if ($numfilas >= 1) 
+			return true;	
+
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para emitir el acta de la Comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	}	
+
+
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoInscribirWeb($comi_codigo) {
+
+		// Valida el estado 
+		if (!$this->TraerDatosComision($comi_codigo,$fila_comi,$es_modif)) 
+			return false;
+
+		$txt_sys_mail="\comi_codigo=".$comi_codigo;			
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Error, no existe la Comisión para rectificar resultados.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+		if (($fila_comi['comi_estado'] != COMISIONNUEVA) && ($fila_comi['comi_estado'] != COMISIONABIERTA))  {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"La Comisión no se encuentra disponible para Inscribir agentes. <br>Consulte con su Coordinador Técnico de Capacitación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			die();
+			return false;
+		}
+		
+		
+		// Valida que la comisión tenga habilitado inscripción web
+		if ($fila_comi['comi_web'] != "S")  {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"La Comisión no está habilitada para permitir la inscripción vía Web.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			die();
+			return false;
+		}
+		
+	
+		return true;
+	}	
+
+
+
+//-----------------------------------------------------------------------------------------------------	
+	function ArmarFiltroBuscador($datosFiltro,&$arraysalida) {
+	
+			$arraysalida=array();
+			$arraysalida['act_nombre']=trim($datosFiltro['act_nombre']);
+			
+			$arraysalida['act_codinap']=trim($datosFiltro['act_codinap']);
+			$arraysalida['comi_codinap']=trim($datosFiltro['comi_codinap']);
+	
+			$arraysalida['tipo_fecha']=$datosFiltro['tipo_fecha'];
+				
+			$arraysalida['comi_estado']=$datosFiltro['comi_estado'];
+				
+			if (isset($datosFiltro['comi_fecha_inicio'])) 
+				$arraysalida['comi_fecha_inicio']=FuncionesPHPLocal::ConvertirFecha($datosFiltro['comi_fecha_inicio'],'dd/mm/aaaa','aaaa-mm-dd');
+				
+			if (isset($datosFiltro['comi_fecha_fin'])) 
+				$arraysalida['comi_fecha_fin']=FuncionesPHPLocal::ConvertirFecha($datosFiltro['comi_fecha_fin'],'dd/mm/aaaa','aaaa-mm-dd');
+		
+			if (isset($datosFiltro['presdoc_apeynom'])) 
+				$arraysalida['apeynom']=trim($datosFiltro['presdoc_apeynom']);
+			
+			$arraysalida['tipoact_codigo']=$datosFiltro['tipoact_codigo'];
+
+			$arraysalida['jurisdid_inap']=$datosFiltro['jurisdid_inap'];			
+			
+			$arraysalida['progcur_codigo']=$datosFiltro['progcur_codigo'];
+
+			$arraysalida['areacur_codigo']=$datosFiltro['areacur_codigo'];
+														
+			$arraysalida['orderby']="act_nombre,act_codigo,comi_fecha_inicio";
+			
+			return true;			
+	} 
+}
+?>

@@ -1,0 +1,986 @@
+<?php 
+//-----------------------------------------------------------------------------------------
+// CLASE cObjetosDinamicos
+//-----------------------------------------------------------------------------------------
+class cObjetosDinamicos
+{
+	var $conexion;
+	var $error=0; 
+
+	//-----------------------------------------------------------------------------------------
+	function __construct($conexion)
+	{
+		$this->conexion = &$conexion;
+	}
+	
+	// Destructor de la clase
+	function __destruct() {	
+		
+    } 	
+	
+//----------------------------------------------------------------------------------------- 
+//                                       PUBLICAS   
+//----------------------------------------------------------------------------------------- 
+	public function MostrarSumario($idart="") {
+	 	
+		$salida="";
+ 		$oArticulo = new cArticulos($this->conexion);
+		
+		$datosbusqueda = array ('campo'=>'titulo',
+						    'estadopub' => ESTPUBPUBLICADA,
+						    'estadoart' => ESTARTPUBLICADO,	
+						    'orderby' => "orden_menu DESC");
+		
+	 	$tipo = 0; // Distinto de 1 porque no quiero el count
+
+	 	if (!$oArticulo->BusquedaAvanzada($datosbusqueda,$tipo,$resultado,$numfilas))
+			die();		
+			
+		$salida='	<div class="menulateral">
+				     <div class="titulo_menu"> Sumario </div>
+					<ul class="clearfix">';
+
+		$count=1;
+	
+		
+		while($registro=mysqli_fetch_assoc($resultado)){			
+			$salida.='<li> 
+				<a ';
+					
+			if (isset($idart)) {
+				if ($idart == $registro['idart'])
+					$salida.=" class=\"seleccionado\" ";
+			}
+			if ($count==$numfilas)
+				$salida.='style="border:none;"';				
+				
+			$salida.='href="'.PAG_ART_AMPLIADO.'?idart='.$registro['idart'].'">'.$registro['titulo'].
+			         "</a></li> " ;
+			
+			$count++;
+		}			
+		$salida.='	</ul>
+				</div>';
+
+		
+		
+		echo $salida;
+	}
+	//----------------------------------------------------------------------------------------- 
+	public function MostrarLstArticuloHome() {
+	 	
+		$salida="";
+	 	
+		$oArticulo = new cArticulos($this->conexion);
+		
+		$datosbusqueda = array ('estadopub' => ESTPUBPUBLICADA,
+						    'estadoart' => ESTARTPUBLICADO,
+		   				    'destacado' => DESTACADO_SI,		
+						    'orderby' => "orden_destacado DESC",
+						);
+		
+	 	$tipo = 0; 		// Distinto de 1 porque no quiero el count
+
+	 	if (!$oArticulo->BusquedaAvanzada($datosbusqueda,$tipo,$resultado,$numfilas))
+			die();		
+		
+		$nivel = 1;
+		$count = 1;	
+		while($registro=mysqli_fetch_assoc($resultado)){
+				
+			$this->MostrarArticuloHome($registro, $nivel, $salida_registro);			
+			
+			if ($nivel==1)
+			    $nivel = $nivel + 1;			    
+			elseif($nivel>1 and $nivel<3 ) {
+				if ($count==3) {
+					$nivel = $nivel + 1;	
+					$count = 1;		 
+				} else {
+					$count++;	
+				}				 
+			}    
+			if ($nivel>3) 
+			    $nivel=3; 
+			   
+			$salida.=$salida_registro;
+		}					
+		
+	 	echo $salida;
+	}	
+	//----------------------------------------------------------------------------------------- 
+	public function MostrarArticuloHome($articulo,$nivel,&$salida) {
+		
+		$salida="";
+		
+		switch($nivel)
+		{
+			case 1:
+				$salida.='<div class="articulolst">';	
+				$salida.='	<div class="clearfix">
+								<div class="imgPrincipal">';
+									if (isset($articulo['img']) ){
+										if(trim($articulo['img_alt'])=="")
+											$articulo['img_alt']='Imagen';
+											$salida.='<img src="'.$articulo['img'].'" alt="'.$articulo['img_alt'].'" />';					
+									}
+				$salida.='		</div> 
+								<div class="clearboth"></div>';
+				$salida.='		<div class="titulo_articulo clearfix">
+									<h1>	<a href="'.PAG_ART_AMPLIADO.'?idart='.$articulo['idart'].'" title="'.$articulo['titulo'].'" > '.
+										$articulo['titulo'].
+										'</a> 	
+									</h1>';	
+				$salida.='		</div>';				
+				$salida.='	<div class="">'.
+									$articulo['desc_corta'].
+								'</div>
+							<div class="clearboth"></div>
+						</div>
+					</div>';
+		         break;
+			case 2:
+				$salida.='<div class="articulolst">	
+							<div class="titulo_articulo clearfix">
+								<h2>	<a href="'.PAG_ART_AMPLIADO.'?idart='.$articulo['idart'].'" title="'.$articulo['titulo'].'" > '.
+									$articulo['titulo'].
+									'</a> 	
+								</h2>';	
+				$salida.='	</div>';				
+				$salida.='	<div class="clearfix">
+								<div class="img_izq">';
+									if (isset($articulo['img']) ){
+										if(trim($articulo['img_alt'])=="")
+											$articulo['img_alt']='Imagen';
+										$salida.='<img class="imgCaja"  src="'.$articulo['img'].'" alt="'.$articulo['img_alt'].'" />';					
+									}
+				$salida.='		</div>
+								<div class="txt_caja txt_derecha">'.
+									$articulo['desc_corta'].
+								'</div>
+							<div class="clearboth"></div>
+						</div>
+					</div>';
+				break;
+			case 3:			
+				// $salida=" 3 - ".$articulo['idart']. " <br />";
+				$salida=' <div class="articulolst">	
+							<div class="titulo_articulo clearfix">';										
+				$salida.='		<h2> <a href="'.PAG_ART_AMPLIADO.'?idart='.$articulo['idart'].'" title="'.$articulo['titulo'].'" > '.
+									$articulo['titulo'].
+									'</a> 	
+								</h2>';												
+				$salida.='	</div>';
+				$salida.='	<div class="clear"></div>';
+				$salida.='	<p>'.$articulo['desc_corta'].'</p>';					
+				$salida.='</div>';
+				break;
+		}		
+	}			
+	//----------------------------------------------------------------------------------------- 
+	public function MostrartArticuloAmpliado($idart) {
+
+		$oArticulo = new cArticulos($this->conexion);
+		$datosbusqueda = array ('idart' => $idart,
+						    'estadoart' => ESTARTPUBLICADO);
+		
+	 	$tipo = 0; 		// Distinto de 1 porque no quiero el count
+	
+	 	if (!$oArticulo->BusquedaAvanzada($datosbusqueda,$tipo,$resultado,$numfilas))
+			die();		
+
+		$salida = "";
+		$datos=array();
+		while($registro=mysqli_fetch_assoc($resultado)){
+			$datos=$registro;			
+			$this->_VisualizarObjeto('Articulo_Ampliado',$salida,$datos);
+		}
+	 	echo $salida;
+	}	
+	//----------------------------------------------------------------------------------------- 
+	public function MostrarMasLeidas() {
+	 	
+		 	
+		$oArticulo = new cArticulos($this->conexion);
+		
+		$datosbusqueda = array ('estadopub' => ESTPUBPUBLICADA,
+						    	'estadoart' => ESTARTPUBLICADO,
+		   				    	'mas_leido' => ESMASLEIDO_SI,
+						    	'orderby' => "orden_mas_leido DESC",
+						);
+		
+	 	$tipo = 0; 		// Distinto de 1 porque no quiero el count
+	
+	 	if (!$oArticulo->BusquedaAvanzada($datosbusqueda,$tipo,$resultado,$numfilas))
+			die();		
+			
+		$salida='	<div class="menulateral">
+					<div class="titulo_menu"> M&aacute;s Le&iacute;das</div>
+					<ul class="clearfix"> ';
+			
+		while($registro=mysqli_fetch_assoc($resultado)){
+			$salida.='	<li> <a href="'.PAG_ART_AMPLIADO.'?idart='.$registro['idart'].'">'.$registro['titulo']."</a></li> " ;
+		}			
+		$salida.='	</ul>
+				</div>';
+		
+		
+	 	
+	 	echo $salida;
+	}
+	//----------------------------------------------------------------------------------------- 
+	public function MostrarEdicionHeader() {
+	 	
+		$oPublicacion = new cPublicaciones($this->conexion);		
+		$datosbusqueda = array ('estadopub' => ESTPUBPUBLICADA);		
+	 	$tipo = 0; 	// Distinto de 1 porque no quiero el count
+	
+	 	if (!$oPublicacion->BusquedaAvanzada($datosbusqueda,$tipo,$resultado,$numfilas) || $numfilas!=1)
+			die();		
+		
+		$registro=mysqli_fetch_assoc($resultado);	 	
+		//$fecha_mes_anio_txt = $this->ReemplazarTextoFechas(strftime("%e de %B de %Y." ,strtotime($resu_fila['fecha_edicion'])));
+		$fecha_mes_anio_txt = $this->ObtenerTextoFechaMesAnio(substr($registro['fecha_edicion'],0,9));
+		$salida="<div> ".
+	 				$fecha_mes_anio_txt.
+	 				" <br /> A&ntilde;o ".$registro['anio_edicion']." N&#176; ".$registro['numero_edicion'].
+	 				"<br /> Rep&uacute;blica Argentina".
+	 		    "</div>";	 	
+	 	echo $salida;
+	 				
+	}	
+	//----------------------------------------------------------------------------------------- 
+	public function MostrarTapa() {
+				
+		$oPublicacion = new cPublicaciones($this->conexion);		
+		$datosbusqueda = array ('estadopub' => ESTPUBPUBLICADA);		
+	 	$tipo = 0; 									// Distinto de 1 porque no quiero el count
+	
+	 	if (!$oPublicacion->BusquedaAvanzada($datosbusqueda,$tipo,$resultado,$numfilas) || $numfilas!=1)
+			die();		
+		
+		$registro=mysqli_fetch_assoc($resultado);
+		$dato=array('titulo'=>'EDICI&Oacute;N IMPRESA #'.$registro['numero_edicion'],
+				  'img'=>$registro['imagen_tapa'],
+		 		  'link'=>PAG_ED_ANTERIORES
+		);
+	 	
+		$this->_VisualizarObjeto('Caja_TituloSuperior_Img_Tapa',$salida,$dato);	 	
+	 	echo $salida;
+	}
+	//----------------------------------------------------------------------------------------- 
+	public function MostrarBreves() {
+		$dato=array('titulo'=>'NOTICIAS BREVES',
+				  'img'=>'ver');
+	 	$this->_VisualizarObjeto('Caja_TituloSuperior_Img',$salida,$dato);
+		
+		echo $salida;
+	}
+	//----------------------------------------------------------------------------------------- 
+	public function MostrarImagenColIzq() {
+		
+		$imagen = PATH_MULTIMEDIA_PORTAL.'200aniosestado.jpg';		
+	 	$dato=array('titulo'=>'IMAGEN',
+				  'img'=>$imagen
+	 			  //'link'=>'jgm.gov.ar'
+	 			  );
+	 	
+	 	$this->_VisualizarObjeto('Caja_Img_ColIzq',$salida,$dato);
+		
+	 	echo $salida;
+	}
+	//----------------------------------------------------------------------------------------- 
+	public function MostrarLink() {
+	 	$salida="<div> Link a algo </div>";
+	 	echo $salida;
+	}	
+	//----------------------------------------------------------------------------------------- 
+	public function MostrarContenidoTexo() {
+	 	$salida="<div> Para cuendo se agregen otros contenido </div>";
+	 	echo $salida;
+	}	
+	//----------------------------------------------------------------------------------------- 
+	public function MostrarEspacidado($alto) {
+		$dato=array('alto' => $alto);
+		$this->_VisualizarObjeto('Espaciado',$salida,$dato);
+		echo $salida;
+	}
+	//----------------------------------------------------------------------------------------- 
+	public function MostrartEdicionesAnteriores() {
+	 	
+	 	$oPublicacion = new cPublicaciones($this->conexion);		
+		$datosbusqueda = array ('orderby' => 'fecha_edicion desc',
+						    'estadopub'=>ESTPUBPUBLICADA.','.ESTPUBCERRADA,
+		                      );		
+	 	$tipo = 0; 									// Distinto de 1 porque no quiero el count
+	
+	 	if (!$oPublicacion->BusquedaAvanzada($datosbusqueda,$tipo,$resultado,$numfilas))
+			die();		
+		$salida="";
+		while ($registro=mysqli_fetch_assoc($resultado)) {
+			$dato=array('titulo'=>'EDICI&Oacute;N IMPRESA #'.$registro['numero_edicion'],
+					  'img'=>$registro['imagen_tapa'],
+				  	  'fecha_edicion'=>$registro['fecha_edicion'],
+				  	  'numero_edicion'=>$registro['numero_edicion'],
+				  	  'anio_edicion'=>$registro['anio_edicion'],		
+				      'revista_pdf'=>$registro['revista_pdf'],
+					  'video_fotonovela_embebido'=>$registro['video_fotonovela_embebido']);
+			
+			$this->_VisualizarObjeto('Caja_Detalle_Edicion_Impresa',$salida_impresa,$dato);
+			$salida.=$salida_impresa;	 	
+		}
+		
+	 	echo $salida;
+	}
+	//----------------------------------------------------------------------------------------- 
+	public function MostrarQuienesSomos() {
+	 	
+	 	$oContenido = new cContenidos($this->conexion);		
+		$datosbusqueda = array ('idcontnom' => 'QUIENES_SOMOS');		
+	 	$tipo = 0; 									// Distinto de 1 porque no quiero el count
+	
+	 	if (!$oContenido->BusquedaAvanzada($datosbusqueda,$tipo,$resultado,$numfilas) ) {
+	 		echo $numfilas;
+			die();		
+	 	}
+		
+	 	$salida="";
+		$dato=mysqli_fetch_assoc($resultado);
+		$this->_VisualizarObjeto('Texto_Quienes_Somos',$salida,$dato);
+		
+	 	echo $salida;
+	}
+	//----------------------------------------------------------------------------------------- 
+	public function MostrarAddThis() {
+		$salida="";
+		$this->_VisualizarObjeto('AddThis',$salida);
+		echo $salida;
+	}
+			
+//----------------------------------------------------------------------------------------- 
+// 									PRIVADOS
+//----------------------------------------------------------------------------------------- 
+	private function _VisualizarObjeto($tipo, &$salida, $datos=array(),$subtipo=0)
+    {
+    		$salida="";
+		switch($tipo)
+		{
+			case "Caja_TituloSuperior_Img":
+				$salida='	<div class="clearfix recuadrocaja txt_comun">
+						<div class=" titulo_caja_gris">
+							<h2>'.$datos['titulo'].'</h2>
+						</div>
+						<div class="txt_caja gris clearfix">										
+							<img src="'.$datos['img'].'" alt=" " />
+						<div style="clear:both"></div>
+						</div>
+					</div>	';
+				
+				break;
+			
+			case "Caja_TituloSuperior_Img_Tapa":
+				$salida='	<div class="clearfix recuadrocaja_tapa txt_comun">
+						<div class="titulo_caja_tapa">
+							<h2>'.$datos['titulo'].'</h2>
+						</div>
+						<div class="txt_caja tapa clearfix">										
+							<img src="'.$datos['img'].'" alt=" " />';							
+							if(isset($datos['link'])) {						
+								$salida.='<div class="pie_caja_tapa">
+											<h2>';
+												$salida.= '	<a href="'.$datos['link'].'" target="_self">EDICIONES ANTERIORES</a> 
+											</h2>		
+										</div>';
+							}
+						$salida.='<div style="clear:both"></div>
+						</div>
+					</div>	';
+				
+				break;				
+			
+			case "Espaciado":
+				$salida='<div style="height:'.$datos['alto'].'px;">&nbsp;</div>';				
+				
+				break;
+			
+			case "Caja_Img_ColIzq":
+				$salida.='<div class="txt_comun clearfix espacio_recuadro">';
+				
+				if(isset($datos['link']))
+				$salida.= '	<a href="http://'.$datos['link'].'" target="_self">';		
+				
+				$salida.=			'<img src="'.$datos['img'].'" alt=" " style="border:none" />';
+				
+				if(isset($datos['link']))
+				$salida.='	</a>';
+				
+				$salida.='</div>';
+				
+				break;
+				
+			case "Caja_Detalle_Edicion_Impresa":	
+				$salida='	
+				    <div class="clearfix recuadrocaja_tapa border txt_comun">
+						<div class="titulo_caja_tapa">
+							<h2>'.$datos['titulo'].'</h2>
+						</div>
+						<div class="txt_caja tapa clearfix">										
+							<img src="'.$datos['img'].'" alt=" " />
+							<div style="float:right; width:220px; margin-top:10px;">';
+							$fecha_mes_anio_txt = $this->ObtenerTextoFechaMesAnio(substr($datos['fecha_edicion'],0,9));
+				$salida.='		<div class="txt_detalle_edicion">'.
+		 						"A&ntilde;o ".$datos['anio_edicion']." N&#176; ".$datos['numero_edicion'].'<br /> <hr width="90%" align="left" />';
+				$salida.=			$fecha_mes_anio_txt.'<br /> <hr width="90%" align="left" />'; 
+				$salida.= '			<a href="'.$datos['revista_pdf'].'" target="_self"> Edici&oacute;n Impresa (.pdf)</a> <hr width="90%" align="left" />';									
+	 		    					if (isset($datos['video_fotonovela_embebido']))
+										$salida.=$datos['video_fotonovela_embebido'];
+				$salida.='	 	</div>		
+							</div>
+							<div style="clear:both"></div>											
+						</div>
+					</div>';
+				
+				break;
+				
+			case "Articulo_Ampliado":				
+				$alt = "   ";
+				if ($datos['img_alt']!="")
+					$alt = $datos['img_alt'];
+										
+				$salida .= "<div class=\"articuloampliado clearfix\">";
+				$salida .= "	<div class=\"articulo clearfix\">";
+				
+				//$salida .= "		<div class=\"fechapublicacion bold\">".'VERRRRR FECHA DE PUBLICACION'."</div>";
+										
+										
+				$salida .= "		<div class=\"copete\">";
+				$salida .= "			<h2>";
+				$salida .= 					nl2br(htmlspecialchars($datos['copete'],ENT_QUOTES));		
+				$salida .= "			</h2>";
+				$salida .= "		</div>";
+				
+				$salida .= "		<div class=\"titulo\"> 
+									<h1>";
+				$salida .= 				$datos['titulo'];
+				$salida .= "			</h1>
+								</div>";
+				
+				// if ($datos['destacado']==1)
+				//	$salida .= "			- <span class=\"destacada\"> DESTACADA</span>";
+						
+				$salida .= "		<div class=\"desc_corta\">";
+									$this->_ProcesarObjeto('Campo',$datos['desc_corta'],$campo);
+									$salida .= $campo;				
+				$salida .= "		</div>";
+				
+				
+				
+				if (isset($datos['img']) && trim($datos['img'])!="")		 
+				{
+					$salida .= "		<div class=\"imagen_articulo\">";
+					$salida .= "			<img src=\"".$datos['img']."\" alt=\"".htmlspecialchars($alt,ENT_QUOTES)."\" />\n";
+					
+					if ($datos['epigrafe']!="")
+					{
+						$salida .= "		<div class=\"epigrafe\">";
+						$salida .= "			".$datos['epigrafe']."\n";
+						$salida .= "		</div>";
+					}								
+					$salida .= "		</div>";
+				}
+										
+				if (isset($datos['video_embebido']) && $datos['video_embebido']!="")
+				{
+					$salida .= "		<div class=\"video_youtube\">";
+					$salida .= $datos['video_embebido'];
+					$salida .= "		</div>";
+				}
+				
+				if ($datos['audio']!="")
+				{
+							
+					$salida .= '<div class="solapa_audio"><h3>Audio</h3>'.chr(13);
+					$salida .= '<div id="contenidosonidonot_'.$datos['idart'].'"></div>'.chr(13);
+					$salida .= '<script type="text/javascript">'.chr(13);
+					$salida .= ' var so = new SWFObject("player/player-sonido.swf?soundFile='.$datos['audio'].'", "mymovie", "460", "24", "7", "#EBF8FF")'.chr(13);
+					$salida .= ' so.addParam("movie", "player/player-sonido.swf?soundFile='.$datos['audio'].'")'.chr(13);
+					$salida .= ' so.addParam("quality", "high");'.chr(13);
+					$salida .= ' so.addParam("menu", "true");'.chr(13);
+					$salida .= ' so.addParam("wmode", "transparent");'.chr(13);
+					$salida .= ' so.addParam("true", "titles");'.chr(13);
+					$salida .= ' so.write("contenidosonidonot_'.$datos['idart'].'");'.chr(13);
+					$salida .= ' </script>'.chr(13);
+		
+					$salida .= '<noscript>'.chr(13);
+					$salida .= '<object data="player/player-sonido.swf?soundFile='.$datos['audio'].'" ';
+					$salida .= ' type="application/x-shockwave-flash" height="24" width="460">'.chr(13).'<param value="player/player-sonido.swf?soundFile='.$datos['audio'].'" name="movie" />'.chr(13);
+					$salida .= ' <param value="high" name="quality" />'.chr(13);
+					$salida .= ' <param value="true" name="menu" />'.chr(13);
+					$salida .= ' <param value="transparent" name="wmode" />'.chr(13);
+					$salida .= ' <param value="true" name="titles" />'.chr(13);
+					$salida .= ' <param value="false" name="animation" />'.chr(13);
+					$salida .= ' </object>	';
+					$salida .= ' </noscript>'.chr(13);
+					$salida .= ' </div>'.chr(13);
+				}
+					
+		
+				$salida .= "		<div class=\"desc_larga\">";
+									$this->_ProcesarObjeto('Campo',$datos['desc_larga'],$campo);
+									$salida .= $campo;				
+				$salida .= "		</div>";
+				
+				
+				$salida .= "		<div class=\"volver\">";
+				$salida .= "			<a href=\"javascript:history.back();\" title=\"Volver Atr&aacute;s\">< volver atr&aacute;s</a>";
+				$salida .= "		</div>";
+				$salida .= "	</div>";
+				$salida .= "</div>";	
+				
+				break;
+				
+			case 'Texto_Quienes_Somos':
+				$salida .= " <fieldset>
+							<div style='padding-top:20px;margin-left:20px'>				 
+								<h1>Quienes Somos</h1>".
+						     "</div>";
+				$salida .= "	<div class=\"desc_larga recuadro_grande\" >";
+							$this->_ProcesarObjeto('Campo',$datos['desc_larga'],$campo);
+				$salida .= $campo;							
+				$salida .= "	</div>";
+			
+				$salida .= "</fieldset>";
+				
+				break;
+				
+			case 'AddThis':				
+				$salida='<div class="compartir_web">
+						<!-- AddThis Button BEGIN -->
+		                    <script type="text/javascript">var addthis_config = {"data_track_clickback":true, ui_language: "es"};</script>
+		                    <div class="addthis_toolbox addthis_default_style">
+                    			<a id="facebookLike" class="addthis_button_facebook_like"></a>
+                    			<a class="addthis_button_facebook" title="Compartir en Facebook"></a>
+                    			<a class="addthis_button_twitter" title="Compartir en Twitter"></a>
+                    			<a class="addthis_button_gmail" title="Compartir en Gmail"></a>
+                    			<a class="addthis_button_email" title="Enviar por Email"></a>
+                    			<a class="addthis_button_print" title="Imprimir"></a>			                            
+			                </div>       
+		                    <script type="text/javascript">
+		                        var facebookLike = document.getElementById("facebookLike");
+		                        facebookLike.setAttribute("fb:like:layout", "button_count");
+		                        facebookLike.setAttribute("fb:like:width", "110");
+		                        facebookLike.setAttribute("fb:like:action", "like");
+		                    </script>                      
+		                    <script type="text/javascript" src="http://s7.addthis.com/js/250/addthis_widget.js#username=jgmgobar"></script>
+		                    <!-- AddThis Button END -->
+		                   </div>
+		                   <div style="clear:both; font-size:1px; height:1px;"></div>';
+				break;		
+				
+		}    	
+      	return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+    private function _ProcesarObjeto($tipo, $dato, &$salida)
+    {
+    	$salida="";
+		switch($tipo)
+		{
+		case 'Campo':
+			// $salida .=nl2br(htmlentities($dato,ENT_QUOTES));
+			$conv_SGML=false;						
+			$oVisualizaCampo= new cVisualizaCampo($this->conexion,false,false);
+			if($oVisualizaCampo->Setear(array("ContCampo"=>$dato,"conv_SGML"=>$conv_SGML)))
+			{
+				if(!$oVisualizaCampo->Mostrar($salida))
+					$seprodujoerror=true;
+			}
+			
+			break;
+		}
+		return true;
+    }
+	
+//----------------------------------------------------------------------------------------- 
+	function ReemplazarTextoFechas($texto)
+	{
+		// reemplazo meses  
+		$texto = preg_replace("#January#","Enero",$texto); 
+		$texto = preg_replace("#February#","Febrero",$texto); 
+		$texto = preg_replace("#March#","Marzo",$texto); 
+		$texto = preg_replace("#April#","Abril",$texto); 
+		$texto = preg_replace("#May#","Mayo",$texto); 
+		$texto = preg_replace("#June#","Junio",$texto); 
+		$texto = preg_replace("#July#","Julio",$texto); 
+		$texto = preg_replace("#August#","Agosto",$texto); 
+		$texto = preg_replace("#September#","Septiembre",$texto); 
+		$texto = preg_replace("#October#","Octubre",$texto); 
+		$texto = preg_replace("#November#","Noviembre",$texto); 
+		$texto = preg_replace("#December#","Diciembre",$texto); 
+	
+		// reemplazo meses cortos 
+		$texto = preg_replace("#Jan#","Ene",$texto); 
+		$texto = preg_replace("#Apr#","Abr",$texto); 
+		$texto = preg_replace("#Aug#","Ago",$texto); 
+		$texto = preg_replace("#Dec#","Dic",$texto); 
+	
+		// reemplazo días 
+		$texto = preg_replace("#Monday#","Lunes",$texto); 
+		$texto = preg_replace("#Tuesday#","Martes",$texto); 
+		$texto = preg_replace("#Wednesday#","Miércoles",$texto); 
+		$texto = preg_replace("#Thursday#","Jueves",$texto); 
+		$texto = preg_replace("#Friday#","Viernes",$texto); 
+		$texto = preg_replace("#Saturday#","Sábado",$texto); 
+		$texto = preg_replace("#Sunday#","Domingo",$texto); 
+		
+		// reemplazo dias cortos 
+		$texto = preg_replace("#Mon#","Lun",$texto); 
+		$texto = preg_replace("#Tue#","Mar",$texto); 
+		$texto = preg_replace("#Wed#","Mié",$texto); 
+		$texto = preg_replace("#Thu#","Jue",$texto); 
+		$texto = preg_replace("#Fri#","Vie",$texto); 
+		$texto = preg_replace("#Sat#","Sáb",$texto); 
+		$texto = preg_replace("#Sun#","Dom",$texto); 
+	
+		return $texto;
+	}
+//----------------------------------------------------------------------------------------- 
+	function ObetenerTextoMes($m) {
+		switch ($m) {
+			case 1: $month_text = "Enero"; break;
+			case 2: $month_text = "Febrero"; break;
+			case 3: $month_text = "Marzo"; break;
+			case 4: $month_text = "Abril"; break;
+			case 5: $month_text = "Mayo"; break;
+			case 6: $month_text = "Junio"; break;
+			case 7: $month_text = "Julio"; break;
+			case 8: $month_text = "Agosto"; break;
+			case 9: $month_text = "Septiembre"; break;
+			case 10: $month_text = "Octubre"; break;
+			case 11: $month_text = "Noviembre"; break;
+			case 12: $month_text = "Diciembre"; break;
+		}
+		return ($month_text);
+	} 
+//----------------------------------------------------------------------------------------- 
+	function ObtenerTextoFecha($fecha)
+	{
+		$arrayfecha = explode('-', $fecha);
+		$fechaint = mktime(0,0,0, $arrayfecha[1], $arrayfecha[2], $arrayfecha[0]);
+		$fechasalida = strftime("%e de %B de %Y." ,$fechaint);
+		return $this->ReemplazarTextoFechas($fechasalida);
+	}
+//----------------------------------------------------------------------------------------- 
+	function ObtenerTextoFechaMesAnio($fecha)
+	{
+		$arrayfecha = explode('-', $fecha);
+		$fechaint = mktime(0,0,0, $arrayfecha[1], $arrayfecha[2], $arrayfecha[0]);
+		$fechasalida = strftime("%B de %Y." ,$fechaint);
+		return $this->ReemplazarTextoFechas($fechasalida);
+	}
+}
+//-----------------------------------------------------------------------------------------
+// CLASE cVisualizaCampo
+//-----------------------------------------------------------------------------------------
+class cVisualizaCampo
+{
+	var $conexionobjeto;
+	var $msg_error;
+	var $comentarios;
+	var $es_admin;
+	
+	var $ContCampo="";
+	var $conv_SGML=false;
+
+	var $CONV_SGML_IN=array("“","”","–","-","’","•","…","€");
+	var $CONV_SGML_OUT=array("&#8220;","&#8221;","&ndash;","&ndash;","&rsquo;","&bull;","&hellip;","&euro;");
+
+	function cVisualizaCampo($conexion,$comentarios=false)
+	{
+		$this->conexionobjeto = &$conexion;
+		$this->msg_error="";
+		$this->comentarios=$comentarios;
+	}	
+	function Setear($parametros)
+	{
+		$this->ContCampo=$parametros["ContCampo"];
+		$this->conv_SGML=$parametros["conv_SGML"];
+
+		return true;
+	}
+	function Mostrar(&$salida)
+	{
+		$seprodujoerror=false;
+		
+		$partes=array();
+		cSepararHTML::ProcesarHTML($this->ContCampo,$partes);
+		
+		foreach($partes as $comando)		
+		{
+			// si es un comando
+			if(is_array($comando))
+			{
+				if($comando["Tipo"]=="Link")
+				{
+					if (!isset($comando["target"]))
+						$comando["target"]="_blank";
+						
+					$pos = strpos($comando["URL"],"mailto:");
+					if ($pos !== false)	
+					{
+						$mail = substr($comando["URL"],7);
+						$comando["URL"] = "mailto:".FuncionesPHPPortal::EncriptarMail($mail);
+					}
+					$salida.="<a href='".$comando["URL"]."' target='".$comando["target"]."'>";
+
+					$texto=htmlentities($comando["Texto"],ENT_QUOTES);
+					$texto=str_replace($this->CONV_SGML_IN,$this->CONV_SGML_OUT,$texto); 
+					
+					$salida.=$texto;
+					$salida.="</a>";
+				} elseif($comando["Tipo"]=="Bold")
+					$salida.="<strong>";
+				elseif($comando["Tipo"]=="BoldFin")
+					$salida.="</strong>";
+				elseif($comando["Tipo"]=="Italic")
+					$salida.="<em>";
+				elseif($comando["Tipo"]=="ItalicFin")
+					$salida.="</em>";
+				elseif($comando["Tipo"]=="Underline")
+					$salida.="<u>";
+				elseif($comando["Tipo"]=="UnderlineFin")
+					$salida.="</u>";
+				elseif($comando["Tipo"]=="Bullet")
+					$salida.="&nbsp;&nbsp;&nbsp;&#8226; ";
+				elseif($comando["Tipo"]=="ImagenLinkExterno") {
+					$salida.='<img src="img/ball3.gif" width="10px;" height="10px;" alt="" />';
+				} elseif($comando["Tipo"]=="H3")
+					$salida.="<h3>";
+				elseif($comando["Tipo"]=="H3Fin")
+					$salida.="</h3>";
+				else
+				{	
+					 $this->msg_error.="Clase ".$comando["Tipo"]." no soportado <br>";
+					 $seprodujoerror=true;
+				}
+			}
+			else
+			{
+				$comando=nl2br(htmlentities($comando,ENT_QUOTES));
+				if($this->conv_SGML)
+					$comando=str_replace($this->CONV_SGML_IN,$this->CONV_SGML_OUT,$comando); 
+								
+				$salida.=$comando; 
+			}
+		}
+		return !$seprodujoerror;
+	}
+	function RetornarMsgError()
+	{
+		return $this->msg_error;
+	}
+} // Fin clase cVisualizaCampo
+//-----------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------
+/*
+class cVisualizaContenido
+{
+	var $conexionobjeto;
+	var $msg_error;
+	var $comentarios;
+	
+	var $contcod;
+	var $visualizcod;
+	var $libestrucvencecont;
+	var $parametros;
+
+	var $es_admin;
+
+	function cVisualizaContenido($conexion,$comentarios=false,$es_admin=false)
+	{
+		$this->conexionobjeto = &$conexion;
+		$this->msg_error="";
+		$this->comentarios=$comentarios;
+		$this->es_admin=$es_admin;
+	}
+	
+	function Setear($parametros)
+	{
+		$this->contcod=$parametros["contcod"];
+		$this->visualizcod=$parametros["visualizcod"];
+		$this->parametros=$parametros["parametros"];
+		$this->libestrucvencecont=$parametros["libestrucvencecont"];
+
+		return true;
+	}
+	
+	function Mostrar(&$salida)
+	{
+		$seprodujoerror=false;
+		
+		if($this->visualizcod==0 || $this->contcod==0)
+		{
+			$this->msg_error.="Contcod/Visualizcod no inicializados. Pagcod: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+			return false;
+		}
+		
+		$spnombre="sel_contenidos_xcontcod";
+		$spparam=array("pcontcod"=>$this->contcod);
+
+		if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)
+		{
+			$this->msg_error.="Contenidos error. Contcod: ".$this->contcod." / Pagina: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+			return false;
+		}
+		$filacontenido=mysql_fetch_assoc($query);
+		
+		if($filacontenido["contcopiadoen"]!=NULL) // El contenido se está modificando
+		{
+			$spparam=array("pcontcod"=>$filacontenido["contcopiadoen"]);
+	
+			if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)
+			{
+				$this->msg_error.="Contenidos error. Contcod: ".$this->contcod." / Pagina: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+				return false;
+			}
+			$filacontenido=mysql_fetch_assoc($query);
+		}
+		
+
+		$spnombre="sel_imagenes_ximgcod";
+		$spparam=array("pimgcod"=>$filacontenido["contimagen"]);
+
+		if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)
+		{
+			$this->msg_error.="Imagen error. Contcod: ".$this->contcod." / Pagina: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+			return false;
+		}
+		$filaimagen=mysql_fetch_assoc($query);
+
+		// Si hay que tener en cuenta la fecha de venc y el contenido está vencido, salgo
+		if($this->libestrucvencecont=="S" && $filacontenido["contfvenc"]!="" && $filacontenido["contfvenc"]<date('Y-m-d H:i:s'))
+			return true;
+		
+		$spnombre="sel_visualizaciones_xvisualizcod";
+		$spparam=array("pvisualizcod"=>$this->visualizcod);
+	
+		if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$queryv,$numfilasv,$errno) || $numfilasv!=1)
+		{
+			$this->msg_error.="Visualizaciones error. Contcod: ".$this->visualizcod." /  Pagina: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+			return false;
+		}
+		$filavisualizacion=mysql_fetch_assoc($queryv);
+
+		$partes=array();
+		cSepararHTML::ProcesarHTML($filavisualizacion["visualizhtml"],$partes);
+
+		if($this->comentarios)
+			$salida.="<!-- Visualiza: ".$this->visualizcod." Contcod: ".$this->contcod." -->\n";
+
+		foreach($partes as $comando)		
+		{
+			// si es un comando
+			if(is_array($comando))
+			{
+				// si tengo que mostrar el valor de un campo
+				if($comando["Tipo"]=="Campo")
+				{
+					
+					if(isset($filacontenido[$comando["Nombre"]]))
+					{
+						$conv_SGML=false;
+						if($comando["Nombre"]=="contdesccorta" || $comando["Nombre"]=="contcopete" || $comando["Nombre"]=="contdesclarga")
+							$conv_SGML=true;
+						
+						$campo=new cVisualizaCampo($this->conexionobjeto,$this->comentarios,$this->es_admin);
+						if($campo->Setear(array("ContCampo"=>$filacontenido[$comando["Nombre"]],"conv_SGML"=>$conv_SGML)))
+						{
+							if(!$campo->Mostrar($salida))
+								$seprodujoerror=true;
+						}
+						else
+							$seprodujoerror=true;
+							
+						$this->msg_error.=$campo->RetornarMsgError();
+					}
+					else
+					{
+						$this->msg_error.="Campo ".$comando["Nombre"]." no encontrado o vacio en pagina: ".$_GET["pagina"]." / Contenido: ".$this->contcod." / Visualizacion: ".$this->visualizcod."<br>";
+						$seprodujoerror=true;
+					}
+				}
+				elseif($comando["Tipo"]=="Imagen")
+				{
+					if(isset($filacontenido[$comando["Nombre"]]))
+					{
+//						$salida.=str_replace(array(" ","ó","ñ"),array("%20","%F3","%F1"),htmlentities($filaimagen["imgubic"],ENT_QUOTES)); 
+						$salida.=FuncionesPHPPortal::ConvertirStringParaURL($filaimagen["imgubic"]); 
+					}
+					else
+					{
+						$this->msg_error.="Imagen ".$comando["Nombre"]." no encontrado o vacio en pagina: ".$_GET["pagina"]." / Contenido: ".$this->contcod." / Visualizacion: ".$this->visualizcod."<br>";
+						$seprodujoerror=true;
+					}
+				}
+				elseif($comando["Tipo"]=="cLinks")
+				{
+					$componente=new cLinks($this->conexionobjeto,$this->comentarios,$this->es_admin);
+					if($componente->Setear(array("contcod"=>$filacontenido["contcod"])))
+					{
+						if(!$componente->Mostrar($salida))
+							$seprodujoerror=true;
+					}
+					else
+						$seprodujoerror=true;
+					
+					$this->msg_error.=$componente->RetornarMsgError();
+					
+				}
+				elseif($comando["Tipo"]=="Parametro")
+				{
+					$paramvisualiz=array();
+					
+					if($this->parametros!="" && !is_null($this->parametros))
+					{			
+						if(!cSepararHTML::ProcesarParametros($this->parametros,$paramvisualiz))
+						{
+							$this->msg_error.="Error en los parámetros de una visualizacion. Contcod: ".$this->contcod." / Visualizcod: ".$this->visualizcod."<br>";
+							$seprodujoerror=true;
+						}
+					}
+
+					// Si el valor está seteado, imprimo ese, sino, imprimo el valor por default
+					if(isset($paramvisualiz[$comando["Nombre"]]))
+						$salida.=$paramvisualiz[$comando["Nombre"]]; 
+					else
+					{
+						if(isset($comando["Default"]))
+							$salida.=$comando["Default"]; 
+					}
+				}
+				else
+				{					
+					$this->msg_error.="Clase ".$comando["Tipo"]." no soportada en pagina: ".$_GET["pagina"]." / Contenido: ".$this->contcod." / Visualizacion: ".$this->visualizcod."<br>";
+					$seprodujoerror=true;
+				}
+			}
+			else
+				$salida.=$comando;
+		}
+
+		if($this->comentarios)
+			$salida.="<!-- /Visualiza: ".$this->visualizcod." Contcod: ".$this->contcod." -->\n";
+		
+		return !$seprodujoerror;
+	}
+
+	function RetornarMsgError()
+	{
+		return $this->msg_error;
+	}
+
+} // Fin clase cVisualizaContenido
+
+*/
+?>

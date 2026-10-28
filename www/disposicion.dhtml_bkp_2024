@@ -1,0 +1,341 @@
+<?php
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+//----------------------------------------------------------------------------------------- 	
+	function MostrarGrillaSeleccion($conexion,$modulo,$valor_buscado="") {
+
+		$ArregloDatos= array();
+		$ArregloDatos['orderby'] = "dis_fecha,dis_numero";
+		
+		$oDisposicion= new cDisposicion($conexion);
+		if ($valor_buscado!="") 
+			$ArregloDatos['dis_numero']=$valor_buscado;		
+			
+		if (!$oDisposicion->BuscarDisposicion($ArregloDatos,$numfilas,$result,$error,$errormail)) {
+			$txt_sys_mail="\nvalor_buscado_".$valor_buscado."\nerror=".$errormail;
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando datos a mostrar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;			
+		}			
+		
+		$opciones=array(
+			"numPagina"=>isset($_GET['pagina'])?$_GET['pagina']:1,
+			"NombrePaginaQuery"=>"pagina",
+			"FilasPagina"=>10
+		);
+		
+		if (isset($_GET['pagina']))	{
+			$querystring=FuncionesPHPLocal::ArmarQueryString("pagina","",false);	
+			$opciones['QueryString']=$querystring;
+		}
+		
+		$oGrilla = new cGrilla($opciones);
+
+		$oGrilla->SetearTituloGrilla('Disposiciones');	
+		$oGrilla->SetearAnchoGrilla('90%');
+		
+		$miColumna1 = $oGrilla->AddColumna('txt');
+		$oGrilla->Setear('titulo_columna',$miColumna1,'Disposición');
+		$oGrilla->Setear('campo_grilla',$miColumna1,'dis_numero');
+		$oGrilla->Setear('align_columna',$miColumna1,'left');
+
+		$miColumna4 = $oGrilla->AddColumna('popup');
+		$oGrilla->Setear('titulo_columna',$miColumna4,'Detalle');
+		$oGrilla->Setear('ancho_columna',$miColumna4,'60');
+		$oGrilla->Setear('align_columna',$miColumna4,'center');
+		$oGrilla->Setear('imagen',$miColumna4,'images/verdetalle.gif');
+		$oGrilla->Setear('altImagen',$miColumna4,'Ver detalle disposición');		
+		$oGrilla->Setear('url',$miColumna4,'disposicion_ver_detalle.dhtml');
+		$oGrilla->Setear('ventanaAnchoPopup',$miColumna4,'720');
+		$oGrilla->Setear('ventanaAltoPopup',$miColumna4,'450');
+		$oGrilla->Setear('ventanaVarxPopup',$miColumna4,'50');
+		$oGrilla->Setear('ventanaVaryPopup',$miColumna4,'50');
+		$oGrilla->AddParametrosURL($miColumna4,"dis_codigo",'dis_codigo');
+
+		$miColumna2 = $oGrilla->AddColumna('linkimg');
+		$oGrilla->Setear('titulo_columna',$miColumna2,'Editar');
+		$oGrilla->Setear('ancho_columna',$miColumna2,'60');
+		$oGrilla->Setear('align_columna',$miColumna2,'center');
+		$oGrilla->Setear('url',$miColumna2,$modulo);
+		$oGrilla->Setear('url_ancla',$miColumna2,'Edicion');
+		$oGrilla->Setear('imagen',$miColumna2,'images/editar.jpg');
+		$oGrilla->Setear('altImagen',$miColumna2,'Editar');						
+		$oGrilla->AddParametrosURL($miColumna2,"dis_codigo","dis_codigo");
+		$oGrilla->AddParametrosURL($miColumna2,"operacion","M","cte");
+		$oGrilla->AddParametrosURL($miColumna2,"pagina",$opciones["numPagina"],"cte");
+
+		$miColumna3 = $oGrilla->AddColumna('linkimg');
+		$oGrilla->Setear('titulo_columna',$miColumna3,'Eliminar');
+		$oGrilla->Setear('ancho_columna',$miColumna3,'60');
+		$oGrilla->Setear('align_columna',$miColumna3,'center');
+		$oGrilla->Setear('url',$miColumna3,$modulo);
+		$oGrilla->Setear('url_ancla',$miColumna3,'Edicion');
+		$oGrilla->Setear('imagen',$miColumna3,'images/borrar.jpg');
+		$oGrilla->Setear('altImagen',$miColumna3,'Eliminar');
+		$oGrilla->AddParametrosURL($miColumna3,"dis_codigo","dis_codigo");
+		$oGrilla->AddParametrosURL($miColumna3,"operacion","B","cte");
+		$oGrilla->AddParametrosURL($miColumna3,"pagina",$opciones["numPagina"],"cte");
+
+
+		if (!$oGrilla->CargarGrilla($result))
+			return false;
+			
+		$oGrilla->MostrarGrilla();
+
+		return true;
+	} 		
+//--------------------------------------------------------------------------------------------------
+$oDisposicion= new cDisposicion($conexion);
+?>
+<script type="text/javascript">
+	<?php $oDisposicion->ValidarFormAltaDisposicion(); ?>
+</script>
+
+<script type="text/javascript" src="calendar/calendar.js"></script>
+<script type="text/javascript" src="calendar/calendar-setup.js"></script>
+<script type="text/javascript" src="calendar/calendar-es.js"></script>
+<?php
+
+$modulo_recarga= "disposicion.dhtml";
+if (!isset($_POST['buscado']) && !isset($_GET['pagina']) )
+	$_SESSION['array_busqueda_tabla']['valor_buscado']="";
+
+$result = true;
+//--------------------------------------------------------------------------------------------------
+// Se confirmo la operacion 
+//--------------------------------------------------------------
+if (isset($_POST['boton_confirma'])) {
+
+	$commit=true;
+	$conexion->ManejoTransacciones("B");
+
+	// Alta - Baja - Modificación
+	if ($commit) {
+
+		switch($_POST['operacion']) {
+		case 'I': 	
+			if ($oDisposicion->AltaDatosDisposicion($_POST)) {
+				$nuevocodigo=$conexion->UltimoCodigoInsertado();
+				FuncionesPHPLocal::RegistrarAcceso($conexion,"39701","dis_codigo=".$nuevocodigo,$_SESSION['usuariocod']);
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se ha insertado el Disposicion número: ".$_POST['dis_numero'],array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} else  //  Cualquier error es informado en AltaDisposicion
+				$commit=false;
+
+			break;	
+			
+		case 'M': 
+			if ($oDisposicion->ModifDatosDisposicion($_POST)) {
+				FuncionesPHPLocal::RegistrarAcceso($conexion,"39703","dis_codigo=".$_POST['dis_codigo'],$_SESSION['usuariocod']);
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se ha actualizado la disposición número: ".$_POST['dis_numero'],array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} else //  Cualquier error es informado en ModifDisposicion
+				$commit=false;
+
+			break;	
+
+		case 'B': 
+			if ($oDisposicion->EliminarDatosDisposicion($_POST['dis_codigo'])) {			
+				FuncionesPHPLocal::RegistrarAcceso($conexion,"39602","dis_codigo=".$_POST['dis_codigo'],$_SESSION['usuariocod']);	
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se ha eliminado la disposición número: ".$_POST['dis_numero'],array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} else //  Cualquier error es informado en BorrarDisposicion
+				$commit=false;
+			break;	
+
+		default: 
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error en la operación",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				$commit=false;
+		} // $switch
+		
+		if($commit)
+			$conexion->ManejoTransacciones("C");
+		else
+			$conexion->ManejoTransacciones("R");
+	}	// commit
+} // seteado el confirma 
+
+//------------------------------------------------------------
+// Inicio de pantalla
+//------------------------------------------------------------
+// Se define la acción
+if (!isset($_GET['operacion'])) {
+	$leyenda_operacion = "Agregar";
+	$boton_operacion = "Agregar";		
+	$operacion = "I";
+} else {
+	switch ($_GET['operacion']) {		
+	case "M" :
+			$leyenda_operacion = "Actualizar";		
+			$boton_operacion = "Actualizar";		
+			$operacion = "M";				
+			break;
+	case "B" :
+			$leyenda_operacion = "Eliminar";		
+			$boton_operacion = "Eliminar";		
+			$operacion = "B";				
+			break;
+	default:
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error de operación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		$result=false;
+	}
+}
+//------- GRILLA VALORES A MODIFICAR 
+if ($result)  { 
+
+	if (isset($_POST['buscado']))
+		$_SESSION['array_busqueda_tabla']['valor_buscado']=trim($_POST['buscado']);
+			
+	if (!isset($_SESSION['array_busqueda_tabla']['valor_buscado'])) 
+		$_SESSION['array_busqueda_tabla']['valor_buscado']=""; 
+?>
+
+	<table width="100%" class="textoTablaDato">
+	   <tr> 
+		   <td align="center">
+				<form action="<?php echo $modulo_recarga ?>" method="post" name="formulario_buscar">
+					<table cellpadding="0" cellspacing="0" width="90%" >
+					<tr> 
+		   				<td align="left" width="60%">
+							<input name="buscado"  type="text" size="45" maxlength="30" value ="<?php echo $_SESSION['array_busqueda_tabla']['valor_buscado'] ?>">  
+						</td>	
+						<td align="left">
+							<input type="submit" name="boton_buscar" value="Buscar" class="botones" />
+						</td>	
+					</tr>
+					<tr> 
+						<td colspan="2" align="left">
+							<span class="textoAclaraciones">Nota: Para filtrar los datos mostrados, ingrese el valor a buscar. </span>
+						</td>	
+					</tr>
+
+				</table>
+			</form>
+			</td>	
+		</tr>		
+		<tr> 
+			<td>&nbsp;</td>	
+		</tr>		
+		<tr> 
+			<td align="center">									
+<?php				if (!MostrarGrillaSeleccion($conexion,$modulo_recarga,$_SESSION['array_busqueda_tabla']['valor_buscado']))
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar datos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+?>			</td>
+		</tr>	
+	</table>
+	<br>
+<?php	}
+
+//------- DATOS DE UN REGISTRO
+if ($result) { 	
+
+	$fila_disposicion=array();						//  NUEVO
+	$es_modif=false;
+	
+	if ($operacion == "I")
+		$fila_disposicion['dis_codigo']="";
+		
+	if ($operacion == "M" || $operacion == "B") {	// BAJA o MODIFICACION (tiene los mismos permisos de acceso)
+		if ($oDisposicion->TienePermisoModificar($_GET['dis_codigo'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap'])) {
+			// Datos para la seleccion de un registro por su clave.
+			if (!$oDisposicion->TraerDatosDisposicion(isset($_GET['dis_codigo'])?$_GET['dis_codigo']:"",$fila_disposicion,$es_modif)) {
+				$txt_sys_mail="\ndis_codigo=".$_GET['dis_codigo'];
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando datos de la tabla disposiciones.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				$result=false;
+			} else 
+				$numfilas=count($fila_disposicion);		
+	
+			if ($numfilas==0)  {
+				$txt_sys_mail="\ndis_codigo=".$_GET['dis_codigo']."\nnumfilas=".$numfilas;
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando datos, no existe el valor buscado.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				$result=false;
+			} 	
+ 		} else 
+			$result=false;				
+	} // Obtencion de datos 
+	
+	if ( $result ) {  
+	?>
+	<a name="Edicion"></a>
+	<table width="90%"  align="center" cellspacing="0" cellpadding="0">			
+		<!-- DATOS A MODIFICAR -->
+		<tr> 
+			<td>
+				<fieldset class="bordeDetalleRegistro">
+				<legend class="textoLeyendaDetalleRegistro">  Detalle del Registro  ( <?php echo $leyenda_operacion ?>  )</legend>
+				<form action="<?php echo $modulo_recarga ?>" method="post" name="formulario">
+				<table width="100%" class="textoTablaDato" cellpadding="2" cellspacing="0">
+						<tr>
+							<td valign="top" class="textoEtiqueta">Número</td>
+							<td class="textoEtiquetaDatoResaltado">	
+								<?php 	$codigo_unico = ($operacion == "M" || $operacion == "B")?$fila_disposicion['dis_codigo']:"0"; ?>
+									<input type="text" name="dis_numero" id="dis_numero" class=<?php echo ($operacion=="B")?"'inputReadonly' readonly='true'":"'textoInput'"; ?> size="21" maxlength="20" value="<?php echo ($operacion == "M" || $operacion == "B")?htmlspecialchars($fila_disposicion['dis_numero'],ENT_QUOTES):""; ?>">
+									&nbsp;
+								<?php if ($operacion!="B") { ;?>	
+									<input type="button" class="botones" value ="Verifique Existencia" onclick="<?php echo "javascript:VerificarExistenciaDisposicion(formulario,formulario.dis_numero.value,".$codigo_unico.");"; ?>">
+								<?php } ?>
+
+							</td>							
+						</tr> 
+						
+						<tr>
+							<td valign="middle" class="textoEtiqueta">Fecha</td>
+							<td class="textoEtiquetaDatoResaltado">	
+							<?php 	if ($operacion == "B") { ; 
+									echo  FuncionesPHPLocal::ConvertirFecha($fila_disposicion["dis_fecha"],'aaaa-mm-dd','dd/mm/aaaa');
+								} else { ?>
+									<input type="text" name="dis_fecha" id="dis_fecha"   maxlength="10" size="11" <?php echo ($operacion == "B")?' class="inputReadonly" readonly ':' class="textoInput" ' ?>  value="<?php echo ($operacion!="I")? FuncionesPHPLocal::ConvertirFecha($fila_disposicion["dis_fecha"],'aaaa-mm-dd','dd/mm/aaaa'):"" ?>"> 
+									<img src="images/calendario.gif" id="cal-button-2" name="cal-button-2" style="vertical-align:-4px; cursor:pointer" border="0" alt="Calendario">
+									<script type="text/javascript">
+										Calendar.setup({
+		<?php								if ($operacion!="I")	{
+		?>									  date    : "<?php echo  FuncionesPHPLocal::ConvertirFecha($fila_disposicion["dis_fecha"],'aaaa-mm-dd','dd/mm/aaaa') ?>",
+		<?php								}		?>				
+										range		  : [<?php echo ANOINICALINAP ?>,<?php echo date("Y") ?>],
+										inputField    : "dis_fecha",
+										button        : "cal-button-2",
+										ifFormat	: "%d/%m/%Y"
+										});
+									</script>
+								  <span class="textoAclaraciones">(dd/mm/aaaa)</span>
+								  <div style='font-size: 7px;'>&nbsp;</div>
+							<?php } ?>
+							</td>							
+						</tr> 
+						<tr>
+							<td valign="top" class="textoEtiqueta">Observación </td>
+							<td class="textoEtiquetaDatoResaltado">	
+								<textarea cols="100" rows="5"  name="dis_obs" id="dis_obs" class=<?php echo ($operacion=="B")?"'inputReadonly' readonly='true'":"'textoInput'" ?>  style="width:350px" ><?php echo ($operacion!="I")?htmlspecialchars($fila_disposicion['dis_obs'],ENT_QUOTES):"" ?></textarea>
+							</td>							
+						</tr> 
+						<tr>
+							<td colspan="2" align="center">
+								<input type="submit" name="boton_confirma" value="<?php echo $boton_operacion; ?>" onClick="return ValidarFormAltaDisposicion(formulario,'<?php echo $operacion ?>');" class="botones" />
+								<input type="submit" name="boton_cancela" value="Cancelar" class="botones" />
+								<input type="hidden" name="operacion" id="operacion" value="<?php echo $operacion;?>" />
+								<input type="hidden" name="dis_codigo" id="dis_codigo" value="<?php echo (isset($fila_disposicion['dis_codigo']))?$fila_disposicion['dis_codigo']:"" ?>" />				  
+							</td>
+						</tr>					
+				</table>
+				</form>
+				</fieldset> 	
+			</td>
+			</tr>
+		</table>
+<?php	} // 
+} //  
+$oEncabezados->PieMenuEmergente(); 
+?>

@@ -1,0 +1,56 @@
+<?php 
+require('./include.dhtml');
+header('Content-Type: text/html; charset=utf-8');
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+echo "//tienepermisos\n";
+echo "error='";
+//----------------------------------------------------------------------------------------- 
+	$tipoorg_codigo="";
+	$jurisdid="";
+	
+	if (isset ($_GET['tipoorg_codigo']))
+		$tipoorg_codigo=$_GET['tipoorg_codigo'];
+
+	if (isset ($_GET['jurisdid']))
+		$jurisdid=$_GET['jurisdid'];
+
+	$ok=0;
+
+	switch ($tipoorg_codigo) {
+	
+		case ORGANISMO_APN :
+			$jurisdid_apn = $jurisdid;
+			$orgapub_codigo = NULL;				
+			break;
+
+		case ORGANISMO_NO_APN :
+			$jurisdid_apn = NULL;
+			$orgapub_codigo = $jurisdid;				
+			break;
+	}
+	$oActividad = new cActividad($conexion);
+	if ($oActividad->ObtenerOrganismoInstitucion(NULL, $jurisdid_apn, $orgapub_codigo, $jurisdnom, $sector_org, $tipoorg_codigo, $jurisdid_campo, false, false))
+		$ok = 1;
+
+	if ($jurisdnom == "") 
+		$jurisdnom = "Organismo Inexistente";
+
+echo "'\n";
+echo "ejecutook=".$ok;
+echo "\n";
+echo "var jurisdnom_ajax = '".$jurisdnom."'";
+echo "\n";
+?>

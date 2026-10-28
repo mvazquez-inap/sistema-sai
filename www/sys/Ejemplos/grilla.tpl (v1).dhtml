@@ -1,0 +1,160 @@
+<div align="center">
+<table width="<?php $this->_($this->ancho)?>" class="textoTablaDato" border="0" cellpadding="0" cellspacing="0" align="center">
+	<tr>
+	    <td class='textoTitulosGrilla' align="left">
+			<?php  $this->_($this->TituloListado)  ?>
+		</td>
+	</tr>
+</table>
+<table width="<?php  $this->_($this->ancho) ?>" class="textoTablaDato" border="1" cellpadding="1" cellspacing="1" align="center">
+	<tr class='colorTitulosGrupo textoTituloGrupo'>
+	<?php foreach ($this->columnas as $row) { ?>
+		<td align="center" <?php if (isset ($row['ancho_columna'])) echo "width='".$row['ancho_columna']."'"?>>
+			<?php $this->_($row["titulo_columna"]); ?>
+		</td>
+	<?php } ?>
+	</tr>
+	
+	<?php 
+	foreach ($this->result as $row_dato) { 
+	?>
+	<tr>
+		<?php foreach ($this->columnas as $row_columna) {	?>
+			<td align="<?php echo (isset ($row_columna['align_columna']))?$row_columna['align_columna']:'center'?>" >
+
+			<?php 
+			// NUEVO
+				if ( !isset($row_columna['condicion_visualizar_columna']) || call_user_func($row_columna['condicion_visualizar_columna'], $row_dato ) ) {
+
+			
+					switch ($row_columna["tipo"]) {
+
+					case "txt" : 
+						$this->_($row_dato[$row_columna["campo_grilla"]]); 
+						break;
+						
+					case "link":
+						
+						//define el enlace url
+						$enlace = $row_columna["url"];
+						$primero = true;
+						foreach ($row_columna["parametros"] as $parametro) {
+							$enlace .= (($primero)?"?":"&amp;").$parametro["para_nombre"]."=";
+							$enlace .= ($parametro["para_tipo"]=="cte")?$parametro["para_dato"]:$row_dato[$parametro["para_dato"]];
+							$primero = false;
+						}
+
+						//define la leyenda del enlace								
+						if ($row_columna["leyenda_param"]["tipo_param"] == "cte" )
+							$leyenda = $row_columna["leyenda_param"]["valor"];							
+						else 
+							$leyenda = $row_dato[$row_columna["leyenda_param"]["valor"]];															
+					
+					?> <a href="<?php echo $enlace ?>"><?php echo $leyenda?></a><?php
+					
+						break;	
+					
+					case "linkimg" :
+					
+						//define el enlace url de la imagen
+						$enlace = $row_columna["url"];
+						$primero = true;
+						foreach ($row_columna["parametros"] as $parametro) {
+							$enlace .= (($primero)?"?":"&amp;").$parametro["para_nombre"]."=";
+							$enlace .= ($parametro["para_tipo"]=="cte")?$parametro["para_dato"]:$row_dato[$parametro["para_dato"]];
+							$primero = false;
+						}
+
+						//define la imagen
+						$imagen = $row_columna["imagen"];
+
+						?>
+						<a href="<?php echo $enlace ?>"> 
+							<img src="<?php echo $imagen ?>" alt="<?php echo $row_columna["altImagen"]?>" border="0" />
+						</a>
+						<?php
+					
+						break;
+
+					case "addValor" :
+					
+						// Es un único parametro						
+						foreach ($row_columna["parametros"] as $parametro) {
+							if ($parametro["para_tipo"]=="cte") 
+								$codigo=$parametro["para_dato"];	
+							else 
+								$codigo=$row_dato[$parametro["para_dato"]];
+						}
+
+						//define la imagen
+						$imagen = $row_columna["imagen"];
+						
+						if (isset($row_columna["documentAddValor"]))
+							$ventana=$row_columna["documentAddValor"];
+						else
+							$ventana='window.opener.document';
+	
+						$accion_submit="";
+						if ( isset($row_columna["submitAddValor"]) && ($row_columna["submitAddValor"]=='si'))
+							$accion_submit = $ventana.".".$row_columna["nombreFormularioSubmitAddValor"].".submit()";
+					 ?>	
+						<a href=javascript:void(0) onClick="addValorPopup(<?php echo $ventana ?>,'<?php echo $row_columna["idtextboxAddValor"] ?>', '<?php echo $codigo ?>', '<?php echo isset($row_columna["nombreContenidoAddValor"])?$row_columna["nombreContenidoAddValor"]:""  ?>','<?php  echo isset($row_columna["idtextoContenidoAddValor"])?$row_columna["idtextoContenidoAddValor"]:"" ?>');<?php echo $accion_submit ?>;window.close();"> 
+							<img src="<?php echo $imagen ?>" alt="<?php echo $row_columna["altImagen"]?>" border="0" />
+						</a>
+					<?php
+						break;
+
+
+					case "popup" :
+
+						// Se podría parametrizar más
+						$enlace = $row_columna["url"];
+						$primero = true;
+						foreach ($row_columna["parametros"] as $parametro) {
+							$enlace .= (($primero)?"?":"&amp;").$parametro["para_nombre"]."=".$row_dato[$parametro["para_dato"]];
+							$primero = false;
+						}
+						
+						//define la leyenda del enlace								
+						if ($row_columna["leyenda_param"]["tipo_param"] == "cte" )
+							$leyenda = $row_columna["leyenda_param"]["valor"];							
+						else 
+							$leyenda = $row_dato[$row_columna["leyenda_param"]["valor"]];															
+						
+						?>
+						<a href=javascript:void(0) onClick="Popup('<?php echo $enlace ?>','ventana_descripciones',430,360,screen.availWidth-450,screen.availHeight-420,'yes');"> 
+							<?php echo $leyenda ?>
+						</a>
+						<?php							
+					}
+					
+					
+// NUEVO					
+					}		//	if ( call_user_func($row_columna['condicion_visualizar_columna'], $row_dato ) {
+			
+					?>							
+					
+					
+					
+					
+			</td>
+		<?php } ?>
+	</tr>
+	<?php } ?>
+</table>
+<table width="<?php $this->_($this->ancho)?>" class="textoTablaDato" border="0" cellpadding="0" cellspacing="0" align="center">
+	<tr>
+		<td class='colorTitulosGrupo textoTituloGrupo'>
+<?php 		// Si la cantidad de filas por página hace necesaria la botonera, la muestro sino no. 
+		// Nota: para que no se muestre enviar en filas por pagina la cantidad de registros a mostrar
+		if (($this->DeshabilitarBtsAdelante!="disabled") || ($this->DeshabilitarBtsAtras!="disabled")) { ?>		
+			<table align="right"  border="0" cellpadding="0" class="colorTitulosGrupo textoTituloGrupo"> 
+				<tr align="left">
+					<td> <?php	include $this->loadTemplate('templates/rpt_botones.tpl.dhtml'); ?> </td> 
+				</tr>
+			</table>
+<?php 		} ?>
+		</td>
+	</tr>
+</table>
+</div>

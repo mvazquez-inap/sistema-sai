@@ -1,0 +1,54 @@
+<?php
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+//----------------------------------------------------------------------------------------- 	
+$oPocActividadActividad = new cPocActividadActividad($conexion);				
+
+$conexion->ManejoTransacciones("B");
+
+if($oPocActividadActividad->EvaluarPocActividadActividad($_POST)) {
+
+	$operacion_mensaje = "Confirmación / Fin de Carga";			
+	$asunto = SISTEMA." - Confirmación de Fin Carga de Actividad Curso - Actividad POC";
+	$oPocActividadActividad->ArmarMensajeEvaluar($_POST,$_POST['operacion'],$mensaje); 
+	
+	if (FuncionesPHPLocal::MandarMail($conexion,COORDINADORTECNICO,$_SESSION['jurisdid_inap'],$asunto,$mensaje) || FuncionesPHPLocal::MandarMail($conexion,USUORGANISMO,$_SESSION['jurisdid_inap'],$asunto,$mensaje) ) 
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"En unos momentos el Coordinador Técnico / Usuarios del Organismo <br> recibirán un correo electrónico con el resultado de su evaluación de carga.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+	else 
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"El correo electrónico con la evaluación de carga no fue enviado, <BR> notifique la solicitud al Coordinador Técnico / Usuarios del Organismo por otra via.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+
+	if ($_POST['operacion']=="A") {
+		FuncionesPHPLocal::RegistrarAcceso($conexion,"37404","\npocact_codigo=".$_POST['poc_codigo']."\nact_codigo=".$_POST['act_codigo'],$_SESSION['usuariocod']);
+	} else  {
+		FuncionesPHPLocal::RegistrarAcceso($conexion,"37405","\npocact_codigo=".$_POST['poc_codigo']."\nact_codigo=".$_POST['act_codigo'],$_SESSION['usuariocod']);
+	}
+	FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se ha confirmado el fin de la carga de las asociaciones <br> de la Actividad Curso - Actividad POC.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+
+	$conexion->ManejoTransacciones("C");
+
+}  else {
+
+	$conexion->ManejoTransacciones("R");
+}
+?>
+
+<br><div align="center"><a href="poc_act_act_evaluar.dhtml" class="linkFondoBlanco">Volver</a></div>
+
+<?php $oEncabezados->PieMenuEmergente(); ?>

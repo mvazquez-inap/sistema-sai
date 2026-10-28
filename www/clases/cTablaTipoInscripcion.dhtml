@@ -1,0 +1,21 @@
+<?php class cTablaTipoInscripcion extends cTablaSysDesc {
+
+	public function __construct($conexion) {
+		
+		$array_campos=array('clave'=> 'tipoins_codigo',
+							'estado'=>'tipoins_estado',
+							'descripcion'=>array('nombre_campo'=>'tipoins_descripcion', 'long_campo'=>40 ,'titulo_campo'=>'Tipo Inscripción'),
+							'fecha_alta'=>'tipoins_falta',
+							'fecha_baja'=>'tipoins_fbaja');
+
+		parent::__construct($conexion,"tipo_inscripcion",$array_campos);
+		$this->SetearTituloTabla('Tipo de Inscripción de la comisión');
+	
+		// Array con los cógigos de operaciones a ser registradas
+		$array_log=array('ins'=>'35301', 'upd'=>'35303', 'del'=>'35302','chg_estado'=>'35304');
+		$this->SetearLogs($array_log);
+
+		// Array con las tablas en las que se busca para determinar si la baja es física o lógica.
+		$this->SetearTablasTipoBaja(array(array('nom_tabla'=>'comision','campo_tabla'=>'tipoins_codigo')));
+	}		
+} ?>

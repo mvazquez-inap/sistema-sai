@@ -1,0 +1,27 @@
+!.gitignore
+
+Thumbs.db
+.DS_Store
+.Trashes
+
+# Old Subversion checkouts still contain credential copies.
+.svn/
+
+docker/mariadb/data/*
+
+# Environments
+.env
+.envrc
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+.vim
+coc-settings.json
+.vscode
+
+
+

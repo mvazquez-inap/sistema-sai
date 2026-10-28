@@ -1,0 +1,7 @@
+[mysqld]
+bind-address=0.0.0.0
+socket=/var/run/mysqld/mysqld.sock
+
+[client]
+socket=/var/run/mysqld/mysqld.sock
+protocol=tcp

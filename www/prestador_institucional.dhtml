@@ -1,0 +1,336 @@
+<?php
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+
+$oProvincia = new cProvincias($conexion);
+
+//----------------------------------------------------------------------------------------- 	
+// Funciones para definir 
+//--------------------------------------------------------------------------------------------------
+$oPrestadorInstitucional = new cPrestadorInstitucional($conexion);
+
+$modulo_recarga= "prestador_institucional.dhtml";
+$result = true;
+//--------------------------------------------------------------------------------------------------
+// Se confirmo la operacion 
+//--------------------------------------------------------------
+if (isset($_POST['boton_confirma'])) {
+
+	$commit=true;
+	$conexion->ManejoTransacciones("B");
+
+	// Alta - Baja - Modificación
+	if ($commit) {
+
+		switch($_POST['operacion']) {
+
+		case 'I': 	
+			if ($oPrestadorInstitucional->AltaPrestadorInstitucional($_POST)) {
+				$nuevocodigo=$conexion->UltimoCodigoInsertado();
+				FuncionesPHPLocal::RegistrarAcceso($conexion,"36001","presint_cod=".$nuevocodigo,$_SESSION['usuariocod']);
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se ha dado de Alta el Prestador Institucional ".$_POST['presins_nombre'].".",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} else  //  Cualquier error es informado en AltaSysTabla
+				$commit=false;
+
+			break;	
+			
+		case 'M': 
+			if ($oPrestadorInstitucional->ModifDatosPrestadorInstitucional($_POST)) {
+				FuncionesPHPLocal::RegistrarAcceso($conexion,"36003","presint_cod=".$_POST['presins_codigo'],$_SESSION['usuariocod']);
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se han modificado los datos del Prestador Institucional ".$_POST['presins_nombre'].".",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} else //  Cualquier error es informado en ModificarSysTabla
+				$commit=false;
+
+			break;	
+
+		case 'B': 
+
+			if ($oPrestadorInstitucional->EliminarDatosPrestadorInstitucional($_POST['presins_codigo'],$codlogbaja)) {			
+				FuncionesPHPLocal::RegistrarAcceso($conexion,$codlogbaja,"presint_cod=".$_POST['presins_codigo'],$_SESSION['usuariocod']);
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se ha dado de Baja el Prestador Institucional ".$_POST['presins_nombre'].".",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} else //  Cualquier error es informado en BorrarSysTabla
+				$commit=false;
+			break;	
+
+		default: 
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error operación",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				$commit=false;
+		} // $switch
+		
+		if($commit)
+			$conexion->ManejoTransacciones("C");
+		else
+			$conexion->ManejoTransacciones("R");
+	}	// commit
+} // seteado el confirma 
+
+//------------------------------------------------------------
+// Inicio de pantalla
+//------------------------------------------------------------
+// Se define la acción
+if (!isset($_GET['operacion'])) {
+	$leyenda_operacion = "Agregar";
+	$boton_operacion = "Agregar";		
+	$operacion = "I";
+} else {
+	switch ($_GET['operacion']) {		
+	case "M" :
+			$leyenda_operacion = "Actualizar";		
+			$boton_operacion = "Actualizar";		
+			$operacion = "M";				
+			break;
+	case "B" :
+			$leyenda_operacion = "Eliminar";		
+			$boton_operacion = "Eliminar";		
+			$operacion = "B";				
+			break;
+	default:
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error de operación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		$result=false;
+	}
+}
+?>
+<script type="text/javascript">
+	<?php $oPrestadorInstitucional->ValidarFormAltaPrestadorInstitucional(); ?>
+</script>
+<?php
+
+//------- GRILLA VALORES A MODIFICAR 
+if ($result)  { ?>
+	<div align="right" style="width:95%">
+			<a href="download_tablas_excel.dhtml?tabla=prestador_institucional"  class="linkFondoBlanco textoAclaraciones"> 
+				<img alt="Bajar en Formato .xls" title="Bajar en Formato .xls" src="./images/iconoexcel.jpg" border="0">
+			</a>
+	</div>
+	<table width="100%" class="textoTablaDato">
+		<tr> 
+			<td> <?php
+					if(!$conexion->ejecutarStoredProcedure("sel_prestador_institucional_xestado",array('ppresins_estado'=>ESTADOACTIVO,"porderby"=>"presins_nombre"),$result,$numfilas,$errno))	{
+						FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar los prestadores institucionales. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+						$error=true;					
+					} else {
+						$opciones=array(
+							"numPagina"=>isset($_GET['paginaG1'])?$_GET['paginaG1']:1,
+							"FilasPagina"=>$numfilas,
+							"NombrePaginaQuery"=>"paginaG1"
+						);
+						
+						if (isset($_GET['paginaG1']))	{
+							$querystring=FuncionesPHPLocal::ArmarQueryString("paginaG1","",false);
+							$opciones['QueryString']=$querystring;
+						}
+						
+						$oGrilla = new cGrilla($opciones);
+						$oGrilla->SetearTituloGrilla('Prestadores Institucionales: ');
+						$oGrilla->SetearAnchoGrilla('90%');
+						
+						$miColumna1 = $oGrilla->AddColumna('txt');
+						$oGrilla->Setear('titulo_columna',$miColumna1,'Nombre');
+						$oGrilla->Setear('campo_grilla',$miColumna1,'presins_nombre');
+						$oGrilla->Setear('align_columna',$miColumna1,'left');
+		
+						$miColumna2 = $oGrilla->AddColumna('linkimg');
+						$oGrilla->Setear('titulo_columna',$miColumna2,'Editar');
+						$oGrilla->Setear('ancho_columna',$miColumna2,'60');
+						$oGrilla->Setear('url',$miColumna2,'prestador_institucional.dhtml');
+						$oGrilla->Setear('imagen',$miColumna2,'images/editar.jpg');
+						$oGrilla->Setear('altImagen',$miColumna2,'Editar');						
+						$oGrilla->AddParametrosURL($miColumna2,"presins_codigo","presins_codigo");
+						$oGrilla->AddParametrosURL($miColumna2,"operacion","M","cte");
+		
+						$miColumna3 = $oGrilla->AddColumna('linkimg');
+						$oGrilla->Setear('titulo_columna',$miColumna3,'Eliminar');
+						$oGrilla->Setear('ancho_columna',$miColumna3,'60');
+						$oGrilla->Setear('url',$miColumna3,'prestador_institucional.dhtml');
+						$oGrilla->Setear('imagen',$miColumna3,'images/borrar.jpg');
+						$oGrilla->Setear('altImagen',$miColumna3,'Eliminar');
+						$oGrilla->AddParametrosURL($miColumna3,"presins_codigo","presins_codigo");
+						$oGrilla->AddParametrosURL($miColumna3,"operacion","B","cte");
+		
+						if ($oGrilla->CargarGrilla($result)) {
+							$oGrilla->MostrarGrilla();					
+						} else {
+							$error=true;					
+							$txt_sys_mail = "Error Grilla='".$oGrilla->GetError();
+							FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al mostrar prestador institucional.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+						}		
+				}		
+	?>
+			</td>
+		</tr>	
+	</table>	<br>
+<?php	}
+
+
+//------- DATOS DE UN REGISTRO
+if ($result) { 	
+
+	$fila_tabla=array();						//  NUEVO
+
+	$es_modif = false;	
+	if ($operacion == "M" || $operacion == "B") {	// BAJA o MODIFICACION
+
+		// Datos para la seleccion de un registro por su clave.
+		if(!$oPrestadorInstitucional->TraerDatosPrestadorInstitucional($_GET['presins_codigo'],$datospresins,$es_modif)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_OK,"El código no corresponde a una institución prestadora.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			?><br><br><br><div align="center"><a href="agente_modificar.dhtml" class="linkFondoBlanco">Volver</a></div><?php
+			$esta_ok=false;
+		} else {	
+			if ($datospresins['presins_estado'] == ESTADOBAJA) {
+				$error="La institución prestadora encuentra dada de baja.<br>Deber&aacute; rehabilitar a la institución prestadora.";
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			?><br><br><br><div align="center"><a href="agente_modificar.dhtml" class="linkFondoBlanco">Volver</a></div><?php
+				$esta_ok = false;
+			}	
+		}
+
+	} // Obtencion de datos 
+	
+	if ( $result ) {  ?>
+	<table width="80%"  border="0" align="center" cellspacing="0" cellpadding="0">			
+		<!-- DATOS A MODIFICAR -->
+		<tr> 
+			<td>
+				<fieldset class="bordeDetalleRegistro">
+				<legend class="textoLeyendaDetalleRegistro">  Detalle del Registro  ( <?php echo $leyenda_operacion ?>  )</legend>
+				<form action="<?php echo $modulo_recarga; ?>" method="post" name="formulario">
+				<table width="100%" class="textoTablaDato" cellpadding="2" cellspacing="0">
+						<tr>
+							<td valign="top" class="textoEtiqueta">Nombre</td>
+						  <td class="textoEtiquetaDatoResaltado">	
+								 <textarea cols="100"  name="presins_nombre"  style="width:400px" <?php echo ($operacion == "B")?' class="inputReadonly" readonly ':' class="textoInput" '?>><?php if($operacion == "M" || $operacion == "B") echo htmlspecialchars($datospresins['presins_nombre'],ENT_QUOTES) ?></textarea>
+<?php								if($operacion == "M" || $operacion == "I") { ?>
+									<br>
+									<span class="textoAclaraciones">Nota: La longitud del nombre debe ser menor a 255 caracteres. </span>
+<?php								} 
+							?>							</td>
+						</tr> 
+						<tr>
+							<td valign="top" class="textoEtiqueta">Sede</td>
+						  <td class="textoEtiquetaDatoResaltado">	
+								 <textarea cols="100"  name="presins_sede"  style="width:400px" <?php echo ($operacion == "B")?' class="inputReadonly" readonly ':' class="textoInput" '?>><?php if($operacion == "M" || $operacion == "B") echo htmlspecialchars($datospresins['presins_sede'],ENT_QUOTES) ?></textarea>
+<?php								if($operacion == "M" || $operacion == "I") { ?>
+									<br>
+									<span class="textoAclaraciones">Nota: La longitud de la sede debe ser menor a 255 caracteres. </span>
+<?php								} 
+							?>							</td>
+						</tr> 
+
+						<tr>
+							<td valign="top" colspan="2">&nbsp; </td>
+						</tr>
+						<tr>
+							<td valign="top" colspan="2" class="textoTitulo">Datos del Representante Académico</td>
+						</tr>
+						<tr>
+							<td valign="top" colspan="2">&nbsp; </td>
+						</tr>
+						<tr>
+							<td valign="top" class="textoEtiqueta">Apellido</td>
+							<td class="textoEtiquetaDatoResaltado">	
+								<input name="presins_ra_apellido"  size="31"  <?php echo ($operacion == "B")?' class="inputReadonly" readonly ':' class="textoInput" '?> maxlength="30" value="<?php if($operacion == "M" || $operacion == "B") echo htmlspecialchars($datospresins['presins_ra_apellido'],ENT_QUOTES) ?>" />
+							</td>
+						</tr> 
+						<tr>
+							<td valign="top" class="textoEtiqueta">Nombre</td>
+							<td class="textoEtiquetaDatoResaltado">	
+								<input name="presins_ra_nombre"  size="31" <?php echo ($operacion == "B")?' class="inputReadonly" readonly ':' class="textoInput" '?> maxlength="30" value="<?php if($operacion == "M" || $operacion == "B") echo htmlspecialchars($datospresins['presins_ra_nombre'],ENT_QUOTES) ?>" />
+							</td>
+						</tr> 
+
+						<tr>
+							<td valign="top" class="textoEtiqueta">Domicilio</td>
+						  <td class="textoEtiquetaDatoResaltado">	
+								 <textarea cols="100"  name="presins_ra_domicilio"  style="width:400px" <?php echo ($operacion == "B")?' class="inputReadonly" readonly ':' class="textoInput" '?>><?php if($operacion == "M" || $operacion == "B") echo htmlspecialchars($datospresins['presins_ra_domicilio'],ENT_QUOTES) ?></textarea>
+<?php								if($operacion == "M" || $operacion == "I") { ?>
+									<br>
+									<span class="textoAclaraciones">Nota: La longitud del domicilio debe ser menor a 150 caracteres. </span>
+<?php								} 
+							?>							</td>
+						</tr> 
+
+						<tr>
+							<td valign="top" class="textoEtiqueta">Código Postal</td>
+							<td class="textoEtiquetaDatoResaltado">	
+								<input name="presins_ra_cp"  size="12"  <?php echo ($operacion == "B")?' class="inputReadonly" readonly ':' class="textoInput" '?> maxlength="10" value="<?php if($operacion == "M" || $operacion == "B") echo htmlspecialchars($datospresins['presins_ra_cp'],ENT_QUOTES) ?>" />
+							</td>
+						</tr> 
+						
+						<tr>
+							<td valign="top"  width="25%"  class="textoEtiqueta">Provincia</td>
+							<td class="textoEtiquetaDatoResaltado">	
+							
+							<?php 	$oprovincia = new cProvincias($conexion);
+
+								if ($operacion == "B") {
+										$oprovincia->TraerDatosProvincia($datospresins['presins_ra_prov_codigo'],$provincianom);
+										echo htmlspecialchars($provincianom,ENT_QUOTES);
+								} else {						
+									$oprovincia->ProvinciasSP($spnombre,$spparam);
+									FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","presins_ra_prov_codigo","provinciacod","provincianom",($es_modif) ? $datospresins['presins_ra_prov_codigo']:PARTIDO_CAPITAL,"-- Seleccione una Provincia",$filapres,$sele);
+								}	
+							?>
+							</td>
+						</tr> 
+						
+						<tr>
+							<td valign="top" class="textoEtiqueta">Partido/Localidad</td>
+							<td class="textoEtiquetaDatoResaltado">	
+								<input name="presins_ra_part_loca_descripcion"  size="40" maxlength="100"  <?php echo ($operacion == "B")?' class="inputReadonly" readonly ':' class="textoInput" '?>  value="<?php if($operacion == "M" || $operacion == "B") echo htmlspecialchars($datospresins['presins_ra_part_loca_descripcion'],ENT_QUOTES) ?>" />
+							</td>
+						</tr> 
+						
+						<tr>
+							<td valign="top" class="textoEtiqueta">Teléfono</td>
+							<td class="textoEtiquetaDatoResaltado">	
+								<input name="presins_ra_telefono"  size="22"  <?php echo ($operacion == "B")?' class="inputReadonly" readonly ':' class="textoInput" '?> maxlength="20" value="<?php if($operacion == "M" || $operacion == "B") echo htmlspecialchars($datospresins['presins_ra_telefono'],ENT_QUOTES) ?>" />
+							</td>
+						</tr> 
+						<tr>
+							<td valign="top" class="textoEtiqueta">Fax</td>
+							<td class="textoEtiquetaDatoResaltado">	
+								<input name="presins_ra_fax" size="22"  <?php echo ($operacion == "B")?' class="inputReadonly" readonly ':' class="textoInput" '?> maxlength="20" value="<?php if($operacion == "M" || $operacion == "B") echo htmlspecialchars($datospresins['presins_ra_fax'],ENT_QUOTES) ?>" />
+							</td>
+						</tr> 
+						<tr>
+							<td valign="top" class="textoEtiqueta">Email</td>
+							<td class="textoEtiquetaDatoResaltado">	
+								<input name="presins_ra_email"  size="42"  <?php echo ($operacion == "B")?' class="inputReadonly" readonly ':' class="textoInput" '?> maxlength="100" value="<?php if($operacion == "M" || $operacion == "B") echo htmlspecialchars($datospresins['presins_ra_email'],ENT_QUOTES) ?>" />
+							</td>
+						</tr> 
+						
+						<tr>
+							<td colspan="2" align="center">
+								<input type="submit" name="boton_confirma" value="<?php echo $leyenda_operacion; ?>"  class="botones" onClick="return ValidarFormAltaPrestadorInstitucional(formulario,'<?php echo $operacion ?>'); " />
+								<input type="submit" name="boton_cancelar" value="Cancelar"  class="botones" />								
+								<input type="hidden" name="operacion" id="operacion" value="<?php echo $operacion;?>">
+								<input type="hidden" name="presins_codigo" value="<?php echo (isset($_GET['presins_codigo']))? $_GET['presins_codigo'] :"" ?>"  />
+							</td>
+						</tr>					
+				</table>
+				</form>
+				</fieldset> 	
+			</td>
+			</tr>
+		</table>
+<?php	} // 
+} //  
+$oEncabezados->PieMenuEmergente(); 
+?>

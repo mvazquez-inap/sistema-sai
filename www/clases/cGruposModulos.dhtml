@@ -1,0 +1,149 @@
+<?php
+//----------------------------------------------------------------------------------------- 
+class cGruposModulos
+{
+	var $conexion;
+
+	public function __construct($conexion)
+	{
+		$this->conexion = &$conexion;
+	}
+//-----------------------------------------------------------------------------------------
+//							 PUBLICAS	
+//----------------------------------------------------------------------------------------- 
+// Tabla gruposmod (grupomodcod,grupomodtextomenu,grupomodsec,ultmodusuario,ultmodfecha) 
+//----------------------------------------------------------------------------------------- 
+// Retorna una consulta con todos los usuarios que cumplan con las condiciones
+// Parámetros de Entrada:
+//		ArregloDatos: array asociativo con los filtros. Claves: usuarionombre, usuarioapellido, usuariocuit, usuarioemail
+
+// Retorna:
+//		numfilas,resultado: cantidad de filas y query de resultado
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+
+	
+	function BuscarDatos ($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)
+	{
+		$sparam=array('pestadocod' =>0);
+		$sparam+=array('pestadotext' =>0);
+		
+		$sparam+=array('pgrupomodcod' =>"");
+		$sparam+=array('pgrupomodtextomenu' =>"");
+		
+		$sparam+=array('porderby' =>"grupomodtextomenu");
+
+		if (isset ($ArregloDatos['grupomodtextomenu']))
+		{
+			if ($ArregloDatos['grupomodtextomenu']!="")
+			{	
+				$sparam['pgrupomodtextomenu']= $ArregloDatos['grupomodtextomenu'];
+				$sparam['pestadotext']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['grupomodcod']))
+		{
+			if ($ArregloDatos['grupomodcod']!="")
+			{	
+				$sparam['pgrupomodcod']= $ArregloDatos['grupomodcod'];
+				$sparam['pestadocod']= 1;
+			}
+		}	
+		
+		if (isset ($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+				$sparam['porderby']= $ArregloDatos['orderby'];
+		}	
+		$spnombre="sel_gruposmod";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar el Grupo Módulo.";
+			$errormail="Error al buscar el Grupo Módulo ".$errno;
+			return false;
+		}
+
+		return true;
+	}
+
+
+
+	function InsertarGrupoModulo ($ArregloDatos, &$error, &$errormail, &$codigoinsertado)
+	{
+		if (!$this->BuscarDatos ($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+			return false;
+		
+		if ($numfilas==1)
+		{
+			$error="Error, ya se encuentra el grupo en la tabla de Grupos Módulos";
+			$errormail="Error, ya se encuentra el grupo en la tabla de Grupos Módulos";
+			return false;
+		}
+		
+		$sparam =array("pgrupomodtextomenu"=>$ArregloDatos['grupomodtextomenu']);
+		$sparam+=array("pgrupomodsec"=>$ArregloDatos['grupomodsec']);
+		$sparam+=array("pultmodusuario"=>$_SESSION['usuariocod']);
+		$sparam+=array("pultmodfecha"=>date("Y/m/d H:i:s"));
+		$spnombre="ins_gruposmod";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al insertar el Grupos Módulo.";
+			$errormail="Error al insertar el Grupos Módulo ".$errno;
+			return false;
+		}
+		$codigoinsertado=$this->conexion->UltimoCodigoInsertado();
+		return true;
+	}
+
+	function ModificarGrupoModulo ($ArregloDatos, &$error, &$errormail)
+	{
+		$sparam =array("pgrupomodcod"=>$ArregloDatos['grupomodcod']);
+		$sparam+=array("pgrupomodtextomenu"=>$ArregloDatos['grupomodtextomenu']);
+		$sparam+=array("pgrupomodsec"=>$ArregloDatos['grupomodsec']);
+		$sparam+=array("pultmodusuario"=>$_SESSION['usuariocod']);
+		$sparam+=array("pultmodfecha"=>date("Y/m/d H:i:s"));
+		$spnombre="upd_gruposmod_xgrupomodcod";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al modificar el Grupo Módulo.";
+			$errormail="Error al modificar el Grupo Módulo ".$errno;
+			return false;
+		}
+		return true;
+	}
+
+	function EliminarGrupoModulo ($ArregloDatos, &$error, &$errormail)
+	{
+		if (!isset ($ArregloDatos['grupomodcod']) || ($ArregloDatos['grupomodcod']==""))
+		{
+			$error="Error Código de Grupo Módulo Inexistente.";
+			$errormail="Error Código de Grupo Módulo Inexistente.";
+			return false;
+		}
+		
+		if (!$this->BuscarDatos ($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+			return false;
+		
+		if ($numfilas!=1)
+		{
+			$error="Error Código de Grupo Módulo Inexistente.";
+			$errormail="Error Código de Grupo Módulo Inexistente. ";
+			return false;
+		}
+		
+		//VERIFICAR QUE NO TENGA NADA COLGANDO(MODULOS)
+		
+		$sparam =array("pgrupomodcod"=>$ArregloDatos['grupomodcod']);
+		$spnombre="del_gruposmod_xgrupomodcod";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al Eliminar el Grupo Módulo.";
+			$errormail="Error al Eliminar el Grupo Módulo ".$errno;
+			return false;
+		}
+		return true;
+	}
+
+
+}
+
+?>

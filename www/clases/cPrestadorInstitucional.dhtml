@@ -1,0 +1,551 @@
+<?php 
+	class cPrestadorInstitucional  {
+
+	var $conexion;	
+
+	public function __construct($conexion)
+	{
+		$this->conexion = &$conexion;
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function TraerDatosPrestadorInstitucional($codigo,&$datosresult, &$es_modif) {
+
+		$es_modif = false;		
+
+		$sparam=array('ppresins_codigo' =>$codigo);
+		$spnombre="sel_prestador_institucional_xprestint_codigo";	
+
+		if(!($this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno)) )
+		{
+			$error="Error al buscar al prestador institucional.";
+			$errormail="Error al buscar al prestador institucional en la tabla prestador_institucional. ".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		if ($numfilas == 1)	{
+			$datosresult = mysqli_fetch_assoc($resultado);
+			$es_modif = true;
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function AltaPrestadorInstitucional($datos) {
+
+		if(!$this->_DatosValidosAltaPrestadorInstitucional($datos,$datosvalidados))
+			return false;
+			
+		
+		$spnombre="ins_prestador_institucional";
+		$spparam=array(
+			'ppresins_nombre'=>$datosvalidados["presins_nombre"] ,
+			'ppresins_sede'=>$datosvalidados["presins_sede"] ,			
+			'ppresins_ra_apellido'=>$datosvalidados["presins_ra_apellido"] ,			
+			'ppresins_ra_nombre'=>$datosvalidados["presins_ra_nombre"] ,
+			'ppresins_ra_domicilio'=>$datosvalidados["presins_ra_domicilio"] ,
+			'ppresins_ra_cp'=>$datosvalidados["presins_ra_cp"] ,			
+			'ppresins_ra_prov_codigo'=>$datosvalidados["presins_ra_prov_codigo"] ,			
+			'ppresins_ra_part_loca_descripcion'=>$datosvalidados["presins_ra_part_loca_descripcion"] ,
+			'ppresins_ra_telefono'=>$datosvalidados["presins_ra_telefono"] ,			
+			'ppresins_ra_fax'=>$datosvalidados["presins_ra_fax"] ,
+			'ppresins_ra_email'=>$datosvalidados["presins_ra_email"] ,			
+			'ppresins_falta'=> date("Y/m/d H:i:s") , 
+			'ppresins_fbaja'=> "NULL" , 
+			'ppresins_estado'=>PRESINSACTIVO,						
+			'pultmodusuario'=>$_SESSION['usuariocod'] ,
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+			);			
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al agregar el prestador institucional.";
+			$errormail="Error al insertar en la tabla prestador_institucional".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		return true;
+	}		
+//-----------------------------------------------------------------------------------------------------	
+	function EliminarDatosPrestadorInstitucional($presins_codigo,&$codlogbaja) {
+
+		if(!$this->_DatosValidosBorrarPrestadorInstitucional($presins_codigo,$datosvalidados))
+			return false;
+		$oPrestadorDocente = new cPrestadorDocente($this->conexion);
+		$ArregloDatos= array();
+		$ArregloDatos['presins_codigo']=$presins_codigo;
+		
+		if(!$oPrestadorDocente->BuscarPrestadorDocente($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+			return false;	
+	
+		if ($numfilas >= 1) {
+				//baja lógica
+				$codlogbaja = "36004";
+				$spnombre="upd_prestador_institucional_cambio_estado_xpresins_codigo";
+				$spparam=array(
+					'ppresins_fbaja'=>date("Y/m/d H:i:s"), 
+					'ppresins_estado'=>PRESINSBAJA, 
+					'pultmodusuario'=>$_SESSION['usuariocod'], 
+					'ppresins_codigo'=>$presins_codigo						
+				);
+		} else {
+			//baja física
+			$codlogbaja = "36002";			
+			$spnombre="del_prestador_institucional";
+			$spparam=array(
+				'ppresins_codigo'=>$datosvalidados["presins_codigo"]
+			);			
+		}		
+		
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al eliminar la institución prestadora.";
+			$errormail="Error al eliminar en la tabla prstador_institución".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		return true;
+	}	
+	
+//-----------------------------------------------------------------------------------------------------	
+	function ModifDatosPrestadorInstitucional($datos)	{
+
+		if(!$this->_DatosValidosModifPrestadorInstitucional($datos,$datosvalidados))
+			return false;
+
+		$spnombre="upd_prestador_institucional";
+		$spparam=array(
+			'ppresins_nombre'=>$datosvalidados["presins_nombre"] ,
+			'ppresins_sede'=>$datosvalidados["presins_sede"] ,			
+			'ppresins_ra_apellido'=>$datosvalidados["presins_ra_apellido"] ,			
+			'ppresins_ra_nombre'=>$datosvalidados["presins_ra_nombre"] ,
+			'ppresins_ra_domicilio'=>$datosvalidados["presins_ra_domicilio"] ,
+			'ppresins_ra_cp'=>$datosvalidados["presins_ra_cp"] ,			
+			'ppresins_ra_prov_codigo'=>$datosvalidados["presins_ra_prov_codigo"] ,			
+			'ppresins_ra_part_loca_descripcion'=>$datosvalidados["presins_ra_part_loca_descripcion"] ,
+			'ppresins_ra_telefono'=>$datosvalidados["presins_ra_telefono"] ,			
+			'ppresins_ra_fax'=>$datosvalidados["presins_ra_fax"] ,
+			'ppresins_ra_email'=>$datosvalidados["presins_ra_email"] ,			
+			'pultmodusuario'=>$_SESSION['usuariocod'] ,
+			'pultmodfecha'=> date("Y/m/d H:i:s"),
+			'ppresins_codigo'=>$datosvalidados["presins_codigo"]		
+			);			
+			
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al modificar los datos de la institución prestadora.";
+			$errormail="Error al modificar en la tabla prestador_institucional".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosAltaPrestadorInstitucional($datos,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		
+		if(!$this->_DatosValidosComunesPrestadorInstitucional($datos,$datosvalidados))
+			return false;
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosBorrarPrestadorInstitucional($presins_codigo,&$datosvalidados)	{
+
+		if(!$this->TraerDatosPrestadorInstitucional($presins_codigo,$datosvalidados,$es_modif))
+			return false;
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosModifPrestadorInstitucional($datos,&$datosvalidados)	{
+		$datosvalidados=array();
+			
+		if(!$this->_DatosValidosComunesPrestadorInstitucional($datos,$datosvalidados))
+			return false;
+			
+	return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosComunesPrestadorInstitucional($datos,&$datosvalidados)	{
+	  
+		$datosvalidados=array();
+		if (trim($datos['presins_nombre']) == "") {
+			$arraymensajepantalla="Debe ingresar el nombre de la institución";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["presins_nombre"]=$datos["presins_nombre"];
+		
+		if (trim($datos['presins_sede']) == "") {
+			$arraymensajepantalla="Debe ingresar la sede de la institución";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["presins_sede"]=$datos["presins_sede"];
+
+		if (trim($datos['presins_ra_apellido']) == "") {
+			$arraymensajepantalla="Debe ingresar el apellido del respresentante académico";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		if (!FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['presins_ra_apellido'],"AlfabeticoPuro"))
+		{
+			$arraymensajepantalla="Debe ingresar un apellido válido";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["presins_ra_apellido"]=$datos["presins_ra_apellido"];
+
+		if (trim($datos['presins_ra_nombre']) == "") {
+			$arraymensajepantalla="Debe ingresar el nombre del respresentante académico";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		if (!FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['presins_ra_nombre'],"AlfabeticoPuro"))
+		{
+			$arraymensajepantalla="Debe ingresar un nombre válido";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["presins_ra_nombre"]=$datos["presins_ra_nombre"];
+
+		if (trim($datos['presins_ra_domicilio']) == "") {
+			$arraymensajepantalla="Debe ingresar el domicilio";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["presins_ra_domicilio"]=$datos["presins_ra_domicilio"];
+
+		if (trim($datos['presins_ra_cp']) == "") {
+			$arraymensajepantalla="Debe ingresar el código postal";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["presins_ra_cp"]=$datos["presins_ra_cp"];
+
+		$oprovincia = new cProvincias($this->conexion);
+
+//		list($provinciacod,$partidocod,$localidadcod)=explode("_",$datos['prov_part_loca']);
+			
+		$oprovincia->ProvinciasSP($spnombre,$spparam);
+		$arraybusq=array("provinciacod"=>$datos["presins_ra_prov_codigo"]);
+		if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,$arraybusq,$query,$filaret,$numfilasmatcheo,$errorcod) || $numfilasmatcheo!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en selección de provincia.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["presins_ra_prov_codigo"]=$datos["presins_ra_prov_codigo"];
+
+		if (trim($datos['presins_ra_part_loca_descripcion']) == "") {
+			$arraymensajepantalla="Debe ingresar el partido/localidad";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["presins_ra_part_loca_descripcion"]=$datos["presins_ra_part_loca_descripcion"];
+
+			
+	/*		$oprovincia->PartidosSP($provinciacod,$spnombre,$spparam);
+			$arraybusq=array("partidocod"=>$partidocod);
+			if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,$arraybusq,$query,$filaret,$numfilasmatcheo,$errorcod) || $numfilasmatcheo!=1)
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en selección de provincia/partido/localidad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+
+			if ($partidocod=="")
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar el partido.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["presins_ra_part_codigo"]=$partidocod;
+			
+			$oprovincia->LocalidadesSP($provinciacod,$partidocod,$spnombre,$spparam);
+			$arraybusq=array("localidadcod"=>$localidadcod);
+			if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,$arraybusq,$query,$filaret,$numfilasmatcheo,$errorcod) || $numfilasmatcheo!=1)
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en selección de provincia/partido/localidad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+
+			if ($localidadcod=="")
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar la localidad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["presins_ra_loca_codigo"]=$localidadcod;
+*/
+		if (trim($datos['presins_ra_telefono']) == "") {
+			$arraymensajepantalla="Debe ingresar el teléfono";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["presins_ra_telefono"]=$datos["presins_ra_telefono"];
+		
+		if (!FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['presins_ra_email'],"Email"))
+		{
+			$arraymensajepantalla="Debe ingresar un email válido";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["presins_ra_email"]=$datos["presins_ra_email"];
+		$datosvalidados["presins_ra_fax"]=$datos["presins_ra_fax"];
+		$datosvalidados["presins_codigo"]=$datos["presins_codigo"];
+
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function BuscarPrestadorInstitucional($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		$sparam=array('pxpresins_codigo'=>0);
+		$sparam+=array('pxpresins_nombre'=>0);
+		$sparam+=array('pxpresins_estado'=>0);
+		$sparam+=array('ppresins_codigo' =>"");
+		$sparam+=array('ppresins_nombre' =>"");
+		$sparam+=array('ppresins_estado' =>"-1");
+		$sparam+=array('porderby' =>"presins_nombre");
+
+		if (isset ($ArregloDatos['presins_codigo']))
+		{
+			if ($ArregloDatos['presins_codigo']!="")
+			{	
+				$sparam['ppresins_codigo']= $ArregloDatos['presins_codigo'];
+				$sparam['pxpresins_codigo']= 1;
+			}
+		}	
+		if (isset ($ArregloDatos['presins_nombre']))
+		{
+			if ($ArregloDatos['presins_nombre']!="")
+			{	
+				$sparam['ppresins_nombre']= $ArregloDatos['presins_nombre'];
+				$sparam['pxpresins_nombre']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['presins_estado']))
+		{
+			if ($ArregloDatos['presins_estado']!="")
+			{	
+				$sparam['ppresins_estado']= $ArregloDatos['presins_estado'];
+				$sparam['pxpresins_estado']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+			{	
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+
+		$spnombre="sel_prestador_institucional_xdatos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar el Prestador Institucional.";
+			$errormail="Error al buscar el Prestador Institucional.".$errno;
+			return false;
+		}
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ValidarFormAltaPrestadorInstitucional()
+	{
+?>		function ValidarFormAltaPrestadorInstitucional(formulario,operacion) {
+
+			if ((trim(formulario.presins_nombre.value)=="")){
+				alert("Debe ingresar el nombre de la institución");
+				formulario.presins_nombre.focus();
+				return false;
+			}	
+
+			if ((trim(formulario.presins_sede.value)=="")){
+				alert("Debe ingresar la sede de la institución");
+				formulario.presins_sede.focus();
+				return false;
+			}	
+
+			if ((trim(formulario.presins_ra_apellido.value)=="")){
+				alert("Debe ingresar el apellido del respresentante académico");
+				formulario.presins_ra_apellido.focus();
+				return false;
+			}	
+		
+			if (!ValidarContenido(formulario.presins_ra_apellido.value,"AlfabeticoPuro")){
+				alert("Debe ingresar un apellido válido");
+				formulario.presins_ra_apellido.focus();
+				return false;
+			}	
+
+			if ((trim(formulario.presins_ra_nombre.value)=="")){
+				alert("Debe ingresar el nombre del respresentante académico");
+				formulario.presins_ra_nombre.focus();
+				return false;
+			}	
+
+			if (!ValidarContenido(formulario.presins_ra_nombre.value,"AlfabeticoPuro")){
+				alert("Debe ingresar un nombre válido");
+				formulario.presins_ra_nombre.focus();
+				return false;
+			}	
+			
+			if ((trim(formulario.presins_ra_domicilio.value)=="")){
+				alert("Debe ingresar el domicilio");
+				formulario.presins_ra_domicilio.focus();
+				return false;
+			}	
+			
+			if ((trim(formulario.presins_ra_cp.value)=="")){
+				alert("Debe ingresar el código postal");
+				formulario.presins_ra_cp.focus();
+				return false;
+			}	
+			
+			if ((trim(formulario.presins_ra_prov_codigo.value)=="")){
+				alert("Debe ingresar provincia");
+				formulario.presins_ra_prov_codigo.focus();
+				return false;
+			}	
+			
+			if ((trim(formulario.presins_ra_telefono.value)=="")){
+				alert("Debe ingresar el teléfono");
+				formulario.presins_ra_telefono.focus();
+				return false;
+			}	
+			
+			if ((trim(formulario.presins_ra_prov_codigo.value)=="")){
+				alert("Debe ingresar una provincia");
+				formulario.presins_ra_prov_codigo.focus();
+				return false;
+			}	
+					
+			if ((trim(formulario.presins_ra_part_loca_descripcion.value)=="")){
+				alert("Debe ingresar Partido / Localidad");
+				formulario.presins_ra_part_loca_descripcion.focus();
+				return false;
+			}	
+
+			if (!ValidarContenido(formulario.presins_ra_email.value,"Email")){
+				alert("Debe ingresar un email válido");
+				formulario.presins_ra_email.focus();
+				return false;
+			}	
+
+			return true;
+		}
+<?php }
+//-----------------------------------------------------------------------------------------------------	
+	function DescargarExcel()	{
+
+		$ArregloDatos= array();
+		$ArregloDatos['presins_estado']=ESTADOACTIVO;
+		$ArregloDatos['orderby'] = "";
+		
+		if (!$this->BuscarPrestadorInstitucional($ArregloDatos,$numfilas,$result,$error,$errormail)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando datos exportar a excel.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;			
+		}	
+
+		$result_array=array();
+		while ( $fila=mysqli_fetch_assoc($result)  ) {
+
+			$numfilas=0; 		
+			if (!$this->conexion->TraerCampo("provincias","provincianom",array("provinciacod='",$fila["presins_ra_prov_codigo"],"'"),$provincianom,$numfilas,$errorcod) || ($numfilas !=1) )
+			{
+				$txt_sys_mail="\n provinciacod=".$fila["presins_ra_prov_codigo"];
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Se produjo un error al buscar la provincia.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				$result=false;
+			}
+
+		/*	$numfilas=0; 		
+			if (!$this->conexion->TraerCampo("partidos","partidonom",array("partidocod='",$fila["presins_ra_part_codigo"],"' and provinciacod='",$fila["presins_ra_prov_codigo"],"'"),$partidonom,$numfilas,$errorcod)  ||  ($numfilas !=1)  )
+			{
+				$txt_sys_mail="\n provinciacod=".$fila["presins_ra_prov_codigo"]." \n partidocod=".$fila["presins_ra_part_codigo"];
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Se produjo un error al buscar el partido.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				$result=false;
+			}
+			$numfilas=0; 		
+			if (!$this->conexion->TraerCampo("localidades","localidadnom",array("localidadcod='",$fila["presins_ra_loca_codigo"],"' and provinciacod='",$fila["presins_ra_prov_codigo"],"' and partidocod='",$fila["presins_ra_part_codigo"],"'"),$localidadnom,$numfilas,$errorcod)  || ($numfilas !=1) )
+			{
+				$txt_sys_mail="\n provinciacod=".$fila["presins_ra_prov_codigo"]." \n partidocod=".$fila["presins_ra_part_codigo"]."\n localidadcod=".$fila["presins_ra_loca_codigo"];
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Se produjo un error al buscar la localidad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				$result=false;
+			}
+		*/
+			$fila+=array('presins_ra_prov_desc'=> $provincianom);
+		/*	$fila+=array('presins_ra_part_desc'=> $partidonom);
+			$fila+=array('presins_ra_loca_desc'=> $localidadnom);*/
+
+			$result_array[]=$fila;
+		}
+		
+		$nombrearchivo="prestador_institucional.xls";  
+		
+		$oExcel= new cEscribirExcel($nombrearchivo);
+		$oExcel->AddHoja('prestador_institucional');
+		$oExcel->EsconderGrillas();
+		$oExcel->PaginaHorizontal();
+		$oExcel->FormatoColumna (1,60); // nombre
+										// Responsable academico
+		$oExcel->FormatoColumna (2,30); // apellido
+		$oExcel->FormatoColumna (3,30); // nombre
+		$oExcel->FormatoColumna (4,30); // domicilio
+		$oExcel->FormatoColumna (5,10); // CP
+		$oExcel->FormatoColumna (6,20); // provincia
+
+/*		$oExcel->FormatoColumna (7,30); // partido
+		$oExcel->FormatoColumna (8,30); // localidad*/
+		
+		$oExcel->FormatoColumna (7,60); // partido_localidad_desc
+		$oExcel->FormatoColumna (8,15);  // telefono
+		$oExcel->FormatoColumna (9,30); // mail
+	
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",12);
+		$oExcel->AddFormato ("Color","azul");
+		$oExcel->AddFormato ("FgColor",22);
+		$oExcel->CargarDatosVariasCeldas (0,0,0,9,'Prestadores Institucionales',true);
+		$oExcel->CargarDatosVariasCeldas (1,0,1,1,'',true);
+		$oExcel->CargarDatosVariasCeldas (1,2,1,9,'Responsable Académico',true);
+		
+		// Titulos de las columnas
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("TextWrap","");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",12);
+		$oExcel->AddFormato ("Color","negro");
+		$oExcel->AddFormato ("FgColor","gris");
+	
+		$oExcel->CargarDatos (2,0,"Código",true);
+		$oExcel->CargarDatos (2,1,"Nombre Institución",true);
+		$oExcel->CargarDatos (2,2,"Apellido",true);
+		$oExcel->CargarDatos (2,3,"Nombre",true);
+		$oExcel->CargarDatos (2,4,"Domicilio",true);
+		$oExcel->CargarDatos (2,5,"CP",true);
+		$oExcel->CargarDatos (2,6,"Provincia",true);
+/*		$oExcel->CargarDatos (2,7,"Partido",true);
+		$oExcel->CargarDatos (2,8,"Localidad",true); */
+		$oExcel->CargarDatos (2,7,"Partido/Localidad",true);
+		$oExcel->CargarDatos (2,8,"Teléfono",true);
+		$oExcel->CargarDatos (2,9,"Mail",true);
+				
+		$arrayclaves=array(	'presins_codigo','presins_nombre','presins_ra_apellido','presins_ra_nombre',
+							'presins_ra_domicilio','presins_ra_cp','presins_ra_prov_desc',
+							'presins_ra_part_loca_descripcion','presins_ra_telefono','presins_ra_email' );
+
+		$i=3;
+		foreach ($result_array as $datos) {
+			$oExcel->CargarGrilla ($datos,$i,0,$arrayclaves,array());	
+			$i++;
+		}
+		
+		$oExcel->Enviar();
+
+	}
+} 
+?>

@@ -1,0 +1,122 @@
+<?php
+class cInscripcion_web{
+	var $conexion;
+	function cComision($conexion) {
+		$this->conexion = &$conexion;
+	}
+//-----------------------------------------------------------------------------------------
+//*******************************************************************************//
+//*********************************-TRAER_DATOS-*********************************//
+//*******************************************************************************//
+//-----------------------------------------------------------------------------------------	
+	function TraerDatosInscripcion($ArregloDatos,&$resultado,&$numfilas){
+
+		$sparam=array('pxcomi_codigo'=>0);
+		$sparam+=array('pxpers_cuilt'=>0);
+		
+		$sparam+=array('pcomi_codigo'=>"");
+		$sparam+=array('ppers_cuilt'=>"");				
+			
+		if (isset ($ArregloDatos['comi_codigo']))
+		{
+			if ($ArregloDatos['comi_codigo']!="")
+			{	
+				$sparam['pcomi_codigo']= $ArregloDatos['comi_codigo'];
+				$sparam['pxcomi_codigo']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['pers_cuilt']))
+		{
+			if ($ArregloDatos['pers_cuilt']!="")
+			{	
+				$sparam['ppers_cuilt']= $ArregloDatos['pers_cuilt'];
+				$sparam['pxpers_cuilt']= 1;
+			}
+		}	
+		$spnombre="sel_comision_persona_candidato_xcomi_codigo_xpers_cuilt";
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		//SACAR//
+		
+		if ($numfilas == 1)	{
+			$datosresult = mysqli_fetch_assoc($resultado);
+		}
+		//SACAR//
+		
+		return true;
+	}
+//-----------------------------------------------------------------------------------------
+//*******************************************************************************//
+//*********************************-INSERTAR_INSCRIPCION-************************//
+//*******************************************************************************//
+//-----------------------------------------------------------------------------------------	
+
+	function AltaDatosInscripcionWeb($datos,&$resultado,&$numfilas) {
+
+		$spnombre="ins_comision_persona_candidato";
+		$spparam=array(
+			'pcomi_codigo'=> $datos["comi_codigo"],
+			'ppers_codigo'=> $datos["pers_codigo"],
+			'ppers_cuilt'=> $datos["pers_cuilt"],
+			'ppers_nombre'=> $datos["pers_nombre"],
+			'ppers_apellido'=> $datos["pers_apellido"],
+			'ppers_sexo'=> $datos["pers_sexo"],
+			'ppers_email'=> $datos["pers_email"],
+			'pescalafcod'=> $datos["escalafcod"],
+			'pagrupcod'=> $datos["agrupcod"],
+			'pescalafnivcod'=> $datos["escalafnivcod"],
+			'pescalafgradocod'=> $datos["escalafgradocod"],
+			'pagfunc_codigo'=> $datos["agfunc_codigo"],
+			'peval_codigo'=> $datos["eval_codigo"],
+			'pjurisdid_inap'=> $datos["jurisdid_inap"],
+			'pjurisdid_apn'=> $datos["jurisdid_apn"],
+			'porgapub_codigo'=> $datos["orgapub_codigo"],
+			'pnivest_codigo'=>$datos["nivest_codigo"] ,			
+			'pagentes_a_cargo'=>$datos["agentes_a_cargo"] ,			
+			'ppaiscod_revista'=>$datos["paiscod_revista"] ,			
+			'pprovinciacod_revista'=>$datos["provinciacod_revista"] ,			
+			'pcpc_estado'=> CANDIDATO_SIN_EVALUAR,
+			'pultmodusuario'=> $_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s") 
+			);
+	
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al insertar la inscripción.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		} 
+		
+		return true;
+	}	
+	
+//-----------------------------------------------------------------------------------------
+//*******************************************************************************//
+//*********************************-ELIMINAR_INSCRIPCION-************************//
+//*******************************************************************************//
+//-----------------------------------------------------------------------------------------	
+
+
+	function EliminarDatosInscripcionWeb($datos,&$resultado,&$numfilas) {
+
+		$spnombre="del_comision_persona_candidato_xcomi_codigo_xpers_cuilt";
+		$spparam=array(
+			'pcomi_codigo'=>$datos["comi_codigo"] ,
+			'ppers_cuilt'=> $datos["pers_cuilt"]
+			);
+			
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al Eliminar la inscripción.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		} 
+		
+		return true;
+	}		
+	
+	
+	
+}
+?>	

@@ -1,0 +1,998 @@
+<?php
+//----------------------------------------------------------------------------------------- 
+class cExpediente {
+
+	var $conexion;
+	public function __construct($conexion,$formato=FMT_TEXTO) {
+		$this->conexion = &$conexion;
+		$this->formato = $formato;
+	}
+//-----------------------------------------------------------------------------------------
+	function TraerDatosExpediente($exp_codigo,&$datosresult,&$es_modif){
+	
+		$datosresult=array();
+		$es_modif = false;		
+		$sparam=array('pexp_codigo'=>$exp_codigo);
+		$spnombre="sel_expediente_xexp_codigo";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))	{
+			$errormail="\nexp_codigo=".$exp_codigo."\nerror=".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar el Expediente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato),$errormail);
+			return false;
+		}
+		if ($numfilas == 1)	{
+			$datosresult = mysqli_fetch_assoc($resultado);
+			$es_modif = true;
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ObtenerSPClave(&$spnombre,&$spparam,$codigo) {
+		$spnombre="sel_expediente_xexp_codigo";
+		$spparam=array('pexp_codigo'=>$codigo);
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function AltaDatosExpediente($datos) {
+
+		if(!$this->_DatosValidosAltaExpediente($datos,$datosvalidados))
+			return false;
+	
+		// El que valida determina el jurisdicccion y estado según el usuario que da el alta
+		$spnombre="ins_expediente";
+		$spparam=array(
+			'pexp_numero'=>$datosvalidados['exp_numero'],
+			'pjurisdid_exp'=>$datosvalidados['jurisdid_exp'],
+			'pexp_fecha_inicio'=>FuncionesPHPLocal::ConvertirFecha($datosvalidados['exp_fecha_inicio'],'dd/mm/aaaa','aaaa-mm-dd'),
+			'pexp_fecha_ingreso'=>FuncionesPHPLocal::ConvertirFecha($datosvalidados['exp_fecha_ingreso'],'dd/mm/aaaa','aaaa-mm-dd'),
+			'pexp_obs'=>$datosvalidados['exp_obs'],
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=>date("Y/m/d H:i:s")
+		);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se pudo dar de alta el Expediente. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+			return false;
+		}
+	
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function PosibleBajaFisica($exp_codigo) {
+
+		// actividad_autodesarrollo_dictamen para actividades autodesarrollo
+		if(!$this->conexion->TraerCampo('actividad_autodesarrollo_persona','exp_codigo',array("exp_codigo='",$exp_codigo,"'"),$dato,$numfilas,$errno)) {
+			$error="Error al intentar la baja.";
+			$errormail="Error al determinar si puede ser realizada la baja física del expediente (actividad_autodesarrollo_persona). error=".$errno."exp_codigo='".$exp_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato),$errormail);
+			return false;	
+	    } elseif ($numfilas!=0) {
+			return false;	
+		}
+
+		// actividad_programacion para actividades curso
+		if(!$this->conexion->TraerCampo('actividad_programacion','exp_codigo',array("exp_codigo='",$exp_codigo,"'"),$dato,$numfilas,$errno)) {
+			$error="Error al intentar la baja.";
+			$errormail="Error al determinar si puede ser realizada la baja física del expediente (actividad_programacion). error=".$errno."exp_codigo='".$exp_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato),$errormail);
+			return false;	
+	    } elseif ($numfilas!=0) {
+			return false;	
+		}
+
+		// actividad_externa_persona para actividades externas
+		if(!$this->conexion->TraerCampo('actividad_externa_persona','exp_codigo',array("exp_codigo='",$exp_codigo,"'"),$dato,$numfilas,$errno)) {
+			$error="Error al intentar la baja.";
+			$errormail="Error al determinar si puede ser realizada la baja física del expediente (actividad_externa_persona). error=".$errno."exp_codigo='".$exp_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato),$errormail);
+			return false;	
+	    } elseif ($numfilas!=0) {
+			return false;	
+		}
+		
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _BajaCascada($exp_codigo) {
+		
+/*		$oExpedienteArea=new cExpedienteArea($this->conexion);
+	
+		if (!$oExpedienteArea->EliminarDatosExpedienteAreaTodas($exp_codigo))
+			return false;
+		
+*/		return true;	
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function EliminarDatosExpediente($exp_codigo) {
+
+		if(!$this->_DatosValidosEliminarExpediente($exp_codigo,$datosvalidados))
+			return false;
+
+		$spnombre="del_expediente";
+		$spparam=array('pexp_codigo'=> $datosvalidados['exp_codigo']);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod)) 
+			return false;					  	 	
+
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function ModifDatosExpediente($datos)	{
+
+		if(!$this->_DatosValidosModifExpediente($datos,$datosvalidados))
+			return false;
+
+		$spnombre="upd_expediente";
+		$spparam=array(
+			'pexp_codigo'=> $datosvalidados['exp_codigo'], 
+			'pexp_numero'=> $datosvalidados['exp_numero'],
+			'pexp_fecha_inicio'=>FuncionesPHPLocal::ConvertirFecha($datosvalidados['exp_fecha_inicio'],'dd/mm/aaaa','aaaa-mm-dd'),
+			'pexp_fecha_ingreso'=>FuncionesPHPLocal::ConvertirFecha($datosvalidados['exp_fecha_ingreso'],'dd/mm/aaaa','aaaa-mm-dd'),
+			'pexp_obs'=> $datosvalidados['exp_obs'],
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+		);
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al actualizar el Expediente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+			return false;
+		}
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoModificar($exp_codigo,$rolcod,$jurisdid) {
+	
+		// Trae los datos del expediente a modificar 
+		$es_modif=false;
+		if (!$this->TraerDatosExpediente($exp_codigo,$fila_expediente,$es_modif) || !$es_modif ) {
+			$error="No se encontró el expediente.";
+			$errormail="Error al buscar el expediente \nexp_codigo=".$exp_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato),$errormail);
+			return false;
+		}
+		
+		switch ($rolcod) {
+		  case USUCURSOINAP:
+		  case USUACTINS:
+				// Jefatura de Gabinete			
+				if ($fila_expediente['jurisdid_exp'] == JURISDID_JEFATURA ) {
+				  return true;
+				}
+				break;
+		  case USUACTJUR:
+		  case USUDISJUR:		  
+		  
+				//	Jurisdiccion del usuario que esta logeado
+				if ($fila_expediente['jurisdid_exp'] == $jurisdid) {
+				  return true;
+				}
+				break;
+		  case USUAUTODESARROLLO:
+		  case USUACTEXT:
+				// La jurisdiccion debe ser de coordinacion	
+				return true;	  
+				break;
+		}
+		
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para modificar el expediente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+		return false;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoBaja($exp_codigo,$rolcod,$jurisdid) {
+			return $this->TienePermisoModificar($exp_codigo,$rolcod,$jurisdid);
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ValidarFormAltaExpediente()	{ 	?>		
+	
+	function VerificarNroExpediente(formulario,valor_buscado,codigo_buscado) {
+	
+		var ajax=nuevoAjax();
+		var variables="?tipo=E&valor_buscado="+valor_buscado+"&valor_codigo_unico="+codigo_buscado;
+		var direccion= "verifico_existencia_codigo_ajax.dhtml"+variables;
+		var ejecutook=false;
+		
+		ajax.open("GET",direccion,true);
+		ajax.onreadystatechange=function() {
+			if (ajax.readyState==4) {	
+				if (ajax.responseText.substr(0,15)=="//tienepermisos") 	{				
+					eval (ajax.responseText);
+					if (!ejecutook){	
+						alert(error);
+						formulario.exp_numero.focus();
+					} else {
+						document.formulario.submit();
+					}
+				} else {	
+					alert ('Error de permisos');
+					formulario.exp_numero.focus();
+				}
+			}
+		}	
+		ajax.send(null);	
+	}
+
+	function ValidarFormAltaExpediente(formulario,operacion) {
+
+			// Si la operacion = "B" no hay que hacer ninguna validación
+			// como el boton no es submit hay que hacer el submit en este caso	
+			if (operacion=="B") {
+			 	document.formulario.submit();
+				return true;
+			}		 
+			 
+			// Número de Expediente
+			if ((trim(formulario.exp_numero.value)=="")) {
+				alert("Debe ingresar el número del expediente");
+				formulario.exp_numero.focus();
+				return false;
+			}	
+	
+			if (formulario.jurisdid_exp.value=="") {
+				alert("Debe ingresar la jurisdicción del expediente");
+				formulario.jurisdid_exp.focus();
+				return false;
+			}	
+
+			// Fecha de Inicio
+			if (formulario.exp_fecha_inicio.value=="" || !ValidarFecha(formulario.exp_fecha_inicio.value))
+			{
+				alert("La fecha de inicio del expediente no es válida");
+				formulario.exp_fecha_inicio.focus();
+				return false;
+			}
+
+			// Fecha de Ingreso
+			if (formulario.exp_fecha_ingreso.value=="" || !ValidarFecha(formulario.exp_fecha_ingreso.value))
+			{
+				alert("La fecha de ingreso del expediente no es válida");
+				formulario.exp_fecha_ingreso.focus();
+				return false;
+			}
+
+			// Dia actual
+			var hoy = new Date();
+			var dia = hoy.getDate();
+			var mes = hoy.getMonth()+1;
+			var ano = hoy.getFullYear();			 
+
+			if (dia <= 9) dia = "0" + dia; 
+			if (mes <= 9) mes = "0" + mes; 
+					
+			var fecha_actual_AAAAMMDD = ano+""+mes+""+dia; 
+			var fechainicio=ConvertirFecha(formulario.exp_fecha_inicio.value,'dd/mm/aaaa','aaaammdd');
+			var fechaingreso=ConvertirFecha(formulario.exp_fecha_ingreso.value,'dd/mm/aaaa','aaaammdd');
+		
+			// La fecha de ingreso o la fecha inicial no puede ser superior al actual.			
+			if (fechainicio > fecha_actual_AAAAMMDD || fechainicio < '<?php echo ANOINICALINAP."0101" ?>') {
+				alert("La fecha de inicio debe ser menor o igual a la actual y mayor o igual a <?php echo "01/01/".ANOINICALINAP ?>");
+				formulario.exp_fecha_inicio.focus();
+				return false;
+			}				
+				
+			if (fechaingreso > fecha_actual_AAAAMMDD || fechaingreso < '<?php echo ANOINICALINAP."0101" ?>') {
+				alert("La fecha de ingreso debe ser menor o igual a la actual y mayor o igual a <?php echo "01/01/".ANOINICALINAP ?>");
+				formulario.exp_fecha_ingreso.focus();
+				return false;
+			}
+
+			// Fecha de Ingreso >= Fecha de Inicio
+			if (fechainicio>fechaingreso) 	{
+				alert("La fecha de ingreso debe ser mayor o igual que la fecha de inicio");
+				formulario.exp_fecha_ingreso.focus();
+				return false;
+			}
+			
+			// Verifico que el expediente 
+			VerificarNroExpediente(formulario,formulario.exp_numero.value,formulario.exp_codigo.value);
+		
+			return true;
+		}			
+//-----------------------------------------------------------------------------------------------------	
+<?php }
+//-----------------------------------------------------------------------------------------------------	
+	function BuscarExpediente($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		$sparam=array('pxexp_codigo'=>0);
+		$sparam+=array('pxexp_numero'=>0);
+		$sparam+=array('pxexp_numero_exacto'=>0);
+		$sparam+=array('pxjurisdid_exp'=>0);
+		
+		$sparam+=array('pexp_codigo'=>"");
+		$sparam+=array('pexp_numero'=>"");
+		$sparam+=array('pexp_numero_exacto'=>"");
+
+		$sparam+=array('pjurisdid_exp'=>"");
+		$sparam+=array('porderby'=>"jurisdnom,exp_numero");
+
+		if (isset ($ArregloDatos['exp_codigo']))
+		{
+			if ($ArregloDatos['exp_codigo']!="")
+			{	
+				$sparam['pexp_codigo']= $ArregloDatos['exp_codigo'];
+				$sparam['pxexp_codigo']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['exp_numero']))
+		{
+			if ($ArregloDatos['exp_numero']!="")
+			{	
+				$sparam['pexp_numero']= $ArregloDatos['exp_numero'];
+				$sparam['pxexp_numero']= 1;
+			}
+		}	
+		if (isset ($ArregloDatos['exp_numero_exacto']))
+		{
+			if ($ArregloDatos['exp_numero_exacto']!="")
+			{	
+				$sparam['pexp_numero_exacto']= $ArregloDatos['exp_numero_exacto'];
+				$sparam['pxexp_numero_exacto']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['jurisdid_exp']))
+		{
+			if ($ArregloDatos['jurisdid_exp']!="")
+			{	
+				$sparam['pjurisdid_exp']= $ArregloDatos['jurisdid_exp'];
+				$sparam['pxjurisdid_exp']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+			{	
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+		
+		$spnombre="sel_expediente_xdatos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar el Expediente.";
+			$errormail="Error al buscar el Expediente \nerror=.".$errno;
+			return false;
+		}
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function PedirExpediente($formularioName,$inputName,$filtro=array()) { 
+		echo "Falta, definir";
+    } 
+//-----------------------------------------------------------------------------------------------------	
+ 	function MostrarDetalleExpediente($exp_codigo) {
+
+ 	if (!$this->TraerDatosExpediente($exp_codigo,$fila_expediente,$es_modif)) {
+		$txt_sys_mail="Error buscando los datos del expediente. \nexp_codigo=".$exp_codigo;
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al mostrar detalles del expediente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato),$txt_sys_mail);
+		return false;		
+	}
+	
+	if (!$es_modif) {
+		$txt_sys_mail="\nexp_codigo=".$exp_codigo;
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No se ha encontrado el expediente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato),$txt_sys_mail);
+		return false;		
+	}
+
+	// Expediente Nro, Organismo, Fechas 
+	
+		// Obtengo los detalles de los cursos asosciados al expediente (actividad_curso + actividad_programacion + expediente )
+		//  Actividad - Tipo de Curso - Prestador(*) - Créditos - Estado del Dictamen - Periodo del dictamen
+			//	Prestador se define (*)
+			//	Curso INAP			 - Inap 
+			//  Curso JURISDICCIONAL - Organismo (es la del expediente)
+			// 	Curso INSTITUCIONAL  - Organismo (Privado o Público)
+
+	$oActividadCurso = new cActividadCurso($this->conexion);
+	$ArregloDatos = array('exp_codigo'=>$exp_codigo,'orderby'=>'act_nombre,act_codigo,tipoact_codigo,actprog_fecha_inicio');
+	if (!$oActividadCurso->BuscarActividadDictaminada($ArregloDatos,$numfilas,$resultActCursoExp,$error,$errormail)) {
+		$txt_sys_mail="Error al mostrar detalles del expediente de actividad Curso \nexp_codigo=".$exp_codigo;
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al mostrar detalles del expediente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato),$txt_sys_mail);
+		return false;		
+	}
+	$array_resultActCursoExp=array();
+	while ($filaActCursoExp=mysqli_fetch_assoc($resultActCursoExp)) {
+		$array_resultActCursoExp[]=$filaActCursoExp;			
+	}
+		
+	// Obtengo los detalles de las actividades extenas asociados al expediente (Asistencia a actividad externa) 
+	// (actividad_externa + actividad_programacion + expediente)
+
+		//  Actividad - Prestador(*) - Créditos - Estado del Dictamen - Periodo del dictamen
+			//	Prestador se define (*)
+			//  Organismo  (Público o Privado)
+			
+	$oActividadExtExp = new cActividadExterna($this->conexion);
+	$ArregloDatos = array('exp_codigo'=>$exp_codigo,'orderby'=>'act_nombre,act_codigo,tipoact_codigo,actprog_fecha_inicio');
+	if (!$oActividadExtExp->BuscarActividadDictaminada($ArregloDatos,$numfilas,$resultActExtExp,$error,$errormail)) {
+		$txt_sys_mail="Error al mostrar detalles del expediente de actividad Externa \nexp_codigo=".$exp_codigo;
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al mostrar detalles del expediente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato),$txt_sys_mail);
+		return false;		
+	}
+	$array_resultActExtExp=array();
+	while ($filaActExtExp=mysqli_fetch_assoc($resultActExtExp)) {
+		$array_resultActExtExp[]=$filaActExtExp;			
+	}
+
+	// Obtengo los detalles de las actividades de autodesarrollo (actividad_autodesarrollo_dictamen + expediente )
+	// Participación Eventos (actividad_autodesarrollo_evento)
+			// Actividad 
+				// Si Mero Asistente 
+					// Créditos (actautoeven_creditos_asistencia) - Estado del Dictamen (actividad_autodesarrollo_evento) 				
+				// Si Participante activo
+					//  Persona (cuit + nombre + apellido)- Prestador(*) - Créditos - Estado del Dictamen (actividad_autodesarrollo_persona)
+			
+	// Otra actividad de autodesarrollo
+		//  Actividad - Persona (cuit + nombre + apellido)- Prestador(*) - Créditos - Estado del Dictamen (actividad_autodesarrollo_persona)
+	$array_resultActAutoExp=array();
+	$oActividadAutoExp = new cActividadAutodesarrollo($this->conexion);
+	$ArregloDatos = array('exp_codigo'=>$exp_codigo, 'orderby' => 'act_nombre,act_codigo,tipoact_codigo');
+	if (!$oActividadAutoExp->BuscarActividadDictaminada($ArregloDatos,$numfilas,$resultActAutoExp,$error,$errormail)) {
+		$txt_sys_mail="Error al mostrar detalles del expediente de actividad de Autodesarrollo\nexp_codigo=".$exp_codigo;
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al mostrar detalles del expediente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato),$txt_sys_mail);
+		return false;		
+	}
+	$array_resultActAutoExp=array();
+	while ($filaActAutoExp=mysqli_fetch_assoc($resultActAutoExp)) {
+		$array_resultActAutoExp[]=$filaActAutoExp;			
+	}
+	
+	if(count($array_resultActCursoExp)==0 && count($array_resultActExtExp)==0 && count($array_resultActAutoExp)==0) {
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"El expediente no fue asociado a ningún dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+		return true;		
+	}
+?>		
+	<table width="98%" class="textoTablaDato" align="center" cellpadding="2" cellspacing="2" border="0">
+		<tr>
+			<td colspan="2">
+			<table class="textoTablaDato">	
+				<tr>
+					<td class='textoEtiqueta'>Número:</td>
+					<td><?php echo htmlspecialchars($fila_expediente['exp_numero'],ENT_QUOTES); ?></td>
+				</tr>
+				<tr>
+					<td class='textoEtiqueta' width="15%">Organismo:</td>
+					<td><?php 
+						if($this->conexion->TraerCampo("jurisdiccion_inap","jurisdnom",array("jurisdid='",$fila_expediente['jurisdid_exp'],"'"),$jurisdnom,$numfilas,$errorcod))
+							echo $jurisdnom;
+					?></td>
+				</tr>				
+				<tr> 
+					<td colspan="2"> 
+					<table class="textoTablaDato"  width="100%" cellpadding="0" cellspacing="0">
+						<tr>
+						<td class='textoEtiqueta' width="100">Fecha de Inicio:</td>
+						<td>
+							<?php echo FuncionesPHPLocal::ConvertirFecha($fila_expediente["exp_fecha_inicio"],'aaaa-mm-dd','dd/mm/aaaa'); ?>
+						</td>
+						<td class='textoEtiqueta' width="120">Fecha de Ingreso:</td>
+						<td>
+							<?php echo FuncionesPHPLocal::ConvertirFecha($fila_expediente["exp_fecha_ingreso"],'aaaa-mm-dd','dd/mm/aaaa'); ?>
+						</td>
+						</tr>
+					</table> 
+					</td> 
+				</tr>
+			</table>
+			</td>
+		</tr>
+
+		<?php if (count($array_resultActCursoExp)>0)  { //  ?>
+			
+			<tr>
+				<td colspan="2" class="textoEtiquetaDatoResaltado">Acreditación de Actividades Formato Curso</td>					
+			</tr>				
+
+			<tr>
+				<td colspan="2">
+				<table border="0" class="textoTablaDato" cellpadding="0" cellspacing="0" width="100%" align="center"> 
+		<?php 		// Imprimo los datos del primer dictamen porque todos tienen el mismo valor
+				$oActividad = new cActividad($this->conexion);
+				$act_anterior=-1;
+				$primero = true;
+				
+				foreach ($array_resultActCursoExp as $fila_ActCursoExp ) { ?>
+			<?php 
+					$oActividad->TraerDatosActividad($fila_ActCursoExp['act_codigo'],$fila_actividad,$es_modif);
+					$act_actual=$fila_ActCursoExp['act_codigo'];
+
+					if ($act_anterior!=$act_actual) {	?>		
+
+						<tr>
+							<td colspan="2">&nbsp;</td>					
+						</tr>
+						
+						<tr> 
+							<td colspan="2">
+							<table border="0" class="textoEtiquetaDatoBold" width="100%" cellpadding="2" cellspacing="2"> 
+								<tr>
+									<td width="10%" class='textoEtiquetaDatoBold'>Nombre:</td>
+									<td> <?php echo htmlspecialchars($fila_actividad['act_nombre'],ENT_QUOTES); ?></td>
+								</tr>
+								<tr>
+									<td width="10%" class='textoEtiquetaDatoBold'>Tipo/Norma:</td>
+									<td> 
+									<?php 	$this->conexion->TraerCampo("tipo_actividad","tipoact_descripcion",array("tipoact_codigo='",$fila_ActCursoExp['tipoact_codigo'],"'"),$descri,$numfilas,$errorcod); 
+										echo $descri;								
+											
+										$this->conexion->TraerCampo("tipo_actividad","tipoact_norma_legal",array("tipoact_codigo='",$fila_ActCursoExp['tipoact_codigo'],"'"),$descri,$numfilas,$errorcod); 
+										echo " - ".$descri;					
+									?>
+									</td>
+								</tr>
+							
+							<?php  if ($fila_ActCursoExp['tipoact_codigo']==TIPOACTCURSOINST) { ?>
+									<tr>
+										<td width="10%" class='textoEtiquetaDatoBold'>Organismo/Institución:</td>
+										<td colspan="2" class='textoEtiquetaDatoBold'>
+									<?php	$oActividadCursoInstitucional = new cActividadCursoInstitucional($this->conexion);
+										if (!$oActividadCursoInstitucional->TraerDatosActividadCursoInstitucional($fila_ActCursoExp['act_codigo'],$fila_curso_institucional,$es_modif))
+										  return false;
+
+										$oActividadCursoInstitucional->ObtenerOrganismoInstitucion($fila_curso_institucional['actividad_curso_institucional']['orgapri_codigo'],
+																		$fila_curso_institucional['actividad_curso_institucional']['jurisdid_apn'],
+																		$fila_curso_institucional['actividad_curso_institucional']['orgapub_codigo'],				
+																		$nombre_institucion,$sector_org,$tipoorg_codigo,$campo_institucion);
+
+										echo htmlspecialchars($nombre_institucion,ENT_QUOTES)
+										?>
+										</td>
+									</tr>											
+							<?php } ?>
+							</table>
+							</td>
+						</tr>
+						
+						<tr> 
+							<td colspan="2">
+								<table border="0" class="textoTablaDato" width="100%" cellpadding="2" cellspacing="2"> 
+								<tr> 
+									<td width="10%" class='textoEtiqueta'>Créditos:</td>
+									<td> <?php echo htmlspecialchars($fila_ActCursoExp['actcur_creditos'],ENT_QUOTES); ?></td>
+								</tr>
+								</table>
+							</td>
+						</tr>			
+									
+				<?php     $primero = true;
+					} ?>
+					<tr> 
+						<td colspan="2">
+							<table border="1" class="textoTablaDato" width="70%" align="left" cellpadding="2" cellspacing="2"> 
+							<?php if($primero) { ?>
+								<tr>
+									<td width="15%" class='textoEtiqueta'>Desde</td>
+									<td width="15%" class='textoEtiqueta'>Hasta</td>
+									<td width="15%" class='textoEtiqueta'>Dictamen</td>
+									<td class='textoEtiqueta'>Disposición</td>
+									
+								</tr>
+							<?php } ?>
+							<tr>
+								<td width="15%"> 
+									<?php echo FuncionesPHPLocal::ConvertirFecha($fila_ActCursoExp["actprog_fecha_inicio"],'aaaa-mm-dd','dd/mm/aaaa');?>
+								</td>
+								<td width="15%"> 
+									<?php echo FuncionesPHPLocal::ConvertirFecha($fila_ActCursoExp["actprog_fecha_fin"],'aaaa-mm-dd','dd/mm/aaaa');?>
+								</td>	
+								<td width="15%" >  
+									<?php 
+									$oDictamen = new cDictamen($this->conexion);								
+									$oDictamen->TraerDatosDictamen($fila_ActCursoExp['dic_codigo'], $fila_dictamen, $es_modif); 
+									$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","DICTAMENESTADO","' and constantecod='",$fila_dictamen['dic_estado'],"'"),$descri,$numfilas,$errorcod); 
+										echo $descri;
+									?>
+								</td>											
+								<td> <?php 
+									$oDictamen = new cDictamen($this->conexion);								
+									$oDictamen->TraerDatosDictamen($fila_ActCursoExp['dic_codigo'], $fila_dictamen, $es_modif); 
+									if( $fila_dictamen['dis_codigo'] == "")
+										 echo "Sin disposición";
+									  else {
+										$oDisposicion = new cDisposicion($this->conexion);								
+										$oDisposicion->TraerDatosDisposicion($fila_dictamen['dis_codigo'],$fila_dispo,$es_modif); 
+										echo htmlspecialchars($fila_dispo['dis_numero'],ENT_QUOTES)." (".
+											 FuncionesPHPLocal::ConvertirFecha($fila_dispo["dis_fecha"],'aaaa-mm-dd','dd/mm/aaaa').")"; 
+									  }	 
+							?>	</td>
+							</tr>
+							
+							</table>
+						</td>
+					</tr>
+				
+				<?php 	$primero = false;   
+					$act_anterior=$act_actual;
+				
+				} // for each?>
+				</table>
+				</td>					
+			</tr>
+			
+			<tr>
+				<td colspan="2">&nbsp;</td>					
+			</tr>				
+			
+		<?php } ?>
+		
+		<?php if(count($array_resultActExtExp)>0)  { ?>
+			<tr>
+				<td colspan="2" class="textoEtiquetaDatoResaltado">Acreditación de Actividades Externas
+<?php							$this->conexion->TraerCampo("tipo_actividad","tipoact_norma_legal",array("tipoact_codigo='",TIPOACTEXTASIS,"'"),$descri,$numfilas,$errorcod); 
+					echo "(".$descri.")"; ?>					
+				</td>					
+			</tr>				
+			<tr>
+				<td colspan="2">
+				<table border="0" class="textoTablaDato" cellpadding="0" cellspacing="0" width="100%" align="center"> 
+		<?php 		// Imprimo los datos del primer dictamen porque todos tienen el mismo valor
+				$oActividad = new cActividad($this->conexion);
+				$act_anterior=-1;
+				$primero = true;
+				
+				foreach ($array_resultActExtExp as $fila_ActExtExp ) { ?>
+			<?php 
+					$oActividad->TraerDatosActividad($fila_ActExtExp['act_codigo'],$fila_actividad,$es_modif);
+					$act_actual=$fila_ActExtExp['act_codigo'];
+
+					if ($act_anterior!=$act_actual) {	?>		
+						<tr>
+							<td colspan="2">&nbsp;</td>					
+						</tr>
+						<tr> 
+							<td colspan="2">
+							<table border="0" class="textoEtiquetaDatoBold" width="100%" cellpadding="2" cellspacing="2"> 
+								<tr>
+									<td width="10%" class='textoEtiquetaDatoBold'>Nombre:</td>
+									<td> <?php echo htmlspecialchars($fila_actividad['act_nombre'],ENT_QUOTES); ?></td>
+								</tr>
+								<tr>
+									<td  width="10%" class='textoEtiquetaDatoBold'>Organismo/Institución:</td>
+									<td  colspan="2" class='textoEtiquetaDatoBold'>
+								<?php	$oActividadExterna = new cActividadExterna($this->conexion);
+									if (!$oActividadExterna->TraerDatosActividadExterna($fila_ActExtExp['act_codigo'],$fila_act_externa,$es_modif))
+									  return false;
+
+									$oActividadExterna->ObtenerOrganismoInstitucion($fila_act_externa['actividad_externa']['orgapri_codigo'],
+																	$fila_act_externa['actividad_externa']['jurisdid_apn'],
+																	$fila_act_externa['actividad_externa']['orgapub_codigo'],				
+																	$nombre_institucion,$sector_org,$tipoorg_codigo,$campo_institucion);
+
+									echo htmlspecialchars($nombre_institucion,ENT_QUOTES); 
+?>									</td>
+								</tr>
+							</table>
+							</td>
+						</tr>
+
+						<tr> 
+							<td>
+								<table border="0" class="textoTablaDato" width="100%" cellpadding="2" cellspacing="2"> 
+									<tr> 
+										<td width="10%" class='textoEtiqueta'>Créditos:</td>
+										<td> <?php echo htmlspecialchars($fila_ActExtExp['actext_creditos'],ENT_QUOTES); ?></td>
+									</tr>
+								</table>
+							</td>
+						</tr>
+						
+				<?php 	$primero = true;
+					} ?>
+					<tr> 
+						<td colspan="2">
+							<table class="textoTablaDato"  border="1" width="70%" align="left" cellpadding="2" cellspacing="2"> 
+							<?php if($primero) { ?>
+									<tr>
+										<td width="15%" class='textoEtiqueta'>Desde</td>
+										<td width="15%" class='textoEtiqueta'>Hasta</td>
+										<td width="15%" class='textoEtiqueta'>Dictamen</td>
+										<td class='textoEtiqueta'>Disposición</td>
+									</tr>
+							<?php } ?>
+
+							<tr>
+								<td width="15%"> 
+									<?php echo FuncionesPHPLocal::ConvertirFecha($fila_ActExtExp["actprog_fecha_inicio"],'aaaa-mm-dd','dd/mm/aaaa');?>
+								</td>
+								<td width="15%"> 
+									<?php echo FuncionesPHPLocal::ConvertirFecha($fila_ActExtExp["actprog_fecha_fin"],'aaaa-mm-dd','dd/mm/aaaa');?>
+								</td>	
+								<td> <?php 									
+									$oDictamen = new cDictamen($this->conexion);								
+									$oDictamen->TraerDatosDictamen($fila_ActExtExp['dic_codigo'], $fila_dictamen, $es_modif); 
+									$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","DICTAMENESTADO","' and constantecod='",$fila_dictamen['dic_estado'],"'"),$descri,$numfilas,$errorcod); 
+										echo $descri;
+									?>
+								</td>											
+								<td> <?php 
+									$oDictamen = new cDictamen($this->conexion);								
+									$oDictamen->TraerDatosDictamen($fila_ActExtExp['dic_codigo'], $fila_dictamen, $es_modif); 
+									if( $fila_dictamen['dis_codigo'] == "")
+										 echo "Sin disposición";
+									  else {
+										$oDisposicion = new cDisposicion($this->conexion);								
+										$oDisposicion->TraerDatosDisposicion($fila_dictamen['dis_codigo'],$fila_dispo,$es_modif); 
+										echo htmlspecialchars($fila_dispo['dis_numero'],ENT_QUOTES)." (".
+											 FuncionesPHPLocal::ConvertirFecha($fila_dispo["dis_fecha"],'aaaa-mm-dd','dd/mm/aaaa').")"; 
+									  }	 
+									?></td>
+							</tr>
+							</table>
+						</td>
+					</tr>
+				
+				<?php 	$primero = false;
+					$act_anterior=$act_actual;
+				} // for each ?>
+				</table>
+				</td>					
+			</tr>
+			
+			<tr>
+				<td colspan="2">&nbsp;</td>					
+			</tr>				
+			
+		<?php } ?>
+
+		<?php if(count($array_resultActAutoExp)>0)  {  ?>
+			
+			<tr>
+				<td colspan="2" class="textoEtiquetaDatoResaltado">Acreditación de Actividades de Autodesarrollo </td>					
+			</tr>	
+						
+			<tr>
+				<td colspan="2">
+				<table border="0" class="textoTablaDato" cellpadding="0" cellspacing="0" width="100%" align="center"> 
+		<?php 		// Imprimo los datos del primer dictamen porque todos tienen el mismo valor
+				$oActividad = new cActividad($this->conexion);
+				$act_anterior=-1;
+				$primero = true;
+				
+				foreach ($array_resultActAutoExp as $fila_ActAutoExp ) { 
+
+					$oActividad->TraerDatosActividad($fila_ActAutoExp['act_codigo'],$fila_actividad,$es_modif);
+					$act_actual=$fila_ActAutoExp['act_codigo'];
+
+					if ($act_anterior!=$act_actual) {	?>		
+						<tr>
+							<td colspan="2">&nbsp;</td>					
+						</tr>						
+						<tr> 
+							<td colspan="2">
+							<table border="0" class="textoEtiquetaDatoBold" width="100%" cellpadding="2" cellspacing="2"> 
+								<tr>
+									<td width="10%" class='textoEtiquetaDatoBold'>Nombre:</td>
+									<td> <?php echo htmlspecialchars($fila_actividad['act_nombre'],ENT_QUOTES); ?></td>
+								</tr>
+							</table>
+							<td>
+						</tr>
+				<?php  	$primero = true;
+						$tipoact_anterior = $fila_ActAutoExp['tipoact_codigo'];
+				   } 
+				?>
+					<tr> 							
+						<td colspan="2">
+							<table border="1" width="100%" class="textoTablaDato" > 
+							<?php if($primero || $fila_ActAutoExp['tipoact_codigo']!=$tipoact_anterior) { 
+									if ($fila_ActAutoExp['tipoact_codigo']!=$tipoact_anterior) { ?>
+											</table>
+											<br>
+											<table border="1" width="100%" class="textoTablaDato" > 
+									<?php } ?>
+									<tr>
+										<?php if($fila_ActAutoExp['tipoact_codigo']!=TIPOACTAUTOEVASIS) { ?>
+											<td width="40%" class='textoEtiqueta'>Agente</td>
+										<?php } ?>
+										<td width="30%" class='textoEtiqueta'>Tipo de Actividad</td>
+										<td width="10%" class='textoEtiqueta'>Créditos</td>
+										<td width="10%" class='textoEtiqueta'>Dictamen</td>
+										<td class='textoEtiqueta'>Disposición</td>
+									</tr>
+							<?php }  ?>																		
+								<tr>
+									<?php if($fila_ActAutoExp['tipoact_codigo']!=TIPOACTAUTOEVASIS) { ?>
+										<td width="40%"> <?php  								
+										$oPersonas = new cPersonas($this->conexion);
+										$oPersonas->TraerDatosPersona_xCod($fila_ActAutoExp["pers_codigo"],$datos_personales,$es_modif);
+										$identificacion = htmlspecialchars($datos_personales['pers_cuilt'],ENT_QUOTES)." - ".htmlspecialchars($datos_personales['pers_apellido'],ENT_QUOTES).", ".htmlspecialchars($datos_personales['pers_nombre'],ENT_QUOTES);
+										echo $identificacion;										
+									?> 	</td>
+									<?php }  ?>																		
+									
+									<td width="30%" align="left">   
+										<?php	$this->conexion->TraerCampo("tipo_actividad","tipoact_descripcion",array("tipoact_codigo='",$fila_ActAutoExp['tipoact_codigo'],"'"),$descri,$numfilas,$errorcod); 
+											echo $descri;
+											
+											$this->conexion->TraerCampo("tipo_actividad","tipoact_norma_legal",array("tipoact_codigo='",$fila_ActAutoExp['tipoact_codigo'],"'"),$descri,$numfilas,$errorcod); 
+											echo " (".$descri.")"; 
+										?></td>
+									<td width="10%" align="center"> <?php echo htmlspecialchars($fila_ActAutoExp['actauto_creditos'],ENT_QUOTES); ?></td>
+									<td width="10%" align="center"> 
+									<?php  $oDictamen = new cDictamen($this->conexion);								
+										$oDictamen->TraerDatosDictamen($fila_ActAutoExp['dic_codigo'], $fila_dictamen, $es_modif); 
+										$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","DICTAMENESTADO","' and constantecod='",$fila_dictamen['dic_estado'],"'"),$descri,$numfilas,$errorcod); 
+											echo $descri;
+										?></td>		
+									<td align="left"> 
+									<?php	if(!isset($fila_dictamen['dis_codigo']))
+											echo "Sin disposición";
+										else {
+											$oDisposicion = new cDisposicion($this->conexion);								
+											$oDisposicion->TraerDatosDisposicion($fila_dictamen['dis_codigo'],$fila_dispo,$es_modif); 
+											echo htmlspecialchars($fila_dispo['dis_numero'],ENT_QUOTES)." (".
+												 FuncionesPHPLocal::ConvertirFecha($fila_dispo["dis_fecha"],'aaaa-mm-dd','dd/mm/aaaa').")"; 
+										}	
+									?></td>		
+																		
+								</tr>
+																	
+							</table>
+						</td>
+					</tr>
+				<?php 	$primero = false;
+					$act_anterior=$act_actual;		
+					$tipoact_anterior=$fila_ActAutoExp['tipoact_codigo'];			
+				} // for each ?>
+				
+				</table>
+				</td>					
+			</tr>
+		<?php } // count($array_resultActAutoExp)>0 ?>				
+			<tr>
+				<td colspan="2">&nbsp;</td>					
+			</tr>						
+	</table>	
+	<?php	
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosAltaExpediente($datos,&$datosvalidados)	{
+		
+		$datosvalidados=array();
+
+		// Verifico que el número de expediente no exista.
+		$ArregloDatos=array();
+		$ArregloDatos['exp_numero_exacto']=$datos["exp_numero"];
+		if(!$this->BuscarExpediente($ArregloDatos,$numfilas,$result,$error,$errormail)){
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error buscando el expediente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+			return false;			
+		}				
+		if ($numfilas>=1) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha completado la operación, pues ya existe el <br> número de expediente:".$datos["exp_numero"],array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+			return false;			
+		}		
+		$datosvalidados["exp_numero"]=$datos["exp_numero"];
+
+		if( ($_SESSION['rolcod'] == USUCURSOINAP || $_SESSION['rolcod'] == USUACTINS) && $datos['jurisdid_exp']!=JURISDID_JEFATURA) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en la jurisdicción del expediente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+			return false;			
+		} elseif( ($_SESSION['rolcod'] == USUACTJUR ) && $datos['jurisdid_exp']!=$_SESSION['jurisdid_inap']) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en la jurisdicción del expediente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+			return false;			
+		} else {
+			$spparam=array("porderby"=>'jurisdnom');			
+			$arraybusq=array('jurisdid'=>$datos['jurisdid_exp']);
+			if(!$this->conexion->BuscarRegistroxClave('sel_jurisdiccion_inap_sin_no_corresponde_xorderby',$spparam,$arraybusq,$query,$filaret,$numfilas,$errorcod) || $numfilas!=1)	{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en la selección del Organismo del Coordinador T&eacute;cnico de Capacitaci&oacute;n.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+		}
+		$datosvalidados['jurisdid_exp']=$datos['jurisdid_exp'];
+
+		// Valido que los datos comunes sean válidos
+		if (!$this->_DatosValidosComunesExpediente($datos,$datosvalidados))
+		   return false; 
+
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosEliminarExpediente($exp_codigo,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		if (!$this->TienePermisoBaja($exp_codigo,$_SESSION['rolcod'], $_SESSION['jurisdid_inap'])) {
+			return false; 
+		}
+		
+		// La baja es física o no se puede realizar la baja (el mensaje es informativo)
+		if (!$this->PosibleBajaFisica($exp_codigo))	{		
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha eliminado el expediente, pues existen datos asociados al mismo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+			return false;					  	 				
+		}
+		$datosvalidados+=array('exp_codigo'=>$exp_codigo);
+		
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosModifExpediente($datos,&$datosvalidados)	{
+
+		if (!$this->TienePermisoModificar($datos['exp_codigo'],$_SESSION['rolcod'], $_SESSION['jurisdid_inap'])) {
+			return false; 
+		}
+		$datosvalidados['exp_codigo']=$datos['exp_codigo'];
+
+		// Verifico que el número de expediente no exista.
+		$ArregloDatos=array();
+		$ArregloDatos['exp_numero_exacto']=$datos["exp_numero"];
+		if(!$this->BuscarExpediente($ArregloDatos,$numfilas,$result,$error,$errormail)){
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error buscando la expediente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+			return false;			
+		}				
+		if ($numfilas>1) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha completado la operación, pues ya existe el <br> número de expediente:".$datos["exp_numero"],array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+			return false;			
+		} elseif ($numfilas==1) {	// hay un expediente que no es el el que se esta modificando			   
+		   $fila_exp=mysqli_fetch_assoc($result);
+		   if ($fila_exp['exp_codigo']!= $datos['exp_codigo']) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha completado la operación, pues ya existe el <br>  número de expediente:".$datos["exp_numero"],array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+				return false;							   
+		   }
+		}
+		$datosvalidados["exp_numero"]=$datos["exp_numero"];
+
+		if (!$this->_DatosValidosComunesExpediente($datos,$datosvalidados))
+		   return false; 
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosComunesExpediente($datos,&$datosvalidados)	{
+
+		if (trim($datos['exp_numero'])=="") {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar el número del expediente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+			return false;
+		}	
+		$datosvalidados['exp_numero']=$datos['exp_numero'];
+
+		// Fecha de Inicio
+		if (trim($datos['exp_fecha_inicio'])=="" || !FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['exp_fecha_inicio'],"FechaDDMMAAAA"))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La fecha de inicio del expediente no es vádida.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+			return false;
+		}
+
+		// Fecha de Ingreso
+		if (trim($datos['exp_fecha_ingreso'])=="" || !FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['exp_fecha_ingreso'],"FechaDDMMAAAA"))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La fecha de ingreso del expediente no es vádida.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+			return false;
+		}
+
+		// El expediente no puede tener en una fecha posterior a la actual.
+		$fechainicio=FuncionesPHPLocal::ConvertirFecha($datos['exp_fecha_inicio'],'dd/mm/aaaa','aaaa-mm-dd');
+		$fechaingreso=FuncionesPHPLocal::ConvertirFecha($datos['exp_fecha_ingreso'],'dd/mm/aaaa','aaaa-mm-dd');
+	
+		$fecha_actual_AAAAMMDD=date("Y/m/d");
+
+		$fechaincioinap="01/01/".ANOINICALINAP;
+		$fechaincioinap_AAAAMMDD=FuncionesPHPLocal::ConvertirFecha($fechaincioinap,'dd/mm/aaaa','aaaa-mm-dd');
+
+		// Ninguna de las dos fechas puede superar la incial para la acreditacion 
+		if ($fechainicio < $fechaincioinap_AAAAMMDD || $fechainicio > $fecha_actual_AAAAMMDD )
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La fecha de inicio debe ser menor o igual a la actual y mayor o igual a ".$fechaincioinap,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+			return false;
+		}
+		if ($fechaingreso < $fechaincioinap_AAAAMMDD || $fechaingreso > $fecha_actual_AAAAMMDD)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La fecha de ingreso debe ser menor o igual a la actual y mayor o igual a ".$fechaincioinap,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+			return false;
+		}		
+		
+		// Fecha de Ingreso >= Fecha de Inicio
+		if ($fechainicio > $fechaingreso)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La fecha de ingreso debe ser mayor o igual que la fecha de inicio.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+			return false;
+		}
+
+		$datosvalidados['exp_fecha_inicio']=$datos['exp_fecha_inicio'];
+		$datosvalidados['exp_fecha_ingreso']=$datos['exp_fecha_ingreso'];
+		$datosvalidados['exp_obs']=$datos['exp_obs'];
+		
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+} // class
+?>

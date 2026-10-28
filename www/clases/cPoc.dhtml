@@ -1,0 +1,965 @@
+<?php
+class cPoc
+{
+var $conexion;
+	// Función para la conexión
+	public function __construct($conexion)
+	{
+		$this->conexion = &$conexion;
+	}	
+
+//-----------------------------------------------------------------------------------------------------	
+	function PocEstadoJurid($pocjuris,$estadosIN,&$spnombre,&$sparam)
+	{
+		$sparam=array('pxpoc_ano'=>0);
+		$sparam+=array('pxpoc_codigo'=>0);
+		$sparam+=array('pxjurisdid_inap'=>1);
+		$sparam+=array('pxpoc_estado'=>1);
+		
+		$sparam+=array('ppoc_ano' =>"");
+		$sparam+=array('ppoc_codigo' =>"");
+		$sparam+=array('pjurisdid_inap' =>$pocjuris);
+		$sparam+=array('ppoc_estado' =>$estadosIN);
+		$sparam+=array('porderby' =>"poc_ano");
+		$spnombre="sel_poc_xdatos";
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function AñosSP($pocjuris,&$spnombre,&$spparam)
+	{
+		$spnombre="sel_anos_validos";
+		$spparam =array('porderby'=>"poc_ano",'ppoc_estado'=> POCNUEVO,'ppoc_estadodos'=> POCRECHAZADO,'pjurisdid_inap'=>$pocjuris);
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function PocEstados($pocjuris,&$spnombre,&$spparam)
+	{
+		$spnombre="sel_poc_xjurisdid_inap_xestado_nuevo_recha_aprob";
+		$spparam =array('porderby'=>"poc_ano",'ppoc_estado'=> POCNUEVO,'ppoc_estadodos'=> POCRECHAZADO,'ppoc_estadotres'=> POCAPROBADO,'pjurisdid_inap'=>$pocjuris);
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function PocEstadosActEstados($pocjuris,&$spnombre,&$spparam)
+	{
+		$spnombre="sel_poc_xjurisdid_inap_xestadopoc_xestadoact";
+		$spparam =array('porderby'=>"poc_ano",'ppoc_estado'=> POCPENDIENTEAPROBACION,'ppoc_estadodos'=> POCAPROBADO,'ppocact_estado'=> POCACTIVIDADPEDAPROB,'pjurisdid_inap'=>$pocjuris);
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function Pocxcodigo($poc_codigo,$juris,&$numfilas)
+	{
+		$spnombre="sel_poc_xpoc_codigo_xestado_nuevo_recha_xjuris";
+		$spparam =array('ppoc_codigo'=>$poc_codigo,'pjurisdid_inap'=>$juris,'ppoc_estado'=> POCNUEVO,'ppoc_estadodos'=> POCRECHAZADO);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			$txt_sys_mail='\npoc_codigo='.$poc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar el Poc. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function PocxcodigoConPedAprob($poc_codigo,$juris,&$numfilas)
+	{
+		$spnombre="sel_poc_xpoc_codigo_xestado_pendaprob_xjuris";
+		$spparam =array('ppoc_codigo'=>$poc_codigo,'pjurisdid_inap'=>$juris,'ppoc_estado'=> POCPENDIENTEAPROBACION);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			$txt_sys_mail='\npoc_codigo='.$poc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar el Poc. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function ListarDisenoPoc($poc_codigo, $pocobj_codigo = 0)
+	{
+		if(!$this->TraerDatosPoc($poc_codigo,$datosresult,$es_modif)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al buscar el POC",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		?>
+		<script language="javascript" src="<?php echo DIR_JSComunes ?>funcionesjs.js" type="text/javascript"></script>
+		<div class="textoTitulo" align="left">Detalle del POC</div><br>
+		<table width="100%" class="textoTablaDatoBorde" align="center" border="1" cellpadding="4" cellspacing="0">
+			<tr>
+				<td class='textoEtiqueta' width="30%">Año</td>
+				<td class='textoEtiquetaDatoResaltado'>
+					<?= htmlspecialchars($datosresult['poc_ano'],ENT_QUOTES); ?>
+				</td>
+			</tr>
+			<tr>
+				<td class='textoEtiqueta' width="30%">Observaciones</td>
+				<td class='textoEtiquetaDatoResaltado'>
+					<?= htmlspecialchars($datosresult['poc_obs'],ENT_QUOTES); ?>
+				</td>
+			</tr>
+			<tr>
+				<td class='textoEtiqueta' width="30%">Jurisdicción</td>
+				<td class='textoEtiquetaDatoResaltado'>
+						<?php $this->conexion->TraerCampo("jurisdiccion_inap","jurisdnom",array("jurisdid='",$datosresult['jurisdid_inap'],"'"),$descri,$numfilascaracter,$errorcod); 
+							echo $descri;
+						?>
+				</td>
+			</tr>
+			<tr>
+				<td class='textoEtiqueta' width="30%">Estado</td>
+				<td class='textoEtiquetaDatoResaltado'>
+						<?php $this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","POCESTADO","' and constantecod='",$datosresult['poc_estado'],"'"),$descri,$numfilas,$errorcod); 
+							echo htmlspecialchars($descri,ENT_QUOTES);
+						?>
+				</td>
+			</tr>
+		</table>	
+		
+		<?php 
+			// obtengo los objetivos del poc
+			$oPocPocObjetivoPocArea= new cPocPocObjetivoPocArea($this->conexion);			
+	
+			$orden="pocobj_descripcion ASC";
+			if (!$oPocPocObjetivoPocArea->TraerDatosxpoc_codigo($poc_codigo,$result_objetivo,$orden)) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Error en la búsqueda de relaciones entre el Poc y el Objetivo. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			
+			
+			
+			$resumen_poc = array();
+			
+			while ($fila_objetivo = mysqli_fetch_assoc($result_objetivo)){
+
+				if (($pocobj_codigo == 0) || ($pocobj_codigo != 0 && $fila_objetivo['pocobj_codigo'] == $pocobj_codigo) ) {
+
+					$resumen_poc[$fila_objetivo['pocobj_codigo']]['objetivo'] = $fila_objetivo;
+									
+					// obtengo las áreas del objetivo
+					$ArregloDatos=array();
+					$ArregloDatos['poc_codigo']= $poc_codigo;
+					$ArregloDatos['pocobj_codigo']= $fila_objetivo['pocobj_codigo'];
+					$oPocPocObjetivoPocArea=new cPocPocObjetivoPocArea($this->conexion);
+				
+					if (!$oPocPocObjetivoPocArea->BuscarPocPocObjetivoPocArea($ArregloDatos,$numfilas,$result,$error,$errormail)) {
+						FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Error en la búsqueda de relaciones entre el Poc y el Objetivo. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+						return false;
+					}
+					$array_areas = array();
+					while ($fila = mysqli_fetch_assoc($result)){
+						$array_areas[] = $fila;
+					}
+					$resumen_poc[$fila_objetivo['pocobj_codigo']]['areas'] = $array_areas;
+				
+	
+					// obtengo las actividades del objetivo
+					$oPocActividadPocObjetivo = new cPocActividadPocObjetivo($this->conexion);			
+	
+					$ArregloDatos['pocobj_codigo']=$fila_objetivo['pocobj_codigo'];
+					$ArregloDatos['poc_codigo']=$poc_codigo;
+					if (!$oPocActividadPocObjetivo ->BuscarPocActividadDatos($ArregloDatos,$numfilas_act,$result_act,$error,$errormail))
+					{
+						FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Error en la búsqueda de las Actividades Poc del Objetivo. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+						return false;
+					}
+					
+					$array_actividad = array();
+					while ($fila_act = mysqli_fetch_assoc($result_act)) {
+						$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","POCACTIVIDADESTADO","' and constantecod='",$fila_act['pocact_estado'],"'"),$estadodesc,$numfilas,$errorcod);
+						$fila_act['pocact_estado_descripcion'] = $estadodesc;
+						$array_actividad[] = $fila_act;
+					}
+					$resumen_poc[$fila_objetivo['pocobj_codigo']]['actividades'] = $array_actividad;
+				} // if
+			}
+			?>
+
+		<br><div class="textoTitulo" align="left">Detalle de Objetivos</div><br>
+		<table width="100%" class="textoTablaDatoBorde" align="center" border="1" cellpadding="4" cellspacing="0">
+
+			<?php
+			foreach ($resumen_poc as $i=>$valor) {
+			?>
+			<tr>
+				<td class='colorTitulosGrupo textoTituloGrupo' width="10%">Objetivo</td>
+				<td class='colorTitulosGrupo textoTituloGrupo'><?= htmlspecialchars($valor['objetivo']['pocobj_descripcion'],ENT_QUOTES); ?> </td>
+			</tr>	
+			<tr>
+				<td colspan="2" class='textoEtiqueta' width="30%">
+					<table width="90%" class="textoTablaDatoBorde" align="right" border="1" cellpadding="4" cellspacing="0">
+
+						<?php if (count($valor['areas']) > 0) { ?>
+						<tr>
+							<td>
+								<table width="100%" class="textoTablaDato" align="center" border="0" cellpadding="4" cellspacing="0">
+									<tr>
+										<td class='textoEtiquetaDatoResaltado' align="center">Areas</td>
+									</tr>	
+									<?php foreach ($valor['areas'] as $a => $valor_area) { ?> 
+										<tr>
+											<td><?= htmlspecialchars($valor_area['pocarea_descripcion'],ENT_QUOTES); ?></td>
+										</tr>
+									<?php } ?>
+								</table>
+							</td>
+						</tr>
+						<?php } ?>
+						
+						<?php if (count($valor['actividades']) > 0) { ?>
+						<tr>
+							<td>
+								<table width="100%" class="textoTablaDato" align="center" border="0" cellpadding="4" cellspacing="0">
+									<tr>
+										<td colspan ="3" class='textoEtiquetaDatoResaltado' align="center">Actividades</td>
+									</tr>	
+									<?php foreach ($valor['actividades'] as $a => $valor_act) { ?> 
+										<tr>
+											<td><?= htmlspecialchars($valor_act['pocact_nombre_tentativo'],ENT_QUOTES); ?></td>
+											<td align="right"><?= htmlspecialchars($valor_act['pocact_estado_descripcion'],ENT_QUOTES); ?></td>
+											<td align="right"><a class="linkListadoMenu" href='javascript:void(0)' onClick="Popup('poc_actividad_ver_dis.dhtml?poc_codigo=<?=$poc_codigo."&amp; pocact_codigo=".$valor_act['pocact_codigo'] ?>','ventana_detalle_act_poc',650,300,screen.availWidth-650,screen.availHeight-300,'yes');">
+												<img src="images/verdetalle.gif" alt="Ver Detalle de la Actividad Poc" title="Ver Detalle de la Actividad Poc" width="22" height="22" border="0" />
+												</a> 
+											</td>
+										</tr>
+									<?php } ?>
+								</table>							
+							</td>
+						</tr>
+						<?php } ?>
+					</table>
+				</td>
+			</tr>	
+			<?php	
+		}
+		?>
+		</table>
+		<?php 
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function PocSP($pocrol,$pocjuris,&$spnombre,&$spparam)
+	{
+		if ( ($pocrol== COORDINADORTECNICO) || ($pocrol== USUORGANISMO) )
+		{
+			$poc_estado1=POCNUEVO;
+			$poc_estado2=POCRECHAZADO;
+			$spnombre="sel_poc_xjurisdid_inap_xestado_nuevo_recha";
+			$spparam =array('porderby'=>"poc_ano",'pjurisdid_inap'=>$pocjuris,'ppoc_estado1'=>$poc_estado1,'ppoc_estado2'=>$poc_estado2);
+		}
+		elseif($pocrol== USUACTJUR)
+		{
+			$poc_estado=POCAPROBADO;
+			$spnombre="sel_poc_xjurisdid_inap_xestado_aprob";
+			$spparam =array('porderby'=>"poc_ano",'pjurisdid_inap'=>$pocjuris,'ppoc_estado'=>$poc_estado);
+		}
+		else
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"El usuario no tiene los permisos suficientes. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}	
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function AltaPoc($datos) {
+		if(!$this->_DatosValidosAltaPoc($datos,$datosvalidados))
+			return false;
+		
+		$spnombre="ins_poc";
+		$spparam=array(
+			'ppoc_ano'=>$datosvalidados["poc_ano"] ,
+			'ppoc_obs'=>$datosvalidados["poc_obs"] ,			
+			'pjurisdid_inap'=>$_SESSION["jurisdid_inap"] ,			
+			'ppoc_estado'=>POCNUEVO ,
+			'pultmodusuario'=>$_SESSION['usuariocod'] ,
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+			);			
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al agregar el poc.";
+			$errormail="Error al insertar en la tabla poc".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		return true;
+	}		
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosAltaPoc($datos,&$datosvalidados)	{
+		$datosvalidados=array();
+		//Verifico q no exista otro poc para esa jurisdiccion para el mismo año
+		if(!$this->BuscarAnoPocxJurisdiccion($datos,$datosvalidados))
+			return false;
+		if(!$this->_DatosValidosComunesPoc($datos,$datosvalidados))
+			return false;
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ModifDatosPoc($datos)	{
+		$ArregloDatos=array();
+		$ArregloDatos['poc_ano']= $datos['poc_ano'];
+		$ArregloDatos['jurisdid_inap']= $_SESSION['jurisdid_inap'];
+		if(!$this->BuscarPoc($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_OK,"El código no corresponde a un poc.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		else
+			$datospoc=mysqli_fetch_assoc($resultado);
+		if(!$this->_DatosValidosModifPoc($datospoc,$datosvalidados))
+			return false;
+
+		$spnombre="upd_poc";
+		$spparam=array(
+			'ppoc_codigo'=> $datosvalidados['poc_codigo'], 
+			'ppoc_obs'=> $datos['poc_obs'],
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+		);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al actualizar el poc. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosModifPoc($datos,&$datosvalidados)	{
+		if(($datos['poc_estado']!=POCNUEVO) && ($datos['poc_estado']!=POCRECHAZADO)) {
+			$arraymensajepantalla="El estado del Poc no permite realizar modificaciones";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+	
+		$datosvalidados['poc_codigo']=$datos['poc_codigo'];
+		$datosvalidados['poc_obs']=$datos['poc_obs'];
+		
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function EliminarDatosPoc($datos) { //$poc_codigo
+	
+		$ArregloDatos=array();
+		$ArregloDatos['poc_ano']= $datos['poc_ano'];
+		$ArregloDatos['jurisdid_inap']= $_SESSION['jurisdid_inap'];
+		if(!$this->BuscarPoc($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_OK,"El código no corresponde a un poc.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		else
+			$datospoc=mysqli_fetch_assoc($resultado);
+
+		if(!$this->_DatosValidosEliminarPoc($datospoc,$datosvalidados))
+			return false;
+
+		if(!$this->_BajaCascada($datosvalidados['poc_codigo']))	// Baja física de las areas que tiene asociadas
+			return false;
+			
+		$spnombre="del_poc";
+		$spparam=array('ppoc_codigo'=> $datosvalidados['poc_codigo']);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod)) 
+			return false;					  	 	
+		
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosEliminarPoc($datos,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		if(($datos['poc_estado']!=POCNUEVO) && ($datos['poc_estado']!=POCRECHAZADO)) {
+			$arraymensajepantalla="El estado del Poc no permite realizar modificaciones";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados+=array('poc_codigo'=>$datos['poc_codigo']);
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _BajaCascada($poc_codigo) {
+
+		$sigo=true;
+		//Verificar si existe relacion "poc"-"poc_actividad" 
+		//y "poc_actividad"-"poc_actividad_actividad"(no tendrian q existir por el estado en el q estoy)
+		//pero si existe no tengo q borrar NADA, y si no existe, sí elimino todo.
+		
+		$oPocActividadActividad=new cPocActividadActividad($this->conexion);
+	
+		if (!$oPocActividadActividad->BuscarRelacionconPoc_Actividad($poc_codigo)) {
+			return false;
+			$sigo=false;
+		}
+ 		
+		if($sigo) {
+					
+			//Eliminar "poc_poc_objetivo_poc_area"
+			$oPocPocObjetivoPocArea=new cPocPocObjetivoPocArea($this->conexion);
+		
+			if (!$oPocPocObjetivoPocArea->EliminarDatosPocPocObjetivoPocAreaTodas($poc_codigo))
+				return false;
+				
+			//Eliminar "poc_actividad_poc_objetivo"
+			//Para esto debo obtener los "poc_actividad" con ese poc_codigo y con eso, obtener los 
+			// "poc_actividad_poc_objetivo" con ese pocact_codigo
+			$oPocActividadPocObjetivo=new cPocActividadPocObjetivo($this->conexion);
+		
+			if (!$oPocActividadPocObjetivo->EliminarDatosPocActividadPocObjetivoTodas($poc_codigo))
+				return false;
+				
+			//Eliminar "poc_actividad"
+			$oPocActividad=new cPocActividad($this->conexion);
+		
+			if (!$oPocActividad->EliminarDatosPocActividadTodas($poc_codigo))
+				return false;
+		} //fin de: if($sigo)
+		
+		return true;	
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosComunesPoc($datos,&$datosvalidados)	{
+		// Valido el año	  
+		$datosvalidados=array();
+		if (trim($datos['poc_anos']) == "") {
+			$arraymensajepantalla="Debe ingresar el año del Poc";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		if (!FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['poc_anos'],"NumericoEntero"))
+		{
+			$arraymensajepantalla="Debe ingresar un año válido";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		//hacer el año siguiente al actual
+		//$fechaactual=date;
+		$anoactual= date("Y");
+		$anosigactual=$anoactual + 1;
+		if (($datos['poc_anos'] <= POCANODESDE) || ($datos['poc_anos'] > $anosigactual))
+		{
+			$arraymensajepantalla="El año del Poc debe ser mayor a ".POCANODESDE." y menor o igual al año siguiente al actual.";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["poc_ano"]=$datos["poc_anos"];
+		$datosvalidados["poc_obs"]=$datos["poc_obs"];
+
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function BuscarAnoPocxJurisdiccion($datos,&$datosvalidados)	{
+		//Verifico q no exista otro poc para esa jurisdiccion para el mismo año
+		$spnombre="sel_ano_poc_xjurisdiccion";
+		$spparam=array(
+					"ppoc_ano"=>$datos["poc_anos"],
+					"pjurisdid_inap"=>$_SESSION["jurisdid_inap"],
+					);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Se produjo un error al obtener los datos de escalafones. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		if($numfilas!=0)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Ya existe un poc para el año " .$datos["poc_anos"]. ".",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["poc_ano"]=$datos["poc_anos"];
+		$datosvalidados["jurisdid_inap"]=$_SESSION["jurisdid_inap"];
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function TraerDatosPoc($codigo,&$datosresult, &$es_modif) {
+			
+		$es_modif = false;		
+
+		$sparam=array('ppoc_codigo' =>$codigo);
+		$spnombre="sel_poc_xpoc_cod";	
+
+		if(!($this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno)) )
+		{
+			$error="Error al buscar poc.";
+			$errormail="Error al buscar al poc en la tabla poc. ".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		if ($numfilas == 1)	{
+			$datosresult = mysqli_fetch_assoc($resultado);
+			$es_modif = true;
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ValidarFormAltaPoc()
+	{
+?>		function ValidarFormAltaPoc(formulario,operacion) {
+
+			if ((trim(formulario.poc_anos.value)=="")){
+				alert("Debe ingresar el año del poc");
+				formulario.poc_anos.focus();
+				return false;
+			}	
+		
+			if (!ValidarContenido(formulario.poc_ano.value,"NumericoEntero")){
+				alert("Debe ingresar un año válido");
+				formulario.poc_anos.focus();
+				return false;
+			}	
+
+			return true;
+		}
+<?php }
+//-----------------------------------------------------------------------------------------------------	
+	function BuscarPoc($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		$sparam=array('pxpoc_ano'=>0);
+		$sparam+=array('pxpoc_codigo'=>0);
+		$sparam+=array('pxjurisdid_inap'=>0);
+		$sparam+=array('pxpoc_estado'=>0);
+		
+		$sparam+=array('ppoc_ano' =>"");
+		$sparam+=array('ppoc_codigo' =>"");
+		$sparam+=array('pjurisdid_inap' =>"");
+		$sparam+=array('ppoc_estado' =>"-1");
+		$sparam+=array('porderby' =>"poc_ano");
+
+		if (isset ($ArregloDatos['poc_ano']))
+		{
+			if ($ArregloDatos['poc_ano']!="")
+			{	
+				$sparam['ppoc_ano']= $ArregloDatos['poc_ano'];
+				$sparam['pxpoc_ano']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['poc_codigo']))
+		{
+			if ($ArregloDatos['poc_codigo']!="")
+			{	
+				$sparam['ppoc_codigo']= $ArregloDatos['poc_codigo'];
+				$sparam['pxpoc_codigo']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['jurisdid_inap']))
+		{
+			if ($ArregloDatos['jurisdid_inap']!="")
+			{	
+				$sparam['pjurisdid_inap']= $ArregloDatos['jurisdid_inap'];
+				$sparam['pxjurisdid_inap']= 1;
+			}
+		}
+		
+		if (isset ($ArregloDatos['poc_estado']))
+		{
+			if ($ArregloDatos['poc_estado']!="")
+			{	
+				$sparam['ppoc_estado']= $ArregloDatos['poc_estado'];
+				$sparam['pxpoc_estado']= 1;
+			}
+		}
+		
+		if (isset ($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+			{	
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+	
+
+		$spnombre="sel_poc_xdatos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			
+			$error="Error al buscar el Poc.";
+			$errormail="Error al buscar el Poc.".$errno;
+			return false;
+		}
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function TraerPoc($pocjuris,&$resultado)
+	{
+		$poc_estado1=POCNUEVO;
+		$poc_estado2=POCRECHAZADO;
+		$spnombre="sel_poc_xjurisdid_inap_xestado_nuevo_recha";
+		$spparam =array('porderby'=>"poc_ano",'pjurisdid_inap'=>$pocjuris,'ppoc_estado1'=>$poc_estado1,'ppoc_estado2'=>$poc_estado2);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errorcod)) 
+			return false;
+		if($numfilas==0)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No existen POC aptos para pedir aprobación. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ValidarRol($rol)
+	{
+		if ( ($rol!= COORDINADORTECNICO) && ($rol!= USUORGANISMO) )
+			return false;
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ValidarRolEvaluacionPoc($rol)
+	{
+		if ($rol!= USUACTJUR)
+			return false;
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function AprobarPoc($poc_codigo,$juris,$rol)
+	{
+		if(!$this->PuedoAprobRecha($poc_codigo,$juris,$rol))
+			return false;
+			
+		//Hacer el update del estado del poc
+		$spnombre="upd_poc_estado";
+		$spparam=array('ppoc_codigo'=>$poc_codigo, 
+			   		  'pjurisdid_inap'=>$juris, 
+					  'ppoc_estado'=>POCAPROBADO,
+		  			  'pultmodusuario'=>$_SESSION['usuariocod'],
+  			          'pultmodfecha'=> date("Y/m/d H:i:s")
+		);
+		//Aprobar todas las actividades relacionadas al poc
+		if(!$this->AprobarActividadesPoc($poc_codigo,$juris))
+			return false;
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			$txt_sys_mail='\npoc_codigo='.$poc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al modificar el POC.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function RechazarPoc($poc_codigo,$juris,$rol)
+	{
+		if(!$this->PuedoAprobRecha($poc_codigo,$juris,$rol))
+			return false;
+			
+		//Hacer el update del estado del poc
+		$spnombre="upd_poc_estado";
+		$spparam=array('ppoc_codigo'=>$poc_codigo, 
+			   		  'pjurisdid_inap'=>$juris, 
+					  'ppoc_estado'=>POCRECHAZADO,
+		  			  'pultmodusuario'=>$_SESSION['usuariocod'],
+  			          'pultmodfecha'=> date("Y/m/d H:i:s")
+		);
+		
+		//Las actividades relacionadas al poc quedarán en estado Nueva!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		//No se modificara el estado de las actividades por mas que tenga que modificar el estado del poc a Rechazado.
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			$txt_sys_mail='\npoc_codigo='.$poc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al modificar el POC.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function AprobarActividadesPoc($poc_codigo,$juris)
+	{
+		$oPocActividad= new cPocActividad($this->conexion);
+		$ArregloDatosAct['poc_codigo']=$poc_codigo;
+		if(!$oPocActividad->BuscarPocActividad($ArregloDatosAct,$numfilas,$resultado,$error,$errormail))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al buscar las Actividades del POC. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		if($numfilas==0)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El POC no posee Actividades asociadas. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		while($filaact=mysqli_fetch_assoc($resultado))
+		{
+			//busco q la act tenga asociado al menos un obj.
+			$oPocActividadPocObjetivo= new cPocActividadPocObjetivo($this->conexion);
+			if(!$oPocActividadPocObjetivo->BuscarRelacionXPocActividad($filaact['pocact_codigo'],$query))
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al buscar las Actividades/Objetivos del POC. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+				return false;
+			}
+			$cant=mysqli_num_rows($query);
+			if($cant==0)
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El POC no posee Actividades/Objetivos asociados. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+				return false;
+			}
+			//si cumple con lo anterior, apruebo la actividad (modifico el estado)
+			if(!$oPocActividad->AprobacionPocActividad($poc_codigo,$filaact['pocact_codigo'],$_SESSION['rolcod'],$juris))
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al aprobar las Actividades del POC. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+				return false;
+			}
+		}
+	return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function PedirAprobacionPoc($poc_codigo,$juris,$rol)
+	{
+		if(!$this->PuedoPedirAprob($poc_codigo,$juris,$rol))
+			return false;
+			
+		//Hacer el update del estado del poc
+		$spnombre="upd_poc_estado";
+		$spparam=array('ppoc_codigo'=>$poc_codigo, 
+			   		  'pjurisdid_inap'=>$juris, 
+					  'ppoc_estado'=>POCPENDIENTEAPROBACION,
+		  			  'pultmodusuario'=>$_SESSION['usuariocod'],
+  			          'pultmodfecha'=> date("Y/m/d H:i:s")
+		);
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			$txt_sys_mail='\npoc_codigo='.$poc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al modificar el POC.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function CambiarEstadoPoc($datos)
+	{
+		if(!$this->PuedoCambiarEstado($datos["param_poc_codigo"],$datos["param_jurisdid_coordinacion"],$datos["poc_estado"]))
+			return false;
+			
+		//Hacer el update del estado del poc
+		$spnombre="upd_poc_estado";
+		$spparam=array('ppoc_codigo'=>$datos["param_poc_codigo"],
+			   		  'pjurisdid_inap'=>$datos["param_jurisdid_coordinacion"], 
+					  'ppoc_estado'=>$datos["poc_estado"],
+		  			  'pultmodusuario'=>$_SESSION['usuariocod'],
+  			          'pultmodfecha'=> date("Y/m/d H:i:s")
+		);
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			$txt_sys_mail='\npoc_codigo='.$datos["param_poc_codigo"];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al modificar el estado del POC.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		return true;
+	}
+	
+	
+//-----------------------------------------------------------------------------------------------------	
+	function PuedoCambiarEstado($poc_codigo,$juris,$estado)
+	{
+		//PuedoPedirAprob:
+			//validar que el poc exista
+			$ArregloDatos['poc_codigo']=$poc_codigo;
+			if(!$this->BuscarPoc($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al buscar el POC",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+				return false;
+			}
+			
+			if ($juris == "")
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar el organismo",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+				return false;
+			}	
+			if ($estado == "")
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar el estado",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+				return false;
+			}						
+		return true;
+	}
+			
+//-----------------------------------------------------------------------------------------------------	
+	function PuedoPedirAprob($poc_codigo,$juris,$rol)
+	{
+		//PuedoPedirAprob:
+			//validar q el poc exista
+			$ArregloDatos['poc_codigo']=$poc_codigo;
+			if(!$this->BuscarPoc($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+				return false;
+			}
+			//validar q el estado del poc sea nuevo o rechazado y sea de la juris de sesion
+			if(!$this->Pocxcodigo($poc_codigo,$juris,$numfilas))
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al buscar el POC. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+				return false;
+			}
+			if($numfilas!=1)
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al buscar el POC. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			//validar q el usuario tenga rol coord. tecnico o usu. organismo
+			if(!$this->ValidarRol($rol))
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al validar el rol del usuario. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+				return false;
+			}
+			//validar q por lo menos tenga un obj y una actividad.
+			$oPocActividad= new cPocActividad($this->conexion);
+			$ArregloDatosAct['poc_codigo']=$poc_codigo;
+			if(!$oPocActividad->BuscarPocActividad($ArregloDatosAct,$numfilas,$resultado,$error,$errormail))
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al buscar las Actividades del POC. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+				return false;
+			}
+			if($numfilas==0)
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El POC no posee Actividades asociadas. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			while($filaact=mysqli_fetch_assoc($resultado))
+			{
+				//busco q la act tenga asociado al menos un obj.
+				$oPocActividadPocObjetivo= new cPocActividadPocObjetivo($this->conexion);
+				if(!$oPocActividadPocObjetivo->BuscarRelacionXPocActividad($filaact['pocact_codigo'],$query))
+				{
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al buscar las Actividades/Objetivos del POC. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+					return false;
+				}
+				$cant=mysqli_num_rows($query);
+				if($cant==0)
+				{
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,
+					"El POC posee Actividades sin Objetivos asociados. <br /><br /> La Actividad POC: ".$filaact['pocact_nombre_tentativo']. " no tiene Objetivos asosciados ".
+					"<br /><br /><a href=\""."poc_actividad_poc_objetivo.dhtml?poc_codigo=".$filaact['poc_codigo']."&amp;pocact_codigo=".$filaact['pocact_codigo']."\" class=\"linkFondoBlanco\">Click Aqui para actualizar los Objetivos de la Actividad POC. </a>"
+					,					
+					array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+					return false;
+				}
+			}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function PuedoAprobRecha($poc_codigo,$juris,$rol)
+	{
+		//PuedoAprobRecha:
+			//validar q el poc exista
+			$ArregloDatos['poc_codigo']=$poc_codigo;
+			if(!$this->BuscarPoc($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+				return false;
+			}
+			//validar q el estado del poc sea "con pedido de aprobacion" y sea de la juris de sesion
+			if(!$this->PocxcodigoConPedAprob($poc_codigo,$juris,$numfilas))
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al buscar el POC. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+				return false;
+			}
+			if($numfilas!=1)
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al buscar el POC. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			//validar q el usuario tenga rol USUACTJUR 
+			if(!$this->ValidarRolEvaluacionPoc($rol))
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al validar el rol del usuario. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+				return false;
+			}
+			//validar q por lo menos tenga un obj y una actividad.
+			$oPocActividad= new cPocActividad($this->conexion);
+			$ArregloDatosAct['poc_codigo']=$poc_codigo;
+			if(!$oPocActividad->BuscarPocActividad($ArregloDatosAct,$numfilas,$resultado,$error,$errormail))
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al buscar las Actividades del POC. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+				return false;
+			}
+			if($numfilas==0)
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El POC no posee Actividades asociadas. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			while($filaact=mysqli_fetch_assoc($resultado))
+			{
+				//busco q la act tenga asociado al menos un obj.
+				$oPocActividadPocObjetivo= new cPocActividadPocObjetivo($this->conexion);
+				if(!$oPocActividadPocObjetivo->BuscarRelacionXPocActividad($filaact['pocact_codigo'],$query))
+				{
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al buscar las Actividades/Objetivos del POC. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+					return false;
+				}
+				$cant=mysqli_num_rows($query);
+				if($cant==0)
+				{	
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El POC no posee Actividades/Objetivos asociados. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+					return false;
+				}
+			}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function  ArmarMensajePedidoAprobacion($datos,&$mensaje) {
+	// Debo armar el mensaje
+		$result = true;
+		// Debo traer la activ.
+		$ArregloDatos['poc_codigo']=$datos['poc_codigo'];
+		if(!$this->BuscarPoc($ArregloDatos,$numfilas,$resultado,$error,$errormail))  {
+			$error="Error al buscar el POC.";
+			$errormail="Error al buscar el POC en tabla poc\npoc_codigo=".$poc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			$result =  false;
+		}
+		$filapoc=mysqli_fetch_assoc($resultado);
+		$this->conexion->TraerCampo("jurisdiccion_inap","jurisdnom",array("jurisdid='",$filapoc['jurisdid_inap'],"'"),$jurisdnom,$numfilas,$errno);
+		
+		// con la actividad obtenida armo el mensaje
+		if ($result) {
+			$mensaje = " El Coordinador técnico o Usuario de Organismo ha solicitado la confirmación del siguiente POC: \n";
+			$mensaje .= " Descripción:   ".$filapoc['poc_obs']."\n";	;	
+			$mensaje .= " Año:   ".$filapoc['poc_ano']."\n";	
+			$mensaje .= " Organismo:   ".$jurisdnom."\n";	;		
+			
+		}
+		return $result;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function  ArmarMensajeAprobacionPoc($datos,&$mensaje) {
+	// Debo armar el mensaje
+		$result = true;
+		// Debo traer la activ.
+		$ArregloDatos['poc_codigo']=$datos['poc_codigo'];
+		if(!$this->BuscarPoc($ArregloDatos,$numfilas,$resultado,$error,$errormail))  {
+			$error="Error al buscar el POC.";
+			$errormail="Error al buscar el POC en tabla poc\npoc_codigo=".$poc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			$result =  false;
+		}
+		// con la actividad obtenida armo el mensaje
+		$filapoc=mysqli_fetch_assoc($resultado);
+		$this->conexion->TraerCampo("jurisdiccion_inap","jurisdnom",array("jurisdid='",$filapoc['jurisdid_inap'],"'"),$jurisdnom,$numfilas,$errno);
+		
+		if ($result) {
+			$mensaje = " El Usuario de Actividades Jurisdiccionales ha confirmado la carga del siguiente POC: \n";
+			$mensaje .= " Descripción:   ".$filapoc['poc_obs']."\n";	;	
+			$mensaje .= " Año:   ".$filapoc['poc_ano']."\n";	
+			$mensaje .= " Organismo:   ".$jurisdnom."\n";	;		
+		}
+		return $result;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function  ArmarMensajeRechazoPoc($datos,&$mensaje) {
+	// Debo armar el mensaje
+		$result = true;
+		// Debo traer la activ.
+		$ArregloDatos['poc_codigo']=$datos['poc_codigo'];
+		if(!$this->BuscarPoc($ArregloDatos,$numfilas,$resultado,$error,$errormail))  {
+			$error="Error al buscar el Poc.";
+			$errormail="Error al buscar el Poc en tabla poc\npoc_codigo=".$poc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			$result =  false;
+		}
+		// con la actividad obtenida armo el mensaje
+		$filapoc=mysqli_fetch_assoc($resultado);
+		if ($result) {
+			$mensaje = " El Usuario de Actividades Jurisdiccionales requiere la Rectificación de la carga del siguiente POC: \n";
+			$mensaje .= " Descripción:   ".$filapoc['poc_obs']."\n";	;	
+			$mensaje .= " Año:   ".$filapoc['poc_ano']."\n";	
+		}
+		return $result;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+
+}// FIN CLASE	
+
+?>

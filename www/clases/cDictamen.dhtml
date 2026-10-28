@@ -1,0 +1,3730 @@
+<?php
+//----------------------------------------------------------------------------------------- 
+class cDictamen  {
+	var $conexion;
+
+	public function __construct($conexion) {
+		$this->conexion = &$conexion;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function TraerDatosDictamen($dic_codigo,&$datosresult,&$es_modif){
+		
+		$datosresult=array();
+		$es_modif = false;		
+		$sparam=array('pdic_codigo'=>$dic_codigo);
+		$spnombre="sel_dictamen_xdic_codigo";	
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$errormail="\ndic_codigo=".$dic_codigo."\nerror=".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		if ($numfilas == 1)	{
+			$datosresult = mysqli_fetch_assoc($resultado);
+			$es_modif = true;
+		}
+
+		return true;
+	}
+	
+//-----------------------------------------------------------------------------------------------------	
+	function TraerDatosActividadProgramacion($act_codigo,$actprog_sec,&$datosresult,&$es_modif){
+		
+		$datosresult=array();
+		$es_modif = false;		
+		
+		$spnombre="sel_actividad_programacion_xact_codigo_actprog_sec";	
+		$sparam=array('pact_codigo'=>$act_codigo, 'pactprog_sec'=>$actprog_sec, 'porderby'=>"actprog_sec");
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$errormail="\nact_codigo=".$act_codigo."\nactprog_sec=".$act_codigo."\nerror=".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar la Programación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		if ($numfilas == 1)	{
+			$datosresult = mysqli_fetch_assoc($resultado);
+			$es_modif = true;
+		}
+
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function ObtenerSPClave(&$spnombre,&$spparam,$codigo) {
+		$spnombre="sel_dictamen_xdic_codigo";
+		$spparam=array('pdic_codigo'=>$codigo);
+	}
+//-----------------------------------------------------------------------------------------------------	
+	// Entrada:
+	//  ArregloDatos['formact_codigo']:  es una cadena, con los tipos separados por ','.
+	//  				                 Puede no estar seteado, en cuyo caso se buscará 
+	//								  	 por todos los formatos			
+	// ArregloDatos['dic_estado']: estados separados por coma		
+	// ArregloDatos['act_codigo']: una sola actividad.		
+	// Salida:	resultado_array: es un array con el resultado de las consultas (ditamenes de todo los tipos).
+	//							 se le adiciona el componente del formato.
+//-----------------------------------------------------------------------------------------------------	
+	function BuscarDictamen($ArregloDatos,&$numfilas,&$resultado_array,&$error,&$errormail)	{
+
+		//  Los dictamenes de una actividad pueden estar en: 
+		//	actividad_programacion (actividad - actividad_curso - actividad_programacion)
+		//						   (actividad - actividad_externa - actividad_programacion)
+		//  actividad_autodesarrollo_dictamen (actividad - actividad_autodesarrollo - actividad_autodesarrollo_dictamen)
+
+   		    $numfilas = 0;
+			$resultado_array = array();
+	
+			if (isset($ArregloDatos['formact_codigo']))
+				$formact_codigo = explode(',',$ArregloDatos['formact_codigo']);
+
+			$sparam=array('pxact_codigo'=>0);
+			$sparam+=array('pxdic_estado'=>0);
+			$sparam+=array('pxtipoact_codigo'=>0);
+
+			$sparam+=array('pact_codigo'=>"");
+			$sparam+=array('pdic_estado'=>"0");
+			$sparam+=array('ptipoact_codigo'=>"");
+
+			$sparam2=array('pxact_codigo_1'=>0);
+			$sparam2+=array('pxdic_estado_1'=>0);
+			$sparam2+=array('pxdic_estado_1'=>0);
+			$sparam2+=array('pxtipoact_codigo_1'=>0);
+			$sparam2+=array('pact_codigo_1'=>"");
+			$sparam2+=array('pdic_estado_1'=>"0");
+			$sparam2+=array('ptipoact_evento_asis_1'=>TIPOACTAUTOEVASIS);
+			$sparam2+=array('ptipoact_codigo_1'=>"");
+
+			$sparam2+=array('pxact_codigo_2'=>0);
+			$sparam2+=array('pxdic_estado_2'=>0);
+			$sparam2+=array('pxdic_estado_2'=>0);
+			$sparam2+=array('pxtipoact_codigo_2'=>0);
+			$sparam2+=array('pact_codigo_2'=>"");
+			$sparam2+=array('pdic_estado_2'=>"0");
+			$sparam2+=array('ptipoact_evento_asis_2'=>TIPOACTAUTOEVASIS);
+			$sparam2+=array('ptipoact_codigo_2'=>"");
+
+			if (isset ($ArregloDatos['act_codigo'])) {
+				if ($ArregloDatos['act_codigo']!="") {	
+					$sparam['pact_codigo']= $ArregloDatos['act_codigo'];
+					$sparam['pxact_codigo']= 1;
+					
+					$sparam2['pact_codigo_1']=$ArregloDatos['act_codigo'];
+					$sparam2['pxact_codigo_1']=1;
+					$sparam2['pact_codigo_2']=$ArregloDatos['act_codigo'];
+					$sparam2['pxact_codigo_2']=1;
+				}
+			}	
+
+			if (isset ($ArregloDatos['dic_estado'])) {
+				if ($ArregloDatos['dic_estado']!="") {	
+					$sparam['dic_estado']= $ArregloDatos['dic_estado'];
+					$sparam['pxdic_estado']= 1;
+					
+					$sparam2['dic_estado_1']= $ArregloDatos['dic_estado'];
+					$sparam2['pxdic_estado_1']=1;
+					$sparam2['dic_estado_2']=$ArregloDatos['dic_estado'];
+					$sparam2['pxdic_estado_2']=1;
+				}
+			}	
+			
+			if (isset ($ArregloDatos['tipoact_codigo'])) {
+				if ($ArregloDatos['tipoact_codigo']!="") {	
+					$sparam['ptipoact_codigo'] = $ArregloDatos['tipoact_codigo'];
+					$sparam['pxtipoact_codigo']= 1;
+					
+					$sparam2['ptipoact_codigo_1'] = $ArregloDatos['tipoact_codigo'];
+					$sparam2['pxtipoact_codigo_1']= 1;
+					$sparam2['ptipoact_codigo_2'] = $ArregloDatos['tipoact_codigo'];
+					$sparam2['pxtipoact_codigo_2']= 1;
+				}
+			}								
+			//--------------------------------------------------------------------
+			if (!isset($ArregloDatos['formact_codigo']) || in_array(FORMATOCURSO,$formact_codigo)) {
+				$spnombre="sel_dictamen_curso_programacion_xdatos";
+				if(!($this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultadodict,$numfilasdic,$errno)) )	{
+					$error="Error al buscar dictámenes de la actividad.";
+					$errormail="Error al buscar el Dictamen (curso)".$errno;
+					return false;
+				} else {
+					while ($fila_dict = mysqli_fetch_assoc($resultadodict)) {
+						$fila_dict['formact_codigo'] = FORMATOCURSO;
+						$resultado_array[] = $fila_dict;
+					}
+				}	
+			}
+			//-----------------------------------------------------------------
+			if (!isset($ArregloDatos['formact_codigo']) || in_array(FORMATOAUTO,$formact_codigo)) {
+				$spnombre="sel_dictamen_actividad_autodesarrollo_xdatos";
+				if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam2,$resultadodict,$numfilasdic,$errno)) {
+					$error="Error al buscar dictámenes de la actividad.";
+					$errormail="Error al buscar el Dictamen (autodesarrollo)".$errno;
+					return false;
+				} else { 
+					while ($fila_dict = mysqli_fetch_assoc($resultadodict)) {
+						$fila_dict['formact_codigo'] = FORMATOAUTO;
+						$resultado_array[] = $fila_dict;
+					}
+				}	
+			}
+			//-----------------------------------------------------------------
+			if (!isset($ArregloDatos['formact_codigo']) || in_array(FORMATOEXT,$formact_codigo)) {
+				$spnombre="sel_dictamen_actividad_externa_programacion_xdatos";
+				if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultadodict,$numfilasdic,$errno)) {
+					$error="Error al buscar dictámenes de la actividad.";
+					$errormail="Error al buscar el Dictamen (actividad-externa)".$errno;
+					return false;
+				} else {
+					while ($fila_dict = mysqli_fetch_assoc($resultadodict)) {
+						$fila_dict['formact_codigo'] = FORMATOEXT;
+						$resultado_array[] = $fila_dict;
+					}
+				}	
+			}
+
+		   $numfilas = count($resultado_array);
+		   return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoModificarDictamen($dic_codigo) {
+
+		// no valido que sea el único dictamen de la actividad
+		if (!$this->TraerDatosDictamen($dic_codigo, $fila_dictamen, $es_modif) ) 
+			return false;
+
+		$txt_sys_mail="\ndic_codigo=".$dic_codigo;		
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe el dictamen a modificar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+
+		if ($_SESSION["rolcod"] != SUPERUSUARIO) {
+		
+			if ($fila_dictamen['dic_estado'] == DICTAMENNUEVO || $fila_dictamen['dic_estado'] == DICTAMENRECHAZADO ) 
+				return true;		
+			else {
+				$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","DICTAMENESTADO","' and constantecod='",$fila_dictamen['dic_estado'],"'"),$descri,$numfilas,$errorcod);
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado del Dictamen (".$descri."), no le permite modificarlo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;		
+			}
+		} else
+			return true;	
+
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para modificar el Dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoBajaDictamen($dic_codigo) {
+
+		if (!$this->TraerDatosDictamen($dic_codigo, $fila_dictamen, $es_modif) ) 
+			return false;
+
+		$txt_sys_mail="\ndic_codigo=".$dic_codigo;		
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe el dictamen a eliminar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+		
+		if ($fila_dictamen['dic_estado'] == DICTAMENNUEVO || $fila_dictamen['dic_estado'] == DICTAMENRECHAZADO ) 
+			return true;		
+		else {
+			$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","DICTAMENESTADO","' and constantecod='",$fila_dictamen['dic_estado'],"'"),$descri,$numfilas,$errorcod);
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado del Dictamen (".$descri."), no le permite eliminarlo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;		
+		}
+
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para eliminar el Dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	}	
+	
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoBajaDictamenPersonal($dic_codigo) {
+
+		if (!$this->TraerDatosDictamen($dic_codigo, $fila_dictamen, $es_modif) ) 
+			return false;
+
+		$txt_sys_mail="\ndic_codigo=".$dic_codigo;		
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe el dictamen a eliminar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+		
+		if ($fila_dictamen['dic_estado'] == DICTAMENNUEVO || $fila_dictamen['dic_estado'] == DICTAMENRECHAZADO ) 
+			return true;		
+		else {
+			$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","DICTAMENESTADO","' and constantecod='",$fila_dictamen['dic_estado'],"'"),$descri,$numfilas,$errorcod);
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado del Dictamen (".$descri."), no le permite eliminarlo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;		
+		}
+
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para eliminar el Dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	}		
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoModificarDictamenPersonal($dic_codigo) {
+
+		// no valido que sea el único dictamen de la actividad
+		if (!$this->TraerDatosDictamen($dic_codigo, $fila_dictamen, $es_modif) ) 
+			return false;
+
+		$txt_sys_mail="\ndic_codigo=".$dic_codigo;		
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe el dictamen a modificar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+		
+		if ($fila_dictamen['dic_estado'] == DICTAMENNUEVO || $fila_dictamen['dic_estado'] == DICTAMENRECHAZADO ) 
+			return true;		
+		else {
+
+			if ($_SESSION["rolcod"]==SUPERUSUARIO) 
+			    return true;
+				
+			$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","DICTAMENESTADO","' and constantecod='",$fila_dictamen['dic_estado'],"'"),$descri,$numfilas,$errorcod);
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado del Dictamen (".$descri."),no le permite modificarlo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;		
+		}
+
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para modificar el Dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	}
+	
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoModificarProgramacion($act_codigo, $actprog_sec) {
+
+		// verifico que la programación exista
+		if (!$this->TraerDatosActividadProgramacion($act_codigo, $actprog_sec, $fila_progact, $es_modif) ) 
+			return false;
+
+		$txt_sys_mail="\nact_codigo=".$act_codigo."\nactprog_sec=".$actprog_sec;		
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe la Programacion a modificar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+		
+		// busco el estado del dictamen para determinar el estado de la programación
+		if (!$this->TraerDatosDictamen($fila_progact['dic_codigo'], $fila_dictamen, $es_modif) ) 
+			return false;
+
+		$txt_sys_mail="\ndic_codigo=".$fila_progact['dic_codigo'];		
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe el dictamen para la programación a modificar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+		if ($_SESSION["rolcod"] != SUPERUSUARIO) {
+			if ($fila_dictamen['dic_estado'] == DICTAMENNUEVO || $fila_dictamen['dic_estado'] == DICTAMENRECHAZADO ) 
+				return true;		
+			else {
+				$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","DICTAMENESTADO","' and constantecod='",$fila_dictamen['dic_estado'],"'"),$descri,$numfilas,$errorcod);
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado del Dictamen (".$descri."), no le permite modificar la programación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;		
+			}
+		} else 
+			return true;		
+		
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para modificar la Programación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	}			
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoBajaProgramacion($act_codigo, $actprog_sec) {
+
+		// verifico que la programación exista
+		if (!$this->TraerDatosActividadProgramacion($act_codigo, $actprog_sec, $fila_progact, $es_modif) ) 
+			return false;
+
+		$txt_sys_mail="\nact_codigo=".$act_codigo."\nactprog_sec=".$actprog_sec;		
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe la Programacion a eliminar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+		
+		// busco el estado del dictamen para determinar el estado de la programación
+		if (!$this->TraerDatosDictamen($fila_progact['dic_codigo'], $fila_dictamen, $es_modif) ) 
+			return false;
+
+		$txt_sys_mail="\ndic_codigo=".$fila_progact['dic_codigo'];		
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe el dictamen para la programación a eliminar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+		
+		if ($fila_dictamen['dic_estado'] == DICTAMENNUEVO || $fila_dictamen['dic_estado'] == DICTAMENRECHAZADO ) 
+			return true;		
+		else {
+			$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","DICTAMENESTADO","' and constantecod='",$fila_dictamen['dic_estado'],"'"),$descri,$numfilas,$errorcod);
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado del Dictamen (".$descri."), no le permite eliminar la programación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;		
+		}
+		
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para eliminar la Programación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	}		
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoPedirAprobacionDictamen($act_codigo,$actprog_sec) {
+	
+		// verifico que la programación exista
+		if (!$this->TraerDatosActividadProgramacion($act_codigo, $actprog_sec, $fila_progact, $es_modif) ) 
+			return false;
+
+		$txt_sys_mail="\nact_codigo=".$act_codigo."\nactprog_sec=".$actprog_sec;		
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe la Programacion a modificar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+		
+		// busco el estado del dictamen para determinar el estado de la programación
+		if (!$this->TraerDatosDictamen($fila_progact['dic_codigo'], $fila_dictamen, $es_modif) ) 
+			return false;
+
+		$txt_sys_mail="\ndic_codigo=".$fila_progact['dic_codigo'];		
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe el dictamen para la programación a modificar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+
+
+		if ($_SESSION["rolcod"] != SUPERUSUARIO) {
+			
+			if ($fila_dictamen['dic_estado'] == DICTAMENNUEVO || $fila_dictamen['dic_estado'] == DICTAMENRECHAZADO ) 
+				return true;		
+			else {
+				$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","DICTAMENESTADO","' and constantecod='",$fila_dictamen['dic_estado'],"'"),$descri,$numfilas,$errorcod);
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado del Dictamen (".$descri."), no le permite modificar la programación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;		
+			}
+		} else
+			return true;		
+		
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para modificar la Programación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoEvaluarDictamen($act_codigo,$actprog_sec,$rolcod) {
+	
+		if 	($rolcod != COORDINADORINAP)  {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Ud. no tiene permisos para evaluar el dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;		
+		} 
+	
+		// verifico que la programación exista
+		if (!$this->TraerDatosActividadProgramacion($act_codigo, $actprog_sec, $fila_progact, $es_modif) ) 
+			return false;
+
+		$txt_sys_mail="\nact_codigo=".$act_codigo."\nactprog_sec=".$actprog_sec;		
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe la programación a evaluar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+		
+		// busco el estado del dictamen para determinar el estado de la programación
+		if (!$this->TraerDatosDictamen($fila_progact['dic_codigo'], $fila_dictamen, $es_modif) ) 
+			return false;
+
+		$txt_sys_mail="\ndic_codigo=".$fila_progact['dic_codigo'];		
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe el dictamen para la programación a evaluar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+		
+		if ($fila_dictamen['dic_estado'] == DICTAMENPENDIENTEAPROBACION) 
+			return true;		
+		else {
+			$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","DICTAMENESTADO","' and constantecod='",$fila_dictamen['dic_estado'],"'"),$descri,$numfilas,$errorcod);
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado del Dictamen (".$descri."), no le permite evaluar la programación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;		
+		}
+		
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para evaluar el dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+}
+
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoEvaluarDictamenPersonal($dic_codigo,$rolcod) {
+	
+		if 	($rolcod != COORDINADORINAP)  {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Ud. no tiene permisos para evaluar el dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;		
+		} 
+	
+		
+		// busco el estado del dictamen para determinar el estado de la programación
+		if (!$this->TraerDatosDictamen($dic_codigo, $fila_dictamen, $es_modif) ) 
+			return false;
+
+		$txt_sys_mail="\ndic_codigo=".$dic_codigo;		
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe el dictamen para la programación a evaluar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+		
+		if ($fila_dictamen['dic_estado'] == DICTAMENPENDIENTEAPROBACION) 
+			return true;		
+		else {
+			$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","DICTAMENESTADO","' and constantecod='",$fila_dictamen['dic_estado'],"'"),$descri,$numfilas,$errorcod);
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado del Dictamen (".$descri."), no le permite evaluar la programación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;		
+		}
+		
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para evaluar el dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+}
+
+
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoAsignarDisposicion($act_codigo,$actprog_sec,$rolcod) {
+
+		// verifico que la programación exista
+		if (!$this->TraerDatosActividadProgramacion($act_codigo, $actprog_sec, $fila_progact, $es_modif) ) 
+			return false;
+
+		$txt_sys_mail="\nact_codigo=".$act_codigo."\nactprog_sec=".$actprog_sec;		
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe la programación a evaluar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+		
+		// busco el estado del dictamen para determinar el estado de la programación
+		if (!$this->TraerDatosDictamen($fila_progact['dic_codigo'], $fila_dictamen, $es_modif) ) 
+			return false;
+
+		$txt_sys_mail="\ndic_codigo=".$fila_progact['dic_codigo'];		
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe el dictamen para la programación a evaluar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+		
+		if ($fila_dictamen['dic_estado'] == DICTAMENACTIVO) 
+			return true;		
+		else {
+			$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","DICTAMENESTADO","' and constantecod='",$fila_dictamen['dic_estado'],"'"),$descri,$numfilas,$errorcod);
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado del Dictamen (".$descri."), no le permite asignar una disposición.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;		
+		}
+		
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para asignar una disposición al dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoAsignarDisposicionPersonal($dic_codigo,$rolcod) {
+
+	
+		// busco el estado del dictamen para determinar el estado de la programación
+		if (!$this->TraerDatosDictamen($dic_codigo, $fila_dictamen, $es_modif) ) 
+			return false;
+
+		$txt_sys_mail="\ndic_codigo=".$dic_codigo;		
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe el dictamen para la programación a evaluar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+		
+		if ($fila_dictamen['dic_estado'] == DICTAMENACTIVO) 
+			return true;		
+		else {
+			$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","DICTAMENESTADO","' and constantecod='",$fila_dictamen['dic_estado'],"'"),$descri,$numfilas,$errorcod);
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado del Dictamen (".$descri."), no le permite asignar una disposición.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;		
+		}
+		
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para asignar una disposición al dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function ValidarFormDictamen() {	?>		
+	function ValidarFormDictamen(formulario,operacion) {
+			// Ponderador 	- [pondtipopond_codigo_cal_pres] 	- [OBLIG]
+			if ((trim(formulario.pondtipopond_codigo_cal_pres.value)=="")) {
+				alert("Debe ingresar el ponderador Calidad del prestador individual o institucional");
+				formulario.pondtipopond_codigo_cal_pres.focus();
+				return false;
+			}	
+		
+			// Ponderador 	- [pondtipopond_codigo_int] 	- [OBLIG]
+			if ((trim(formulario.pondtipopond_codigo_int.value)=="")) {
+				alert("Debe ingresar el Ponderador de la Intensidad de la actividadl");
+				formulario.pondtipopond_codigo_int.focus();
+				return false;
+			}	
+
+			// Ponderador 	- [pondtipopond_codigo_proc_eva] 	- [OBLIG]
+			if ((trim(formulario.pondtipopond_codigo_proc_eva.value)=="")) {
+				alert("Debe ingresar el Ponderador Calidad del proceso evaluador");
+				formulario.pondtipopond_codigo_proc_eva.focus();
+				return false;
+			}	
+
+			// Créditos 	- [actcur_creditos] 	- [OBLIG]
+			if (!ValidarContenido(formulario.act_creditos.value,'NumericoEntero') ) {
+				alert("Los créditos ingresados deben ser un número entero");
+				formulario.act_creditos.focus();
+				return false;
+			}	
+			if (formulario.act_creditos.value<=0) {
+				alert("Los créditos deben ser mayor que cero");
+				formulario.act_creditos.focus();
+				return false;
+			}	
+			return true;
+		}
+<?php 	}	
+//-----------------------------------------------------------------------------------------------------	
+	function ValidarFormProgramacion() {	?>		
+	function ValidarFormProgramacion(formulario,operacion) {
+			// Fecha de Inicio
+			if (formulario.actprog_fecha_inicio.value=="" || !ValidarFecha(formulario.actprog_fecha_inicio.value))
+			{
+				alert("La fecha de inicio no es válida");
+				formulario.actprog_fecha_inicio.focus();
+				return false;
+			}
+
+			// Fecha de fin
+			if (formulario.actprog_fecha_fin.value=="" || !ValidarFecha(formulario.actprog_fecha_fin.value))
+			{
+				alert("La fecha de finalización no es válida");
+				formulario.actprog_fecha_fin.focus();
+				return false;
+			}
+
+			var fechainicio=ConvertirFecha(formulario.actprog_fecha_inicio.value,'dd/mm/aaaa','aaaammdd');
+			var fechafin=ConvertirFecha(formulario.actprog_fecha_fin.value,'dd/mm/aaaa','aaaammdd');
+		
+			// La fecha de ingreso o la fecha inicial no puede ser superior al actual.			
+			if (fechainicio < '<?php echo ANOINICALINAP."0101" ?>') {
+				alert("La fecha de inicio debe ser mayor o igual a <?php echo "01/01/".ANOINICALINAP ?>");
+				formulario.actprog_fecha_inicio.focus();
+				return false;
+			}				
+				
+			if (fechafin< '<?php echo ANOINICALINAP."0101" ?>') {
+				alert("La fecha de finalización mayor o igual a <?php echo "01/01/".ANOINICALINAP ?>");
+				formulario.actprog_fecha_fin.focus();
+				return false;
+			}
+
+			// Fecha de Ingreso >= Fecha de Inicio
+			if (fechainicio>fechafin) 	{
+				alert("La fecha de finalización debe ser mayor o igual que la fecha de inicio");
+				formulario.actprog_fecha_inicio.focus();
+				return false;
+			}
+
+			// Expediente 	- [exp_codigo] 	- [OBLIG]
+			if ((trim(formulario.exp_codigo.value)=="")) {
+				alert("Debe ingresar el Expediente");
+				formulario.exp_codigo.focus();
+				return false;
+			}	
+			
+		return true;
+	}
+<?php 	}	
+//-----------------------------------------------------------------------------------------------------	
+	function ValidarFormDictamenEvaluar() {	?>		
+		function ValidarFormDictamenEvaluar(formulario) {
+			return true;
+		}
+<?php 	}	
+//-----------------------------------------------------------------------------------------------------	
+	function ValidarFormDictamenVisar() {	?>		
+		function ValidarFormDictamenVisar(formulario) {
+			if (((formulario.dic_visado_estado.value)=="")) {
+				alert("Debe ingresar resultado del visado.");
+				formulario.dic_visado_estado.focus();
+				return false;
+			}	
+			return true;
+		}
+<?php 	}	
+//-----------------------------------------------------------------------------------------------------	
+	function ValidarFormDictamenPedirAprobacion() {	?>		
+		function ValidarFormDictamenPedirAprobacion(formulario) {
+			return true;
+		}
+<?php 	}	
+//-----------------------------------------------------------------------------------------------------	
+	function ValidarFormAsignarDisposicion() {	?>		
+		function ValidarFormAsignarDisposicion(formulario) {
+			return true;
+		}
+<?php 	}	
+//-----------------------------------------------------------------------------------------------------	
+	function MostrarDatosProgramaciones($conexion, $oActividad, $act_codigo, $tipoact_codigo) {
+	
+		$ArregloDatos = array('act_codigo'=> $act_codigo,
+							  'tipoact_codigo'=>$tipoact_codigo,					
+							  'orderby'=>'actprog_fecha_inicio');
+	
+		if (!$oActividad->BuscarActividadDictaminada($ArregloDatos,$numfilas,$resultDictamenes,$error,$errormail)) {
+			$txt_sys_mail="Error al buscar dictamen de la actividad.\nact_codigo=".$act_codigo;
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al buscar dictámenes",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		} elseif($numfilas>0) { 
+	?>
+		<table width="100%" class="textoTablaDato" align="center" cellpadding="2">
+			<tr>
+				<td colspan="2" >
+					<table width="100%" class="textoTablaDato" align="center">
+					<tr>
+						<td> 
+						<?php
+			
+							$opciones=array(
+								"numPagina"=>isset($_GET['pagina'])?$_GET['pagina']:1,
+								"NombrePaginaQuery"=>"pagina",
+								"FilasPagina"=>$numfilas
+							);
+							
+							if (isset($_GET['pagina']))	{
+								$querystring=FuncionesPHPLocal::ArmarQueryString("pagina","",false);	
+								$opciones['QueryString']=$querystring;
+							}
+							
+							$oGrilla = new cGrilla($opciones);
+					
+							$oGrilla->SetearTituloGrilla('Programaciones');	
+							$oGrilla->SetearAnchoGrilla('100%');
+							
+							$miColumna1 = $oGrilla->AddColumna('txt');
+							$oGrilla->Setear('titulo_columna',$miColumna1,'Vigencia Desde');
+							$oGrilla->Setear('campo_grilla',$miColumna1,'actprog_fecha_inicio_ddmmaaaa');
+							$oGrilla->Setear('align_columna',$miColumna1,'center');
+							$oGrilla->Setear('ancho_columna',$miColumna1,'80');
+																			
+							$miColumna2 = $oGrilla->AddColumna('txt');
+							$oGrilla->Setear('titulo_columna',$miColumna2,'Vigencia Hasta' );
+							$oGrilla->Setear('campo_grilla',$miColumna2,'actprog_fecha_fin_ddmmaaaa');
+							$oGrilla->Setear('align_columna',$miColumna2,'center');
+							$oGrilla->Setear('ancho_columna',$miColumna2,'80');
+							
+							if (!$oGrilla->CargarGrilla($resultDictamenes))
+								return false;
+								
+							$oGrilla->MostrarGrilla();
+					?>
+						</td>
+					</table>
+				</td>
+			</tr>
+		</table>
+				<?php 
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function AltaDatosDictamen($datos,&$dic_codigo_nuevo) {
+
+		if(!$this->_DatosValidosAltaDictamen($datos,$datosvalidados))
+			return false;
+		
+		//creo dictamen
+		$spnombre="ins_dictamen";
+		$spparam=array(
+			'pdis_codigo'=> "NULL",
+			'pdic_fecha'=> date("Y/m/d H:i:s"),
+			'pdic_pertinencia'=>$datosvalidados['dic_pertinencia'],
+			'ppondtipopond_codigo_cal_pres'=> $datosvalidados['pondtipopond_codigo_cal_pres'],
+			'ppondtipopond_codigo_int'=> $datosvalidados['pondtipopond_codigo_int'],
+			'ppondtipopond_codigo_proc_eva'=> $datosvalidados['pondtipopond_codigo_proc_eva'],
+			'pdic_observaciones'=> $datosvalidados['dic_observaciones'],
+			'pdic_estado'=> DICTAMENNUEVO,
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+			);
+			
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al insertar el Dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$dic_codigo_nuevo = $this->conexion->ultimocodigoinsertado();
+	
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function PedirAprobacionDictamen($datos) {
+	
+		if ($datos['tipoact_codigo'] == TIPOACTAUTODOCENTE || 
+			$datos['tipoact_codigo'] == TIPOACTAUTOEVACT ||
+			$datos['tipoact_codigo'] == TIPOACTAUTOPUBLI ||
+			$datos['tipoact_codigo'] == TIPOACTAUTOASISTEC ||
+			$datos['tipoact_codigo'] == TIPOACTAUTOAAUTOFORM 		
+			) {
+			
+			if(!$this->_DatosValidosPedidoAprobacionDictamenPersonal ($datos))
+				return false;
+			
+		} else {
+				if(!$this->_DatosValidosPedidoAprobacionDictamen($datos))
+					return false;
+		}
+			
+		$spnombre="upd_dictamen_cambio_estado_xdic_codigo";
+		$spparam=array(
+			'pdic_estado'=>DICTAMENPENDIENTEAPROBACION,
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s"),
+			'pdic_codigo'=>$datos['dic_codigo']
+			);
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al realizar el pedido de aprobación del dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}	
+		
+		return true;
+	}
+	
+//-----------------------------------------------------------------------------------------------------	
+	function AsignarDisposicion($datos) {
+	
+		if ($datos['tipoact_codigo'] == TIPOACTAUTODOCENTE || 
+			$datos['tipoact_codigo'] == TIPOACTAUTOEVACT ||
+			$datos['tipoact_codigo'] == TIPOACTAUTOPUBLI ||
+			$datos['tipoact_codigo'] == TIPOACTAUTOASISTEC ||
+			$datos['tipoact_codigo'] == TIPOACTAUTOAAUTOFORM 		
+			) {
+			
+			if(!$this->_DatosValidosAsignarDisposicionPersonal($datos))
+				return false;
+			
+		} else {
+			
+			if(!$this->_DatosValidosAsignarDisposicion($datos))
+				return false;
+		}	
+		$spnombre="upd_dictamen_asigno_disposicion";
+		$spparam=array(
+			'pdic_codigo'=>$datos['dic_codigo'],
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s"),
+			'pdis_codigo'=>($datos['dis_codigo']=="")?"NULL":$datos['dis_codigo']
+			);
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al realizar la asignacion de la disposición.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}	
+		
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function ArmarMensajeEvaluar($datos,$operacion,&$mensaje) {
+		$result = true;
+		$oActividad = new cActividad($this->conexion);
+		if ($oActividad->TraerDatosActividad($datos['act_codigo'],$fila_act,$es_modif)) {
+		
+			$mensaje = " INAP ha ".$operacion." el dictamen asociado la siguiente actividad\n";
+			$mensaje .= " Nombre:   ".$fila_act['act_nombre']."\n";	
+			$mensaje .= " Código INAP:   ".$fila_act['act_codinap']."\n";			
+			$mensaje .= " Aclaraciones:   ".$datos['aclaracion_mail']."\n";	;		
+
+			if(isset($datos['pers_codigo'])) {
+				$oPersonas=new cPersonas($this->conexion);
+				if(!$oPersonas->TraerDatosPersona_xCod($datos["pers_codigo"],$datospersona,$es_modif)) {
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$mensaje,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+				$mensaje .= "\n Datos Personales:\n";
+				$mensaje .= " CUIT/CUIL/CDI:".$datospersona['pers_cuilt']."\n";
+				$mensaje .= " Apellido y Nombre: ".$datospersona['pers_apellido'].", ".$datospersona['pers_nombre']."\n";
+			} 		
+
+		} else 
+			$result = false;
+
+		return $result;
+	}	
+	
+	
+	//-----------------------------------------------------------------------------------------------------	
+	function VisarDictamen($datos) {
+		
+		if(!$this->_DatosValidosVisarDictamen($datos))
+			return false;
+
+		$spnombre="upd_dictamen_visado_xdic_codigo";
+		$spparam=array(
+			'pdic_visado_estado'=>$datos['dic_visado_estado'],
+			'pdic_visado_obs'=>$datos['dic_visado_obs'],
+			'pdic_visado_fecha'=>date("Y/m/d H:i:s"),
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s"),
+			'pdic_codigo'=>$datos['dic_codigo']
+		);
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al visar el dictamen. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}	
+/*
+		if( trim($datos['aclaracion_mail']) != "") {
+			
+			if (!$this->TraerDatosDictamen($datos['dic_codigo'], $fila_dictamen, $es_modif) ) 
+				return false;
+
+			$txt_sys_mail="\ndic_codigo=".$datos['dic_codigo'];		
+			if (!$es_modif)	{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error, no existe el dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			} 
+
+			$spnombre="upd_dictamen_hist_evaluacion_xdic_codigo";
+			$spparam=array(
+				'pdic_hist_evaluacion'=>($fila_dictamen['dic_hist_evaluacion']."\n----------- ".
+										date("Y/m/d H:i:s")." ----------\n\n".
+										$datos['aclaracion_mail']."\n"),
+				'pultmodusuario'=>$_SESSION['usuariocod'],
+				'pultmodfecha'=> date("Y/m/d H:i:s"),
+				'pdic_codigo'=>$datos['dic_codigo']
+			);
+			
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)
+			{
+				$txt_sys_mail="Actualizando el historial de evaluaciones de \ndic_codigo=".$datos['dic_codigo'];		
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al actualizar la evaluación del dictamen. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			}	
+		}	// if hay datos aclaratorios
+	*/
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function EvaluarDictamen($datos,$operacion) {
+		
+		if ($datos['tipoact_codigo'] == TIPOACTAUTODOCENTE || 
+			$datos['tipoact_codigo'] == TIPOACTAUTOEVACT ||
+			$datos['tipoact_codigo'] == TIPOACTAUTOPUBLI ||
+			$datos['tipoact_codigo'] == TIPOACTAUTOASISTEC ||
+			$datos['tipoact_codigo'] == TIPOACTAUTOAAUTOFORM 		
+			) {
+			
+			if(!$this->_DatosValidosEvaluarDictamenPersonal ($datos))
+				return false;
+			
+		} else {
+			if(!$this->_DatosValidosEvaluarDictamen($datos))
+				return false;
+		}
+	
+		if ($operacion == "A") 
+			$estado = DICTAMENACTIVO;
+		else 
+			$estado = DICTAMENRECHAZADO;	
+		
+		$spnombre="upd_dictamen_cambio_estado_xdic_codigo";
+		$spparam=array(
+			'pdic_estado'=>$estado,
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s"),
+			'pdic_codigo'=>$datos['dic_codigo']
+		);
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al actualizar la evaluación del dictamen. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}	
+
+
+		if 	($estado == DICTAMENRECHAZADO) 
+		{
+			$spnombre="upd_dictamen_visado_limpieza_xdic_codigo";
+			$spparam=array(
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s"),
+			'pdic_codigo'=>$datos['dic_codigo']
+			);
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al actualizar la evaluación del dictamen. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}	
+	
+		}
+
+
+
+
+		if( trim($datos['aclaracion_mail']) != "") {
+			
+			if (!$this->TraerDatosDictamen($datos['dic_codigo'], $fila_dictamen, $es_modif) ) 
+				return false;
+
+			$txt_sys_mail="\ndic_codigo=".$datos['dic_codigo'];		
+			if (!$es_modif)	{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error, no existe el dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			} 
+
+			$spnombre="upd_dictamen_hist_evaluacion_xdic_codigo";
+			$spparam=array(
+				'pdic_hist_evaluacion'=>($fila_dictamen['dic_hist_evaluacion']."\n----------- ".
+										date("Y/m/d H:i:s")." ----------\n\n".
+										$datos['aclaracion_mail']."\n"),
+				'pultmodusuario'=>$_SESSION['usuariocod'],
+				'pultmodfecha'=> date("Y/m/d H:i:s"),
+				'pdic_codigo'=>$datos['dic_codigo']
+			);
+			
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)
+			{
+				$txt_sys_mail="Actualizando el historial de evaluaciones de \ndic_codigo=".$datos['dic_codigo'];		
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al actualizar la evaluación del dictamen. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			}	
+		}	// if hay datos aclaratorios
+	
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function MostrarHistorialEvaluacion($conexion,$dic_codigo) {
+?>
+	<table class="textoTablaDato" align="center" width="95%">
+		<tr>
+			<td valign="top" class="textoEtiquetaDatoResaltado" colspan="2">  
+				<a class="linkListadoMenu" href='javascript:void(0)' onClick="InvertirEstado_Visibilidad('fila_detalle_historial');">
+					Ver/Ocultar Historial Evaluaciones
+				</a> 							
+			</td>
+		</tr>
+		<tr id="fila_detalle_historial" >
+			<td valign="top" class="textoEtiquetaDatoResaltado" colspan="2">  
+				<strong>Historial Evaluaciones </strong>
+				<br />
+				<textarea cols="100" rows="10" style="width:100%" class='inputReadonly' readonly='readonly'>
+				<?php	if (!$this->TraerDatosDictamen($dic_codigo, $fila_dictamen_completo, $es_modif) ) 
+						return false;
+		
+					$txt_sys_mail="\ndic_codigo=".$dic_codigo;		
+					if (!$es_modif)	{
+						FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error, no existe el dictamen a modificar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+						return false;
+					} 
+					echo htmlspecialchars($fila_dictamen_completo['dic_hist_evaluacion'],ENT_QUOTES);
+				?>
+				</textarea>
+			</td>
+		</tr>
+	</table>	
+	<script type="text/javascript" language="javascript">CambiarEstado_Visibilidad('fila_detalle_historial','invisible');</script>
+<?php } 								
+//-----------------------------------------------------------------------------------------------------	
+	function ArmarMensajePedidoAprobacion($datos,&$mensaje) {
+
+		$result = true;
+		$oActividad = new cActividad($this->conexion);
+	
+		if ($oActividad->TraerDatosActividad($datos['act_codigo'],$fila_act,$es_modif)) {
+
+			$mensaje = " Se ha solicitado la evaluación del dictamen correspondiente a la actividad:\n\n";
+			$mensaje .= " Nombre:   ".$fila_act['act_nombre']."\n";	
+			$mensaje .= " Código INAP:  ".$fila_act['act_codinap']."\n";	
+			
+			if(isset($datos['pers_codigo'])) {
+				$oPersonas=new cPersonas($this->conexion);
+				if(!$oPersonas->TraerDatosPersona_xCod($datos["pers_codigo"],$datospersona,$es_modif)) {
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$mensaje,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+				$mensaje .= "\n Datos Personales:\n";
+				$mensaje .= " CUIT/CUIL/CDI:".$datospersona['pers_cuilt']."\n";
+				$mensaje .= " Apellido y Nombre: ".$datospersona['pers_apellido'].", ".$datospersona['pers_nombre']."\n";
+			} 		
+			
+		} else 
+			$result = false;
+			
+		return $result;	
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function CopiarDatosDictamen($datos,&$dic_codigo_nuevo) {
+
+		if (!$this->TraerDatosDictamen($datos['dic_codigo'], $fila_dictamen, $es_modif) ) 
+			return false;
+	
+		$txt_sys_mail="\ndic_codigo=".$datos['dic_codigo'];		
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe el dictamen a copiar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+			
+		$spnombre="ins_dictamen";
+		$spparam=array(
+			'pdis_codigo'=> "NULL",
+			'pdic_fecha'=> date("Y/m/d H:i:s"),
+			'pdic_pertinencia'=> SI,
+			'ppondtipopond_codigo_cal_pres'=> $fila_dictamen['pondtipopond_codigo_cal_pres'],
+			'ppondtipopond_codigo_int'=> $fila_dictamen['pondtipopond_codigo_int'],
+			'ppondtipopond_codigo_proc_eva'=> $fila_dictamen['pondtipopond_codigo_proc_eva'],
+			'pdic_estado'=> DICTAMENNUEVO,
+			'pdic_observaciones'=> $datos['dic_observaciones'],		
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+			);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al insertar el Dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$dic_codigo_nuevo = $this->conexion->ultimocodigoinsertado();
+		
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function BajaDatosDictamen($datos) {
+		if(!$this->_DatosValidosBajaDictamen($datos,$datosvalidados))
+			return false;
+	
+		$spnombre="del_dictamen";
+		$spparam=array(
+			'pdic_codigo'=> $datosvalidados['dic_codigo']
+			);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al eliminar el Dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+	
+		return true;	
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ModifDatosDictamen($datos) {
+
+		if(!$this->_DatosValidosModifDictamen($datos,$datosvalidados))
+			return false;
+			
+
+		// Actualizo dictamen
+		$spnombre="upd_dictamen";
+		$spparam=array(
+			'pdic_fecha'=> date("Y/m/d H:i:s"),
+			'pdic_pertinencia'=> $datosvalidados['dic_pertinencia'],
+			'ppondtipopond_codigo_cal_pres'=> $datosvalidados['pondtipopond_codigo_cal_pres'],
+			'ppondtipopond_codigo_int'=> $datosvalidados['pondtipopond_codigo_int'],
+			'ppondtipopond_codigo_proc_eva'=> $datosvalidados['pondtipopond_codigo_proc_eva'],
+			'pdic_codigo'=> $datosvalidados['dic_codigo'],		
+			'pdic_observaciones'=> $datosvalidados['dic_observaciones'],		
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+			);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al modificar el Dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+	
+		return true;	
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function AltaDatosProgramacion($datos) {
+
+		$oActividad = new cActividadCurso($this->conexion);
+		
+		$datos+=array('dic_pertinencia'=>SI);	// Son siempre pertinentes
+		
+		// creo/copio dictamen
+		if ($datos['operacion_dictamen'] == "M" || $datos['operacion_dictamen'] == "A") {
+			if($this->AltaDatosDictamen($datos,$dic_codigo)) {
+				FuncionesPHPLocal::RegistrarAcceso($this->conexion,"49001","dic_codigo=".$dic_codigo,$_SESSION['usuariocod']);
+			} else 
+				return false;
+		} elseif ($datos['operacion_dictamen'] == "V") {
+				if($this->CopiarDatosDictamen($datos,$dic_codigo)) {
+					FuncionesPHPLocal::RegistrarAcceso($this->conexion,"49001","dic_codigo=".$dic_codigo,$_SESSION['usuariocod']);
+				} else 
+					return false;
+		}
+		$datos['dic_codigo'] = $dic_codigo;
+	
+		switch ($_SESSION['rolcod']) {
+			case USUCURSOINAP:
+				$oActividad= new cActividadCursoInap($this->conexion);
+				break;
+			case USUACTINS:
+				$oActividad= new cActividadCursoInstitucional($this->conexion);
+				break;
+			case USUACTJUR:
+				$oActividad= new cActividadCursoJurisdiccional($this->conexion);
+				break;
+			case USUACTEXT:
+				$oActividad= new cActividadExterna($this->conexion);
+				break;	
+			case USUAUTODESARROLLO: // Solo para mero
+				$oActividad= new cActividadAutodesarrollo($this->conexion);
+				break;	
+		}
+		$oActividad->ActualizarCreditos($datos['act_codigo'],$datos['act_creditos']);
+
+		// creo programación
+		if(!$this->_DatosValidosAltaProgramacion($datos,$datosvalidados))
+			return false;
+		
+		$spnombre="ins_actividad_programacion";
+		$spparam=array(
+			'pact_codigo'=> $datosvalidados['act_codigo'],
+			'pactprog_sec'=> $datosvalidados['actprog_sec'],
+			'pactprog_fecha_inicio'=>  FuncionesPHPLocal::ConvertirFecha($datosvalidados['actprog_fecha_inicio'],'dd/mm/aaaa','aaaa-mm-dd'),
+			'pactprog_fecha_fin'=>  FuncionesPHPLocal::ConvertirFecha($datosvalidados['actprog_fecha_fin'],'dd/mm/aaaa','aaaa-mm-dd'),
+			'pdic_codigo'=> $datosvalidados['dic_codigo'],
+			'pexp_codigo'=> $datosvalidados['exp_codigo'],
+			'pactprog_obs'=> $datosvalidados['actprog_obs'],
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+			);
+			
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al insertar la Programación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+	
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function BajaDatosProgramacion($datos) {
+
+		if(!$this->_DatosValidosBajaProgramacion($datos,$datosvalidados))
+			return false;
+	
+		$spnombre="del_actividad_programacion";
+		$spparam=array(
+			'pact_codigo'=> $datosvalidados['act_codigo'],
+			'pactprog_sec'=> $datosvalidados['actprog_sec']		
+			);
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al insertar la Actividad Curso Institucional.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+	
+		if($this->BajaDatosDictamen($datos)) {
+			FuncionesPHPLocal::RegistrarAcceso($this->conexion,"49002","dic_codigo=".$datosvalidados['dic_codigo'],$_SESSION['usuariocod']);
+		} else 
+			return false;
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ModifDatosProgramacion($datos) {
+	
+		$datos+=array('dic_pertinencia'=>SI);	// Son siempre pertinentes
+
+		if(!$this->_DatosValidosModifProgramacion($datos,$datosvalidados))
+			return false;
+		$spnombre="upd_actividad_programacion";
+		$spparam=array(
+			'pdic_codigo'=> $datosvalidados['dic_codigo'],
+			'pexp_codigo'=> $datosvalidados['exp_codigo'],
+			'pactprog_fecha_inicio'=>  FuncionesPHPLocal::ConvertirFecha($datosvalidados['actprog_fecha_inicio'],'dd/mm/aaaa','aaaa-mm-dd'),
+			'pactprog_fecha_fin'=>  FuncionesPHPLocal::ConvertirFecha($datosvalidados['actprog_fecha_fin'],'dd/mm/aaaa','aaaa-mm-dd'),
+			'pactprog_obs'=> $datosvalidados['actprog_obs'],
+			'pact_codigo'=> $datosvalidados['act_codigo'],
+			'pactprog_sec'=> $datosvalidados['actprog_sec'],
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+			);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al modificar la Programación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+	
+		if ($datos['operacion_dictamen'] == "M") {
+			
+			if($this->ModifDatosDictamen($datos)) {
+				FuncionesPHPLocal::RegistrarAcceso($this->conexion,"49103","dic_codigo=".$datosvalidados['dic_codigo'],$_SESSION['usuariocod']);
+			} else 
+				return false;
+		
+			switch ($_SESSION['rolcod']) {
+				case USUCURSOINAP:
+					$oActividad= new cActividadCursoInap($this->conexion);
+					break;
+				case USUACTINS:
+					$oActividad= new cActividadCursoInstitucional($this->conexion);
+					break;
+				case USUACTJUR:
+					$oActividad= new cActividadCursoJurisdiccional($this->conexion);
+					break;
+				case USUACTEXT:
+					$oActividad= new cActividadExterna($this->conexion);
+					break;	
+				case USUAUTODESARROLLO: // Es sólo para mero
+					$oActividad= new cActividadAutodesarrollo($this->conexion);
+					break;	
+				case SUPERUSUARIO:		
+					switch ($datos["tipoact_codigo"]) {
+						case TIPOACTCURSOINAP:
+							$oActividad= new cActividadCursoInap($this->conexion);
+							break; 
+		
+						case TIPOACTAUTOEVASIS:
+							$oActividad= new cActividadAutodesarrollo($this->conexion);
+							break; 
+
+						case TIPOACTEXTASIS:
+							$oActividad= new cActividadExterna($this->conexion);
+							break; 
+
+					}
+				}
+				
+			$oActividad->ActualizarCreditos($datos['act_codigo'],$datos['act_creditos']);
+		}
+	
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function AltaDatosDictamenPersonal($datos,&$dic_codigo_nuevo) {
+
+		if(!$this->_DatosValidosAltaDictamenPersonal($datos,$datosvalidados))
+			return false;
+
+		if($this->AltaDatosDictamen($datosvalidados,$dic_codigo)) {
+			FuncionesPHPLocal::RegistrarAcceso($this->conexion,"49001","dic_codigo=".$dic_codigo,$_SESSION['usuariocod']);
+		} else 
+			return false;
+		
+		//creo dictamen
+		$spnombre="ins_actividad_autodesarrollo_dictamen";
+		$spparam=array(
+			'pact_codigo'=> $datosvalidados['act_codigo'],
+			'ppers_codigo'=> $datosvalidados['pers_codigo'],
+			'pdic_codigo'=> $dic_codigo,
+			'pactauto_creditos'=> $datosvalidados['act_creditos'],
+			'pactautodic_obs'=> $datosvalidados['actautodic_obs'],
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+			);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al insertar el Dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		return true;
+	}
+	
+//-----------------------------------------------------------------------------------------------------	
+	function BajaDatosDictamenPersonal($datos) {
+
+		if(!$this->_DatosValidosBajaDictamenPersonal($datos,$datosvalidados))
+			return false;
+
+		$spnombre="del_actividad_autodesarrollo_dictamen";
+		$spparam=array(
+			'pact_codigo'=> $datosvalidados['act_codigo'],
+			'ppers_codigo'=> $datosvalidados['pers_codigo']
+			);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al insertar el Dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+
+		if($this->BajaDatosDictamen($datosvalidados)) {
+			FuncionesPHPLocal::RegistrarAcceso($this->conexion,"49002","dic_codigo=".$datosvalidados['dic_codigo'],$_SESSION['usuariocod']);
+		} else 
+			return false;
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function ModifDatosDictamenPersonal($datos) {
+
+		if(!$this->_DatosValidosModifDictamenPersonal($datos,$datosvalidados))
+			return false;
+
+		if($this->ModifDatosDictamen($datosvalidados)) {
+			FuncionesPHPLocal::RegistrarAcceso($this->conexion,"49003","dic_codigo=".$datosvalidados['dic_codigo'],$_SESSION['usuariocod']);
+		} else 
+			return false;
+		
+		//creo dictamen
+		$spnombre="upd_actividad_autodesarrollo_dictamen_xact_codigo_pers_codigo";
+		$spparam=array(
+			'pact_codigo'=> $datosvalidados['act_codigo'],
+			'ppers_codigo'=> $datosvalidados['pers_codigo'],
+			'pdic_codigo'=> $datosvalidados['dic_codigo'],
+			'pactauto_creditos'=> $datosvalidados['act_creditos'],
+			'pactautodic_obs'=> $datosvalidados['actautodic_obs'],			
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+			);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al modificar el Dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		return true;
+	}
+
+
+	//-----------------------------------------------------------------------------------------------------	
+	// Esta funcion dada una actividad, codigo, y tipo
+	// Retorna 
+	// a) Operación que se puede realizar sobre el dictamen.  
+	// b) Dictamen editable (ultimo editable o uno nuevo).
+	// c) Fila con datos basicos de la actividad en formato normalizado, para ser mostrado. 
+	// Se usa antes de mostrar los datos al dictaminar
+	function ObtenerDatosParaDictaminar ($conexion,$oActividad,$act_codigo,$tipoact_codigo,
+								   					&$operacion_dictamen,&$operacion_programacion,
+								   					&$fila_ultimo_dictamen,&$fila_detalle,&$fila_dictamen_editable) {
+	
+		if (!$oActividad->TraerDatosActividadDetalles($act_codigo,$tipoact_codigo,$fila_detalle,$es_modif_act) ) {
+	
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al buscar la Actividad",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),"\nact_codigo=".$filaactividad['act_codigo']);
+			return false;	
+
+		} else {
+		
+			$fila_dictamen_editable=array();
+			$fila_ultimo_dictamen=array();		
+		
+			// Obtengo los dictamenes ordenados por la secuencia
+			$ArregloDatos['act_codigo']=$act_codigo;
+			$ArregloDatos['tipoact_codigo']=$tipoact_codigo;		
+			$ArregloDatos['orderby']='actprog_sec desc';
+
+			if (!$oActividad->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas,$resultDictamenes,$error,$errormail)) {
+				$txt_sys_mail="Error al buscar dictamen de la actividad.\nact_codigo=".$filaactividad['act_codigo'];
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al buscar dictámenes",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;	
+			} elseif ($numfilas!=0) { // Hay dictamenes para la actividad
+
+				$fila_dictamen=mysqli_fetch_assoc($resultDictamenes);
+
+				if ($fila_dictamen['dic_estado']==DICTAMENNUEVO || $fila_dictamen['dic_estado']==DICTAMENRECHAZADO)
+					$fila_dictamen_editable=$fila_dictamen;
+
+				$fila_ultimo_dictamen=$fila_dictamen;
+			} 
+
+			$fila_ultimo_dictamen['act_duracionhs']=$fila_detalle['act_duracionhs'];
+			$fila_ultimo_dictamen['act_creditos']=$fila_detalle['act_creditos'];
+
+			$fila_ultimo_dictamen['act_creditos']=$fila_detalle['act_creditos'];
+			// Hay un único dictamen y es nuevo o rechazado
+			$hay_dictamen = ($numfilas!=0);
+			$hay_dictamen_editable = ($numfilas==1 && ($fila_ultimo_dictamen['dic_estado']==DICTAMENNUEVO || $fila_ultimo_dictamen['dic_estado']==DICTAMENRECHAZADO || $_SESSION['rolcod'] == SUPERUSUARIO));
+		
+			if (!$hay_dictamen) 
+			   $operacion_dictamen= "A";
+			elseif ($hay_dictamen_editable)    
+				$operacion_dictamen= "M";
+			 else 
+				$operacion_dictamen= "V";
+
+				
+			if ($numfilas==0 || !($fila_ultimo_dictamen['dic_estado']==DICTAMENNUEVO || $fila_ultimo_dictamen['dic_estado']==DICTAMENRECHAZADO || $_SESSION['rolcod'] == SUPERUSUARIO))
+				$operacion_programacion = "A";
+			else 
+				$operacion_programacion = "M";	
+
+		}
+		return  true;	
+	}
+	//-----------------------------------------------------------------------------------------------------	
+	// Esta funcion dada una actividad, codigo, y tipo
+	// Retorna 
+	// a) Operación que se puede realizar sobre el dictamen.  
+	// b) Dictamen editable (ultimo editable o uno nuevo).
+	// c) Fila con datos basicos de la actividad en formato normalizado, para ser mostrado. 
+	// Se usa antes de mostrar los datos al dictaminar
+	function ObtenerDatosParaModificarDictamen ($conexion,$oActividad,$act_codigo,$tipoact_codigo,
+								   					&$operacion_dictamen,&$operacion_programacion,
+								   					&$fila_ultimo_dictamen,&$fila_detalle,&$fila_dictamen_editable) {
+	
+	
+		if (!$oActividad->TraerDatosActividadDetalles($act_codigo,$tipoact_codigo,$fila_detalle,$es_modif_act) ) {
+	
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al buscar la Actividad",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),"\nact_codigo=".$filaactividad['act_codigo']);
+			return false;	
+
+		} else {
+		
+			$fila_dictamen_editable=array();
+			$fila_ultimo_dictamen=array();		
+		
+			// Obtengo los dictamenes ordenados por la secuencia
+			$ArregloDatos['act_codigo']=$act_codigo;
+			$ArregloDatos['tipoact_codigo']=$tipoact_codigo;		
+			$ArregloDatos['orderby']='actprog_sec desc';
+
+			if (!$oActividad->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas,$resultDictamenes,$error,$errormail)) {
+				$txt_sys_mail="Error al buscar dictamen de la actividad.\nact_codigo=".$filaactividad['act_codigo'];
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al buscar dictámenes",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;	
+			} elseif ($numfilas!=0) { // Hay dictamenes para la actividad
+				$fila_dictamen=mysqli_fetch_assoc($resultDictamenes);
+				if ($fila_dictamen['dic_estado']==DICTAMENNUEVO || $fila_dictamen['dic_estado']==DICTAMENRECHAZADO)
+					$fila_dictamen_editable=$fila_dictamen;
+				$fila_ultimo_dictamen=$fila_dictamen;
+			} 
+
+			$fila_ultimo_dictamen['act_duracionhs']=$fila_detalle['act_duracionhs'];
+			$fila_ultimo_dictamen['act_creditos']=$fila_detalle['act_creditos'];
+
+
+			// Hay un único dictamen y es nuevo o rechazado
+			$hay_dictamen = ($numfilas!=0);
+			$hay_dictamen_editable = ($numfilas==1 && ($fila_ultimo_dictamen['dic_estado']==DICTAMENNUEVO || $fila_ultimo_dictamen['dic_estado']==DICTAMENRECHAZADO)) ;
+
+
+			if (!$hay_dictamen){ 
+			   $operacion_dictamen= "A";
+			   $operacion_programacion = "A";
+			 }else{ 
+				$operacion_dictamen= "M";
+				$operacion_programacion = "M";	
+			}
+		}
+		return  true;	
+	}	
+	//--------------------------------------------------------------------------------------------
+	function ObtenerDatosParaPedirAprobDictamen($conexion,$oActividad,$act_codigo,$tipoact_codigo,
+								   				$actprog_sec,&$fila_dictamen_editable,&$fila_detalle) {
+		
+		if (!$oActividad->TraerDatosActividadDetalles($act_codigo,$tipoact_codigo,$fila_detalle,$es_modif_act) ) {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al buscar la Actividad",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),"\nact_codigo=".$filaactividad['act_codigo']);
+			return false;	
+		} else {
+			
+			$fila_dictamen_editable=array();
+			$ArregloDatos['act_codigo']=$act_codigo;
+			$ArregloDatos['tipoact_codigo']=$tipoact_codigo;		
+			$ArregloDatos['actprog_sec']=$actprog_sec;		
+
+			// Obtengo el dictamen de la secuencia enviada
+			if (!$oActividad->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas,$resultDictamenes,$error,$errormail)) {
+				$txt_sys_mail="Error al buscar dictamen de la actividad.\nact_codigo=".$filaactividad['act_codigo'];
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al buscar dictámenes",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;	
+			} elseif ($numfilas==1) { // No existe la secuencia 
+				$fila_dictamen=mysqli_fetch_assoc($resultDictamenes);
+				if ($fila_dictamen['dic_estado']==DICTAMENNUEVO || $fila_dictamen['dic_estado']==DICTAMENRECHAZADO) {
+					$fila_dictamen_editable=$fila_dictamen;
+					$fila_dictamen_editable['act_duracionhs']=$fila_detalle['act_duracionhs'];
+					$fila_dictamen_editable['act_creditos']=$fila_detalle['act_creditos'];
+				} 	
+			  } else {
+			  	 return false;	
+		    } // Obtencion del dictamen
+			
+		} // ok datos de la actividad
+		
+		return true;	
+	}
+	//--------------------------------------------------------------------------------------------
+	function ObtenerDatosParaEvaluarDictamen($conexion,$oActividad,$act_codigo,$tipoact_codigo,
+								   				$dic_codigo,&$fila_dictamen,&$fila_detalle) {
+		
+		if (!$oActividad->TraerDatosActividadDetalles($act_codigo,$tipoact_codigo,$fila_detalle,$es_modif_act) ) {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al buscar la Actividad",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),"\nact_codigo=".$filaactividad['act_codigo']);
+			return false;	
+		} else {
+			$fila_dictamen=array();
+			$ArregloDatos['act_codigo']=$act_codigo;
+			$ArregloDatos['tipoact_codigo']=$tipoact_codigo;		
+			$ArregloDatos['dic_codigo']=$dic_codigo;		
+			// Obtengo el dictamen de la secuencia enviada
+			if (!$oActividad->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas,$resultDictamenes,$error,$errormail)) {
+				$txt_sys_mail="Error al buscar dictamen de la actividad.\nact_codigo=".$filaactividad['act_codigo'];
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al buscar dictámenes",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;		
+			} elseif ($numfilas==1) { // No existe la secuencia 
+					$fila_dictamen=mysqli_fetch_assoc($resultDictamenes);
+					$fila_dictamen['act_duracionhs']=$fila_detalle['act_duracionhs'];
+					$fila_dictamen['act_creditos']=$fila_detalle['act_creditos'];
+				} else {
+					return false;	
+			} 
+		}
+		return true;	
+	}	
+	//---------------------------------------------------------------------------------------------------------------------
+	function ObtenerDatosParaAsignarDisposicion($conexion,$oActividad,$act_codigo,$tipoact_codigo,
+										$dic_codigo,&$fila_dictamen,&$fila_detalle) {
+										
+		if (!$oActividad->TraerDatosActividadDetalles($act_codigo,$tipoact_codigo,$fila_detalle,$es_modif_act) ) {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al buscar la Actividad",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),"\nact_codigo=".$filaactividad['act_codigo']);
+			return false;	
+		} else {
+			$fila_dictamen=array();
+			$ArregloDatos['act_codigo']=$act_codigo;
+			$ArregloDatos['tipoact_codigo']=$tipoact_codigo;		
+			$ArregloDatos['dic_codigo']=$dic_codigo;		
+			// Obtengo el dictamen de la secuencia enviada
+			if (!$oActividad->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas,$resultDictamenes,$error,$errormail)) {
+				$txt_sys_mail="Error al buscar dictamen de la actividad.\nact_codigo=".$filaactividad['act_codigo'];
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al buscar dictámenes",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;		
+			} elseif ($numfilas==1) { // No existe el dictamen
+					$fila_dictamen=mysqli_fetch_assoc($resultDictamenes);
+					$fila_dictamen['act_duracionhs']=$fila_detalle['act_duracionhs'];
+					$fila_dictamen['act_creditos']=$fila_detalle['act_creditos'];
+				} else {
+					return false;	
+			} 
+		}
+		return true;									
+	}
+	//---------------------------------------------------------------------------------------------------------------------
+	function FuncionesCalculoCreditos() {	
+	// Funciones Java que definen la maquinita (1) y (2) 
+	// (1) Todos los tipos y formatos excepto autodesarrollo publicaciones
+	// (2) Solo publicaciones
+?>		
+		var creditos_total=0;
+		var total_base_creditos=0;			// Para publicaciones
+		var porcentaje_base_creditos=0;		// Para publicaciones
+
+		function ReCalculo_creditos(act_duracionhs,	pondtipopond_codigo_cal_pres,
+									pondtipopond_codigo_int,pondtipopond_codigo_proc_eva,idAguarde) {
+		
+			var archivo="calculo_creditos_ajax.dhtml";		
+			var datos="act_duracionhs="+act_duracionhs;
+			datos+="&pondtipopond_codigo_cal_pres="+pondtipopond_codigo_cal_pres;
+			datos+="&pondtipopond_codigo_int="+pondtipopond_codigo_int;
+			datos+="&pondtipopond_codigo_proc_eva="+pondtipopond_codigo_proc_eva;
+		
+			var contenedor=document.getElementById(idAguarde);
+			contenedor.innerHTML='Aguarde, recalculado los créditos...';
+		
+			var ajax=nuevoAjax();
+			ajax.open("POST",archivo,true);
+		
+			ajax.onreadystatechange=function() {
+				if (ajax.readyState==4) {	
+					eval (ajax.responseText);
+					contenedor.innerHTML="";
+					SetearTexto('act_creditos',creditos_total);
+				}
+			}
+			ajax.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
+			ajax.send(datos);		
+		}
+		//---------------------------------------------------------------------------------------------------------------------
+		function ReCalculo_creditosPublicaciones(tipopart_codigo,escalaftramocod,escalafnivcod,pondtipopond_codigo_cal_pres,pondtipopond_codigo_int,pondtipopond_codigo_proc_eva,idAguarde) {
+		
+            
+			var archivo="calculo_creditos_ajax.dhtml";		
+			var datos="tipopart_codigo="+tipopart_codigo;
+      		datos+="&escalaftramocod="+escalaftramocod;
+			datos+="&escalafnivcod="+escalafnivcod;
+			datos+="&pondtipopond_codigo_cal_pres="+pondtipopond_codigo_cal_pres;
+			datos+="&pondtipopond_codigo_int="+pondtipopond_codigo_int;
+			datos+="&pondtipopond_codigo_proc_eva="+pondtipopond_codigo_proc_eva;
+
+
+			var contenedor=document.getElementById(idAguarde);
+			contenedor.innerHTML='Aguarde, recalculado los créditos...';
+		
+			var ajax=nuevoAjax();
+			ajax.open("POST",archivo,true);
+		
+			ajax.onreadystatechange=function() {
+				if (ajax.readyState==4) {	
+					eval (ajax.responseText);
+					contenedor.innerHTML="";
+					SetearTexto('act_creditos',creditos_total);
+					SetearTexto('pondtipopart_total',total_base_creditos);
+					SetearTexto('pondtipopart_porcentaje',porcentaje_base_creditos);
+				}
+			}
+			ajax.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
+			ajax.send(datos);		
+				
+		}
+<?php 	}		
+	//---------------------------------------------------------------------------------------------------------------------
+	function MostrarDatosDictamenProgramacion	($conexion,$oActividad,$fila_detalle,$operacion_dictamen,
+												 $operacion_programacion,$fila_dictamen) {
+	$ok=true;
+	?>
+	<script type="text/javascript">
+		<?php $this->ValidarFormDictamen(); ?>
+		<?php $this->ValidarFormProgramacion(); ?>
+		<?php $this->FuncionesCalculoCreditos(); ?>
+	</script>
+		<table width="100%" class="textoTablaDato" align="center">
+			<tr> 
+				<td> 
+				<table width="100%" class="textoTablaDato" align="center" cellpadding="2">
+					<tr>
+						<td>
+							<fieldset class="bordeDetalleRegistro">
+							<legend class="textoLeyendaDetalleRegistro">Datos Actividad</legend>
+							<table width="100%" class="textoTablaDato" align="center">
+								<tr>
+									<td valign="top" width="15%" class='textoEtiqueta'>Nombre</td>
+									<td class="textoEtiquetaDatoResaltado">	<textarea cols="100" rows="2"  class='inputReadonly' readonly  name="act_nombre" id="act_nombre" style="width:400px" ><?php echo htmlspecialchars($fila_detalle['act_nombre'],ENT_QUOTES);?></textarea></td>
+								</tr>				
+								<tr>
+									<td valign="top" width="15%" class='textoEtiqueta'>Código INAP</td>
+									<td class="textoEtiquetaDatoResaltado"><input type="text" name="act_codinap" id="act_codinap" class='inputReadonly' readonly size="21" maxlength="20" value="<?php echo htmlspecialchars($fila_detalle['act_codinap'],ENT_QUOTES);?>">
+									<a class="linkListadoMenu" href='javascript:void(0)' onClick="Popup('actividad_ver_dis.dhtml?act_codigo=<?= htmlspecialchars($fila_detalle['act_codigo'],ENT_QUOTES)."&amp; tipoact_codigo=".$fila_detalle['tipoact_codigo']; ?>','ventana_diseno',650,420,screen.availWidth-650,screen.availHeight-420,'yes');"> Ver diseño de la actividad </a> 
+									</td>
+								</tr>
+							</table>
+							</fieldset>
+						</td>
+					</tr>				
+				</table>
+				</td>
+			</tr>
+			<tr> 
+				<td> 
+					<?php 	
+			
+						if (!$this->MostrarDatosDictamen($conexion,$operacion_dictamen,$fila_dictamen))
+						    $ok=false;	
+				  	?>
+				</td>
+			</tr>
+			<tr> 
+				<td><?php 	if (!$this->MostrarDatosProgramacion($conexion,$operacion_programacion,$fila_dictamen,$fila_detalle['act_codigo']))
+							$ok=false;
+					?>
+				</td>
+			</tr>
+			<tr>
+				<td colspan="2" ><?php 
+					if (!$this->MostrarDatosProgramaciones($conexion, $oActividad, $fila_detalle['act_codigo'], $fila_detalle['tipoact_codigo'])) 
+						$ok=false;
+				?></td>
+			</tr>
+		</table>
+	<?php 
+		return $ok;
+} 
+//-----------------------------------------------------------------------------------------------------	
+	function MostrarDatosDictamen($conexion,$operacion_dictamen,$fila_dictamen_editable) {
+	
+		// si queda esta opcion no mandar la conexion
+
+	if ($operacion_dictamen=="A") {
+		   $es_modif = false;
+		} elseif ($operacion_dictamen=="M" || $operacion_dictamen=="V") {   
+			$es_modif = true;
+		   } else {
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error en la llamada, operación inválida.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+		   }
+	
+
+		$oPonderadorDictamen= new cPonderadorDictamen($conexion);
+	?>
+		<table width="100%" class="textoTablaDato" align="center" cellpadding="2">
+			<tr>
+				<td>
+					<fieldset class="bordeDetalleRegistro">
+					<legend class="textoLeyendaDetalleRegistro">Datos Dictamen </legend>
+					<table width="100%" class="textoTablaDato" align="center">
+					<tr>
+						<td colspan="2"><!-- Div para el aguarde -->
+						<div class ="textoAtencion" align="center" id="idEspere" ></div> 
+						</td>
+					</tr>				
+					<tr>
+						<td valign="top" width="55%" class='textoEtiqueta'> 
+						<?php $oPonderadorDictamen->ObtenerPonderadorDescripcion(TIPOPONDCALPRESTADOR,$nombre_ponderador);
+						   echo htmlspecialchars($nombre_ponderador,ENT_QUOTES);
+						?>
+						</td>
+						<td class="textoEtiquetaDatoResaltado">
+						<?php	$oPonderadorDictamen->PonderadorValoresSP(TIPOPONDCALPRESTADOR,$spnombre,$spparam);
+							FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","pondtipopond_codigo_cal_pres","pondtipopond_codigo","pondtipopond_descripcion",($es_modif)?$fila_dictamen_editable['pondtipopond_codigo_cal_pres']:"","-- Seleccione Ponderación ",$fila_pondtipopond_codigo_cal_pres,$selected,1,'ReCalculo_creditos(act_duracionhs.value,pondtipopond_codigo_cal_pres.value,pondtipopond_codigo_int.value,pondtipopond_codigo_proc_eva.value,"idEspere");',"width:210px",false,false,"",$operacion_dictamen=="V");
+						?>
+						</td>
+					</tr>				
+					<tr>
+						<td valign="top" width="55%" class='textoEtiqueta'>
+						<?php 	$oPonderadorDictamen->ObtenerPonderadorDescripcion(TIPOPONDINTENSIDAD,$nombre_ponderador);
+							echo htmlspecialchars($nombre_ponderador,ENT_QUOTES);
+						?>
+						</td>
+						<td class="textoEtiquetaDatoResaltado">					
+						<?php	$oPonderadorDictamen->PonderadorValoresSP(TIPOPONDINTENSIDAD,$spnombre,$spparam);
+							FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","pondtipopond_codigo_int","pondtipopond_codigo","pondtipopond_descripcion",($es_modif)?$fila_dictamen_editable['pondtipopond_codigo_int']:"","-- Seleccione Ponderación",$fila_pondtipopond_codigo_int,$selected2,1,'ReCalculo_creditos(act_duracionhs.value,pondtipopond_codigo_cal_pres.value,pondtipopond_codigo_int.value,pondtipopond_codigo_proc_eva.value,"idEspere");',"width: 210px",false,false,"",$operacion_dictamen=="V");
+						?>
+						</td>
+					</tr>				
+					<tr>
+						<td valign="top" width="55%" class='textoEtiqueta'>
+						<?php $oPonderadorDictamen->ObtenerPonderadorDescripcion(TIPOPONDCALPROCESO,$nombre_ponderador);
+						   echo htmlspecialchars($nombre_ponderador,ENT_QUOTES);
+						?>
+						</td>
+						<td class="textoEtiquetaDatoResaltado">
+						<?php	$oPonderadorDictamen->PonderadorValoresSP(TIPOPONDCALPROCESO,$spnombre,$spparam);
+							FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","pondtipopond_codigo_proc_eva","pondtipopond_codigo","pondtipopond_descripcion",($es_modif)?$fila_dictamen_editable['pondtipopond_codigo_proc_eva']:"","-- Seleccione Ponderación",$fila_pondtipopond_codigo_proc_eva,$selected3,1,'ReCalculo_creditos(act_duracionhs.value,pondtipopond_codigo_cal_pres.value,pondtipopond_codigo_int.value,pondtipopond_codigo_proc_eva.value,"idEspere");',"width: 210px",false,false,"",$operacion_dictamen=="V");
+						?>
+						</td>
+					</tr>				
+					<tr>
+						<td valign="top" width="55%" class='textoEtiqueta'>Duración</td>
+						<td class="textoEtiquetaDatoResaltado"><input type="text" name="act_duracionhs" id="act_duracionhs" class='inputReadonly' readonly size="3" maxlength="3" value="<?php echo htmlspecialchars($fila_dictamen_editable['act_duracionhs'],ENT_QUOTES); ?>"> &nbsp;&nbsp;hora/s </td>
+					</tr>
+					<tr>
+						<td valign="top" width="55%" class='textoEtiqueta'>Créditos </td>
+						<td class="textoEtiquetaDatoResaltado">	<input type="text"  name="act_creditos" id="act_creditos"  class=<?php echo ($operacion_dictamen=="V")?"'inputReadonly' readonly":"'textoInput'" ?>  value="<?php echo ($es_modif)?htmlspecialchars($fila_dictamen_editable['act_creditos'],ENT_QUOTES):""; ?>" maxlength="5" size="5"></td>
+					</tr>
+							<tr>
+								<td valign="top" class='textoEtiqueta'>Observación</td>
+								<td class="textoEtiquetaDatoResaltado">                                	
+									<textarea cols="100" rows="5" name="dic_observaciones"  id="dic_observaciones" <?php echo ($operacion_dictamen=="V")?' class="inputReadonly" readonly ':' class="textoInput" ' ?>  style="width:380px"><?php echo ($es_modif)?htmlspecialchars($fila_dictamen_editable['dic_observaciones'],ENT_QUOTES):"" ?></textarea>
+								</td>
+							</tr>									
+					</table>
+					</fieldset>
+				</td>
+			</tr>
+		</table>
+	<?php
+	return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function MostrarDatosProgramacion($conexion,$operacion_programacion,$fila_dictamen_editable,$act_codigo) {
+?>	
+	<script type="text/javascript" src="calendar/calendar.js"></script>
+	<script type="text/javascript" src="calendar/calendar-setup.js"></script>
+	<script type="text/javascript" src="calendar/calendar-es.js"></script>
+<?php
+		// si queda esta opcion no mandar la conexion
+	
+		
+		if ($operacion_programacion=="A") {
+			$titulo_programacion = "Programación Nueva";
+		   $es_modif = false;
+		} elseif ($operacion_programacion=="M" || $operacion_programacion=="V") {   
+				if ($operacion_programacion == "M")
+					$titulo_programacion = "Programación Actualizable";
+				else 
+					$titulo_programacion = "Programación Vigente";
+					
+			$es_modif = true;
+		   } else {
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error en la llamada, operación inválida.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+		   }
+
+	// Para los inputs de fechas en el caso de alta
+	if ($_SESSION['rolcod']==USUACTEXT || $_SESSION['rolcod']==USUAUTODESARROLLO) {
+		$fecha_ini_default='01/01/'.(date("Y")-2);
+		$fecha_fin_default='31/12/'.(date("Y")+2);
+	} else {
+		$fecha_ini_default='';
+		$fecha_fin_default='';
+	}							
+	?>
+		<table width="100%" class="textoTablaDato" align="center" cellpadding="2">
+		<tr>
+			<td>		
+				<fieldset class="bordeDetalleRegistro">
+				<legend class="textoLeyendaDetalleRegistro">Datos Programación </legend>
+				<table width="100%" class="textoTablaDato" align="center">
+				<tr>
+					<td>		
+						<fieldset class="bordeDetalleRegistro">
+						<legend class="textoLeyendaDetalleRegistro"><?php echo ($titulo_programacion) ?></legend>
+						<table width="100%" class="textoTablaDato" align="center" cellpadding="2" >
+							<tr>
+								<td valign="middle" class='textoEtiqueta'>Vigencia Desde</td>
+								<td class="textoEtiquetaDatoResaltado">
+                                
+								<?php 	
+								
+								
+								if ($operacion_programacion == "V") { 
+										echo  FuncionesPHPLocal::ConvertirFecha($fila_dictamen_editable['actprog_fecha_inicio'],'aaaa-mm-dd','dd/mm/aaaa');
+									} else { ?>
+										<input type="text" name="actprog_fecha_inicio" id="actprog_fecha_inicio"  maxlength="10" size="11" <?php echo ($operacion_programacion=="V")?' class="inputReadonly" readonly ':' class="textoInput" ' ?>  value="<?php echo ($operacion_programacion!="A")? FuncionesPHPLocal::ConvertirFecha($fila_dictamen_editable['actprog_fecha_inicio'],'aaaa-mm-dd','dd/mm/aaaa'):$fecha_ini_default ?>"> 
+										<img src="images/calendario.gif" id="cal-button-1" name="cal-button-1" style="vertical-align:-4px; cursor:pointer" border="0" alt="Calendario">
+										<script type="text/javascript">
+											Calendar.setup({
+			<?php								
+											if ($operacion_programacion!="A")	{												
+			?>									  date    : "<?php echo  FuncionesPHPLocal::ConvertirFecha($fila_dictamen_editable['actprog_fecha_inicio'],'aaaa-mm-dd','dd/mm/aaaa') ?>",
+			<?php								}	?>										
+											range		  : [<?php echo ANOINICALINAP ?>, <?php //echo date("Y") ?>],
+											inputField    : "actprog_fecha_inicio",
+											button        : "cal-button-1",
+											ifFormat	: "%d/%m/%Y"
+											});
+										</script>
+									  <span class="textoAclaraciones">(dd/mm/aaaa)</span>
+									  <div style='font-size: 7px;'>&nbsp;</div>
+								<?php } ?>	  
+								</td>
+							</tr>				
+							<tr>
+								<td valign="middle" class='textoEtiqueta'>Vigencia Hasta</td>
+								<td class="textoEtiquetaDatoResaltado">
+								<?php 	if ($operacion_programacion == "V") { 
+										echo  FuncionesPHPLocal::ConvertirFecha($fila_dictamen_editable['actprog_fecha_fin'],'aaaa-mm-dd','dd/mm/aaaa');
+									} else { ?>
+										<input type="text" name="actprog_fecha_fin" id="actprog_fecha_fin"  maxlength="10" size="11" <?php echo ($operacion_programacion=="V")?' class="inputReadonly" readonly ':' class="textoInput" ' ?>  value="<?php echo ($operacion_programacion!="A")? FuncionesPHPLocal::ConvertirFecha($fila_dictamen_editable['actprog_fecha_fin'],'aaaa-mm-dd','dd/mm/aaaa'):$fecha_fin_default?>"> 
+										<img src="images/calendario.gif" id="cal-button-2" name="cal-button-2" style="vertical-align:-4px; cursor:pointer" border="0" alt="Calendario">
+										<script type="text/javascript">
+											Calendar.setup({
+			<?php								if ($operacion_programacion!="A")	{
+			?>									  date    : "<?php echo  FuncionesPHPLocal::ConvertirFecha($fila_dictamen_editable['actprog_fecha_fin'],'aaaa-mm-dd','dd/mm/aaaa') ?>",
+			<?php								}		?>				
+											range		  : [<?php echo ANOINICALINAP ?>,<?php //echo date("Y") ?>],
+											inputField    : "actprog_fecha_fin",
+											button        : "cal-button-2",
+											ifFormat	: "%d/%m/%Y"
+											});
+										</script>
+									  <span class="textoAclaraciones">(dd/mm/aaaa)</span>
+									  <div style='font-size: 7px;'>&nbsp;</div>
+								<?php } ?>	  
+								</td>
+							</tr>				
+							<tr>
+								<td valign="middle" class='textoEtiqueta'>Expediente</td>
+								<td class="textoEtiquetaDatoResaltado">		
+									<table width="100%" class="textoTablaDato" align="center">
+										<tr>
+											<td class="textoEtiquetaDato" valign="middle" align="left" width="25%">
+												<input type="text" size="31" maxlength="30" name="exp_numero" id="exp_numero" class='inputReadonly' readonly value="<?php echo ($es_modif)?htmlspecialchars(trim($fila_dictamen_editable['exp_numero']),ENT_QUOTES):""?>">
+												<input type="hidden" name="exp_codigo" id="exp_codigo" value="<?php echo ($es_modif)?htmlspecialchars($fila_dictamen_editable['exp_codigo'],ENT_QUOTES):""?>"/>				  
+											</td>			
+											<?php if ($operacion_programacion != "V") {?>
+												<td class="textoEtiquetaDato" align="left" width="50" >
+													<a href='javascript:void(0)' onClick="Popup('expediente_selector.dhtml?formulario=formulario&amp;destino=exp_codigo&amp;submit=<?php echo false ?>&amp;accion=Dictaminar&amp;volver=1','ventana_descripciones_1',630,360,screen.availWidth-650,screen.availHeight-420,'yes');"><img src="images/searchsai.jpg" alt="Buscar" border="0" style="vertical-align:-5px"></a>
+												</td>			
+											<?php }
+											
+											 ?>
+										</tr>
+									</table>
+								</td>
+							</tr>	
+							<tr>
+								<td valign="top" class='textoEtiqueta'>Observación</td>
+								<td class="textoEtiquetaDatoResaltado">
+									<textarea cols="100" rows="5" name="actprog_obs"  id="actprog_obs" <?php echo ($operacion_programacion=="V")?' class="inputReadonly" readonly ':' class="textoInput" ' ?>  style="width:380px"><?php echo ($es_modif)?htmlspecialchars($fila_dictamen_editable['actprog_obs'],ENT_QUOTES):"" ?></textarea>
+								</td>
+							</tr>
+						</table>
+						</fieldset>
+					</td>
+				</tr>
+				</table>
+				</fieldset>
+			</td>
+		</tr>
+		</table>
+	<?php
+	return true;
+}
+//-----------------------------------------------------------------------------------------------------	
+// Para listados de dictamenes
+//-----------------------------------------------------------------------------------------------------	
+	function AgregarDetalleDictamenActCurso($resultActCurso,
+										&$array_DictamenesActCursoInap,
+										&$array_DictamenesActCursoInstitucional,
+										&$array_DictamenesActCursoJurisdiccional) {
+
+	$oDisposicion = new cDisposicion($this->conexion);
+	while ($filaDicActCurso=mysqli_fetch_assoc($resultActCurso)) {
+
+			$filaDis=array('dis_codigo'=>NULL,'dis_numero'=>NULL,'dis_fecha'=>NULL);
+			if(isset($filaDicActCurso['dis_codigo'])) {
+				if (!$oDisposicion->TraerDatosDisposicion($filaDicActCurso['dis_codigo'],$fila_disposicion,$es_modif)) {
+						$txt_sys_mail="Error buscando los datos de la disposición.\ndis_codigo=".$filaDicActCurso['dis_codigo'];
+						FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al mostrar detalles de la disposición.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+						return false;		
+				} elseif ($es_modif) 
+						$filaDis=array('dis_codigo'=>$fila_disposicion['dis_codigo'],'dis_numero'=>$fila_disposicion['dis_numero'],
+									   'dis_fecha'=> FuncionesPHPLocal::ConvertirFecha($fila_disposicion["dis_fecha"],'aaaa-mm-dd','dd/mm/aaaa'));
+			} 
+			
+			$norma="";
+			$this->conexion->TraerCampo("tipo_actividad","tipoact_norma_legal",array("tipoact_codigo='",$filaDicActCurso['tipoact_codigo'],"'"),$norma,$numfilas,$errorcod); 
+	
+			$filaDic=array( 'dic_codigo'=>$filaDicActCurso['dic_codigo'], 'dic_observaciones'=>$filaDicActCurso['dic_observaciones'],
+							'actprog_fecha_inicio'=> FuncionesPHPLocal::ConvertirFecha($filaDicActCurso["actprog_fecha_inicio"],'aaaa-mm-dd','dd/mm/aaaa'),
+							'actprog_fecha_fin'=> FuncionesPHPLocal::ConvertirFecha($filaDicActCurso["actprog_fecha_fin"],'aaaa-mm-dd','dd/mm/aaaa'),
+							'dic_estado'=>$filaDicActCurso['dic_estado']
+							);						
+			$filaCurso=array('act_creditos'=>$filaDicActCurso['actcur_creditos'],'tipoact_codigo'=>$filaDicActCurso['tipoact_codigo'],
+							 'tipoact_norma_legal'=>$norma);
+	
+			$jurisdexp="";
+			$this->conexion->TraerCampo("jurisdiccion_inap","jurisdnom",array("jurisdid='",$filaDicActCurso['jurisdid_exp'],"'"),$jurisdexp,$numfilas,$errorcod);
+			$filaExp=array('exp_codigo'=> $filaDicActCurso['exp_codigo'],'exp_numero'=>$filaDicActCurso['exp_numero'],
+						   'jurisdid_exp'=>$jurisdexp);				
+		
+			$filaAct=array('act_codigo'=>$filaDicActCurso['act_codigo'],'act_nombre'=>$filaDicActCurso['act_nombre'],'act_codinap'=>$filaDicActCurso['act_codinap']);
+	
+			switch($filaDicActCurso['tipoact_codigo']) 	{
+				
+				case TIPOACTCURSOINAP:
+					$oActividadCursoInap = new cActividadCursoInap($this->conexion);
+					if (!$oActividadCursoInap->TraerDatosActividadCursoInap($filaDicActCurso['act_codigo'],$fila_curso,$es_modif))
+						return false;
+	
+					$programa="";
+					if (!$this->conexion->TraerCampo("programa_curso_inap","progcur_descripcion",array("progcur_codigo='",$fila_curso['actividad_curso_inap']['progcur_codigo'],"'"),$programa,$numfilas,$errorcod)) 
+						return false;
+					else
+						$filaCurso+=array('progcur_descripcion'=>$programa);
+						
+					$area="";
+					if (!$this->conexion->TraerCampo("area_curso_inap","areacur_descripcion",array("areacur_codigo='",$fila_curso['actividad_curso_inap']['areacur_codigo'],"'"),$area,$numfilas,$errorcod)) 
+						return false;
+					else 
+						$filaCurso+=array('areacur_descripcion'=>$area);
+			
+					$array_DictamenesActCursoInap[]=array( 'datos_actividad'=>$filaAct,
+												'datos_actividad_tipo'=>$filaCurso,
+												'datos_dictamen'=>$filaDic, 
+												'datos_expediente'=>$filaExp,
+												'datos_disposicion'=>$filaDis);
+					break;
+					
+				case TIPOACTCURSOINST:
+					$oActividadCursoInstitucional = new cActividadCursoInstitucional($this->conexion);
+					if (!$oActividadCursoInstitucional->TraerDatosActividadCursoInstitucional($filaDicActCurso['act_codigo'],$fila_curso,$es_modif))
+						return false;
+					
+					$nombre_institucion="";	
+					$oActividadCursoInstitucional->ObtenerOrganismoInstitucion($fila_curso['actividad_curso_institucional']['orgapri_codigo'],
+														$fila_curso['actividad_curso_institucional']['jurisdid_apn'],
+														$fila_curso['actividad_curso_institucional']['orgapub_codigo'],				
+														$nombre_institucion,$sector_org,$tipoorg_codigo,$campo_institucion);
+	
+					$filaCurso['insti_orga']=$nombre_institucion;								
+	
+					$array_DictamenesActCursoInstitucional[]=array( 'datos_actividad'=>$filaAct,
+												'datos_actividad_tipo'=>$filaCurso,
+												'datos_dictamen'=>$filaDic, 
+												'datos_expediente'=>$filaExp,
+												'datos_disposicion'=>$filaDis);
+					break;
+				case TIPOACTCURSOJURISD :
+					$oActividadCursoJurisdiccional = new cActividadCursoJurisdiccional($this->conexion);
+					if (!$oActividadCursoJurisdiccional->TraerDatosActividadCursoJurisdiccional($filaDicActCurso['act_codigo'],$fila_curso,$es_modif))
+						return false;	
+						
+					// busco el POC 
+						
+						$ArregloDatosPOC=array('dic_estado'=>DICTAMENACTIVO,
+												'act_codigo'=>$filaDicActCurso['act_codigo']);
+
+						$oActividadCursoJurisdiccional->BuscarActividadResumenPoc($ArregloDatosPOC,$numfilas_poc,$resultado_poc,$error,$errormail);
+						$poc_actividad = "";
+						while ($fila_poc = mysqli_fetch_assoc($resultado_poc)) {
+							$poc_actividad .=$fila_poc["poc_ano"]." - ";
+						}
+						
+
+
+						
+					$array_DictamenesActCursoJurisdiccional[]=array( 'datos_actividad'=>$filaAct,
+												'datos_actividad_tipo'=>$filaCurso,
+												'datos_dictamen'=>$filaDic, 
+												'datos_expediente'=>$filaExp,
+												'datos_disposicion'=>$filaDis,
+												'datos_perfil'=>$fila_curso["actividad_curso_jurisdiccional"]["actdisjurisd_perfil"],
+												'datos_poc'=>$poc_actividad);
+												
+												
+					break;
+			} 	
+		}
+		if (mysqli_num_rows($resultActCurso) > 0 )
+			mysqli_data_seek($resultActCurso, 0);
+		return true;
+	} 	
+//-----------------------------------------------------------------------------------------------------	
+function AgregarDetalleDictamenActExterna($resultDicActExt,&$array_DictamenesActExt) {
+
+	$oDisposicion = new cDisposicion($this->conexion);
+	while ($filaDicActExt=mysqli_fetch_assoc($resultDicActExt)) {
+
+		$filaDis=array('dis_codigo'=>NULL,'dis_numero'=>NULL,'dis_fecha'=>NULL);
+		if( isset($filaDicActExt['dis_codigo'])) {
+			if (!$oDisposicion->TraerDatosDisposicion($filaDicActExt['dis_codigo'],$fila_disposicion,$es_modif)) {
+					$txt_sys_mail="Error buscando los datos de la disposición.\ndis_codigo=".$filaDicActExt['dis_codigo'];
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al mostrar detalles de la disposición.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+					return false;		
+			} elseif ($es_modif) 
+					$filaDis=array('dis_codigo'=>$fila_disposicion['dis_codigo'],'dis_numero'=>$fila_disposicion['dis_numero'],
+								   'dis_fecha'=> FuncionesPHPLocal::ConvertirFecha($fila_disposicion["dis_fecha"],'aaaa-mm-dd','dd/mm/aaaa'));
+		} 
+	
+		$filaDic=array( 'dic_codigo'=>$filaDicActExt['dic_codigo'], 'dic_observaciones'=>$filaDicActExt['dic_observaciones'],
+						'actprog_fecha_inicio'=> FuncionesPHPLocal::ConvertirFecha($filaDicActExt["actprog_fecha_inicio"],'aaaa-mm-dd','dd/mm/aaaa'),
+						'actprog_fecha_fin'=> FuncionesPHPLocal::ConvertirFecha($filaDicActExt["actprog_fecha_fin"],'aaaa-mm-dd','dd/mm/aaaa'),
+						'dic_estado'=>$filaDicActExt['dic_estado']
+						);						
+
+		$nombre_institucion="";
+		$oActividadExterna = new cActividadExterna($this->conexion);
+		if (!$oActividadExterna->TraerDatosActividadExterna($filaDicActExt ['act_codigo'],$fila_act_externa,$es_modif))
+			return false;
+	
+		$oActividadExterna->ObtenerOrganismoInstitucion($fila_act_externa['actividad_externa']['orgapri_codigo'],
+														$fila_act_externa['actividad_externa']['jurisdid_apn'],
+														$fila_act_externa['actividad_externa']['orgapub_codigo'],				
+														$nombre_institucion,$sector_org,$tipoorg_codigo,$campo_institucion);
+
+		$norma="";
+		$this->conexion->TraerCampo("tipo_actividad","tipoact_norma_legal",array("tipoact_codigo='",$filaDicActExt['tipoact_codigo'],"'"),$norma,$numfilas,$errorcod); 
+		$filaActExt=array('act_creditos'=>$filaDicActExt['actext_creditos'],'tipoact_codigo'=>$filaDicActExt['tipoact_codigo'],
+						 'tipoact_norma_legal'=>$norma,'insti_orga'=>$nombre_institucion);
+
+		$jurisdexp="";	
+		$this->conexion->TraerCampo("jurisdiccion_inap","jurisdnom",array("jurisdid='",$filaDicActExt['jurisdid_exp'],"'"),$jurisdexp,$numfilas,$errorcod);
+		$filaExp=array('exp_codigo'=> $filaDicActExt['exp_codigo'],'exp_numero'=>$filaDicActExt['exp_numero'],
+					   'jurisdid_exp'=>$jurisdexp);				
+	
+		$filaAct=array('act_codigo'=>$filaDicActExt['act_codigo'],'act_nombre'=>$filaDicActExt['act_nombre'],'act_codinap'=>$filaDicActExt['act_codinap']);
+	
+		$array_DictamenesActExt[]=array( 'datos_actividad'=>$filaAct,
+										'datos_actividad_tipo'=>$filaActExt,
+										'datos_dictamen'=>$filaDic, 
+										'datos_expediente'=>$filaExp,
+										'datos_disposicion'=>$filaDis);
+	} 
+
+	mysqli_data_seek($resultDicActExt, 0);
+	return true;
+}
+//-----------------------------------------------------------------------------------------------------	
+function AgregarDetalleDictameActAutodesarrollo($resultDicActAuto,&$array_DictamenesActAuto) {
+
+	$oDisposicion = new cDisposicion($this->conexion);
+	while ($filaDicActAuto=mysqli_fetch_assoc($resultDicActAuto)) {
+
+		$filaDis=array('dis_codigo'=>NULL,'dis_numero'=>NULL,'dis_fecha'=>NULL);
+		if( isset($filaDicActAuto['dis_codigo'])) {
+			if (!$oDisposicion->TraerDatosDisposicion($filaDicActAuto['dis_codigo'],$fila_disposicion,$es_modif)) {
+					$txt_sys_mail="Error buscando los datos de la disposición.\ndis_codigo=".$filaDicActAuto['dis_codigo'];
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al mostrar detalles de la disposición.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+					return false;		
+			} elseif ($es_modif) 
+					$filaDis=array('dis_codigo'=>$fila_disposicion['dis_codigo'],'dis_numero'=>$fila_disposicion['dis_numero'],
+								   'dis_fecha'=> FuncionesPHPLocal::ConvertirFecha($fila_disposicion["dis_fecha"],'aaaa-mm-dd','dd/mm/aaaa'));
+		} 
+
+
+		$destinatario="";
+		$ponderador_detalle="";
+		$oPonderadorDictamen= new cPonderadorDictamen($this->conexion);		
+
+		$oPonderadorDictamen->ObtenerPonderadorDescripcion(TIPOPONDCALPRESTADOR,$nombre_ponderador);
+	    $oPonderadorDictamen->ObtenerValorPonderador($filaDicActAuto['pondtipopond_codigo_cal_pres'],$fila_tabla_pond);
+		$ponderador_detalle .= $nombre_ponderador.": ".$fila_tabla_pond['pondtipopond_descripcion'];
+
+		$oPonderadorDictamen->ObtenerPonderadorDescripcion(TIPOPONDINTENSIDAD,$nombre_ponderador);
+	    $oPonderadorDictamen->ObtenerValorPonderador($filaDicActAuto['pondtipopond_codigo_int'],$fila_tabla_pond);
+		$ponderador_detalle .= "<br>".$nombre_ponderador.": ".$fila_tabla_pond['pondtipopond_descripcion'];
+
+		$oPonderadorDictamen->ObtenerPonderadorDescripcion(TIPOPONDCALPROCESO,$nombre_ponderador);
+	    $oPonderadorDictamen->ObtenerValorPonderador($filaDicActAuto['pondtipopond_codigo_proc_eva'],$fila_tabla_pond);
+		$ponderador_detalle .= "<br>".$nombre_ponderador.": ".$fila_tabla_pond['pondtipopond_descripcion'];
+		
+		
+		$filaDic=array(	'dic_codigo'=>$filaDicActAuto['dic_codigo'],
+						'dic_estado'=>$filaDicActAuto['dic_estado'],
+						'dictamen'=>$ponderador_detalle);						
+		if($filaDicActAuto['tipoact_codigo']==TIPOACTAUTOEVASIS) {
+			$filaDic+=array('actprog_fecha_inicio'=> FuncionesPHPLocal::ConvertirFecha($filaDicActAuto["actprog_fecha_inicio"],'aaaa-mm-dd','dd/mm/aaaa'),
+							'actprog_fecha_fin'=> FuncionesPHPLocal::ConvertirFecha($filaDicActAuto["actprog_fecha_fin"],'aaaa-mm-dd','dd/mm/aaaa'));
+		} else {
+			$oPersonas = new cPersonas($this->conexion);
+			$oPersonas->TraerDatosPersona_xCod($filaDicActAuto["pers_codigo"],$datos_personales,$es_modif);
+			$destinatario=htmlspecialchars($datos_personales['pers_apellido'],ENT_QUOTES).", ".htmlspecialchars($datos_personales['pers_nombre'],ENT_QUOTES)." (".htmlspecialchars($datos_personales['pers_cuilt'],ENT_QUOTES).")";
+			$filaDic+=array('destinatario'=>$destinatario);
+		}
+
+		$nombre_institucion="";
+		$oActividadAutodesarrollo = new cActividadAutodesarrollo($this->conexion);
+		if (!$oActividadAutodesarrollo->TraerDatosActividadAutodesarrollo($filaDicActAuto['act_codigo'],$filaDicActAuto['tipoact_codigo'],$fila_act_autodesarrollo,$es_modif))
+			return false;
+
+		$norma="";
+		$this->conexion->TraerCampo("tipo_actividad","tipoact_norma_legal",array("tipoact_codigo='",$filaDicActAuto['tipoact_codigo'],"'"),$norma,$numfilas,$errorcod); 
+		$filaActAuto=array('tipoact_codigo'=>$filaDicActAuto['tipoact_codigo'],'tipoact_norma_legal'=>$norma,'act_creditos'=>$filaDicActAuto['actauto_creditos'],);
+
+		$jurisdexp="";	
+		$this->conexion->TraerCampo("jurisdiccion_inap","jurisdnom",array("jurisdid='",$filaDicActAuto['jurisdid_exp'],"'"),$jurisdexp,$numfilas,$errorcod);
+		$filaExp=array('exp_codigo'=>$filaDicActAuto['exp_codigo'],'exp_numero'=>$filaDicActAuto['exp_numero'],
+					   'jurisdid_exp'=>$jurisdexp);				
+
+		$filaAct=array('act_codigo'=>$filaDicActAuto['act_codigo'],'act_nombre'=>$filaDicActAuto['act_nombre'],'act_codinap'=>$filaDicActAuto['act_codinap']);
+
+		$array_DictamenesActAuto[]=array('datos_actividad'=>$filaAct,
+										'datos_actividad_tipo'=>$filaActAuto,
+										'datos_dictamen'=>$filaDic, 
+										'datos_expediente'=>$filaExp,
+										'datos_disposicion'=>$filaDis);
+	}
+	
+	mysqli_data_seek($resultDicActAuto, 0);
+	return true;
+}
+//-----------------------------------------------------------------------------------------------------	
+	function ObtenerDictamenesxFormato($filtroDatos,&$resultDicActCurso, &$numfilas_DicActCurso,
+													&$resultDicActExt,&$numfilas_DicActExt, 
+													&$resultDicActAuto,&$numfilas_DicActAuto) {
+
+	$numfilas_DicActCurso=0;
+	$numfilas_DicActExt=0;
+	$numfilas_DicActAuto=0;
+
+	$ArregloDatos=array();
+														
+	// Armo la lista separada por comas de dictámenes a listar en caso que me venga 
+	$str_in_dic_codigo="";
+	if (isset($filtroDatos['dictamen_en'])) {
+		$str_in_dic_codigo=str_replace("_",",",$filtroDatos['dictamen_en']);
+
+		$ArregloDatos['dic_codigo']  = 	$str_in_dic_codigo;
+
+		if (strlen($str_in_dic_codigo)==0) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se seleccionaron dictámenes.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+	}
+	
+	if (isset($filtroDatos['dis_codigo'])) 
+		$ArregloDatos['dis_codigo'] = $filtroDatos['dis_codigo'];
+	
+	$ArregloDatos['orderby'] = "exp_numero,act_nombre";		
+
+	if (!isset($filtroDatos['xrol']) || $filtroDatos['xrol'])  { // Que teneg en cuenta el rol de usuario logueado
+	
+		switch ($_SESSION['rolcod']) {
+		case SUPERUSUARIO:
+			$oActividad= new cActividadCurso($this->conexion);
+			$tipoact_codigo=TIPOACTCURSOINAP.",".TIPOACTCURSOJURISD.",".TIPOACTCURSOINST;
+			$formact_codigo=FORMATOCURSO;
+			
+			$ArregloDatos['tipoact_codigo'] = $tipoact_codigo;	
+			if (!$oActividad->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas_DicActCurso,$resultDicActCurso,$error,$errormail)) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar dictámenes.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			break;	
+		case USUCURSOINAP:
+			$oActividad= new cActividadCurso($this->conexion);
+			$tipoact_codigo=TIPOACTCURSOINAP;
+			$formact_codigo=FORMATOCURSO;		
+	
+			// Obtengo los dictamenes
+			$ArregloDatos['tipoact_codigo'] = $tipoact_codigo;			
+			if (!$oActividad->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas_DicActCurso,$resultDicActCurso,$error,$errormail)) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar dictámenes.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			break;
+	
+		case USUACTINS:
+			$oActividad = new cActividadCurso($this->conexion);
+			$tipoact_codigo=TIPOACTCURSOINST;		
+			$formact_codigo=FORMATOCURSO;
+	
+			// Obtengo los dictamenes
+			$ArregloDatos['tipoact_codigo'] = $tipoact_codigo;			
+			
+			if (!$oActividad->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas_DicActCurso,$resultDicActCurso,$error,$errormail)) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar dictámenes.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			break;
+		
+		case USUACTJUR:
+			$oActividad= new cActividadCurso($this->conexion);
+			$tipoact_codigo=TIPOACTCURSOJURISD;
+			$formact_codigo=FORMATOCURSO;
+	
+			// Obtengo los dictamenes
+			$ArregloDatos['jurisdid_inap'] = $_SESSION['jurisdid_inap'];
+			$ArregloDatos['tipoact_codigo'] = $tipoact_codigo;			
+			
+			if (!$oActividad->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas_DicActCurso,$resultDicActCurso,$error,$errormail)) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar dictámenes.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			break;
+		
+		case USUACTEXT:
+			$oActividad= new cActividadExterna($this->conexion);
+			$formact_codigo=FORMATOEXT;
+			$tipoact_codigo=TIPOACTEXTASIS;	
+	
+			// Obtengo los dictamenes de Actividades Externas
+			$ArregloDatos['tipoact_codigo'] = $tipoact_codigo;			
+			
+			if (!$oActividad->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas_DicActExt,$resultDicActExt,$error,$errormail)) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar dictámenes.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+	
+			break;	
+	
+	   case USUAUTODESARROLLO:
+			$formact_codigo=FORMATOAUTO;
+			$oActividad= new cActividadAutodesarrollo($this->conexion);
+			// Obtengo los Dictamenes de Actividades Autodesarrollo
+			if (!$oActividad->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas_DicActAuto,$resultDicActAuto,$error,$errormail)) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar dictámenes.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			break;
+	
+		case USUCONSULTA:
+			$oActividad= new cActividadCurso($this->conexion);
+			// Obtengo los dictamenes Curso		
+			if (!$oActividad->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas_DicActCurso,$resultDicActCurso,$error,$errormail)) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar dictámenes.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+	
+			$oActividad= new cActividadExterna($this->conexion);
+			// Obtengo los Dictamenes de Actividades Externas
+			if (!$oActividad->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas_DicActExt,$resultDicActExt,$error,$errormail)) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar dictámenes.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			
+			$oActividad= new cActividadAutodesarrollo($this->conexion);
+			// Obtengo los Dictamenes de Actividades Autodesarrollo
+			if (!$oActividad->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas_DicActAuto,$resultDicActAuto,$error,$errormail)) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar dictámenes.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			break;
+		
+		default: 
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error la operación no se encuentra definida para el rol.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+	} else { // Que no tenega en cuenta el rol de usuario
+
+		$oActividad= new cActividadCurso($this->conexion);
+		// Obtengo los dictamenes Curso		
+		if (!$oActividad->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas_DicActCurso,$resultDicActCurso,$error,$errormail)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar dictámenes.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		$oActividad= new cActividadExterna($this->conexion);
+		// Obtengo los Dictamenes de Actividades Externas
+		if (!$oActividad->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas_DicActExt,$resultDicActExt,$error,$errormail)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar dictámenes.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		
+		$oActividad= new cActividadAutodesarrollo($this->conexion);
+		// Obtengo los Dictamenes de Actividades Autodesarrollo
+		if (!$oActividad->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas_DicActAuto,$resultDicActAuto,$error,$errormail)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar dictámenes.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+	}		
+	return true;
+}
+//-----------------------------------------------------------------------------------------------------	
+	function ListarDictamenActCurso($array_dictamenesCurso) {
+
+    $primero = true;
+	if (count($array_dictamenesCurso)==0) 
+		return;
+?>
+	<table border="1" class="textoTablaDato" style="width:1660px;" align="left" cellpadding="2" cellspacing="2"> 
+<?php	
+	foreach ($array_dictamenesCurso as $fila_dictamenCurso) { 
+		if ($primero) {	?> 		
+			<tr>
+				<td class='textoEtiquetaChico' style="width:100px;" align="center">Disposición</td>
+				<td class='textoEtiquetaChico' style="width:50px;" align="center">Fecha Protocolización</td>			
+				<td class='textoEtiquetaChico' style="width:150px;" align="center">Expediente</td>
+				<td class='textoEtiquetaChico' style="width:200px;" align="center">Origen Expediente</td>			
+				<td class='textoEtiquetaChico' style="width:100px;" align="center">Cod. INAP</td>
+				<td class='textoEtiquetaChico' style="width:400px;" align="center">Actividad</td>
+				<td class='textoEtiquetaChico' style="width:100px;" align="center">Asunto</td>
+				<?php  switch ($fila_dictamenCurso['datos_actividad_tipo']['tipoact_codigo']) {
+					case TIPOACTCURSOINAP: ?>
+						 <td class='textoEtiquetaChico' style="width:100px;" align="center">Programa</td> 
+						 <td class='textoEtiquetaChico' style="width:100px;" align="center">Área</td> 
+				<?php		break;
+					case TIPOACTCURSOINST:
+				?> 		<td class='textoEtiquetaChico' style="width:250px;" align="center">Organismo/Institución</td> 
+				<?php 		break;
+					case TIPOACTCURSOJURISD:
+				?> 		
+						<td class='textoEtiquetaChico' style="width:50px;" align="center">Perfil del destinatario</td>
+						<td class='textoEtiquetaChico' style="width:50px;" align="center">Año POC</td>
+				<?php 		break;
+					} ?>
+				<td class='textoEtiquetaChico' style="width:80px;" align="center">Desde</td>
+				<td class='textoEtiquetaChico' style="width:80px;" align="center">Hasta</td>
+				<td class='textoEtiquetaChico' style="width:50px;" align="center">Créditos</td>
+				<td class='textoEtiquetaChico' style="width:50px;" align="center">Observaciones</td>
+                
+			</tr>
+		<?php  $primero = false;
+		} ?>			
+		<tr>
+			<td class='textoTablaDatoChico'> <?=isset($fila_dictamenCurso['datos_disposicion']['dis_numero'])?$fila_dictamenCurso['datos_disposicion']['dis_numero']:"&nbsp;";?>  </td>
+			<td class='textoTablaDatoChico' align="center"> <?= isset($fila_dictamenCurso['datos_disposicion']["dis_fecha"])?$fila_dictamenCurso['datos_disposicion']["dis_fecha"]:"&nbsp;";?>	</td>
+			<td class='textoTablaDatoChico'> <?=$fila_dictamenCurso['datos_expediente']['exp_numero'];?>   </td>
+			<td class='textoTablaDatoChico'> <?=$fila_dictamenCurso['datos_expediente']['jurisdid_exp'];?> </td>
+			<td class='textoTablaDatoChico'> <?=$fila_dictamenCurso['datos_actividad']['act_codinap']; ?>	</td>
+			<td class='textoTablaDatoChico'> <?=$fila_dictamenCurso['datos_actividad']['act_nombre']; ?>	</td>
+			<td class='textoTablaDatoChico' align="center"> <?=$fila_dictamenCurso['datos_actividad_tipo']['tipoact_norma_legal'];?> </td>
+			<?php 	switch  ($fila_dictamenCurso['datos_actividad_tipo']['tipoact_codigo']) {
+				case TIPOACTCURSOINAP:	?>
+					 <td class='textoTablaDatoChico' align="left"> <?=$fila_dictamenCurso['datos_actividad_tipo']['progcur_descripcion'];?> </td> 
+					 <td class='textoTablaDatoChico' align="left"> <?=$fila_dictamenCurso['datos_actividad_tipo']['areacur_descripcion']; ?> </td> <?php		
+					break;
+				case TIPOACTCURSOINST :
+			?> 		<td class='textoTablaDatoChico' align="left"> <?= $fila_dictamenCurso['datos_actividad_tipo']['insti_orga'];?></td> 
+			<?php 		break;
+				 
+				case TIPOACTCURSOJURISD :
+			?> 		<td class='textoTablaDatoChico' align="left"> <?= $fila_dictamenCurso['datos_perfil'];?></td> 
+					<td class='textoTablaDatoChico' align="left"> <?= $fila_dictamenCurso['datos_poc'];?></td>             
+			<?php 		break;
+				} ?>
+			<td class='textoTablaDatoChico' align="center"><?=$fila_dictamenCurso['datos_dictamen']["actprog_fecha_inicio"];?></td>
+			<td class='textoTablaDatoChico' align="center"><?=$fila_dictamenCurso['datos_dictamen']["actprog_fecha_fin"];?></td>										
+			<td class='textoTablaDatoChico' align="center"><?=$fila_dictamenCurso['datos_actividad_tipo']['act_creditos']; ?> </td>
+			<td class='textoTablaDatoChico' align="center"><?=$fila_dictamenCurso['datos_dictamen']['dic_observaciones']; ?> </td>
+		</tr>
+<?php		} // for each 
+?> </table> <?php
+	}  // MostrarDetalleDisposicionCurso
+//-----------------------------------------------------------------------------------------------------	
+	function ListarDictamenActExterna($array_DictamenesActExt) {
+
+    $primero = true;
+	if (count($array_DictamenesActExt)==0) 
+		return; 
+?>
+	<table class="textoTablaDato" style="width:1460px;" border="1" cellpadding="2" cellspacing="2" align="left"> 
+<?php		$primero = true;
+		foreach ($array_DictamenesActExt as $fila_dictamenAct ) { 
+			if($primero) { ?>
+			<tr>
+				<td class='textoEtiquetaChico' style="width:100px;" align="center">Disposición</td>
+				<td class='textoEtiquetaChico' style="width:50px;" align="center">Fecha Protocolización</td>
+				<td class='textoEtiquetaChico' style="width:150px;" align="center">Expediente</td>
+				<td class='textoEtiquetaChico' style="width:200px;" align="center">Origen Expediente</td>	
+				<td class='textoEtiquetaChico' style="width:100px;" align="center">Cod. INAP</td>
+				<td class='textoEtiquetaChico' style="width:400px;" align="center">Actividad</td>
+				<td class='textoEtiquetaChico' style="width:100px;"align="center">Asunto</td>
+				<td class='textoEtiquetaChico' style="width:250px;" align="center">Organismo/Institución</td>
+				<td class='textoEtiquetaChico' style="width:80px;" align="center">Desde</td>
+				<td class='textoEtiquetaChico' style="width:80px;" align="center">Hasta</td>
+				<td class='textoEtiquetaChico' style="width:50px;" align="center">Créditos</td>
+				<td class='textoEtiquetaChico' style="width:50px;" align="center">Observaciones</td>
+			</tr>
+	<?php } ?>
+			<tr>
+				<td class='textoTablaDatoChico'> <?=isset($fila_dictamenAct['datos_disposicion']['dis_numero'])?$fila_dictamenAct['datos_disposicion']['dis_numero']:"&nbsp;";?> </td>
+				<td class='textoTablaDatoChico' align="center"> <?=isset($fila_dictamenAct['datos_disposicion']["dis_fecha"])?$fila_dictamenAct['datos_disposicion']["dis_fecha"]:"&nbsp;";?>	</td>
+				<td class='textoTablaDatoChico'> <?=$fila_dictamenAct['datos_expediente']['exp_numero'];?> </td>
+				<td class='textoTablaDatoChico'> <?=$fila_dictamenAct['datos_expediente']['jurisdid_exp']?></td>
+				<td class='textoTablaDatoChico'> <?=$fila_dictamenAct['datos_actividad']['act_codinap'] ?> </td>
+				<td class='textoTablaDatoChico'> <?=$fila_dictamenAct['datos_actividad']['act_nombre'] ?> </td>
+				<td class='textoTablaDatoChico' align="center"> <?=$fila_dictamenAct['datos_actividad_tipo']['tipoact_norma_legal'];?></td>
+				<td class='textoTablaDatoChico'> <?=$fila_dictamenAct['datos_actividad_tipo']['insti_orga'];?></td>
+				<td class='textoTablaDatoChico' align="left"> <?=$fila_dictamenAct['datos_dictamen']["actprog_fecha_inicio"]; ?> </td>
+				<td class='textoTablaDatoChico' align="left"> <?=$fila_dictamenAct['datos_dictamen']["actprog_fecha_fin"];?> </td>										
+				<td class='textoTablaDatoChico' align="center"> <?=$fila_dictamenAct['datos_actividad_tipo']['act_creditos'];?> </td>
+				<td class='textoTablaDatoChico' align="left"> <?=$fila_dictamenAct['datos_dictamen']["dic_observaciones"];?> </td>										
+			</tr>
+		<?php 	$primero = false;
+	} // for each ?>
+	</table>
+<?php	
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ListarDictamenActAutodesarrollo($array_DictamenesActAuto) { 
+	
+    $primero = true;
+	if (count($array_DictamenesActAuto)==0) 
+		return; 
+?>
+	<table border="1" class="textoTablaDato" style="width:1970px;" cellspacing="2" cellpadding="2" align="left"> 
+<?php		foreach ($array_DictamenesActAuto as $fila_dictamenAct ) { 
+			if($primero) { ?>
+				<tr>
+					<td class='textoEtiquetaChico' style="width:100px;" align="center">Disposición</td>
+					<td class='textoEtiquetaChico' style="width:50px;" align="center">Fecha Protocolización</td>
+					<td class='textoEtiquetaChico' style="width:150px;" align="center">Expediente</td>
+					<td class='textoEtiquetaChico' style="width:200px;" align="center">Origen Expediente</td>			
+					<td class='textoEtiquetaChico' style="width:100px;" align="center">Cod. INAP</td>
+					<td class='textoEtiquetaChico' style="width:400px;" align="center">Actividad</td>
+					<td class='textoEtiquetaChico' style="width:200px;" align="center">Asunto</td>
+					<td class='textoEtiquetaChico' style="width:310px;" align="center">Destinatario</td>
+					<td class='textoEtiquetaChico' style="width:80px;" align="center">Desde</td>
+					<td class='textoEtiquetaChico' style="width:80px;" align="center">Hasta</td>
+					<td class='textoEtiquetaChico' style="width:50px;" align="center">Créditos</td>
+					<td class='textoEtiquetaChico' style="width:350px;" align="center">Dictamen</td>					
+				</tr>
+		<?php }  ?>											
+				<tr>
+					<td class='textoTablaDatoChico'> <?=isset($fila_dictamenAct['datos_disposicion']['dis_numero'])?$fila_dictamenAct['datos_disposicion']['dis_numero']:"&nbsp;";?> </td>
+					<td class='textoTablaDatoChico' align="center"> <?=isset($fila_dictamenAct['datos_disposicion']["dis_fecha"])?$fila_dictamenAct['datos_disposicion']["dis_fecha"]:"&nbsp;"?></td>
+					<td class='textoTablaDatoChico'> <?=$fila_dictamenAct['datos_expediente']['exp_numero'];?> </td>
+					<td class='textoTablaDatoChico'> <?=$fila_dictamenAct['datos_expediente']['jurisdid_exp']?></td>
+					<td class='textoTablaDatoChico'> <?=$fila_dictamenAct['datos_actividad']['act_codinap'] ?> </td>
+					<td class='textoTablaDatoChico'> <?=$fila_dictamenAct['datos_actividad']['act_nombre'] ?> </td>
+					<td class='textoTablaDatoChico' align="center"> <?=$fila_dictamenAct['datos_actividad_tipo']['tipoact_norma_legal'];?></td>
+					<td class='textoTablaDatoChico' align="left"> <?=isset($fila_dictamenAct['datos_dictamen']["destinatario"])?$fila_dictamenAct['datos_dictamen']["destinatario"]:"&nbsp;";?> </td>			
+					<td class='textoTablaDatoChico' align="left"> <?=isset($fila_dictamenAct['datos_dictamen']["actprog_fecha_inicio"])?$fila_dictamenAct['datos_dictamen']["actprog_fecha_inicio"]:"&nbsp;"; ?> </td>
+					<td class='textoTablaDatoChico' align="left"> <?=isset($fila_dictamenAct['datos_dictamen']["actprog_fecha_fin"])?$fila_dictamenAct['datos_dictamen']["actprog_fecha_fin"]:"&nbsp;" ;?> </td>										
+					<td class='textoTablaDatoChico' align="center"> <?=isset($fila_dictamenAct['datos_actividad_tipo']['act_creditos'])?$fila_dictamenAct['datos_actividad_tipo']['act_creditos']:"&nbsp;";?> </td>
+					<td class='textoTablaDatoChico' align="left"> <?=isset($fila_dictamenAct['datos_dictamen']['dictamen'])?$fila_dictamenAct['datos_dictamen']['dictamen']:"&nbsp;";?> </td>					
+				</tr>
+			<?php 	$primero = false;
+		} // for each ?>
+		</table>
+<?php	}
+//-----------------------------------------------------------------------------------------------------	
+	function DescargarExcelDictamen($array_filtro) {
+
+		//------------------------------------------------------------------
+		// Funciones internas 
+		//------------------------------------------------------------------
+		function _cargarDatosCursoArray($array_Dictamenes,&$arrayresult,&$array_claves) {
+			$arrayresult=array();
+			$array_claves=array();
+			$i=0;
+			foreach ($array_Dictamenes as $clave=>$filaresult)	{
+				$arrayresult[$i]['dis_numero']= $filaresult['datos_disposicion']['dis_numero'];
+				$arrayresult[$i]['dis_fecha'] = $filaresult['datos_disposicion']['dis_fecha'];
+				$arrayresult[$i]['exp_numero'] = $filaresult['datos_expediente']['exp_numero'];
+				$arrayresult[$i]['jurisdid_exp'] = $filaresult['datos_expediente']['jurisdid_exp'];
+				$arrayresult[$i]['act_codinap'] = $filaresult['datos_actividad']['act_codinap'];				
+				$arrayresult[$i]['act_nombre'] = $filaresult['datos_actividad']['act_nombre'];
+				$arrayresult[$i]['tipoact_norma_legal'] = $filaresult['datos_actividad_tipo']['tipoact_norma_legal'];
+				
+				switch  ($filaresult['datos_actividad_tipo']['tipoact_codigo']) {
+				case TIPOACTCURSOINAP:	
+					$arrayresult[$i]['progcur_descripcion'] = $filaresult['datos_actividad_tipo']['progcur_descripcion'];
+					$arrayresult[$i]['areacur_descripcion'] = $filaresult['datos_actividad_tipo']['areacur_descripcion'];
+					break;
+				case TIPOACTCURSOINST:
+					$arrayresult[$i]['insti_orga'] = $filaresult['datos_actividad_tipo']['insti_orga'];
+					break;			
+	
+				case TIPOACTCURSOJURISD:
+					$arrayresult[$i]['datos_perfil'] = $filaresult['datos_perfil'];
+					$arrayresult[$i]['datos_poc'] = $filaresult['datos_poc'];
+					break;			
+				
+				case TIPOACTAUTODOCENTE:
+				case TIPOACTAUTOEVACT:
+				case TIPOACTAUTOPUBLI:
+				case TIPOACTAUTOASISTEC:
+				case TIPOACTAUTOAAUTOFORM:				
+					$arrayresult[$i]['dictamen'] = $filaresult['dictamen']['insti_orga'];
+					break;					
+				} 
+				
+				$arrayresult[$i]['actprog_fecha_inicio'] = $filaresult['datos_dictamen']['actprog_fecha_inicio'];
+				$arrayresult[$i]['actprog_fecha_fin'] = $filaresult['datos_dictamen']['actprog_fecha_fin'];
+				$arrayresult[$i]['actcur_creditos'] = $filaresult['datos_actividad_tipo']['act_creditos'];
+				$arrayresult[$i]['dic_observaciones'] = $filaresult['datos_dictamen']['dic_observaciones'];
+				$i++;
+			}
+			
+			foreach ($arrayresult[0] as $clave=>$valor) {
+				$array_claves[]=$clave;
+			}
+		} // funcion interna
+		
+		//----------------------------------------------------------------------
+		function _cargarDatosExternaArray($array_Dictamenes,&$arrayresult,&$array_claves) {
+			$arrayresult=array();
+			$array_claves=array();
+			$i=0;
+			foreach ($array_Dictamenes as $clave=>$filaresult)	{
+				$arrayresult[$i]['dis_numero']= $filaresult['datos_disposicion']['dis_numero'];
+				$arrayresult[$i]['dis_fecha'] = $filaresult['datos_disposicion']['dis_fecha'];
+				$arrayresult[$i]['exp_numero'] = $filaresult['datos_expediente']['exp_numero'];
+				$arrayresult[$i]['jurisdid_exp'] = $filaresult['datos_expediente']['jurisdid_exp'];
+				$arrayresult[$i]['act_codinap'] = $filaresult['datos_actividad']['act_codinap'];				
+				$arrayresult[$i]['act_nombre'] = $filaresult['datos_actividad']['act_nombre'];
+				$arrayresult[$i]['tipoact_norma_legal'] = $filaresult['datos_actividad_tipo']['tipoact_norma_legal'];
+				$arrayresult[$i]['insti_orga'] = $filaresult['datos_actividad_tipo']['insti_orga'];
+				$arrayresult[$i]['actprog_fecha_inicio'] = $filaresult['datos_dictamen']['actprog_fecha_inicio'];
+				$arrayresult[$i]['actprog_fecha_fin'] = $filaresult['datos_dictamen']['actprog_fecha_fin'];
+				$arrayresult[$i]['actext_creditos'] = $filaresult['datos_actividad_tipo']['act_creditos'];
+				$arrayresult[$i]['dic_observaciones'] = $filaresult['datos_dictamen']['dic_observaciones'];
+				$i++;
+			}
+			foreach ($arrayresult[0] as $clave=>$valor) {
+				$array_claves[]=$clave;
+			}
+		} // funcion interna
+		//----------------------------------------------------------------------
+		function _cargarDatosAutodesarrolloArray($conexion,$array_Dictamenes,&$arrayresult,&$array_claves) {
+		
+			$arrayresult=array();
+			$array_claves=array();
+			$i=0;
+			foreach ($array_Dictamenes as $clave=>$filaresult)	{
+				$arrayresult[$i]['dis_numero']= $filaresult['datos_disposicion']['dis_numero'];
+				$arrayresult[$i]['dis_fecha'] = $filaresult['datos_disposicion']['dis_fecha'];
+				$arrayresult[$i]['exp_numero'] = $filaresult['datos_expediente']['exp_numero'];
+				$arrayresult[$i]['jurisdid_exp'] = $filaresult['datos_expediente']['jurisdid_exp'];
+				$arrayresult[$i]['act_codinap'] = $filaresult['datos_actividad']['act_codinap'];				
+				$arrayresult[$i]['act_nombre'] = $filaresult['datos_actividad']['act_nombre'];
+				$arrayresult[$i]['tipoact_norma_legal'] = $filaresult['datos_actividad_tipo']['tipoact_norma_legal'];
+				$arrayresult[$i]['destinatario'] = isset($filaresult['datos_dictamen']['destinatario'])?$filaresult['datos_dictamen']['destinatario']:"";
+				$arrayresult[$i]['actprog_fecha_inicio'] = isset($filaresult['datos_dictamen']['actprog_fecha_inicio'])?$filaresult['datos_dictamen']['actprog_fecha_inicio']:"";
+				$arrayresult[$i]['actprog_fecha_fin'] = isset($filaresult['datos_dictamen']['actprog_fecha_fin'])?$filaresult['datos_dictamen']['actprog_fecha_fin']:"";
+
+				$arrayresult[$i]['actauto_creditos'] = $filaresult['datos_actividad_tipo']['act_creditos'];
+				$arrayresult[$i]['actauto_dictamen'] =  str_replace("<br>",chr(10),$filaresult['datos_dictamen']['dictamen']);
+				$i++;
+			}
+			
+			foreach ($arrayresult[0] as $clave=>$valor) {
+				$array_claves[]=$clave;
+			}
+		} // funcion interna
+		
+		//----------------------------------------------------------------------
+		function _setearFormato(&$oExcel,$elemento) {			
+
+			$oExcel->BorrarFormato("");
+			switch ($elemento) {		
+				case 'titulo':
+					$oExcel->AddFormato ("Tamaño",10);
+					$oExcel->AddFormato ("Border",1);
+					$oExcel->AddFormato ("TextWrap","");
+					$oExcel->AddFormato ("Font","Times New Roman");
+					$oExcel->AddFormato ("Color","azul");					
+					$oExcel->AddFormato ("FgColor",22);
+					$oExcel->AddFormato ("Align","left");
+					break;
+				case 'titulo_columna':
+					$oExcel->AddFormato ("Tamaño",8);
+					$oExcel->AddFormato ("Border",1);
+					$oExcel->AddFormato ("TextWrap","");
+					$oExcel->AddFormato ("Font","Times New Roman");
+					$oExcel->AddFormato ("Color","negro");
+					$oExcel->AddFormato ("FgColor","gris");
+					$oExcel->AddFormato ("Align","center");
+					$oExcel->AddFormato ("VAlign","vcenter");
+					break;
+				case "contenido":
+					$oExcel->AddFormato ("Tamaño",8);
+					$oExcel->AddFormato ("Border",1);
+					$oExcel->AddFormato ("TextWrap","");
+					$oExcel->AddFormato ("FgColor","blanco");
+					$oExcel->AddFormato ("Align","left");
+					$oExcel->AddFormato ("VAlign","vcenter");
+					break;		
+				case "contenido_centrado":
+					$oExcel->AddFormato ("Tamaño",8);
+					$oExcel->AddFormato ("Border",1);
+					$oExcel->AddFormato ("TextWrap","");
+					$oExcel->AddFormato ("FgColor","blanco");
+					$oExcel->AddFormato ("Align","center");
+					$oExcel->AddFormato ("VAlign","vcenter");
+					break;			
+			}	
+		}	
+	//------------ Inicio funcion	
+	$nombrearchivo="dictamen.xls";  					
+	$oExcel = new cEscribirExcel($nombrearchivo);
+
+	$filtroDatos=array();	
+	if (isset($array_filtro['lstDic']))
+		$filtroDatos['dictamen_en']=$array_filtro['lstDic'];
+
+	if (isset($array_filtro['dis_codigo']))
+		$filtroDatos['dis_codigo']=$array_filtro['dis_codigo'];
+
+	if (!isset($array_filtro['xrol']))
+		$filtroDatos['xrol']=false;
+	else 
+		$filtroDatos['xrol']=$array_filtro['xrol'];
+
+	// Formatos Contenido
+	_setearFormato($oExcel,'contenido');
+	$formato=$oExcel->GetFormato(); 	
+	_setearFormato($oExcel,'contenido_centrado');
+	$formato_centrado=$oExcel->GetFormato(); 	
+	$arreglo_centrados = array('actcur_creditos','actauto_creditos','actext_creditos','dis_fecha','actprog_fecha_inicio','actprog_fecha_fin','tipoact_norma_legal');							
+	// Ancho de cada columna
+	$ancho_columna['disposición']=15;
+	$ancho_columna['fecha_protocolizacion']=12;
+	$ancho_columna['expediente']=15;
+	$ancho_columna['origen_expediente']=20;
+	$ancho_columna['codinap']=10;
+	$ancho_columna['actividad']=40;
+	$ancho_columna['asunto']=15;
+	$ancho_columna['perfil']=40;
+	$ancho_columna['poc']=10;
+	$ancho_columna['programa']=20;
+	$ancho_columna['area']=20;
+	$ancho_columna['fecha_desde']=10;
+	$ancho_columna['fecha_fin']=10;
+	$ancho_columna['creditos']=10;
+	$ancho_columna['organismo_institucion']=20;
+	$ancho_columna['destinatario']=20;
+	$ancho_columna['dictamen']=40;
+	$ancho_columna['observaciones']=40;
+
+	if (!$this->ObtenerDictamenesxFormato($filtroDatos,$resultDicActCurso, $numfilas_DicActCurso,
+											$resultDicActExt,$numfilas_DicActExt, 
+											$resultDicActAuto,$numfilas_DicActAuto)) { 
+
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al obtener los dictámenes Formato Curso.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;											
+	} else {
+
+		// Según el formato de dictámenes que haya qye lista listar
+		if($numfilas_DicActCurso>0) {  
+	
+			if (!$this->AgregarDetalleDictamenActCurso($resultDicActCurso,
+							$array_DictamenesActCursoInap,
+							$array_DictamenesActCursoInstitucional,
+							$array_DictamenesActCursoJurisdiccional))  {
+
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al obtener los dictámenes Formato Curso.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			
+			if(count($array_DictamenesActCursoInap) > 0) {
+
+				// Defino hoja de cursos
+				$oExcel->AddHoja("Cursos Inap");
+				$oExcel->EsconderGrillas();
+				$oExcel->PaginaHorizontal();
+
+				// Ancho columnas
+				$oExcel->FormatoColumna (0,$ancho_columna['disposición']); 
+				$oExcel->FormatoColumna (1,$ancho_columna['fecha_protocolizacion']); 
+				$oExcel->FormatoColumna (2,$ancho_columna['expediente']); 
+				$oExcel->FormatoColumna (3,$ancho_columna['origen_expediente']); 
+				$oExcel->FormatoColumna (4,$ancho_columna['codinap']); 
+				$oExcel->FormatoColumna (5,$ancho_columna['actividad']); 
+				$oExcel->FormatoColumna (6,$ancho_columna['asunto']); 
+				$oExcel->FormatoColumna (7,$ancho_columna['programa']); 
+				$oExcel->FormatoColumna (8,$ancho_columna['area']); 
+				$oExcel->FormatoColumna (9,$ancho_columna['fecha_desde']); 
+				$oExcel->FormatoColumna (10,$ancho_columna['fecha_fin']); 
+				$oExcel->FormatoColumna (11,$ancho_columna['creditos']); 
+				$oExcel->FormatoColumna (11,$ancho_columna['observaciones']); 
+				
+				// Formato Titulo
+				_setearFormato($oExcel,'titulo');
+				$oExcel->CargarDatosVariasCeldas (0,0,0,12,"Dictámenes de Actividades Curso Inap",true);		
+
+				// Formato Columnas Titulo
+				_setearFormato($oExcel,'titulo_columna');			
+				$oExcel->CargarDatos (1,0,"Disposición",true);
+				$oExcel->CargarDatos (1,1,"Fecha Protocolización",true);
+				$oExcel->CargarDatos (1,2,"Expediente",true);
+				$oExcel->CargarDatos (1,3,"Origen Expediente",true);
+				$oExcel->CargarDatos (1,4,"Cod. INAP",true);				
+				$oExcel->CargarDatos (1,5,"Actividad",true);
+				$oExcel->CargarDatos (1,6,"Asunto",true);
+				$oExcel->CargarDatos (1,7,"Programa",true);
+				$oExcel->CargarDatos (1,8,"Área",true);
+				$oExcel->CargarDatos (1,9,"Fecha Desde",true);
+				$oExcel->CargarDatos (1,10,"Fecha Hasta",true);
+				$oExcel->CargarDatos (1,11,"Créditos",true);
+				$oExcel->CargarDatos (1,12,"Observaciones",true);
+		
+				// Cargo Datos y los mando a la Grilla
+				_cargarDatosCursoArray($array_DictamenesActCursoInap,$arrayresult,$arrayclaves);		
+
+				foreach ($arrayclaves as $clave => $valor) {	
+					if (in_array($valor,$arreglo_centrados))
+	 					$arrayformato[$valor]=$formato_centrado;
+					else 
+	 					$arrayformato[$valor]=$formato;
+				}
+
+				$i=2;
+				foreach ($arrayresult as $datos) {
+					$oExcel->CargarGrilla ($datos,$i,0,$arrayclaves,$arrayformato);	
+					$i++;
+				}
+			} 
+		
+			if(count($array_DictamenesActCursoInstitucional) > 0) {
+
+				// Defino hoja de Cursos
+				$oExcel->AddHoja("Cursos Institucionales");
+				$oExcel->EsconderGrillas();
+				$oExcel->PaginaHorizontal();
+
+				// Ancho columnas
+				$oExcel->FormatoColumna (0,$ancho_columna['disposición']); 
+				$oExcel->FormatoColumna (1,$ancho_columna['fecha_protocolizacion']); 
+				$oExcel->FormatoColumna (2,$ancho_columna['expediente']); 
+				$oExcel->FormatoColumna (3,$ancho_columna['origen_expediente']); 
+				$oExcel->FormatoColumna (4,$ancho_columna['codinap']); 				
+				$oExcel->FormatoColumna (5,$ancho_columna['actividad']); 
+				$oExcel->FormatoColumna (6,$ancho_columna['asunto']); 
+				$oExcel->FormatoColumna (7,$ancho_columna['organismo_institucion']); 
+				$oExcel->FormatoColumna (8,$ancho_columna['fecha_desde']); 
+				$oExcel->FormatoColumna (9,$ancho_columna['fecha_fin']); 
+				$oExcel->FormatoColumna (10,$ancho_columna['creditos']); 
+			
+				// Formato Titulo
+				_setearFormato($oExcel,'titulo');				
+				$oExcel->CargarDatosVariasCeldas (0,0,0,10,"Dictámenes de Actividades Curso Institucional",true);		
+
+				// Formato Columnas Titulo
+				_setearFormato($oExcel,'titulo_columna');
+			
+				$oExcel->CargarDatos (1,0,"Disposición",true);
+				$oExcel->CargarDatos (1,1,"Fecha Protocolización",true);
+				$oExcel->CargarDatos (1,2,"Expediente",true);
+				$oExcel->CargarDatos (1,3,"Origen Expediente",true);
+				$oExcel->CargarDatos (1,4,"Cod. INAP",true);				
+				$oExcel->CargarDatos (1,5,"Actividad",true);
+				$oExcel->CargarDatos (1,6,"Asunto",true);
+				$oExcel->CargarDatos (1,7,"Institución/Organismo",true);
+				$oExcel->CargarDatos (1,8,"Fecha Desde",true);
+				$oExcel->CargarDatos (1,9,"Fecha Hasta",true);
+				$oExcel->CargarDatos (1,10,"Créditos",true);
+
+				// Cargo Datos y los mando a la Grilla
+				_cargarDatosCursoArray($array_DictamenesActCursoInstitucional,$arrayresult,$arrayclaves);		
+
+				foreach ($arrayclaves as $clave => $valor) {	
+					if (in_array($valor,$arreglo_centrados))
+	 					$arrayformato[$valor]=$formato_centrado;
+					else 
+	 					$arrayformato[$valor]=$formato;
+				}
+
+				$i=2;
+				foreach ($arrayresult as $datos) {
+					$oExcel->CargarGrilla ($datos,$i,0,$arrayclaves,$arrayformato);	
+					$i++;
+				} 
+			}			
+		
+			if(count($array_DictamenesActCursoJurisdiccional)  > 0) {
+				$oExcel->AddHoja("Cursos Jurisdiccionales");
+				$oExcel->EsconderGrillas();
+				$oExcel->PaginaHorizontal();
+
+				// Ancho Columnas
+				$oExcel->FormatoColumna (0,$ancho_columna['disposición']); 
+				$oExcel->FormatoColumna (1,$ancho_columna['fecha_protocolizacion']); 
+				$oExcel->FormatoColumna (2,$ancho_columna['expediente']); 
+				$oExcel->FormatoColumna (3,$ancho_columna['origen_expediente']); 
+				$oExcel->FormatoColumna (4,$ancho_columna['codinap']); 				
+				$oExcel->FormatoColumna (5,$ancho_columna['actividad']); 
+				$oExcel->FormatoColumna (6,$ancho_columna['asunto']); 
+				$oExcel->FormatoColumna (7,$ancho_columna['perfil']); 
+				$oExcel->FormatoColumna (8,$ancho_columna['poc']); 								
+				$oExcel->FormatoColumna (9,$ancho_columna['fecha_desde']); 
+				$oExcel->FormatoColumna (10,$ancho_columna['fecha_fin']); 
+				$oExcel->FormatoColumna (11,$ancho_columna['creditos']); 
+
+				// Formato Titulo
+				_setearFormato($oExcel,'titulo');
+				$oExcel->CargarDatosVariasCeldas (0,0,0,11,"Dictámenes de Actividades Curso Jurisdiccional",true);		
+			
+				// Formato Titulos Columnas
+				_setearFormato($oExcel,'titulo_columna');
+
+				$oExcel->CargarDatos (1,0,"Disposición",true);
+				$oExcel->CargarDatos (1,1,"Fecha Protocolización",true);
+				$oExcel->CargarDatos (1,2,"Expediente",true);
+				$oExcel->CargarDatos (1,3,"Origen Expediente",true);
+				$oExcel->CargarDatos (1,4,"Cod. INAP",true);				
+				$oExcel->CargarDatos (1,5,"Actividad",true);
+				$oExcel->CargarDatos (1,6,"Asunto",true);
+				$oExcel->CargarDatos (1,7,"Perfil del Destinatario",true);
+				$oExcel->CargarDatos (1,8,"Año POC",true);
+				$oExcel->CargarDatos (1,9,"Fecha Desde",true);
+				$oExcel->CargarDatos (1,10,"Fecha Hasta",true);
+				$oExcel->CargarDatos (1,11,"Créditos",true);
+
+				// Cargo Datos y los mando a la Grilla
+				_cargarDatosCursoArray($array_DictamenesActCursoJurisdiccional,$arrayresult,$arrayclaves);		
+				
+				foreach ($arrayclaves as $clave => $valor) {	
+					if (in_array($valor,$arreglo_centrados))
+	 					$arrayformato[$valor]=$formato_centrado;
+					else 
+	 					$arrayformato[$valor]=$formato;
+				}
+
+				$i=2;
+				foreach ($arrayresult as $datos) {
+					$oExcel->CargarGrilla ($datos,$i,0,$arrayclaves,$arrayformato);	
+					$i++;
+				} 
+			}
+		} // fin formato curso
+	
+		if($numfilas_DicActExt>0) {
+
+				if (!$this->AgregarDetalleDictamenActExterna($resultDicActExt,$array_DictamenesActExt))  {
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al obtener los dictámenes Formato Externas.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;											
+				}
+				$oExcel->AddHoja("Actividades Externas");
+				$oExcel->EsconderGrillas();
+				$oExcel->PaginaHorizontal();
+
+				// Titulos 
+				$oExcel->FormatoColumna (0,$ancho_columna['disposición']); 
+				$oExcel->FormatoColumna (1,$ancho_columna['fecha_protocolizacion']); 
+				$oExcel->FormatoColumna (2,$ancho_columna['expediente']); 
+				$oExcel->FormatoColumna (3,$ancho_columna['origen_expediente']); 
+				$oExcel->FormatoColumna (4,$ancho_columna['codinap']); 
+				$oExcel->FormatoColumna (5,$ancho_columna['actividad']); 
+				$oExcel->FormatoColumna (6,$ancho_columna['asunto']); 
+				$oExcel->FormatoColumna (7,$ancho_columna['organismo_institucion']); 
+				$oExcel->FormatoColumna (8,$ancho_columna['fecha_desde']); 
+				$oExcel->FormatoColumna (9,$ancho_columna['fecha_fin']); 
+				$oExcel->FormatoColumna (10,$ancho_columna['creditos']); 
+				$oExcel->FormatoColumna (11,$ancho_columna['observaciones']); 
+
+				// Formato Titulo 
+				_setearFormato($oExcel,'titulo');
+				$oExcel->CargarDatosVariasCeldas (0,0,0,11,"Dictámenes de Actividades Externas",true);		
+
+				// Formato Titulos Columnas
+				_setearFormato($oExcel,'titulo_columna');
+
+				$oExcel->CargarDatos (1,0,"Disposición",true);
+				$oExcel->CargarDatos (1,1,"Fecha Protocolización",true);
+				$oExcel->CargarDatos (1,2,"Expediente",true);
+				$oExcel->CargarDatos (1,3,"Origen Expediente",true);
+				$oExcel->CargarDatos (1,4,"Cod. INAP",true);				
+				$oExcel->CargarDatos (1,5,"Actividad",true);
+				$oExcel->CargarDatos (1,6,"Asunto",true);
+				$oExcel->CargarDatos (1,7,"Institución/Organismo",true);
+				$oExcel->CargarDatos (1,8,"Fecha Desde",true);
+				$oExcel->CargarDatos (1,9,"Fecha Hasta",true);
+				$oExcel->CargarDatos (1,10,"Créditos",true);
+				$oExcel->CargarDatos (1,11,"Observaciones",true);
+				// Cargo Datos y los mando a la Grilla
+				_cargarDatosExternaArray($array_DictamenesActExt,$arrayresult,$arrayclaves);		
+
+				foreach ($arrayclaves as $clave => $valor) {	
+					if (in_array($valor,$arreglo_centrados))
+	 					$arrayformato[$valor]=$formato_centrado;
+					else 
+	 					$arrayformato[$valor]=$formato;
+				}
+
+				$i=2;
+				foreach ($arrayresult as $datos) {
+					$oExcel->CargarGrilla ($datos,$i,0,$arrayclaves,$arrayformato);	
+					$i++;
+				} 
+				
+		} // $numfilas_DicActExt>0
+	
+		if($numfilas_DicActAuto>0)  { 
+
+			if (!$this->AgregarDetalleDictameActAutodesarrollo($resultDicActAuto,$array_DictamenesActAuto)) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al obtener los dictámenes Formato Autodesarrollo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			
+			$oExcel->AddHoja("Actividades Autodesarrollo");
+			$oExcel->EsconderGrillas();
+			$oExcel->PaginaHorizontal();
+
+			// Titulos 
+			$oExcel->FormatoColumna (0,$ancho_columna['disposición']); 
+			$oExcel->FormatoColumna (1,$ancho_columna['fecha_protocolizacion']); 
+			$oExcel->FormatoColumna (2,$ancho_columna['expediente']); 
+			$oExcel->FormatoColumna (3,$ancho_columna['origen_expediente']); 
+			$oExcel->FormatoColumna (4,$ancho_columna['codinap']);
+			$oExcel->FormatoColumna (5,$ancho_columna['actividad']);
+			$oExcel->FormatoColumna (6,$ancho_columna['asunto']); 
+			$oExcel->FormatoColumna (7,$ancho_columna['destinatario']); 
+			$oExcel->FormatoColumna (8,$ancho_columna['fecha_desde']); 
+			$oExcel->FormatoColumna (9,$ancho_columna['fecha_fin']); 
+			$oExcel->FormatoColumna (10,$ancho_columna['creditos']); 
+			$oExcel->FormatoColumna (11,$ancho_columna['dictamen']); 
+
+			// Formato Titulo
+			_setearFormato($oExcel,'titulo');
+			$oExcel->CargarDatosVariasCeldas (0,0,0,10,"Dictámenes de Actividades de Autodesarrollo",true);		
+
+			// Formato Titulos columnas
+			_setearFormato($oExcel,'titulo_columna');
+
+			$oExcel->CargarDatos (1,0,"Disposición",true);
+			$oExcel->CargarDatos (1,1,"Fecha Protocolización",true);
+			$oExcel->CargarDatos (1,2,"Expediente",true);
+			$oExcel->CargarDatos (1,3,"Origen Expediente",true);
+			$oExcel->CargarDatos (1,4,"Cod. INAP",true);			
+			$oExcel->CargarDatos (1,5,"Actividad",true);
+			$oExcel->CargarDatos (1,6,"Asunto",true);
+			$oExcel->CargarDatos (1,7,"Destinatario",true);
+			$oExcel->CargarDatos (1,8,"Fecha Desde",true);
+			$oExcel->CargarDatos (1,9,"Fecha Hasta",true);
+			$oExcel->CargarDatos (1,10,"Créditos",true);
+			$oExcel->CargarDatos (1,11,"Dictamen",true);
+			
+			_cargarDatosAutodesarrolloArray($this->conexion,$array_DictamenesActAuto,$arrayresult,$arrayclaves);		
+	
+			foreach ($arrayclaves as $clave => $valor) {	
+				if (in_array($valor,$arreglo_centrados))
+					$arrayformato[$valor]=$formato_centrado;
+				else 
+					$arrayformato[$valor]=$formato;
+			}
+
+			$i=2;
+			foreach ($arrayresult as $datos) {
+				$oExcel->CargarGrilla ($datos,$i,0,$arrayclaves,$arrayformato);	
+				$i++;
+			} 
+
+		} //	$numfilas_DicActAuto>0		
+	}
+	
+	$oExcel->Enviar();	
+	return true;											
+	
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosAltaProgramacion($datos,&$datosvalidados) {
+		
+		$datosvalidados = array();
+		
+		if (!$this->_DatosValidosComunesProgramacion($datos,$datosvalidados))
+		   return false; 
+	
+		//generar secuencia	
+		$spnombre = "sel_actividad_programacion_act_codigo";
+		$spparam = array('pact_codigo'=>$datos['act_codigo'],'porderby'=>"actprog_sec DESC");
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno)) {	
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando las programaciones.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		
+		if ($numfilas > 0) {
+			$fila_prog = mysqli_fetch_assoc($query);
+			$nueva_secuencia = $fila_prog['actprog_sec']+1;
+		} else 
+			$nueva_secuencia = 1;	
+	
+		$datosvalidados['actprog_sec'] = $nueva_secuencia;
+		
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosBajaProgramacion($datos,&$datosvalidados) {
+		if (!$this->TienePermisoBajaProgramacion($datos['act_codigo'],$datos['actprog_sec'])) {
+			return false; 
+		}
+		$datosvalidados=$datos;	
+		return true;	
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosModifProgramacion($datos,&$datosvalidados) {
+	
+		if (!$this->TienePermisoModificarProgramacion($datos['act_codigo'],$datos['actprog_sec'])) {
+			return false; 
+		}
+		if (!$this->_DatosValidosComunesProgramacion($datos,$datosvalidados))
+		   return false; 
+	
+		$datosvalidados['actprog_sec'] = $datos['actprog_sec'];
+		return true;	
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosAltaDictamen($datos,&$datosvalidados) {
+	
+		if (!$this->_DatosValidosComunesDictamen($datos,$datosvalidados))
+		   return false; 
+		
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosBajaDictamen($datos,&$datosvalidados) {
+		if (!$this->TienePermisoBajaDictamen($datos['dic_codigo'])) {
+			return false; 
+		}
+		$datosvalidados=$datos;	
+		return true;	
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosModifDictamen($datos,&$datosvalidados) {
+		$datosvalidados=array();
+		if (!$this->TienePermisoModificarDictamen($datos['dic_codigo'])) {
+			return false; 
+		}
+	
+		if (!$this->_DatosValidosComunesDictamen($datos,$datosvalidados))
+		   return false; 
+		return true;	
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosAltaDictamenPersonal($datos,&$datosvalidados) {
+	
+		if (!$this->_DatosValidosComunesDictamenPersonal($datos,$datosvalidados))
+		   return false; 
+		
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosBajaDictamenPersonal($datos,&$datosvalidados) {
+	
+		if (!$this->TienePermisoBajaDictamenPersonal($datos['dic_codigo'])) {
+			return false; 
+		}
+		$datosvalidados=$datos;	
+		
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosModifDictamenPersonal($datos,&$datosvalidados) {
+
+		if (!$this->TienePermisoModificarDictamenPersonal($datos['dic_codigo'])) {
+			return false; 
+		}
+	
+		if (!$this->_DatosValidosComunesDictamenPersonal($datos,$datosvalidados))
+		   return false; 
+		
+		return true;
+	}
+	
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosComunesDictamenPersonal($datos,&$datosvalidados) {
+
+		// Pertinencia 	- [dic_pertinencia] 	- [OBLIG]
+		if(!($datos['dic_pertinencia'] == SI ||$datos['dic_pertinencia'] == NO) )	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar la pertinencia. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados['dic_pertinencia'] = $datos['dic_pertinencia'];
+
+		if ($datos['dic_pertinencia'] == SI) {
+			
+			// Ponderador 	- [pondtipopond_codigo_cal_pres] 	- [OBLIG]
+			$oPonderadorDictamen = new cPonderadorDictamen($this->conexion);
+			$oPonderadorDictamen->PonderadorValoresSP(TIPOPONDCALPRESTADOR,$spnombre,$spparam);
+			if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("pondtipopond_codigo"=>$datos['pondtipopond_codigo_cal_pres']),$resultado,$fila,$numfilas,$errno) || $numfilas!=1)	{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar el ponderador.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["pondtipopond_codigo_cal_pres"]=$datos['pondtipopond_codigo_cal_pres'];
+	
+			// Ponderador 	- [pondtipopond_codigo_int] 	- [OBLIG]
+			$oPonderadorDictamen->PonderadorValoresSP(TIPOPONDINTENSIDAD,$spnombre,$spparam);
+			if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("pondtipopond_codigo"=>$datos['pondtipopond_codigo_int']),$resultado,$fila,$numfilas,$errno) || $numfilas!=1)	{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar el ponderador.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["pondtipopond_codigo_int"]=$datos['pondtipopond_codigo_int'];
+	
+			// Ponderador 	- [pondtipopond_codigo_proc_eva] 	- [OBLIG]
+			$oPonderadorDictamen->PonderadorValoresSP(TIPOPONDCALPROCESO,$spnombre,$spparam);
+			if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("pondtipopond_codigo"=>$datos['pondtipopond_codigo_proc_eva']),$resultado,$fila,$numfilas,$errno) || $numfilas!=1)	{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar el ponderador.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["pondtipopond_codigo_proc_eva"]=$datos['pondtipopond_codigo_proc_eva'];
+	
+			// Créditos 	- [act_creditos] 	- [OBLIG]
+			if (!FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['act_creditos'],"NumericoEntero"))
+			{
+				$arraymensajepantalla="Debe ingresar la cantidad de créditos";
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			
+			if ($datos['act_creditos'] <= 0)
+			{
+				$arraymensajepantalla= "La cantidad de créditos tiene que ser mayor a 0";
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["act_creditos"]=$datos['act_creditos'];
+
+		} else {
+			$datosvalidados["pondtipopond_codigo_cal_pres"] = 3;
+			$datosvalidados["pondtipopond_codigo_int"] = 6;
+			$datosvalidados["pondtipopond_codigo_proc_eva"] = 9;						
+			$datosvalidados["act_creditos"]="0";
+		}		
+		$datosvalidados["dic_observaciones"]=isset($datos['dic_observaciones'])?$datos['dic_observaciones']:"";
+		$datosvalidados["act_codigo"]=$datos["act_codigo"];
+		$datosvalidados["dic_codigo"]=$datos["dic_codigo"];
+		$datosvalidados["pers_codigo"]=$datos["pers_codigo"];		
+		$datosvalidados["actautodic_obs"]=$datos["actautodic_obs"];				
+		
+		return true;	
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosComunesDictamen($datos,&$datosvalidados) {
+		
+		// Siempre viene porque en programacion se lo agregamos.
+		if ((isset($datos['dic_pertinencia']) && ($datos['dic_pertinencia'] == SI))) {
+		
+			// Ponderador 	- [pondtipopond_codigo_cal_pres] 	- [OBLIG]
+			$oPonderadorDictamen = new cPonderadorDictamen($this->conexion);
+			$oPonderadorDictamen->PonderadorValoresSP(TIPOPONDCALPRESTADOR,$spnombre,$spparam);
+			if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("pondtipopond_codigo"=>$datos['pondtipopond_codigo_cal_pres']),$resultado,$fila,$numfilas,$errno) || $numfilas!=1)	{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar el ponderador.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["pondtipopond_codigo_cal_pres"]=$datos['pondtipopond_codigo_cal_pres'];
+	
+			// Ponderador 	- [pondtipopond_codigo_int] 	- [OBLIG]
+			$oPonderadorDictamen->PonderadorValoresSP(TIPOPONDINTENSIDAD,$spnombre,$spparam);
+			if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("pondtipopond_codigo"=>$datos['pondtipopond_codigo_int']),$resultado,$fila,$numfilas,$errno) || $numfilas!=1)	{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar el ponderador.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["pondtipopond_codigo_int"]=$datos['pondtipopond_codigo_int'];
+	
+			// Ponderador 	- [pondtipopond_codigo_proc_eva] 	- [OBLIG]
+			$oPonderadorDictamen->PonderadorValoresSP(TIPOPONDCALPROCESO,$spnombre,$spparam);
+			if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("pondtipopond_codigo"=>$datos['pondtipopond_codigo_proc_eva']),$resultado,$fila,$numfilas,$errno) || $numfilas!=1)	{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar el ponderador.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["pondtipopond_codigo_proc_eva"]=$datos['pondtipopond_codigo_proc_eva'];
+	
+			// Créditos 	- [act_creditos] 	- [OBLIG]
+			if (!FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['act_creditos'],"NumericoEntero"))
+			{
+				$arraymensajepantalla="Debe ingresar la cantidad de créditos";
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			
+			if ($datos['act_creditos'] <= 0)
+			{
+				$arraymensajepantalla= "La cantidad de créditos tiene que ser mayor a 0";
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+		}
+		if ((isset($datos['dic_pertinencia']) && ($datos['dic_pertinencia'] == NO))) {
+			$datosvalidados["pondtipopond_codigo_cal_pres"] = 3;
+			$datosvalidados["pondtipopond_codigo_int"] = 6;
+			$datosvalidados["pondtipopond_codigo_proc_eva"] = 9;						
+			$datosvalidados["act_creditos"]="0";
+		}
+		
+		
+		$datosvalidados["dic_observaciones"]=isset($datos['dic_observaciones'])?$datos['dic_observaciones']:"";
+		$datosvalidados["act_creditos"]=$datos['act_creditos'];
+		$datosvalidados["act_codigo"]=$datos["act_codigo"];
+		$datosvalidados["dic_codigo"]=$datos["dic_codigo"];
+		
+		if (isset($datos["dic_pertinencia"])) 
+			$datosvalidados["dic_pertinencia"]=$datos["dic_pertinencia"];			
+		return true;	
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosComunesProgramacion($datos,&$datosvalidados) {
+
+		// Fecha Inicio- [actprog_fecha_inicio] 	- [OBLIG]
+		if (trim($datos['actprog_fecha_inicio'])=="" || !FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['actprog_fecha_inicio'],"FechaDDMMAAAA"))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La fecha de incio de la programación no es válida.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$fechaincio_AAAAMMDD=FuncionesPHPLocal::ConvertirFecha($datos['actprog_fecha_inicio'],'dd/mm/aaaa','aaaa-mm-dd');
+
+		// Fecha Fin- [actprog_fecha_fin] 	- [OBLIG]
+		if (trim($datos['actprog_fecha_fin'])=="" || !FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['actprog_fecha_fin'],"FechaDDMMAAAA"))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La fecha de fin de la programación no es válida.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$fechafin_AAAAMMDD=FuncionesPHPLocal::ConvertirFecha($datos['actprog_fecha_fin'],'dd/mm/aaaa','aaaa-mm-dd');
+
+		// La fecha de fin no puede ser mayor a la fecha de inicio
+		if ($fechafin_AAAAMMDD < $fechaincio_AAAAMMDD)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La fecha de inicio debe ser menor o igual a la fecha de fin.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+				
+		// para cada intervalo valido que fechaincio_AAAAMMDD > actprog_fecha_fin y  fechafin_AAAAMMDD < actprog_fecha_inicio	
+		$ok = true;
+		
+		$spnombre = "sel_actividad_programacion_act_codigo";
+		$spparam = array('pact_codigo'=>$datos['act_codigo'],'porderby'=>"actprog_sec");
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno)) {	
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando las programaciones.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$result=false;
+		}
+		
+		while (($fila_actprog = mysqli_fetch_assoc($query)) && ($ok)) {
+			if ($datos['operacion_programacion'] == "A" || $fila_actprog['actprog_sec'] != $datos['actprog_sec']) { // excluyo la programación actual
+				$fechalimiteinicio_AAAAMMDD=FuncionesPHPLocal::ConvertirFecha($fila_actprog['actprog_fecha_inicio'],'aaaa-mm-dd','dd/mm/aaaa');
+				$fechalimitefin_AAAAMMDD=FuncionesPHPLocal::ConvertirFecha($fila_actprog['actprog_fecha_fin'],'aaaa-mm-dd','dd/mm/aaaa');
+				$fechalimiteinicio_AAAAMMDD=FuncionesPHPLocal::ConvertirFecha($fechalimiteinicio_AAAAMMDD,'dd/mm/aaaa','aaaa-mm-dd');
+				$fechalimitefin_AAAAMMDD=FuncionesPHPLocal::ConvertirFecha($fechalimitefin_AAAAMMDD,'dd/mm/aaaa','aaaa-mm-dd');
+
+				if (!($fechaincio_AAAAMMDD > $fechalimitefin_AAAAMMDD || $fechafin_AAAAMMDD < $fechalimiteinicio_AAAAMMDD) )
+					$ok = false;
+			}
+		}
+
+
+		if (!$ok) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"La fecha de la programación se superpone <br>con alguna programación ingresada previamente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;		
+		}
+
+		// la programación tiene que estar abarcando a todas las comisiones
+		// esto se puede dar solo cuando SUPERUSUARIO modifica las fechas de programación
+		if ($_SESSION["rolcod"] == SUPERUSUARIO) {
+		
+			$ArregloDatos=array(	
+							'act_codigo'=>$datos['act_codigo'],
+							'tipoact_codigo'=>TIPOACTCURSOINAP,										
+							);
+			$this->BuscarDictamen($ArregloDatos,$numfilas,$array_resultado,$error,$errormail);
+			if($error) {
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			} else { 
+					if ($numfilas > 0) { 
+						$oComision= new cComision($this->conexion);
+						
+						$fecha_ok = true;
+						foreach ($array_resultado as $clave=>$valor) { 
+							$ArregloDatos=array();
+							$ArregloDatos['act_codigo']=$datos['act_codigo'];
+							if(!$oComision->BuscarComision($ArregloDatos,$numfilas,$result_comision,$error,$errormail)){
+								FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Error al buscar las comisiones de la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+								return false;
+							}
+							
+	
+							while ($fila_comision = mysqli_fetch_assoc($result_comision)) {
+							
+							
+								// Fecha comprendida en la programación
+	
+								if(!(FuncionesPHPLocal::FechasOrdenadas(date("d/m/Y",strtotime($valor['actprog_fecha_inicio'])),date("d/m/Y",strtotime($fila_comision['comi_fecha_inicio'])),date("d/m/Y",strtotime($valor['actprog_fecha_fin'])))
+									&& FuncionesPHPLocal::FechasOrdenadas(date("d/m/Y",strtotime($valor['actprog_fecha_inicio'])),date("d/m/Y",strtotime($fila_comision['comi_fecha_fin'])),date("d/m/Y",strtotime($valor['actprog_fecha_fin']))))
+									)
+									$fecha_ok = false;
+	
+								// comparo con los datos del formulario
+								if(!(FuncionesPHPLocal::FechasOrdenadas($datos['actprog_fecha_inicio'],date("d/m/Y",strtotime($fila_comision['comi_fecha_inicio'])),$datos['actprog_fecha_fin'])
+									&& FuncionesPHPLocal::FechasOrdenadas($datos['actprog_fecha_inicio'],date("d/m/Y",strtotime($fila_comision['comi_fecha_fin'])),$datos['actprog_fecha_fin']))
+									)
+									$fecha_ok = false;
+	
+							} // while	
+						} //foreach
+						if (!$fecha_ok){
+							FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Error. La programaciones deben abarcar las fechas de las comisiones.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+							return false;
+						}
+					} // if
+					
+			}	//if					
+		
+		} // if ($_SESSION["rolcod"] == SUPERUSUARIO) {
+		
+	
+		$oActividadCurso = new cActividadCurso($this->conexion);
+		$oActividadCursoJurisdiccional = new cActividadCursoJurisdiccional ($this->conexion);
+
+		if ($oActividadCursoJurisdiccional->EsActividadCursoTipo($datos['act_codigo'],TIPOACTCURSOJURISD,$error,$errormsg)) {
+		
+			// Al menos una de las relaciones Act Poc / Poc de Poc incluídos en la vigencia deben estar aprobadar
+			
+			// obtengo todos los Años de vigencia
+			$a_inicio = substr($datos['actprog_fecha_inicio'],6,4);
+			$a_fin = substr($datos['actprog_fecha_fin'],6,4);
+			$total_relaciones_aprobadas = 0;
+			for ($a = $a_inicio; $a<=$a_fin;$a++){
+			
+				// por cada año, busco las Act Poc relacionadas APROBADAS
+				
+				$oPoc = new cPoc($this->conexion);
+				$ArregloDatos = array(
+								'poc_ano'=>$a,
+								'jurisdid_inap'=>$_SESSION['jurisdid_inap'],
+								'poc_estado'=>POCAPROBADO 
+								);
+	
+				if(!$oPoc->BuscarPoc($ArregloDatos,$numfilas_poc,$resultado_poc,$error,$errormail)) 
+				{
+					$txt_sys_mail="\npoc_codigo_".$a."\nerror=".$errormail;
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+					return false;			
+				}
+				else
+				{ 
+					if ($numfilas_poc == 1) {
+				
+						$fila_poc=mysqli_fetch_assoc($resultado_poc);
+						
+						// busco todas las Act Poc / Act aprobadas				
+						$oPocActividadActividad = new cPocActividadActividad($this->conexion);				
+					
+						$filtro = array( 
+										'poc_codigo'=>$fila_poc['poc_codigo'],
+										'act_codigo'=>$datos['act_codigo'],							
+										'pocactact_estado'=>POCACTIVIDADACTIVIDADAPROBADA						
+										);
+						
+						if (!$oPocActividadActividad->BuscarPocActividadActividad($filtro,$numfilas_act_asignadas,$result_act_asignadas,$error,$errormail)) {
+							FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+							return false;
+						}
+						
+						$total_relaciones_aprobadas += $numfilas_act_asignadas;
+	
+					}
+	
+				}
+		
+			}
+	
+			if ($total_relaciones_aprobadas == 0 && $_SESSION['rolcod']!=SUPERUSUARIO) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"La actividad a dictaminar no tiene relaciones Aprobadas con Actividades del POC.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;		
+			}
+		}	
+
+		$datosvalidados['actprog_fecha_inicio'] = $datos['actprog_fecha_inicio'];
+		$datosvalidados['actprog_fecha_fin'] = $datos['actprog_fecha_fin'];		
+
+		// Dictamen 	- [dic_codigo] 	- [OBLIG]
+		$oDictamen = new cDictamen($this->conexion);
+		$oDictamen->ObtenerSPClave($spnombre,$spparam,$datos['dic_codigo']);
+		
+		if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("dic_codigo"=>$datos['dic_codigo']),$resultado,$fila,$numfilas,$errno) || $numfilas!=1)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar el dictamen asociado a la programación. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["dic_codigo"]=$datos['dic_codigo'];		
+
+		// Expediente 	- [exp_codigo] 	- [OBLIG]
+		$oExpediente = new cExpediente($this->conexion);
+		$oExpediente->ObtenerSPClave($spnombre,$spparam,$datos['exp_codigo']);
+		
+		
+		if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("exp_codigo"=>$datos['exp_codigo']),$resultado,$fila,$numfilas,$errno) || $numfilas!=1)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar el expediente. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["exp_codigo"]=$datos['exp_codigo'];		
+		$datosvalidados["act_codigo"]=$datos["act_codigo"];
+		$datosvalidados["actprog_obs"]=$datos["actprog_obs"];		
+		return true;
+	
+		
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosPedidoAprobacionDictamen($datos)	{
+
+		switch ($_SESSION['rolcod']) {
+			case USUCURSOINAP:
+				$oActividad= new cActividadCursoInap($this->conexion);
+				$tipoact_codigo=TIPOACTCURSOINAP;
+				$formact_codigo=FORMATOCURSO;		
+				break;
+			case USUACTINS:
+				$oActividad= new cActividadCursoInstitucional($this->conexion);
+				$tipoact_codigo=TIPOACTCURSOINST;
+				$formact_codigo=FORMATOCURSO;
+				break;
+			case USUACTJUR:
+				$oActividad= new cActividadCursoJurisdiccional($this->conexion);
+				$tipoact_codigo=TIPOACTCURSOJURISD;
+				$formact_codigo=FORMATOCURSO;
+				break;
+			case USUACTEXT:
+				$oActividad= new cActividadExterna($this->conexion);
+				$formact_codigo=FORMATOEXT;
+				$tipoact_codigo=TIPOACTEXTASIS;
+				break;	
+			case USUAUTODESARROLLO: // Es sólo para mero
+				$oActividad= new cActividadAutodesarrollo($this->conexion);
+				$formact_codigo=FORMATOAUTO;
+				$tipoact_codigo=TIPOACTAUTOEVASIS;
+				break;		
+		}
+
+		// valido que el tipo de activdad corresponad al del usuario logeado
+		if ($tipoact_codigo!=$datos['tipoact_codigo']) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Ud. no tiene acceso para solicitar la el pedido de aprobación del dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		// Obtengo dictamenes de la actividad del tipo a pedir aprobacion
+		$ArregloDatos['act_codigo']=$datos['act_codigo'];
+		$ArregloDatos['tipoact_codigo']=$datos['tipoact_codigo'];		
+		$ArregloDatos['dic_estado']=DICTAMENNUEVO.",".DICTAMENRECHAZADO;
+		if (!$oActividad->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas,$resultDictamenes,$error,$errormail)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al buscar dictámenes",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		} 
+		if ($numfilas!=1) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Se encontró una cantidad errónea de dictámenes.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		} 		
+		$fila_dictamen_a_pedir_aprob = mysqli_fetch_assoc($resultDictamenes);
+		if ($fila_dictamen_a_pedir_aprob['dic_codigo'] != $datos['dic_codigo']) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No se encontró el dictamen a solicitar la aprobación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}	
+		
+		// valida que el dictamen tenga el estado correcto y que la programacion de la actividad
+		// con la secuencia
+		if (!$this->TienePermisoPedirAprobacionDictamen($datos['act_codigo'],$datos['actprog_sec'])) {
+			return false;
+		}		
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosPedidoAprobacionDictamenPersonal($datos)	{
+
+/*
+		// NO HACE FALTA VALIDAR PORQUE ES LA PRECONDICIÓN PARA LLAMAR A ESTA RUTINA
+		// valido que el tipo de activdad corresponad al del usuario logeado
+		if ($tipoact_codigo!=$datos['tipoact_codigo']) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Ud. no tiene acceso para solicitar la el pedido de aprobación del dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+*/
+
+		$oActividad= new cActividadAutodesarrollo($this->conexion);
+
+		// Obtengo dictamenes de la actividad del tipo a pedir aprobacion
+		$ArregloDatos['act_codigo']=$datos['act_codigo'];
+		$ArregloDatos['tipoact_codigo']=$datos['tipoact_codigo'];		
+		$ArregloDatos['dic_codigo']=$datos['dic_codigo'];				
+		$ArregloDatos['dic_estado']=DICTAMENNUEVO.",".DICTAMENRECHAZADO;
+		if (!$oActividad->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas,$resultDictamenes,$error,$errormail)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al buscar dictámenes",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		} 
+		if ($numfilas!=1) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Se encontró una cantidad errónea de dictámenes.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		} 		
+		$fila_dictamen_a_pedir_aprob = mysqli_fetch_assoc($resultDictamenes);
+		if ($fila_dictamen_a_pedir_aprob['dic_codigo'] != $datos['dic_codigo']) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No se encontró el dictamen a solicitar la aprobación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}	
+		
+		// valida que el dictamen tenga el estado correcto y que la programacion de la actividad
+		// con la secuencia
+/*		if (!$this->TienePermisoPedirAprobacionDictamenPersonal($datos['act_codigo'],$datos['actprog_sec'])) {
+			return false;
+		}		
+*/		
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosEvaluarDictamen($datos)	{
+
+		
+		if (!$this->TienePermisoEvaluarDictamen($datos['act_codigo'],$datos['actprog_sec'],$_SESSION['rolcod'])) {
+			return false;
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosVisarDictamen($datos)	{
+		
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosEvaluarDictamenPersonal($datos)	{
+
+		
+		if (!$this->TienePermisoEvaluarDictamenPersonal($datos['dic_codigo'],$_SESSION['rolcod'])) {
+			return false;
+		}
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosAsignarDisposicion($datos)	{
+
+		if (!$datos["dis_codigo"]=="") {
+			// Verifico que el número de disposicion exista.
+			$oDisposicion = new cDisposicion($this->conexion);	
+			$ArregloDatos=array();
+			$ArregloDatos['dis_codigo']=$datos["dis_codigo"];
+			if(!$oDisposicion->BuscarDisposicion($ArregloDatos,$numfilas,$result,$error,$errormail)){
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error buscando la disposición.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;			
+			}				
+			if ($numfilas != 1) {
+				$txt_sys_mail="Error al buscar la disposición en Asignar Disposición.\ndis_codigo=".$datos['dis_codigo'];
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al buscar la disposición",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			}
+		}
+
+		switch ($datos['tipoact_codigo']) 		{
+			case TIPOACTCURSOINAP:
+				$oActividad= new cActividadCursoInap($this->conexion);
+				break;
+			case TIPOACTCURSOINST:
+				$oActividad= new cActividadCursoInstitucional($this->conexion);
+				break;
+			case TIPOACTCURSOJURISD:
+				$oActividad= new cActividadCursoJurisdiccional($this->conexion);
+				break;
+			case TIPOACTEXTASIS:
+				$oActividad= new cActividadExterna($this->conexion);
+				break;	
+			case TIPOACTAUTOEVASIS:
+				$oActividad= new cActividadAutodesarrollo($this->conexion);
+				break;	
+		}
+		
+		if ($datos["dis_codigo"]=="") {
+			// Si es curso institucional se puede desasignar y no se valida
+
+			// Si es externa no tiene que tener agentes asignados
+			if ($datos["tipoact_codigo"] == TIPOACTEXTASIS) {			
+				$oActividadExternaPersona = new cActividadExternaPersona($this->conexion);
+				$ArregloDatos=array();
+				$ArregloDatos['act_codigo']=$datos["act_codigo"];
+				$ArregloDatos['actprog_sec']=$datos["actprog_sec"];		
+				if (!$oActividadExternaPersona->BuscarActividadAsignadaPersona($ArregloDatos,$numfilas,$resultado,$error,$errormail)) {
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+					return false;
+				}
+				if ($numfilas>=1) {
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se puede desasignar la disposición <br>porque la actividad tiene agentes acreditados.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+					return false;
+				}			
+			}
+			
+			// Si es curso inap o curso jurisdiccional
+			// No tiene que tener ninguna comisión (de la programación a la cual se le asigna la diposición)
+			// certificada  
+			if ($datos["tipoact_codigo"] == TIPOACTCURSOINAP || $datos["tipoact_codigo"] == TIPOACTCURSOJURISD) {			
+				$oComision=new cComision($this->conexion);
+				$ArregloDatos=array();
+				$ArregloDatos['act_codigo']=$datos["act_codigo"];
+				$ArregloDatos['actprog_sec']=$datos["actprog_sec"];		
+				$ArregloDatos['comi_estado']=COMISIONCERTIFICADA;						
+						
+				if (!$oComision->BuscarComision($ArregloDatos,$numfilas,$resultado,$error,$errormail)) {
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+					return false;
+				}
+
+				if ($numfilas>=1) {
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se puede desasignar la disposición <br>porque la programación tiene comisiones certificadas.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+					return false;
+				}
+			} // curso inap o curso jurisdiccional
+			
+			if ($datos["tipoact_codigo"] == TIPOACTAUTOEVASIS) {	// revisar		
+				$oActividadAutodesarrolloPersona = new cActividadAutodesarrolloPersona($this->conexion);
+				$ArregloDatos=array();
+				$ArregloDatos['act_codigo']=$datos["act_codigo"];
+				$ArregloDatos['tipoact_codigo']=$datos["tipoact_codigo"];
+				$ArregloDatos['actprog_sec']=$datos["actprog_sec"];		
+				if (!$oActividadAutodesarrolloPersona->BuscarActividadAsignadaPersona($ArregloDatos,$numfilas,$resultado,$error,$errormail)) {
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+					return false;
+				}
+				if ($numfilas>=1) {
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se puede desasignar la disposición <br>porque la actividad tiene agentes acreditados.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+					return false;
+				}			
+			} // Mero Asistente 
+			
+		}// ($datos["dis_codigo"]=="")
+
+		$ArregloDatos=array();
+
+		// Obtengo los dictamenes
+		$ArregloDatos['act_codigo']=$datos['act_codigo'];
+		$ArregloDatos['tipoact_codigo']=$datos['tipoact_codigo'];	
+		$ArregloDatos['dic_codigo']=$datos['dic_codigo'];							
+		$ArregloDatos['dic_estado']=DICTAMENACTIVO;			
+		
+		if (!$oActividad->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas,$resultDictamenes,$error,$errormail)) {
+			$txt_sys_mail="Error al buscar dictamen de la actividad.\nact_codigo=".$filaactividad['act_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al buscar dictámenes",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+
+		// tiene permiso
+		if (!$this->TienePermisoAsignarDisposicion($datos['act_codigo'],$datos['actprog_sec'],$_SESSION['rolcod'])) {
+			return false;
+		}
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosAsignarDisposicionPersonal($datos)	{
+
+		if (!$datos["dis_codigo"]=="") {
+			// Verifico que el número de disposicion exista.
+			$oDisposicion = new cDisposicion($this->conexion);	
+			$ArregloDatos=array();
+			$ArregloDatos['dis_codigo']=$datos["dis_codigo"];
+			if(!$oDisposicion->BuscarDisposicion($ArregloDatos,$numfilas,$result,$error,$errormail)){
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error buscando la disposición.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;			
+			}				
+			if ($numfilas != 1) {
+				$txt_sys_mail="Error al buscar la disposición en Asignar Disposición.\ndis_codigo=".$datos['dis_codigo'];
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al buscar la disposición",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			}
+		}
+
+
+		$oActividad= new cActividadAutodesarrollo($this->conexion);
+		
+		if ($datos["dis_codigo"]=="") {
+		
+			// Si es curso inap o curso jurisdiccional
+			// No tiene que tener ninguna comisión (de la programación a la cual se le asigna la diposición)
+			// certificada  
+			
+			
+		}// ($datos["dis_codigo"]=="")
+
+		$ArregloDatos=array();
+
+		// Obtengo los dictamenes
+		$ArregloDatos['act_codigo']=$datos['act_codigo'];
+		$ArregloDatos['tipoact_codigo']=$datos['tipoact_codigo'];	
+		$ArregloDatos['dic_codigo']=$datos['dic_codigo'];							
+		$ArregloDatos['dic_estado']=DICTAMENACTIVO;			
+		
+		if (!$oActividad->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas,$resultDictamenes,$error,$errormail)) {
+			$txt_sys_mail="Error al buscar dictamen de la actividad.\nact_codigo=".$filaactividad['act_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al buscar dictámenes",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+
+		// tiene permiso
+		if (!$this->TienePermisoAsignarDisposicionPersonal($datos['dic_codigo'],$_SESSION['rolcod'])) {
+			return false;
+		}
+		return true;
+	}	
+	
+} // class
+?>

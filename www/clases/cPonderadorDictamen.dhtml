@@ -1,0 +1,145 @@
+<?php
+//----------------------------------------------------------------------------------------- 
+class cPonderadorDictamen  {
+
+	var $conexion;
+	public function __construct($conexion) {
+		$this->conexion = &$conexion;
+	}
+//----------------------------------------------------------------------------------------- 
+	function PonderadorValoresSP($tipopond_codigo,&$spnombre,&$spparam)
+	{
+		$spnombre="sel_ponderador_tipo_ponderador_validos_xtipopond_codigo_orden";
+		$spparam = array( 'ptipopond_codigo'=>$tipopond_codigo,
+				          'ppondtipopond_estado'=>ESTADOACTIVO,
+						  'porderby'=>"tipopond_descripcion");
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function PonderadorSP($tipopond_codigo,&$spnombre,&$spparam)
+	{
+		$spnombre="sel_tipo_ponderador_validos_xtipopond_codigo_orden";
+		$spparam = array( 'ptipopond_codigo'=>$tipopond_codigo,
+						  'porderby'=>"tipopond_descripcion");
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ObtenerPonderadorDescripcion($tipopond_codigo,&$descripcion) {
+
+		$result=true;
+		$this->PonderadorSP($tipopond_codigo,$spnombre,$spparam);
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno)) {	
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando datos de ponderación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$result=false;
+		} elseif ($numfilas!=1)  {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando datos de ponderación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$result=false;
+		} else {
+			$fila_tabla=mysqli_fetch_assoc($query);
+			$descripcion=trim(htmlspecialchars($fila_tabla['tipopond_descripcion'],ENT_QUOTES));
+		}	
+		
+		return $result;		
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ObtenerValorPonderador($pondtipopond_codigo,&$fila_tabla) {
+
+		// Ver tema de estado a efectos historicos.
+		
+		$result=true;
+		$spnombre="sel_ponderador_tipo_ponderador_xpondtipopond_codigo_pondtipopond_estado";
+		$spparam = array('ppondtipopond_codigo'=>$pondtipopond_codigo,
+				         'ppondtipopond_estado'=>ESTADOACTIVO);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno)) {	
+			$result=false;
+		} elseif ($numfilas!=1)  {
+			$result=false;
+		} else 
+			$fila_tabla=mysqli_fetch_assoc($query);
+		
+		return $result;		
+		
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function CalculoCreditos($act_duracionhs,$pondtipopond_codigo_cal_pres,$pondtipopond_codigo_int,$pondtipopond_codigo_proc_eva) {
+
+		if ($this->ObtenerValorPonderador($pondtipopond_codigo_cal_pres,$fila_cal_pres))
+			$porcentaje_cal_pres=$fila_cal_pres['pondtipopond_porcentaje'];
+	 	else 
+			$porcentaje_cal_pres=0; 
+
+		if ($this->ObtenerValorPonderador($pondtipopond_codigo_int,$fila_int))
+			$porcentaje_int=$fila_int['pondtipopond_porcentaje'];
+		else 
+			$porcentaje_int=0; 
+			
+		if ($this->ObtenerValorPonderador($pondtipopond_codigo_proc_eva,$fila_proc_eva))
+			$porcentaje_proc_eva=$fila_proc_eva['pondtipopond_porcentaje'];
+		else 
+			$porcentaje_proc_eva=0; 
+
+		if ($porcentaje_cal_pres+$porcentaje_int+$porcentaje_proc_eva==99)
+			$creditos=$act_duracionhs;
+		else
+			$creditos=round(($act_duracionhs*($porcentaje_cal_pres+$porcentaje_int+$porcentaje_proc_eva)/100),0);
+
+//			$creditos=round( ( ($act_duracionhs*$porcentaje_cal_pres/100)+($act_duracionhs*$porcentaje_int/100)+($act_duracionhs*$porcentaje_proc_eva/100)),0);
+
+		return $creditos;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ObtenerValoresPublicaciones($tipopart_codigo,$escalaftramocod,$escalafnivcod,&$total,&$porcentaje) {
+
+		$result=true;
+		$spnombre="sel_ponderador_tipo_participacion_escalafon_nivel_xtipopart_codigo_escalafnivcod_estado";
+		$spparam = array(	'ptipoact_codigo'=>TIPOACTAUTOPUBLI,
+							'ptipopart_codigo'=>$tipopart_codigo,
+							'pescalaftramocod'=>$escalaftramocod,
+							'pescalafnivcod'=>$escalafnivcod,
+				         	'ppondtipopar_estado'=>ESTADOACTIVO);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno)) {	
+			$result=false;
+		} elseif ($numfilas!=1)  {
+			$total=0;
+			$porcentaje=0;
+			
+			$result=false;
+		} else  {
+			$fila_tabla=mysqli_fetch_assoc($query);
+			$total=$fila_tabla['pondtipopar_total'];
+			$porcentaje=$fila_tabla['pondtipopar_porcentaje'];
+		}	
+		
+		return $result;		
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function CalculoCreditosPublicaciones (	$tipopart_codigo,$escalaftramocod,$escalafnivcod,$pondtipopond_codigo_cal_pres,
+											$pondtipopond_codigo_int,$pondtipopond_codigo_proc_eva,
+											&$total,&$porcentaje) {
+
+		$creditos=0;
+		
+		if ($this->ObtenerValorPonderador($pondtipopond_codigo_cal_pres,$fila_cal_pres))
+			$porcentaje_cal_pres=$fila_cal_pres['pondtipopond_porcentaje'];
+	 	else 
+			$porcentaje_cal_pres=0; 
+
+		if ($this->ObtenerValorPonderador($pondtipopond_codigo_int,$fila_int))
+			$porcentaje_int=$fila_int['pondtipopond_porcentaje'];
+		else 
+			$porcentaje_int=0; 
+			
+		if ($this->ObtenerValorPonderador($pondtipopond_codigo_proc_eva,$fila_proc_eva))
+			$porcentaje_proc_eva=$fila_proc_eva['pondtipopond_porcentaje'];
+		else 
+			$porcentaje_proc_eva=0; 
+
+		if ($this->ObtenerValoresPublicaciones($tipopart_codigo,$escalaftramocod,$escalafnivcod,$total,$porcentaje)) 
+			$creditos = round((($total*$porcentaje/100)*($porcentaje_cal_pres+$porcentaje_int+$porcentaje_proc_eva)/100),0);
+
+		return $creditos;
+	}
+//-----------------------------------------------------------------------------------------------------	
+} // class
+?>

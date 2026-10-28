@@ -1,0 +1,137 @@
+<?php 
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+
+$oUsuario = new cUsuarios($conexion);
+
+//----------------------------------------------------------------------------------------- 
+function Validar($conexion,&$datosvalidados) {	
+
+	$datosvalidados=array();
+	if ( !($_POST['operacion'] == "I" || $_POST['operacion'] == "B" || $_POST['operacion'] == "M") ) {
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error en la operación. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;
+	}
+
+	if ($_POST['usuariocod']=="")	{
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error en usuario. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;
+	}
+	$datosvalidados["usuariocod"]=$_POST["usuariocod"];
+
+	// universidad.
+	if ($_POST['univ_codigo']=="")	{
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error en universidad. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;
+	}
+	$datosvalidados["univ_codigo"]=$_POST["univ_codigo"];
+
+	
+
+	return true;
+}
+//----------------------------------------------------------------------------------------- 
+$result=true;
+
+if(!Validar($conexion,$datosvalidados)) { 	
+?> 
+	<br><br><div align="center"><a href="usuario_actualizar_roles.dhtml?usuariocod=<?php echo $_POST['usuariocod']; ?>" class="linkFondoBlanco"> Volver </a></div>
+<?php
+} else {
+	switch ($_POST["operacion"]) {		
+
+	case "I" :
+		$ArregloDatos['usuariocod']=$_POST['usuariocod'];	
+		if(!$oUsuario->BuscarUsuarios($ArregloDatos,$numfilasusuarios,$resultadousuarios,$error,$errormail) || $numfilasusuarios!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando usuarios. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			die();
+		}
+		$filausuario=mysqli_fetch_assoc($resultadousuarios);
+	
+		if(!$oUsuario->TienePermisoAsignarUniversidad($_SESSION['rolcod'])) {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error de permisos de acceso al rol.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		} else {
+			$conexion->ManejoTransacciones("B");
+			if($oUsuario->AsignarUniversidad($filausuario['usuariocod'],$datosvalidados['univ_codigo'],$error,$errormail)) {
+				FuncionesPHPLocal::RegistrarAcceso($conexion,"039401","usuariocod=".$filausuario['usuariocod']." - univ_codigo=".$datosvalidados["univ_codigo"],$_SESSION['usuariocod']);
+				$conexion->ManejoTransacciones("C");
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se agregó la universidad al usuario",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} else {
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+				$conexion->ManejoTransacciones("R");
+			}
+		}
+		break;
+
+	case "B" :
+
+		$ArregloDatos['usuariocod']=$_POST['usuariocod'];
+		if(!$oUsuario->BuscarUsuarios($ArregloDatos,$numfilasusuarios,$resultadousuarios,$error,$errormail) || $numfilasusuarios!=1)	{
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando usuarios. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			die();
+		}
+		$filausuario=mysqli_fetch_assoc($resultadousuarios);
+	
+		if(!$oUsuario->TienePermisoDesasignarUniversidad($_SESSION["rolcod"])) {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error de permisos de acceso al rol.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		} else {
+			$conexion->ManejoTransacciones("B");
+			if($oUsuario->DesasignarUniversidad($filausuario['usuariocod'],$datosvalidados['univ_codigo'],$datosvalidados["rolcod"],$datosvalidados['jurisdid_inap'],$error,$errormail))	{
+				FuncionesPHPLocal::RegistrarAcceso($conexion,"039402","usuariocod=".$filausuario['usuariocod']." - univ_codigo=".$datosvalidados["univ_codigo"],$_SESSION['usuariocod']);
+				$conexion->ManejoTransacciones("C");
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se ha eliminado la universidad al usuario.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} else {
+				$conexion->ManejoTransacciones("R");		
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			}	
+		}	
+		break;
+
+	case "M" :
+
+		$ArregloDatos['usuariocod']=$_POST['usuariocod'];
+		if(!$oUsuario->BuscarUsuarios($ArregloDatos,$numfilasusuarios,$resultadousuarios,$error,$errormail) || $numfilasusuarios!=1)	{
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando usuarios. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			die();
+		}
+		$filausuario=mysqli_fetch_assoc($resultadousuarios);
+	
+		if(!$oRol->TienePermisoModificarAsignacionRol($_SESSION["rolcod"],$_SESSION["jurisdid_inap"],$datosvalidados["rolcod"],$datosvalidados['jurisdid_inap'])) {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error de permisos de acceso al rol.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		} else {
+			$conexion->ManejoTransacciones("B");
+			if($oRol->ModificarAsignacionRol($_SESSION["rolcod"],$filausuario['usuariocod'],$datosvalidados["rolcod"],$datosvalidados['jurisdid_inap'],$datosvalidados,$error,$errormail))	{
+				FuncionesPHPLocal::RegistrarAcceso($conexion,"034103","usuariocod=".$filausuario['usuariocod']." - rolcod=".$datosvalidados["rolcod"]." - jurisdid_inap=".$datosvalidados['jurisdid_inap'],$_SESSION['usuariocod']);
+				$conexion->ManejoTransacciones("C");
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se ha modificado el rol del usuario.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} else 
+				$conexion->ManejoTransacciones("R");		
+		}			
+		break;
+	default:
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"No esta definida la operación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+	}
+?>	
+   <br><br><div align="center"><a href="usuario_actualizar_universidad.dhtml?usuariocod=<?php echo $_POST['usuariocod']; ?>" class="linkFondoBlanco"> Volver </a></div>
+<?php
+}  // Se valido ok
+$oEncabezados->PieMenuEmergente(); 
+?>

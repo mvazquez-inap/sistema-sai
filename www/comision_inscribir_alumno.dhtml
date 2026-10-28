@@ -1,0 +1,182 @@
+<?php require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+
+$oComisionPersona= new cComisionPersona($conexion);
+$oAgente= new cAgentes($conexion);
+
+//----------------------------------------------------------------------------------------- 
+$filacomision=array();
+$filacomision['comi_codinap']=(isset($_POST['comi_codinap_seleccion']))?$_POST['comi_codinap_seleccion']:"";
+$filacomision['comi_codigo']=(isset($_POST['comi_codigo']))?$_POST['comi_codigo']:"";
+$filacomision['comi_codigo']=(isset($_GET['comi_codigo']))?$_GET['comi_codigo']:"";
+
+if (isset($_POST['comi_codinap_seleccion'])) {
+	if($conexion->TraerCampo("comision","comi_codigo",array("comi_codinap='",$_POST['comi_codinap_seleccion'],"'"),$comi_codigo,$numfilas,$errno))
+		$filacomision['comi_codigo']=htmlspecialchars($comi_codigo,ENT_QUOTES);
+}
+
+if ( isset($_GET['comi_codigo']) ) {
+	if($conexion->TraerCampo("comision","comi_codinap",array("comi_codigo='",$filacomision['comi_codigo'],"'"),$comi_codigo_inap,$numfilas,$errno))
+		$filacomision['comi_codinap']=htmlspecialchars($comi_codigo_inap,ENT_QUOTES);
+}
+
+?>
+<script type="text/javascript">
+	 <?php $oComisionPersona->ValidarFormAltaInscribirAlumno(); 	?>
+	 <?php $oAgente->ActualizarOrganismoLaboralJS();  ?>
+</script>
+
+<script type="text/javascript">
+function buscarComisionPersona(formulario,divPersona,pers_cuilt,comi_codigo) {
+
+	var item_obj = EncontrarObjeto(divPersona);
+	var objAguarde = EncontrarObjeto('idAguarde');	
+	if (objAguarde != null)
+		objAguarde.innerHTML='Aguarde ...';	
+	
+	item_obj.innerHTML="";
+	
+	var ajax=nuevoAjax();
+	var datos="pers_cuilt="+trim(pers_cuilt)+"&comi_codigo="+comi_codigo+"&archivo_volver=comision_inscribir_alumno.dhtml";
+
+	var archivo = "comision_inscribir_alumno_ajax.dhtml";
+	ajax.open("POST",archivo,true);
+	ajax.onreadystatechange=function() {
+		if (ajax.readyState==4) {	
+			if (objAguarde != null)
+				objAguarde.innerHTML='';	
+			item_obj.innerHTML=ajax.responseText;	
+			return true;
+		}
+	};
+	ajax.setRequestHeader('Content-Type','application/x-www-form-urlencoded'); 
+	ajax.send(datos);		
+	return false;
+}
+//-----------------------------------------------------------------
+</script>
+
+
+<?php
+$destino_formulario_interface="comision_inscribir_alumno.dhtml";
+?>
+<form action="<?php echo $destino_formulario_interface ?>" method="post" name="formulario_seleccion" id="formulario_seleccion">
+	<table width="100%" class="textoTablaDato" align="center">
+	<tr>
+		<td><?php $oComisionPersona->PedirComision($filacomision['comi_codinap'],'formulario_seleccion','comi_codinap_seleccion','Inscribir'); ?></td>
+	</tr>
+	</table>
+</form>	
+<?php 
+$es_modif=false;
+$ok=false;
+if ($filacomision['comi_codigo']=="") {
+
+	if ( isset($_POST['comi_codigo']) || isset($_POST['comi_codinap_seleccion']) )
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No se ha encontrado la Comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+
+} else {
+
+	if ($oComisionPersona->TraerDatosComision($filacomision['comi_codigo'],$filacomision,$es_modif)) {
+		if (!$es_modif) {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No se ha encontrado la Comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		} else { 
+			switch ($_SESSION['rolcod']) {
+				case SUPERUSUARIO:
+					$oActividadCurso = new cActividadCursoInap($conexion); 
+					$formact_codigo=FORMATOCURSO;
+					$tipoact_codigo=TIPOACTCURSOINAP;
+					break;
+
+				case USUCURSOINAP:
+					$oActividadCurso = new cActividadCursoInap($conexion); 
+					$formact_codigo=FORMATOCURSO;
+					$tipoact_codigo=TIPOACTCURSOINAP;
+					break;
+				case USUORGANISMO:
+				case COORDINADORTECNICO:
+					$oActividadCurso = new cActividadCursoJurisdiccional($conexion); 
+					$formact_codigo=FORMATOCURSO;
+					$tipoact_codigo=TIPOACTCURSOJURISD;
+					break;
+			}		
+		
+			if ($oComisionPersona->TienePermisoInscribir($filacomision['comi_codigo'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap'])) {
+				$ok=true;
+			} // Tiene permiso el usuario sobre la comision
+			
+		}	// Se encontró la comisión	
+	} // No se produjo error al buscar la comisión
+
+} // seleccion de comisión
+?>
+<?php 
+if ($ok) { 
+	$act_codigo=$filacomision['act_codigo'];
+	$actprog_sec=$filacomision['actprog_sec'];
+
+	if ($oActividadCurso->MostrarDatosActividadAsignable($conexion,$act_codigo,$formact_codigo,$tipoact_codigo,$actprog_sec)) {
+?>
+		<br />
+		<form method="POST" action="#" onsubmit="return false" name="formulario_cuit" id="formulario_cuit" style=" padding:0px">
+		<table width="100%" class="textoTablaDato" align="center" cellpadding="0" cellspacing="0" border="0">
+			<tr>
+	
+				<td class='textoEtiquetaClave'>Seleccione</td>
+				<td valign="middle" width="20%" class='textoEtiquetaClave'>CUIT/CUIL/CDI</td>
+				<td class="textoEtiquetaDatoResaltado" width="20%">
+					<input type="text" name="pers_cuilt" id="pers_cuilt" size="11" maxlength="11" class='textoInput' value="">				</td>
+				<td class="textoEtiquetaDato" width="5%" align="left">
+					<a href='javascript:void(0)' onClick="Popup('persona_busq_basica.dhtml?formulario=formulario_cuit&amp;destino=pers_cuilt&amp;estado=&amp;volver=1&amp;submit=0&amp;accion=Inscripcion','ventana_descripciones',630,360,screen.availWidth-650,screen.availHeight-420,'yes');"><img src="images/searchsai.jpg" alt="Buscar" border="0" style="vertical-align:-5px"></a>				</td>
+				<td class="textoEtiqueta" align="center">
+					<input type="button" name="boton_confirma" value="Confirma" onClick="javascript:buscarComisionPersona('formulario_cuit','datosPersona',pers_cuilt.value,<?= $filacomision['comi_codigo']?>);" class="botones" />				</td>
+				<td class="textoEtiqueta" ><div align="center"><img src="images/mas.jpg"  alt="Nueva Persona" /></div></td>
+				<td class="textoEtiqueta" ><a href="javascript:Popup('persona_nueva_popup.dhtml?destino=pers_cuilt','ventana_persona',540,250,screen.availWidth-560,screen.availHeight-250,'yes');" >Nueva Persona	</a>				</td>
+			</tr>
+			<tr>
+				<td></td>
+				<td></td>
+				<td></td>				
+				<td></td>
+				<td></td>				
+				<td class="textoEtiqueta" align="left"><div align="center"><img src="images/verdetalle.gif" alt="" width="25" height="25" /></div></td>
+				<td class="textoEtiqueta" align="left"><a href="javascript:Popup('comision_ver_detalle_popup.dhtml?comi_codigo=<?php echo $filacomision['comi_codigo'] ?>','ventana_comision',540,540,screen.availWidth-560,screen.availHeight-540,'yes');" >Ver Datos Comisi&oacute;n</a></td>
+		  </tr>
+			<tr>
+				<td></td>
+				<td></td>
+				<td></td>
+				<td></td>			
+				<td></td>							
+				<td class="textoEtiqueta" align="left"><div align="center"><img src="images/personas.jpg" alt="" width="25" height="25" /></div></td>
+				<td class="textoEtiqueta" align="left"><a href="javascript:Popup('comision_ver_inscriptos_popup.dhtml?comi_codigo=<?php echo $filacomision['comi_codigo'] ?>','ventana_persona_inscripta',650,500,screen.availWidth-560,screen.availHeight-500,'yes');" >Ver Inscriptos </a>				</td>
+			</tr>
+		</table>		
+		</form>
+<?php } ?>
+		<span class="textoAtencion" id="idAguarde" style="text-align:center"></span>
+		<form name="formulario" id="formulario" action="comision_inscribir_alumno_upd.dhtml" method="post">
+			<span id="datosPersona"></span>
+		</form>
+<?php } // fin ok ?>
+
+<?php	
+$oEncabezados->PieMenuEmergente(); 
+?>

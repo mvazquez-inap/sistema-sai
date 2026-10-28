@@ -1,0 +1,568 @@
+<?php
+require('./include.dhtml');
+header('Content-Type: text/html; charset=iso-8859-1');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+//$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+require_once("./veriword/class.verificator.dhtml");
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+//-----------------------------------------------------------------------------------------
+$oPersonas = new cPersonas($conexion);
+$oAgentes = new cAgentes($conexion);
+$escalafon = new cEscalafones($conexion);
+$oComision = new cComision($conexion);
+$oComisionPersonaCandidato = new cComisionPersonaCandidato($conexion);
+$oComisionPersona = new cComisionPersona($conexion);
+$jurisdicciones	 = new jurisdicciones;
+$oBecas = new cBecas($conexion);
+//-----------------------------------------------------------------------------------------
+
+?>
+
+<span id="datosPersonaForm">
+
+<?php
+	$comi_codigo = $_POST['comi_codigo'];
+	$pers_cuilt = $_POST['pers_cuilt'];
+	$pers_apellido = utf8_decode($_POST['pers_apellido']);
+	$pers_nombre = utf8_decode($_POST['pers_nombre']);
+
+
+
+	$ok=true;
+	$es_nuevo = false;
+	$es_modif_agente = false;
+	if(isset($_POST["veriword"]) && isset($_SESSION['veriword']))
+	{
+		$veri = new VeriFicator($_POST['veriword']);
+		if(!$veri->verified())
+		{
+			echo "<p align='center'>El código de validación es erróneo. Intente nuevamente.</p>";
+
+			?>
+										<input type="hidden" name="pers_fechanac" id="pers_fechanac"   value="">
+										<script type="text/javascript">
+											hay_calendario = false;
+										</script>
+										<?php
+			die();
+		}
+
+	}
+
+
+
+
+	if ($oComision->TraerDatosComision($comi_codigo,$filacomision,$es_modif)) {
+
+		if (!$es_modif) {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No se ha encontrado la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		} else {
+			if ($oComision->TienePermisoInscribirWeb($comi_codigo, $pers_cuilt)) {
+
+			$oActividadCursoInap= new cActividadCursoInap($conexion);
+								if (!$oActividadCursoInap->TraerDatosActividadCursoInap($filacomision['act_codigo'],$filacurso,$es_modif))  {
+									$txt_sys_mail="\nact_codigo=".$act_codigo;
+									FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error, buscando la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+									return false;
+								}
+
+
+
+
+				// buscar CUIT en tabla persona para mostrar o no el formulario
+				$es_nuevo = false;
+				$funcion_validacion = "Validar_candidato_nuevo";
+				if(!$oPersonas->TraerDatosPersona($pers_cuilt,$datospersona,$es_modif_persona)) {
+					$ok=false;
+
+
+				} else {
+
+
+					if ($ok) {
+							if ($es_modif_persona) {
+
+								// verificar que la persona no esté inscripta en la comisión
+								$ArregloDatos = array(	"comi_codigo" => $comi_codigo,
+														"pers_codigo" => $datospersona['pers_codigo']);
+
+								if(!$oComisionPersona->BuscarActividadAsignadaPersona ($ArregloDatos, $numfilasAsignacion, $result, $error, $errormail)) {
+										//$error="Error al buscar los datos de inscripción.";
+										FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+										$ok = false;
+								} else {
+									if ($numfilasAsignacion >0) {
+										$error="Ud. ya se encuentra inscripto en la Comisión.";
+										FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+										$ok = false;
+										?>
+										<input type="hidden" name="pers_fechanac" id="pers_fechanac"   value="">
+										<script type="text/javascript">
+											hay_calendario = false;
+										</script>
+										<?php
+									}
+								}
+
+								// verificar que la persona no tenga acreditada la actividad
+								// Armo todas las evaluaciones que certifican
+								// SOLO si hay que validar inscripción única
+								$oActividadCursoInap= new cActividadCursoInap($conexion);
+								if (!$oActividadCursoInap->TraerDatosActividadCursoInap($filacomision['act_codigo'],$filacurso,$es_modif))  {
+									$txt_sys_mail="\nact_codigo=".$act_codigo;
+									FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error, buscando la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+									return false;
+								}
+
+
+
+
+									$spnombre="sel_evaluacion_orden";
+									$spparam=array('porderby'=>"eval_descripcion");
+									if(!$conexion->ejecutarStoredProcedure("sel_evaluacion_orden",$spparam,$resultado,$numfilas,$errno)) {
+										FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al cargar las evaluaciones.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+										$ok = false;
+									}
+
+									$evaluaciones = "";
+									while ($fila_evaluacion=mysql_fetch_assoc($resultado)) {
+										if ($fila_evaluacion['eval_certifica']=="S")
+											$evaluaciones .= $fila_evaluacion['eval_codigo'].",";
+									}
+									$evaluaciones = substr($evaluaciones, 0, -1);
+
+									// Busco la persona de la comisión que tienen acreditada (certificada) la misma actividad en otra comisión. 								$ArregloDatos = array();
+									$ArregloDatos['comi_codigo'] = $comi_codigo;
+									$ArregloDatos['act_codigo'] = $filacomision['act_codigo'];
+									$ArregloDatos['pers_cuilt'] = $datospersona['pers_cuilt'];
+									$ArregloDatos['eval_codigo'] = $evaluaciones;
+
+									if (!$oComisionPersona->BuscarPersonasValidasComisionCertificar($ArregloDatos,$numfilas_otracomision,$result_inscriptos_curso,$error,$errormail)) {
+										$txt_sys_mail="\ncomi_codigo".$filacomision['comi_codigo']."\nerror=".$errormail;
+										FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando inscriptos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+										$ok = false;
+									}
+
+									if ($numfilas_otracomision!=0 && ($filacurso['actividad_curso_inap']['actdisinap_unico'] == SI)) {
+												$error="Ud. ya tiene acreditada la Actividad a través de otra Comisión.";
+												FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+												$ok = false;
+												$es_nuevo = false;
+									}
+
+
+
+
+
+								// verificar que la persona no esté en la tabla de candidatos para la comisión
+								if ($ok) {
+								$ArregloDatos['pers_codigo'] = "";
+
+									if(!$oComisionPersonaCandidato->TraerDatosInscripcion($ArregloDatos,$result_candidato,$numfilas_candidatos)) {
+											$error="Error al buscar los datos de inscripción.";
+											FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+											$ok = false;
+											$es_nuevo = false;
+									} else {
+
+										if ($numfilas_candidatos >0) {
+											$error="Ud. ya se encuentra preinscripto en la Comisión.";
+
+											FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+											$ok = false;
+											$es_nuevo = false;
+											?>
+										<input type="hidden" name="pers_fechanac" id="pers_fechanac"   value="">
+										<script type="text/javascript">
+											hay_calendario = false;
+										</script>
+										<?php
+										
+										
+										}
+									}
+
+									/*
+								  if(($datospersona['pers_apellido'] != $pers_apellido) || ($datospersona['pers_nombre'] != $pers_nombre) ) {
+										$error="Sus datos no se encuentran en el sistema. <br> Debe completar la siguiente ficha. ";
+										FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+										$ok = tr;
+										$es_nuevo = true;
+
+								  }*/
+
+								  if($datospersona['pers_estado'] == PERSONABAJA) {
+										$error="La persona ingresada se encuentra dada de baja.";
+										FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+										$ok = false;
+								  } else {
+
+										$ArregloDatos = array(	"comi_codigo" => $comi_codigo,
+																"pers_codigo" => $datospersona['pers_codigo']);
+								  }
+
+
+								} // $ok
+
+
+							} else { //es_modif_persona
+
+
+										$ok = true;
+										// verificar que la persona no esté en la tabla de candidatos para la comisión
+
+										$ArregloDatos = array(	"comi_codigo" => $comi_codigo,
+																"pers_cuilt" => $pers_cuilt);
+
+										if(!$oComisionPersonaCandidato->TraerDatosInscripcion($ArregloDatos,$result_candidato,$numfilas_candidatos)) {
+												$error="Error al buscar los datos de inscripción.";
+												FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+												$ok = false;
+												$es_nuevo = false;
+										} else {
+											if ($numfilas_candidatos >0) {
+												$error="Ud. ya se encuentra preinscripto en la Comisión.";
+												FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+												$ok = false;
+												$es_nuevo = false;
+											}
+										}
+
+										if ($ok) {
+											$es_nuevo = true;
+											$funcion_validacion = "Validar_candidato_nuevo";
+											$ArregloDatos = array(	"comi_codigo" => $comi_codigo,
+																	"pers_cuilt" => $pers_cuilt);
+
+
+											$error="Sus datos no se encuentran en el sistema. <br> Debe completar la siguiente ficha. ";
+											FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+										}
+
+
+							} //es_modif_persona
+
+					} // if $ok
+
+
+
+				//if ($ok && $es_nuevo) {
+
+				// determino si es agente
+				if ($ok && $es_modif_persona) {
+						if(!$oAgentes->TraerDatosAgente($pers_cuilt,$datosagente,$es_modif_agente))
+							return false;
+
+
+                  }
+				if ($ok ) {
+
+						$ok = false;
+
+					?>
+						<br/>
+						<br/>
+                        <form name="formulario" id="formulario" action="#" method="post" onSubmit="return false">
+                                <table width="90%" class="textoTablaDato" align="center" cellpadding="5" cellspacing="0" border="0">
+                                    <tr>
+                                        <td class='textoEtiquetaClave' width="30%" valign="middle" align="left">CUIT/CUIL/CDI</td>
+                                        <td class="textoEtiquetaDatoResaltado" align="left"><?php echo $pers_cuilt?><input type="hidden"  name="pers_cuilt" value="<?php echo $pers_cuilt?>" /></td>
+                                    </tr>
+                                    <tr>
+                                        <td class='textoEtiquetaClave'  valign="middle" align="left">Apellido</td>
+                                        <td class="textoEtiquetaDatoResaltado" align="left"><?php echo $pers_apellido?></td>
+                                    </tr>
+                                    <tr>
+                                        <td class='textoEtiquetaClave'  valign="middle" align="left">Nombre</td>
+                                        <td class="textoEtiquetaDatoResaltado" align="left"><?php echo $pers_nombre?></td>
+                                    </tr>
+                                    <!-- <tr>
+                                        <td class='textoEtiqueta'  align="left">Sexo</td>
+                                        <td class="textoEtiquetaDatoResaltado" align="left">
+                                          <label><input name="pers_sexo" type="radio" value="<?php echo SEXO_FEMENINO?>" <?php echo ($es_modif_agente && $datospersona["pers_sexo"]==SEXO_FEMENINO)?"checked='checked'":"" ?>>Femenino</label>
+                                          <label><input name="pers_sexo" type="radio" value="<?php echo SEXO_MASCULINO?>" <?php echo ($es_modif_agente && $datospersona["pers_sexo"]==SEXO_MASCULINO)?"checked='checked'":"" ?>>Masculino</label>
+                                        </td>
+                                    </tr>-->
+
+
+<tr>
+    <td class='textoEtiqueta' width="30%" align="left">Identidad de g&eacute;nero</td>
+    <!-- <td class="textoEtiquetaDatoResaltado" align="left">
+    <label><input name="pers_sexo" type="radio" value="<?php // echo SEXO_FEMENINO?>" <?php // echo ($es_modif && $datospersona["pers_sexo"]==SEXO_FEMENINO)?"checked='checked'":"" ?>>Femenino</label>
+    <label><input name="pers_sexo" type="radio" value="<?php // echo SEXO_MASCULINO?>" <?php // echo ($es_modif && $datospersona["pers_sexo"]==SEXO_MASCULINO)?"checked='checked'":"" ?>>Masculino</label>
+    </td> -->
+
+    <!-- MV - SEXO - 17032023 -->
+    <td class="textoEtiquetaDatoResaltado" align="left">
+    <select name="pers_sexo">
+        <option value="<?php echo SEXO_FEMENINO?>" <?php echo ($es_modif && $datospersona["pers_sexo"]==SEXO_FEMENINO)?" selected":"" ?>>Mujer</option>
+        <option value="<?php echo SEXO_MASCULINO?>" <?php echo ($es_modif && $datospersona["pers_sexo"]==SEXO_MASCULINO)?" selected":"" ?>>Var&oacute;n</opt        ion>
+	<option value="<?php echo SEXO_MUJER_TRANS?>" <?php echo ($es_modif && $datospersona["pers_sexo"]==SEXO_MUJER_TRANS)?" selected":"" ?>>Mujer Trans</option>
+        <option value="<?php echo SEXO_VARON_TRANS?>" <?php echo ($es_modif && $datospersona["pers_sexo"]==SEXO_VARON_TRANS)?" selected":"" ?>>Varón Trans</option>
+        <option value="<?php echo SEXO_TRAVESTI?>" <?php echo ($es_modif && $datospersona["pers_sexo"]==SEXO_TRAVESTI)?" selected":"" ?>>Travesti</option>
+        <option value="<?php echo SEXO_TRANSEXUAL?>" <?php echo ($es_modif && $datospersona["pers_sexo"]==SEXO_TRANSEXUAL)?" selected":"" ?>>Transexual</option>
+        <option value="<?php echo SEXO_TRANSGENERO?>" <?php echo ($es_modif && $datospersona["pers_sexo"]==SEXO_TRANSGENERO)?" selected":"" ?>>Transg&eacute;nero</option>
+        <option value="<?php echo SEXO_NO_BINARIE?>" <?php echo ($es_modif && $datospersona["pers_sexo"]==SEXO_NO_BINARIE)?" selected":"" ?>>No binarie</option>
+        <option value="<?php echo SEXO_NINGUNA?>" <?php echo ($es_modif && $datospersona["pers_sexo"]==SEXO_NINGUNA)?" selected":"" ?>>Ninguna de las anteriores</option>
+        <option value="<?php echo SEXO_NO_RESPONDE?>" <?php echo ($es_modif && $datospersona["pers_sexo"]==SEXO_NO_RESPONDE)?" selected":"" ?>>Prefiero no responder</option>
+    </select>
+    </td>
+</tr>	
+<tr>
+
+
+                                    <tr>
+                                        <td align="left" class="textoEtiqueta">Email</td>
+                                        <td class="textoEtiquetaDatoResaltado" align="left"><input type="text" name="pers_email" id="pers_email" class='textoInput' size="32"  maxlength="100" value="<?php echo ($es_modif_persona)?$datospersona["pers_email"]:""?>"></td>
+                                    </tr>
+									<tr>
+										<td align="left" class="textoEtiqueta">Fecha de Nacimiento</td>
+										<td class="textoEtiquetaDatoResaltado" align="left">
+
+
+																<input type="text" name="pers_fechanac" id="pers_fechanac"  maxlength="10" size="11" class="textoInput"  value="<?php echo FuncionesPHPLocal::ConvertirFecha($datospersona['pers_fechanac'],'aaaa-mm-dd','dd/mm/aaaa') ?>">
+																<img src="images/calendario.gif" id="cal-button-1" name="cal-button-1" style="vertical-align:-4px; cursor:pointer" border="0" alt="Calendario">
+
+															  <span class="textoAclaraciones">(dd/mm/aaaa)</span>
+															  <div style='font-size: 7px;'>&nbsp;</div>
+															  <script type="text/javascript">
+																  hay_calendario = true;
+																</script>
+
+										</td>
+									</tr>
+									<tr>
+										<td valign="top" ><span class='textoEtiqueta'>Último nivel de estudios alcanzado</span></td>
+										<td class="textoEtiquetaDatoResaltado">
+										<?php
+										$sparam=array('porderby' =>"nivest_codigo");
+										$spnombre="sel_nivel_estudios_xorden";
+										FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$sparam,"formulario","nivest_codigo","nivest_codigo","nivest_descricpcion",($es_modif_agente)?$datosagente['nivest_codigo']:"","-- Seleccione un Nivel",$filaniveledu,$selejurisdid);
+								?>		</td>
+									</tr>
+										<tr>
+											<td valign="top"  ><span class='textoEtiqueta'>Cantidad de agentes a cargo </span></td>
+											<td class="textoEtiquetaDatoResaltado">
+											<input name="agentes_a_cargo" id="agentes_a_cargo" size="5" type="text" class="textoinput" value="<?php echo ($es_modif_agente)?$datosagente["agentes_a_cargo"]:"0" ?>">				</td>
+										</tr>
+										<tr>
+											<td valign="top"  ><span class='textoEtiqueta'>Breve descripción de tareas relacionadas con el puesto </span></td>
+											<td class="textoEtiquetaDatoResaltado">
+											<textarea rows="5" cols="35" id="tareas" name="tareas" class="textoinput"></textarea>
+											</td>
+										</tr>
+									<tr>
+										  <td colspan="2" valign="top" class="textoEtiquetaDatoResaltado" >Lugar de Revista </td>
+										  </tr>
+										<tr>
+											<td valign="top"  ><span class='textoEtiqueta'>País</span></td>
+											<td class="textoEtiquetaDatoResaltado">
+											<?php
+														$spnombre = "sel_paises_xestado";
+														$spparam = array("ppaisestado"=>ESTADOACTIVO, "porderby"=>"paisnom");
+														FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","paiscod_revista","paiscod","paisnom",($es_modif_agente && $datosagente['paiscod_revista'] != 0)?$datosagente['paiscod_revista']:ARGENTINA,"-- Seleccione un País",$filapais_codigo,$selepais_codigo,1,"SeleccionPais(formulario)");
+											?>				</td>
+										</tr>
+								
+                                            <tr id="datos_provincia" style="display: <?php echo (!$es_modif_agente || ($es_modif_agente && $datosagente['paiscod_revista'] == ARGENTINA || $datosagente['paiscod_revista'] == 0))?'':'none'; ?>">
+													<td valign="top" width="30%" > <span class='textoEtiqueta'>Provincia</span></td>
+													<td class="textoEtiquetaDatoResaltado">
+														<?php
+																$oprovincia = new cProvincias($conexion);
+																$oprovincia->ProvinciasSP($spnombre,$spparam);
+																FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","provinciacod_revista","provinciacod","provincianom",($es_modif_agente)?$datosagente['provinciacod_revista']:PARTIDO_CAPITAL,"-- Seleccione una Provincia",$filaprov_codigo,$seleprov_codigo);
+														?>						</td>
+												</tr>
+									<tr>
+										<td valign="top"  class='textoEtiqueta'>Trabaja en Organismo Público</td>
+											<?php
+												$trabaja_org_publico = false;
+
+												if ( ($es_modif_agente)) {
+													if (isset($datosagente['jurisdid_apn']) || isset($datosagente['orgapub_codigo'])) {
+														$trabaja_org_publico = true;
+													}
+												} else
+													$trabaja_org_publico = true;
+
+											?>
+											<td class="textoEtiquetaDatoResaltado">
+											<input name="tipo_individual_con_org" type="radio" value="<?php echo SI ?>" onclick="SeleccionTieneOrganismo(formulario,'datos_cargo');" <?php echo ($trabaja_org_publico)?"checked='checked'":"";?>/>SI
+											<input name="tipo_individual_con_org" type="radio" value="<?php echo NO ?>" onclick="SeleccionTieneOrganismo(formulario,'datos_cargo');LimpioOrganismoIndividual(window.document,'jurisdid','jurisdnom','jurisdid_coordinacion',this.value);" <?php echo (!$trabaja_org_publico)?"checked='checked'":""?>/>NO
+										</td>
+									</tr>
+									</table>
+
+									<div id="datos_cargo" style="display: <?php echo ($trabaja_org_publico || $operacion == "I"  || (isset($fila_asignacion['jurisdid_apn']) || isset($fila_asignacion['orgapub_codigo'])))?'':'none'; ?>">
+									<table width="90%" align="center" class="textoTablaDato"  border="0" cellpadding="5" cellspacing="0">
+	                                    <tr>
+	                                        <td valign="top"  width="30%" ><span class='textoEtiqueta'>Organismo del Coordinador T&eacute;cnico de Capacitaci&oacute;n</span></td>
+	                                        <td class="textoEtiquetaDatoResaltado">
+	                                <?php		$oAgentes->Jurisdid_InapSP($spnombre,$spparam);
+	                                        FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","jurisdid_coordinacion","jurisdid","jurisdnom",($es_modif_agente)?$datosagente["jurisdid_inap"]:"","-- Seleccione un Organismo",$filaajurisdid,$selejurisdid);
+	                                ?>		</td>
+	                                    </tr>
+
+	                                    <tr>
+	                                        <td valign="middle" ><span class='textoEtiqueta'>Situación escalafonaria</span>	</td>
+	                                        <td width="80%" class="textoEtiquetaDatoResaltado">
+	                                        <a href='javascript:void(0)' onClick="Popup('esc_agrup_niv_grado_selector_combo.dhtml?destino=esc_agrup_niv_grado&amp;texto=esc_agrup_niv_grado_texto&amp;tipo_escalafon=T&amp;escalafcod=<?php echo ($es_modif_agente)?$datosagente["escalafcod"]:""?>&amp;agrupcod=<?php echo ($es_modif_agente)?$datosagente["agrupcod"]:""?>&amp;escalafnivcod=<?php echo ($es_modif_agente)?$datosagente["escalafnivcod"]:""?>&amp;escalaftramocod=<?php echo ($es_modif_agente)?$datosagente["escalaftramocod"]:""?>&amp;escalafgradocod=<?php echo ($es_modif_agente)?$datosagente["escalafgradocod"]:""?>','ventana_escalafon',550,300,screen.availWidth-600,screen.availHeight-350,'yes');" title="Seleccionar Escalafón"><img src="images/versai.jpg" border="0" style="vertical-align:-5px" alt="Seleccionar Escalafón"></a>
+	                                        <input name="esc_agrup_niv_grado" id="esc_agrup_niv_grado" type="hidden" class="textoinput" value="<?php echo ($es_modif_agente)?$datosagente["escalafcod"]."_".$datosagente["agrupcod"]."_".$datosagente["escalafnivcod"]."_".$datosagente["escalaftramocod"]."_".$datosagente["escalafgradocod"]:"" ?>">
+	                                        <span class="textoEtiquetaDatoResaltado" id="esc_agrup_niv_grado_texto">
+	                                        <?php	if($es_modif_agente && $escalafon->TraerDatosCompletosEscalafon($datosagente["escalafcod"],$datosagente["agrupcod"],$datosagente["escalafnivcod"],$datosagente["escalaftramocod"],$datosagente["escalafgradocod"],$texto_salida))
+	                                                echo htmlspecialchars($texto_salida,ENT_QUOTES); ?>
+	                                        </span>
+	                                        <input name="escalafon"  id="escalafon" type="hidden" value="<?php echo ($es_modif_agente && $datosagente["escalafcod"]==SINEP)?"A":"T" ?>"/>
+	                                      </td>
+	                                    </tr>
+
+                                </table>
+
+
+                      		  <?php
+
+	                      		  //-------- define objetos: jurisdid-tipoorg_codigo-jurisdnom---
+									$tipoorg_codigo="";
+									if ($es_modif_agente) {
+										if (isset($datosagente['jurisdid_apn'])) {
+											$tipoorg_codigo = ORGANISMO_APN;
+											$jurisdid = 'jurisdid_apn';
+										} else {
+											$tipoorg_codigo = ORGANISMO_NO_APN;
+											$jurisdid = 'orgapub_codigo';
+										}
+									}	// if($es_modif)
+
+
+									$jurisdid_agente = ($es_modif_agente)?$datosagente[$jurisdid]:"";
+									$jurisdid_campo = "";
+									//$filtro_organismo = ($datosagente["escalafcod"]==SINEP)?"A":"T";
+									$filtro_organismo = "T";
+									if ($es_modif_agente){
+										$oActividad = new cActividad($conexion);
+										$oActividad->ObtenerOrganismoInstitucion(NULL, $datosagente['jurisdid_apn'], $datosagente['orgapub_codigo'], $jurisdnom,$sector_org,$tipoorg_codigo,$jurisdid_campo,true,false);
+									}
+									$oAgentes->PedirOrganismoLaboral($es_modif_agente,$filtro_organismo,$tipoorg_codigo, $jurisdid_agente, $jurisdid_campo);
+																			$boton = "Enviar datos";
+									//---------------------------------------------------------------
+                       				 ?>
+	                                <div id="datos_apn" style="display:<?php echo (!($es_modif_agente && $datosagente["escalafcod"]==SINEP))?"none":"" ?>">
+	                                <table width="90%" align="center" class="textoTablaDato"  border="0" cellpadding="5" cellspacing="0">
+	                                    <tr>
+	                                        <td valign="top" width="30%" ><span class='textoEtiqueta'>Función</span></td>
+	                                        <td class="textoEtiquetaDatoResaltado">
+	                                <?php		$oAgentes->FuncionSP($spnombre,$spparam);
+	                                        FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","agfunc_codigo","agfunc_codigo","agfunc_descripcion","","-- Seleccione una Función",$filaagfuncion,$seleagfuncion);
+	                                ?>		</td>
+	                                    </tr>
+	                                </table>
+	                                </div>
+
+                                 </div>
+                                 <?php  if (false) { //($filacurso["actividad_curso_inap"]["actdisinap_beca"] == "si") { ?>
+		                                 <div id="datosBeca">
+		                                            <table width="90%" align="center" class="textoTablaDato"  border="0" cellpadding="2" cellspacing="2">
+		                                            <tr>
+		                                            	<td colspan="2" class="textoEtiquetaDatoResaltado">Datos relacionados con la Beca</td>
+		                                            </tr>
+		                                              <tr>
+		                                            	<td colspan="2" >Información explicativa sobre las Becas</td>
+		                                            </tr>
+
+					                                    <tr>
+					                                        <td valign="top" ><span class='textoEtiqueta'>Carrera</span></td>
+					                                        <td class="textoEtiquetaDatoResaltado">
+					                                <?php
+					                                		$univ_codigo = $filacurso["actividad_curso_inap"]["univ_codigo"];
+					                                		$oBecas->CarrerasSP($spnombre,$spparam, $univ_codigo, "carr_descripcion");
+							                                FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","carr_codigo", "carr_codigo","carr_descripcion", "1","-- Seleccione una Carrera",$filacarr_codigo,$selecarr_codigo);
+					                                ?>		</td>
+					                                    </tr>
+		                                              <tr>
+		                                            	<td colspan="2" ><a href="javascript:bajarFormulario('<?php  echo $pers_nombre." ".$pers_apellido?>','<?php  echo $pers_cuilt?>')"><img alt="Descargar el formulario de Inscripción" src="images/pdf.gif" border="0">Descargar formulario de inscripción</a></td>
+		                                            </tr>
+					                                </table>
+
+		                                 </div>
+		                           <?php  } else {
+		                           	?>
+		                           		<input type="hidden" id="carr_codigo" value="NULL" name="carr_codigo">
+		                           	<?php  } ?>
+
+                                <table width="100%" class="textoTablaDato"  border="0" cellpadding="2" cellspacing="2">
+                                        <tr>
+                                            <td colspan="2" align="center">&nbsp;	 </td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="2" align="center">
+                                                <input type="submit" name="BotonAlta" class="botones" value="Enviar datos" onClick="return <?= $funcion_validacion ?>(formulario,<?= $comi_codigo?>,'<?= $pers_cuilt ?>','<?= $pers_apellido ?>','<?= $pers_nombre ?>',formulario.pers_fechanac.value,formulario.jurisdid_coordinacion.value,formulario.esc_agrup_niv_grado.value,formulario.escalafon.value,formulario.agfunc_codigo.value,formulario.jurisdid.value,formulario.tipoorg_codigo.value, '<?= $boton ?>',formulario.pers_sexo,formulario.pers_email.value,formulario.nivest_codigo.value,formulario.agentes_a_cargo.value,formulario.paiscod_revista.value,formulario.provinciacod_revista.value, formulario.tipo_individual_con_org,formulario.tareas.value,formulario.carr_codigo.value);">
+
+
+                                            </td>
+                                        </tr>
+                                </table>
+                                </form>
+                               </span>
+
+						<span id="datosInscribir"></span>
+					<?php
+					}
+
+
+
+				}
+
+			} // TienePermisoInscribirWeb
+		} // es_modif
+	} //  TraerDatosComision
+
+
+
+	if ($ok) {
+		$primero=true;
+		$tipo_boton="";
+		?>
+		<br /><br />
+
+
+		<form name="formulario" id="formulario" method="POST" action="#" onSubmit="return false"  style="padding:0px">
+		<?php
+				if ($es_modif_persona) {
+
+					$mensaje="¿Desea inscribirse a este curso?";
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,$mensaje,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					$boton = "Confirmar Inscripcion";
+				} else {
+					$boton = "Inscribir";
+				}
+		?>
+		<br>
+		<div align="center">
+			<?php if ($boton=="Inscribir") {	?>
+				<input type="button" class="botones" name="boton_inscribir" value="Inscribir" onClick="return Validar_formulario_candidato(formulario,<?= $comi_codigo?>,'<?= $boton ?>');" />
+			<?php } elseif  ($boton=="Confirmar Inscripcion"){	  ?>
+				<input type="button" class="botones" name="boton_Inscripcion" value="Confirmar Inscripcion" onClick="return Validar_candidato(formulario,<?= $comi_codigo?>,'<?= $pers_cuilt ?>','<?= $pers_apellido ?>','<?= $pers_nombre ?>','', '', '', '', '','<?= $boton ?>'),'';" />
+			<?php } ?>
+		</div>
+		</form>
+
+		<span id="datosInscribir"></span>
+
+		<?php
+	}
+
+?>
+

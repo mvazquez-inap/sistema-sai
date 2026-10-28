@@ -1,0 +1,64 @@
+<?php 
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+// $sesion = new Sesion($conexion,false); // Inicia session y no borra
+// $sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+switch ($_GET['contenido']) {
+
+	case 'diseno':
+
+		 if ($_GET['formact_codigo']==FORMATOCURSO) {
+			 $oActividadCurso = new cActividadCurso($conexion);
+			 $oActividadCurso->newActividadCursoTipo($_GET['act_codigo'], $oActividadCurso);
+			 $oActividadCurso->ListarDisenoActividadPDF($_GET['act_codigo']);
+		 }		 
+		 if ($_GET['formact_codigo']==FORMATOEXT) {
+			 $oActividadExterna = new cActividadExterna($conexion);		 
+			 $oActividadExterna->ListarDisenoActividadPDF($_GET['act_codigo']);
+		 }
+		 if ($_GET['formact_codigo']==FORMATOAUTO) {
+			 $oActividadAutodesarrollo = new cActividadAutodesarrollo($conexion);		 
+			 $oActividadAutodesarrollo->ListarDisenoActividadPDF($_GET['act_codigo'],$_GET['tipoact_codigo'] );
+		 }
+		 
+		 if ($_GET['formact_codigo']==FORMATOEFORMAL) {
+			 $oActividadFormal = new cActividadEducacionFormal($conexion);		 
+			 $oActividadFormal->ListarDisenoActividadPDF($_GET['act_codigo'],$_GET['tipoact_codigo'] );
+		 }
+		 
+		 
+		 break; 		
+		 
+	case 'formulario_beca': 
+		 $oComisionPersonaCandidato = new cComisionPersonaCandidato($conexion);		 
+		 $oComisionPersonaCandidato->ImprimirFormularioBeca($_GET['nombre'], $_GET['carrera'], $_GET['email'], $_GET['fecha_nac'], $_GET['estudios'], $_GET['agentes'], $_GET['pais'], $_GET['provincia'], $_GET['organismo_ccordinador'], $_GET['escalafon'], $_GET['organismo_trabajo'], $_GET['funcion']);
+		 break; 		
+			 
+/*	case 'diseno_externa': 
+		 $oActividadExterna = new cActividadExterna($conexion);		 
+		 $oActividadExterna->ListarDisenoActividadPDF($_GET['act_codigo']);
+		 break; 		
+	
+	case 'diseno_autodesarrollo': 
+		 $oActividadAutodesarrollo = new cActividadAutodesarrollo($conexion);		 
+		 $oActividadAutodesarrollo->ListarDisenoActividadPDF($_GET['act_codigo'],$_GET['tipoact_codigo'] );
+		 break; 					 
+*/		 
+	default:
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error en opción a listar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+}
+//---------------------------------------------------------------------------------------------------------------------	
+?>

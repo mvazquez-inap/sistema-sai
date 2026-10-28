@@ -1,0 +1,1980 @@
+<?php
+
+//----------------------------------------------------------------------------------------- 
+// Comienzo de Clases
+
+if(!defined("DIR_PAGESTATICA"))
+	define("DIR_PAGESTATICA","");
+
+class cPagina
+{
+	var $conexionobjeto;
+	var $msg_error;
+	var $comentarios;
+	
+	var $str_inicial_noticias="<!-- Inicio Noticia -->";
+	var $str_sin_noticias="<!-- Sin Noticias -->";
+	var $str_final_noticias="<!-- Fin Noticia -->";
+	
+	var $pagcod;
+	var $pagtitle;
+	var $plantcod;
+	var $noticampliada=false;
+	var $impresion=false;
+
+	function cPagina($conexion,$comentarios=false)
+	{
+		$this->conexionobjeto = &$conexion;
+		$this->msg_error = "";
+		$this->comentarios=$comentarios;
+	}
+	
+	// Recibe el codigo de pagina a mostrar.
+	// Setea 
+	function Setear($parametros)
+	{
+		$this->pagcod=$parametros["pagcod"];
+
+		$spnombre="sel_paginas_xpagcod";
+		$spparam=array("ppagcod"=>$this->pagcod);
+	
+		if($this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) && $numfilas==1)
+		{
+			$filapagina=mysqli_fetch_assoc($query);
+			
+			$this->plantcod=$filapagina["plantcod"];
+			$this->pagtitle=$filapagina["pagtitle"];
+			
+		} // Fin de encontró la pagina
+		else
+		{
+			$this->msg_error.="El código de página es inexistente o contiene un error. Pagina: ".$this->pagcod."<br>";
+			return false;
+		}
+		
+		if(isset($parametros["impresion"]))		
+			$this->impresion=$parametros["impresion"];
+			
+		if(isset($parametros["noticampliada"]))
+			$this->noticampliada=$parametros["noticampliada"];
+			
+		return true;
+	}
+	
+	function Mostrar(&$salida)
+	{
+		$salida="";
+		$seprodujoerror=false;
+	
+		if($this->pagcod==0)
+		{
+			$this->msg_error.="Pagina no inicializada. Pagcod: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+			return false;
+		}
+
+		if($this->comentarios)
+			$salida.="<!-- Pagina: ".$this->pagcod." -->\n";
+		
+		$spnombre="sel_plantillas_xplantcod";
+		$spparam=array("pplantcod"=>$this->plantcod);
+	
+		if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)
+		{
+			$this->msg_error.="Plantilla no encontrada. ".$this->pagcod."<br>";
+			return false;
+		}
+		
+		$filaplantilla=mysqli_fetch_assoc($query);
+		
+		$partes=array();
+		
+		if(!$this->impresion)		
+			cSepararHTML::ProcesarHTML($filaplantilla["planthtml"],$partes);
+		else
+		{
+			if(is_null($filaplantilla["planthtmlimp"]))
+				return false;
+
+			cSepararHTML::ProcesarHTML($filaplantilla["planthtmlimp"],$partes);
+
+		}
+
+		if($this->comentarios)
+			$salida.="<!-- Plantilla: ".$this->plantcod." -->\n";
+
+		foreach($partes as $comando)		
+		{
+			// si es un comando
+			if(is_array($comando))
+			{
+				// si no existe la clase para dar soporte al comando
+				if($comando["Tipo"]=="Campo")
+				{
+					if($comando["Nombre"]=="title")
+						$salida.=$this->pagtitle;
+					else
+					{
+						$this->msg_error.="Campo ".$comando["Nombre"]." no encontrado en página: ".$this->pagcod."<br>";
+						return false;
+					}
+				}
+				elseif(!class_exists($comando["Tipo"]))
+				{
+					$this->msg_error.="Clase ".$comando["Tipo"]." no encontrada en página: ".$this->pagcod."<br>";
+					return false;
+				}
+				else
+				{
+					$comando["pagcod"]=$this->pagcod;
+					$comando["plantcod"]=$this->plantcod;
+					$comando["noticampliada"]=$this->noticampliada;
+
+					$componente=new $comando["Tipo"]($this->conexionobjeto,$this->comentarios);
+					if($componente->Setear($comando))
+					{
+						if(!$componente->Mostrar($salida))
+							$seprodujoerror=true;
+					}
+					else
+						$seprodujoerror=true;
+						
+					$this->msg_error.=$componente->RetornarMsgError();
+				}
+			}
+			else
+				$salida.=$comando;
+		}
+
+		if($this->comentarios)
+			$salida.="<!-- /Plantilla: ".$this->plantcod." -->\n";
+
+		return !$seprodujoerror;
+	}
+	
+	function ProcesarNoticias(&$salida,$modifnotic,$noticampliada=false)
+	{
+		$seprodujoerror=false;
+
+		if($noticampliada!==false)
+			$this->noticampliada=$noticampliada;
+
+		cSepararHTML::ProcesarHTML($salida,$partes);
+
+		$salidatemp="";
+		foreach($partes as $comando)		
+		{
+			// si es un comando
+			if(is_array($comando))
+			{
+				if($comando["Tipo"]=="cDatosNoticiasDin")
+				{				
+					$spnombre="sel_datos_noticias_xdatoid_original";
+					$spparam=array("pdatoid"=>$comando["DatoID"],"poriginal"=>$modifnotic);
+
+					if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno))
+					{
+						$this->msg_error.="DatosNoticias no encontrado. DatoID: ".$comando["DatoID"]."<br>";
+						return false;
+					}							
+					if($numfilas==0)
+						$salidatemp.=$this->str_sin_noticias;
+					else
+					{
+						$noticias_mostradas=0;
+						while($filanot=mysqli_fetch_assoc($query))
+						{
+							$comando1=array();
+							$comando1["pagcod"]=$this->pagcod;
+							$comando1["notcod"]=$filanot["notcod"];
+							$comando1["visualizcod"]=$filanot["visualizcod"];
+							$comando1["parametros"]=$filanot["parametros"];
+							$comando1["datoid"]=$filanot["datoid"];
+							$comando1["ordennoticia"]=$filanot["ordennoticia"];
+							$comando1["modifnotic"]=$modifnotic;
+						
+							$componente=new cVisualizaNoticia($this->conexionobjeto,$this->comentarios);
+							if($componente->Setear($comando1))
+							{
+								if(!$componente->Mostrar($salidatemp,$noticias_mostradas))
+									$seprodujoerror=true;
+							}
+							else
+								$seprodujoerror=true;
+								
+							$this->msg_error.=$componente->RetornarMsgError();
+						}
+						if($noticias_mostradas==0)
+							$salidatemp.=$this->str_sin_noticias;
+					}
+				}
+				elseif($comando["Tipo"]=="cMostrarNoticiaAmpliadaDin")
+				{	
+
+					$comando1=array();
+					$comando1["pagcod"]=$this->pagcod;
+					$comando1["noticampliada"]=$this->noticampliada;
+					$comando1["modifnotic"]=$modifnotic;
+				
+					$componente=new cMostrarNoticiaAmpliadaDin($this->conexionobjeto,$this->comentarios);
+					if($componente->Setear($comando1))
+					{
+						if(!$componente->Mostrar($salidatemp))
+							$seprodujoerror=true;
+					}
+					else
+						$seprodujoerror=true;
+
+					$this->msg_error.=$componente->RetornarMsgError();
+				}
+				else
+				{
+					$array_temp=array();
+					foreach($comando as $clave=>$valor)
+						$array_temp[]=$clave."='".$valor."'";
+					$salidatemp.="$$".implode(" ",$array_temp)."$$";
+				}
+			}
+			else
+				$salidatemp.=$comando;
+		}
+		
+		if(!$this->EliminarLibreriasSinNoticias($salidatemp))
+			$seprodujoerror=true;
+		
+		$salida=$salidatemp;
+		
+		return !$seprodujoerror;
+	}
+	
+	function EliminarLibreriasSinNoticias(&$salidatemp)
+	{
+		$seprodujoerror=false;
+
+		while(($posicion=strpos($salidatemp,$this->str_sin_noticias))!==false && !$seprodujoerror)
+		{
+			$pos_inicial=FuncionesPHPPortal::strepos(substr($salidatemp,0,$posicion),$this->str_inicial_noticias);
+			$pos_final=strpos($salidatemp,$this->str_final_noticias,$posicion+1);
+
+			if($pos_inicial===false || $pos_final===false)
+			{
+				$seprodujoerror=true;
+				$this->msg_error.="Error en las etiquetas de inicio o fin de noticias<br>";
+			}
+			else
+				$salidatemp=substr($salidatemp,0,$pos_inicial-1).substr($salidatemp,$pos_final+strlen($this->str_final_noticias)+1);
+			
+		}
+
+		return !$seprodujoerror;
+	}
+	
+	function RetornarMsgError()
+	{
+		return $this->msg_error;
+	}
+	
+	function MostrarErrorGeneral()
+	{
+		echo "Error en Página";
+	}
+} // Fin clase cPagina
+
+
+//----------------------------------------------------------------------------------------- 
+class cPlantZona
+{
+	var $conexionobjeto;
+	var $msg_error;
+	var $comentarios;
+	
+	var $pagcod;
+	var $plantcod;
+	var $plantzonacod;
+	var $noticampliada=false;
+
+	function cPlantZona($conexion,$comentarios=false)
+	{
+		$this->conexionobjeto = &$conexion;
+		$this->msg_error="";
+		$this->comentarios=$comentarios;
+	}
+	
+	function Setear($parametros)
+	{
+		$this->pagcod=$parametros["pagcod"];
+		$this->plantcod=$parametros["plantcod"];
+		$this->noticampliada=$parametros["noticampliada"];
+
+		$spnombre="sel_plantzonas_xplantcod_plantzonanombre";
+		$spparam=array("pplantcod"=>$this->plantcod,"pplantzonanombre"=>$parametros["Nombre"]);
+	
+		if($this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) && $numfilas==1)
+		{
+			$filaobjeto=mysqli_fetch_assoc($query);
+			
+			$this->plantzonacod=$filaobjeto["plantzonacod"];
+			
+		} // Fin de encontró plantzona
+		else
+		{
+			$this->msg_error.="PlantZona no encontrado. Pagina: ".$this->pagcod." / PlantZonaNombre: ".$parametros["Nombre"]."<br>";
+			return false;
+		}		
+		
+		return true;
+		
+	}
+	
+	function Mostrar(&$salida)
+	{
+		$seprodujoerror=false;
+	
+		if($this->plantzonacod==0)
+		{
+			$this->msg_error.="PlantZona no inicializada. Pagcod: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";	
+			return false;
+		}
+		
+		$spnombre="sel_paginas_librerias_xpagcod_plantzonacod";
+		$spparam=array("ppagcod"=>$this->pagcod,"pplantzonacod"=>$this->plantzonacod);
+	
+		if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno))
+		{
+			$this->msg_error.="Paginas-Librerias error. Pagina: ".$this->pagcod." - PlantZona: ".$this->plantzonacod."<br>";
+			return false;
+		}
+		elseif($numfilas<1)
+		{
+			$this->msg_error.="Paginas-Librerias error. No hay librerias. Pagina: ".$this->pagcod." - PlantZona: ".$this->plantzonacod."<br>";
+			return false;
+		}
+		
+		if($this->comentarios)
+			$salida.="<!-- PlantZona: ".$this->plantzonacod." -->\n";
+
+		// Tabla interna para que las librerias queden una abajo de la otra
+//		$salida.="<table width=\"100%\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\">\n"; // Modificacion div
+	
+		$comando=array();
+		$comando["pagcod"]=$this->pagcod;
+		$comando["plantcod"]=$this->plantcod;
+		$comando["plantzonacod"]=$this->plantzonacod;
+		$comando["noticampliada"]=$this->noticampliada;
+		
+		while($filalibreria=mysqli_fetch_assoc($query))
+		{
+//			$salida.="<tr><td>\n"; // Modificacion div
+
+			// muestro sólo si no estoy en noticia ampliada o, si lo estoy, si está seteada la bandera de mostrar noticia
+			if(!is_array($comando["noticampliada"]) || $filalibreria["mostrar_noticia"]=="S")
+			{
+				$comando["libcod"]=$filalibreria["libcod"];
+				$comando["secuencia"]=$filalibreria["secuencia"];
+				$comando["parametros"]=$filalibreria["parametros"];
+				
+				$componente=new cLibreria($this->conexionobjeto,$this->comentarios);
+				if($componente->Setear($comando))
+				{
+					if(!$componente->Mostrar($salida))
+						$seprodujoerror=true;
+				}
+				else
+					$seprodujoerror=true;
+				
+				$this->msg_error.=$componente->RetornarMsgError();
+			}
+//			$salida.="</td></tr>\n"; // Modificacion div
+		}
+//		$salida.="</table>\n"; // Modificacion div
+
+		if($this->comentarios)
+			$salida.="<!-- /PlantZona: ".$this->plantzonacod." -->\n";
+		
+		return !$seprodujoerror;
+	}
+	
+	function RetornarMsgError()
+	{
+		return $this->msg_error;
+	}
+	
+} // Fin clase cPlantZona
+
+
+//----------------------------------------------------------------------------------------- 
+class cLibreria
+{
+	var $conexionobjeto;
+	var $msg_error;
+	var $comentarios;
+	
+	var $pagcod;
+	var $plantcod;
+	var $plantzonacod;
+	var $libcod;
+	var $secuencia;
+	var $parametros;
+
+	var $noticampliada=false;
+
+	function cLibreria($conexion,$comentarios=false)
+	{
+		$this->conexionobjeto = &$conexion;
+		$this->msg_error="";
+		$this->comentarios=$comentarios;
+	}
+	
+	function Setear($parametros)
+	{
+		$this->pagcod=$parametros["pagcod"];
+		$this->plantcod=$parametros["plantcod"];
+		$this->plantzonacod=$parametros["plantzonacod"];
+		$this->libcod=$parametros["libcod"];
+		$this->secuencia=$parametros["secuencia"];
+		$this->parametros="";
+
+		$this->noticampliada=$parametros["noticampliada"];
+
+		if($parametros["parametros"]!="" && !is_null($parametros["parametros"]))
+		{			
+			if(!cSepararHTML::ProcesarParametros($parametros["parametros"],$this->parametros))
+			{
+				$this->msg_error.="Error en los parámetros de una librería. Pagina: ".$this->pagcod." / PlantZona: ".$this->plantzonacod." / Libreria: ".$this->libcod."<br>";
+				return false;
+			}
+		}
+		
+		return true;	
+	}
+	
+	function Mostrar(&$salida)
+	{
+		$seprodujoerror=false;
+		
+		if($this->libcod==0)
+		{
+			$this->msg_error.="Libreria no inicializada. Pagcod: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+			return false;
+		}
+		
+		$spnombre="sel_libestructuras_xlibcod";
+		$spparam=array("plibcod"=>$this->libcod);
+	
+		if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno))
+		{
+			$this->msg_error.="LibEstructuras error. Pagina: ".$this->pagcod." / PlantZona: ".$this->plantzonacod." / Libreria: ".$this->libcod."<br>";
+			return false;
+		}
+		
+		if($this->comentarios)
+			$salida.="<!-- Secuencia: ".$this->secuencia." Libreria: ".$this->libcod." -->\n";
+
+		while($filalibestruc=mysqli_fetch_assoc($query))
+		{
+			$cantrepeticiones=1;
+			
+			//Si es una estructura repetible, busco cuantas filas hay cargadas. Sino, dejo por default 1
+			if($filalibestruc["libestrucrepetible"]=="S")
+			{
+				$spnombre="sel_maxfila_paginas_datos";
+				$spparam=array("ppagcod"=>$this->pagcod,"pplantzonacod"=>$this->plantzonacod,"psecuencia"=>$this->secuencia,"plibestruccod"=>$filalibestruc["libestruccod"]);
+			
+				if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$querycantfila,$numfilas,$errno))
+				{
+					$this->msg_error.="LibEstructuras error - Obtener Cant Filas. Pagina: ".$this->pagcod." / PlantZona: ".$this->plantzonacod." / Libreria: ".$this->libcod."<br>";
+					return false;
+				}
+				
+				$filacantfila=mysqli_fetch_assoc($querycantfila);
+				if(is_null($filacantfila["maxfila"]))
+					$cantrepeticiones=0;
+				else
+					$cantrepeticiones=$filacantfila["maxfila"];
+				
+			}
+			
+			for($numfila=1;$numfila<=$cantrepeticiones;$numfila++)
+			{
+				$partes=array();
+				cSepararHTML::ProcesarHTML($filalibestruc["libestruchtml"],$partes);
+		
+				foreach($partes as $comando)		
+				{
+					if(is_array($comando))
+					{
+						// Si es un parámetro
+						if($comando["Tipo"]=="Parametro")
+						{
+							// Si el valor está seteado, imprimo ese, sino, imprimo el valor por default
+							if(isset($this->parametros[$comando["Nombre"]]))
+								$salida.=$this->parametros[$comando["Nombre"]]; 
+							else
+							{
+								if($comando["Nombre"]=="ancla")
+								{
+									for($anclarand=1;$anclarand<=10;$anclarand++)
+										$salida.=chr(rand(65,90));
+								}
+								elseif(isset($comando["Default"]))
+									$salida.=$comando["Default"]; 
+							}
+						}
+						elseif($comando["Tipo"]=="cMostrarNoticiaAmpliada")
+						{
+							$salida.="$$"."Tipo='cMostrarNoticiaAmpliadaDin' Nombre='MostrarNoticia'"."$$";
+						}
+						// Si es un comando y no existe la clase
+						elseif(!class_exists($comando["Tipo"]))
+						{					
+							$this->msg_error.="Clase ".$comando["Tipo"]." no encontrada en pagina: ".$this->pagcod." / PlantZona: ".$this->plantzonacod." / Libreria: ".$this->libcod."<br>";
+							return false;	
+						}
+						else
+						{
+							$comando["pagcod"]=$this->pagcod;
+							$comando["plantcod"]=$this->plantcod;
+							$comando["plantzonacod"]=$this->plantzonacod;
+							$comando["libcod"]=$this->libcod;
+							$comando["secuencia"]=$this->secuencia;
+							$comando["libestruccod"]=$filalibestruc["libestruccod"];
+							$comando["libestrucvencecont"]=$filalibestruc["libestrucvencecont"];
+							$comando["fila"]=$numfila;
+
+							$comando["noticampliada"]=$this->noticampliada;
+		
+							$componente=new $comando["Tipo"]($this->conexionobjeto,$this->comentarios);
+
+							if($componente->Setear($comando))
+							{
+								if(!$componente->Mostrar($salida))
+									$seprodujoerror=true;
+							}
+							else
+								$seprodujoerror=true;
+							
+							$this->msg_error.=$componente->RetornarMsgError();
+						}
+					}
+					else
+						$salida.=$comando;
+				} // fin del for que recorre $partes
+			} // fin del for por cantidad de filas para un libestruc
+		} // fin del while que recorre todas las estructuras de una libreria
+
+		if($this->comentarios)
+			$salida.="<!-- /Secuencia: ".$this->secuencia." Libreria: ".$this->libcod." -->\n";
+		
+		return !$seprodujoerror;
+	}
+
+	function RetornarMsgError()
+	{
+		return $this->msg_error;
+	}
+} // Fin clase cLibreria
+
+
+//----------------------------------------------------------------------------------------- 
+class cLibZona
+{
+	var $conexionobjeto;
+	var $msg_error;
+	var $comentarios;
+	
+	var $pagcod;
+	var $plantcod;
+	var $plantzonacod;
+	var $libcod;
+	var $secuencia;
+	var $libestruccod;
+	var $fila;
+	var $libestrucvencecont;
+	var $libzonacod;
+
+	function cLibZona($conexion,$comentarios=false)
+	{
+		$this->conexionobjeto = &$conexion;
+		$this->msg_error="";
+		$this->comentarios=$comentarios;
+	}
+	
+	function Setear($parametros)
+	{	
+		$this->pagcod=$parametros["pagcod"];
+		$this->plantcod=$parametros["plantcod"];
+		$this->plantzonacod=$parametros["plantzonacod"];
+		$this->libcod=$parametros["libcod"];
+		$this->secuencia=$parametros["secuencia"];	
+		$this->libestruccod=$parametros["libestruccod"];
+		$this->fila=$parametros["fila"];
+		$this->libestrucvencecont=$parametros["libestrucvencecont"];
+		
+		$spnombre="sel_libzonas_xlibcod_libestruccod_libzonanom";
+		$spparam=array("plibcod"=>$this->libcod,"plibestruccod"=>$this->libestruccod,"plibzonanom"=>$parametros["Nombre"]);
+	
+		if($this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) && $numfilas==1)
+		{
+			$filaobjeto=mysqli_fetch_assoc($query);
+			
+			$this->libzonacod=$filaobjeto["libzonacod"];
+			
+		} // Fin de encontró libzona
+		else
+		{
+			$this->msg_error.="LibZona no encontrado. Pagina: ".$this->pagcod." / PlantZona: ".$this->plantzonacod." / Libreria: ".$this->libcod." / LibEstructura: ".$this->libestruccod." / LibZona: ".$parametros["Nombre"]."<br>";
+			return false;
+		}		
+		
+		return true;	
+	}
+	
+	function Mostrar(&$salida)
+	{
+		$seprodujoerror=false;
+		
+		if($this->libzonacod==0)
+		{
+			$this->msg_error.="LibZona no inicializada. Pagcod: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+			return false;
+		}
+		
+		$spnombre="sel_paginas_datos_xpagcod_plantzonacod_secuencia_libestruccod_libzonacod_fila";
+		$spparam=array("ppagcod"=>$this->pagcod,"pplantzonacod"=>$this->plantzonacod,"psecuencia"=>$this->secuencia,"plibestruccod"=>$this->libestruccod,"plibzonacod"=>$this->libzonacod,"pfila"=>$this->fila);
+	
+		if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || ($numfilas!=0 && $numfilas!=1))
+		{
+			$this->msg_error.="LibZona error. Pagina: ".$this->pagcod." / PlantZona: ".$this->plantzonacod." / Secuencia: ".$this->secuencia." / LibEstruc: ".$this->libestruccod." / LibZona: ".$this->libzona." / Fila: ".$this->fila."<br>";
+			return false;
+		}
+
+		if($this->comentarios)
+			$salida.="<!-- LibEstruc: ".$this->libestruccod." LibZona: ".$this->libzonacod." Fila: ".$this->fila." -->\n";
+
+		// existe un contenido
+		if($filadato=mysqli_fetch_assoc($query))
+		{
+			$valor["datoid"]=$filadato["datoid"];
+			$valor["libestrucvencecont"]=$this->libestrucvencecont;
+
+			if(!class_exists($filadato["clase"]))
+			{					
+				$this->msg_error.="Clase ".$filadato["clase"]." no encontrada en pagina: ".$this->pagcod." / PlantZona: ".$this->plantzonacod." / Secuencia: ".$this->secuencia." / LibEstruc: ".$this->libestruccod." / LibZona: ".$this->libzonacod." / Fila: ".$this->fila."<br>";
+				return false;
+			}
+			else
+			{
+				$componente=new $filadato["clase"]($this->conexionobjeto,$this->comentarios);
+				if($componente->Setear($valor))
+				{
+					if(!$componente->Mostrar($salida))
+						$seprodujoerror=true;
+				}
+				else
+					$seprodujoerror=true;
+				
+				$this->msg_error.=$componente->RetornarMsgError();
+			}
+		}
+
+		if($this->comentarios)
+			$salida.="<!-- /LibEstruc: ".$this->libestruccod." LibZona: ".$this->libzonacod." Fila: ".$this->fila." -->\n";
+		
+		return !$seprodujoerror;
+	}
+
+	function RetornarMsgError()
+	{
+		return $this->msg_error;
+	}
+
+} // Fin clase cLibZona
+
+
+//----------------------------------------------------------------------------------------- 
+class cDatosContenidos
+{
+	var $conexionobjeto;
+	var $msg_error;
+	var $comentarios;
+	
+	var $datoid;
+	var $libestrucvencecont;
+
+	function cDatosContenidos($conexion,$comentarios=false)
+	{
+		$this->conexionobjeto = &$conexion;
+		$this->msg_error="";
+		$this->comentarios=$comentarios;
+	}
+	
+	function Setear($parametros)
+	{
+		$this->datoid=$parametros["datoid"];
+		$this->libestrucvencecont=$parametros["libestrucvencecont"];
+	
+		$spnombre="sel_datos_contenidos_xdatoid";
+		$spparam=array("pdatoid"=>$this->datoid);
+	
+		if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas==0)
+		{
+			$this->msg_error.="DatosContenidos no encontrado. DatoID: ".$this->datoid."<br>";
+			return false;
+		}		
+		
+		return true;	
+	}
+	
+	function Mostrar(&$salida)
+	{
+		$seprodujoerror=false;
+		
+		if($this->datoid==0)
+		{
+			$this->msg_error.="DatoID no inicializado. Pagcod: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+			return false;
+		}
+
+		$spnombre="sel_datos_contenidos_xdatoid";
+		$spparam=array("pdatoid"=>$this->datoid);
+	
+		if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas==0)
+		{
+			$this->msg_error.="DatoID error. DatoID: ".$this->datoid."<br>";
+			return false;
+		}
+
+		if($this->comentarios)
+			$salida.="<!-- DatoID: ".$this->datoid." -->\n";
+
+		while($filadato=mysqli_fetch_assoc($query))
+		{
+			$salida.=$filadato["textoanterior"];
+		
+			$comando=array();
+			$comando["contcod"]=$filadato["contcod"];
+			$comando["visualizcod"]=$filadato["visualizcod"];
+			$comando["parametros"]=$filadato["parametros"];
+			$comando["libestrucvencecont"]=$this->libestrucvencecont;
+			
+			$componente=new cVisualizaContenido($this->conexionobjeto,$this->comentarios);
+			if($componente->Setear($comando))
+			{
+				if(!$componente->Mostrar($salida))
+					$seprodujoerror=true;
+			}
+			else
+				$seprodujoerror=true;
+				
+			$this->msg_error.=$componente->RetornarMsgError();
+			
+			$salida.=$filadato["textoposterior"];
+		}
+
+		if($this->comentarios)
+			$salida.="<!-- /DatoID: ".$this->datoid." -->\n";
+		
+		return !$seprodujoerror;
+	}
+
+	function RetornarMsgError()
+	{
+		return $this->msg_error;
+	}
+
+} // Fin clase cDatosContenidos
+
+//----------------------------------------------------------------------------------------- 
+class cDatosObjetos
+{
+	var $conexionobjeto;
+	var $msg_error;
+	var $comentarios;
+	
+	var $datoid;
+	var $libestrucvencecont;
+
+	function cDatosObjetos($conexion,$comentarios=false)
+	{
+		$this->conexionobjeto = &$conexion;
+		$this->msg_error="";
+		$this->comentarios=$comentarios;
+	}
+	
+	function Setear($parametros)
+	{
+		$this->datoid=$parametros["datoid"];
+		$this->libestrucvencecont=$parametros["libestrucvencecont"];
+	
+		$spnombre="sel_datos_objetos_xdatoid";
+		$spparam=array("pdatoid"=>$this->datoid);
+	
+		if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas==0)
+		{
+			$this->msg_error.="DatosObjetos no encontrado. DatoID: ".$this->datoid."<br>";	
+			return false;
+		}		
+		
+		return true;	
+	}
+	
+	function Mostrar(&$salida)
+	{
+		$seprodujoerror=false;
+		
+		if($this->datoid==0)
+		{
+			$this->msg_error.="DatoID no inicializado. Pagcod: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+			return false;
+		}
+		
+		$spnombre="sel_datos_objetos_xdatoid";
+		$spparam=array("pdatoid"=>$this->datoid);
+	
+		if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas==0)
+		{
+			$this->msg_error.="DatoID error. DatoID: ".$this->datoid."<br>";
+			return false;
+		}
+
+		if($this->comentarios)
+			$salida.="<!-- DatoID: ".$this->datoid." -->\n";
+
+		while($filadato=mysqli_fetch_assoc($query))
+		{
+			$salida.=$filadato["textoanterior"];
+		
+			$comando=array();
+			$comando["pagcod"]=(isset($_GET["pagina"])?$_GET["pagina"]:"0");
+			$comando["plantcod"]=0;
+			$comando["Nombre"]=$filadato["datoid"]." / ".$filadato["ordenobjeto"];
+			$comando["datoid"]=$filadato["datoid"];
+			$comando["ordenobjeto"]=$filadato["ordenobjeto"];
+			
+			$componente=new cObjetos($this->conexionobjeto,$this->comentarios);
+			if($componente->Setear($comando))
+			{
+				if(!$componente->Mostrar($salida))
+					$seprodujoerror=true;
+			}
+			else
+				$seprodujoerror=true;
+				
+			$this->msg_error.=$componente->RetornarMsgError();
+			
+			$salida.=$filadato["textoposterior"];
+		}
+		
+		if($this->comentarios)
+			$salida.="<!-- /DatoID: ".$this->datoid." -->\n";
+		
+		return !$seprodujoerror;
+	}
+
+	function RetornarMsgError()
+	{
+		return $this->msg_error;
+	}
+
+} // Fin clase cDatosObjetos
+
+//----------------------------------------------------------------------------------------- 
+class cDatosNoticias
+{
+	var $conexionobjeto;
+	var $msg_error;
+	var $comentarios;
+	var $parametros;
+	
+	var $datoid;
+
+	function cDatosNoticias($conexion,$comentarios=false)
+	{
+		$this->conexionobjeto = &$conexion;
+		$this->msg_error="";
+		$this->comentarios=$comentarios;
+	}
+	
+	function Setear($parametros)
+	{
+		$this->parametros=$parametros;
+		
+		return true;
+	}
+
+	function Mostrar(&$salida)
+	{
+		$seprodujoerror=false;
+
+		$spnombre="sel_paginas_datos_xdatoid";
+		$spparam=array("pdatoid"=>$this->parametros["datoid"]);
+	
+		if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)
+		{
+			$this->msg_error.="DatosID no encontrado (".__LINE__."). DatoID: ".$this->parametros["datoid"]."<br>";	
+			return false;
+		}
+		$fila=mysqli_fetch_assoc($query);
+
+		if(!is_null($fila["pagoriginal"]))
+		{
+
+			$spnombre="sel_paginas_datos_xpagcod_plantzonacod_secuencia_libestruccod_libzonacod_fila";
+			$spparam=array("ppagcod"=>$fila["pagoriginal"],"pplantzonacod"=>$fila["plantzonacod"],"psecuencia"=>$fila["secuencia"],"plibestruccod"=>$fila["libestruccod"],"plibzonacod"=>$fila["libzonacod"],"pfila"=>$fila["fila"]);
+		
+			if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas>1)		
+			{
+				$this->msg_error.="DatosID no encontrado (".__LINE__."). DatoID: ".$this->parametros["datoid"]."<br>";	
+				return false;
+			}
+
+			if($numfilas!=1)
+				return true;
+			
+			$fila=mysqli_fetch_assoc($query);
+
+			$this->parametros["datoid"]=$fila["datoid"];
+		}
+
+		$salida.="$$"."Tipo='cDatosNoticiasDin' Nombre='cDatosNoticias' DatoID='".$this->parametros["datoid"]."'"."$$";
+
+		return !$seprodujoerror;
+	}
+	
+	function RetornarMsgError()
+	{
+		return $this->msg_error;
+	}
+	
+}
+
+//----------------------------------------------------------------------------------------- 
+class cVisualizaContenido
+{
+	var $conexionobjeto;
+	var $msg_error;
+	var $comentarios;
+	
+	var $contcod;
+	var $visualizcod;
+	var $libestrucvencecont;
+	var $parametros;
+
+	function cVisualizaContenido($conexion,$comentarios=false)
+	{
+		$this->conexionobjeto = &$conexion;
+		$this->msg_error="";
+		$this->comentarios=$comentarios;
+	}
+	
+	function Setear($parametros)
+	{
+		$this->contcod=$parametros["contcod"];
+		$this->visualizcod=$parametros["visualizcod"];
+		$this->parametros=$parametros["parametros"];
+		$this->libestrucvencecont=$parametros["libestrucvencecont"];
+
+		return true;
+	}
+	
+	function Mostrar(&$salida)
+	{
+		$seprodujoerror=false;
+		
+		if($this->visualizcod==0 || $this->contcod==0)
+		{
+			$this->msg_error.="Contcod/Visualizcod no inicializados. Pagcod: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+			return false;
+		}
+		
+		$spnombre="sel_contenidos_xcontcod";
+		$spparam=array("pcontcod"=>$this->contcod);
+
+		if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)
+		{
+			$this->msg_error.="Contenidos error. Contcod: ".$this->contcod." / Pagina: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+			return false;
+		}
+		$filacontenido=mysqli_fetch_assoc($query);
+		
+		if($filacontenido["contcopiadoen"]!=NULL) // El contenido se está modificando
+		{
+			$spparam=array("pcontcod"=>$filacontenido["contcopiadoen"]);
+	
+			if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)
+			{
+				$this->msg_error.="Contenidos error. Contcod: ".$this->contcod." / Pagina: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+				return false;
+			}
+			$filacontenido=mysqli_fetch_assoc($query);
+		}
+		
+
+		$spnombre="sel_imagenes_ximgcod";
+		$spparam=array("pimgcod"=>$filacontenido["contimagen"]);
+
+		if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)
+		{
+			$this->msg_error.="Imagen error. Contcod: ".$this->contcod." / Pagina: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+			return false;
+		}
+		$filaimagen=mysqli_fetch_assoc($query);
+
+		// Si hay que tener en cuenta la fecha de venc y el contenido está vencido, salgo
+		if($this->libestrucvencecont=="S" && $filacontenido["contfvenc"]!="" && $filacontenido["contfvenc"]<date('Y-m-d H:i:s'))
+			return true;
+		
+		$spnombre="sel_visualizaciones_xvisualizcod";
+		$spparam=array("pvisualizcod"=>$this->visualizcod);
+	
+		if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$queryv,$numfilasv,$errno) || $numfilasv!=1)
+		{
+			$this->msg_error.="Visualizaciones error. Contcod: ".$this->visualizcod." /  Pagina: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+			return false;
+		}
+		$filavisualizacion=mysqli_fetch_assoc($queryv);
+
+		$partes=array();
+		cSepararHTML::ProcesarHTML($filavisualizacion["visualizhtml"],$partes);
+
+		if($this->comentarios)
+			$salida.="<!-- Visualiza: ".$this->visualizcod." Contcod: ".$this->contcod." -->\n";
+
+		foreach($partes as $comando)		
+		{
+			// si es un comando
+			if(is_array($comando))
+			{
+				// si tengo que mostrar el valor de un campo
+				if($comando["Tipo"]=="Campo")
+				{
+					
+					if(isset($filacontenido[$comando["Nombre"]]))
+					{
+						$conv_SGML=false;
+						if($comando["Nombre"]=="contdesccorta" || $comando["Nombre"]=="contcopete" || $comando["Nombre"]=="contdesclarga")
+							$conv_SGML=true;
+						
+						$campo=new cVisualizaCampo($this->conexionobjeto,$this->comentarios);
+						if($campo->Setear(array("ContCampo"=>$filacontenido[$comando["Nombre"]],"conv_SGML"=>$conv_SGML)))
+						{
+							if(!$campo->Mostrar($salida))
+								$seprodujoerror=true;
+						}
+						else
+							$seprodujoerror=true;
+							
+						$this->msg_error.=$campo->RetornarMsgError();
+					}
+					else
+					{
+						$this->msg_error.="Campo ".$comando["Nombre"]." no encontrado o vacio en pagina: ".$_GET["pagina"]." / Contenido: ".$this->contcod." / Visualizacion: ".$this->visualizcod."<br>";
+						$seprodujoerror=true;
+					}
+				}
+				elseif($comando["Tipo"]=="Imagen")
+				{
+					if(isset($filacontenido[$comando["Nombre"]]))
+					{
+//						$salida.=str_replace(array(" ","ó","ñ"),array("%20","%F3","%F1"),htmlentities($filaimagen["imgubic"],ENT_QUOTES)); 
+						$salida.=FuncionesPHPPortal::ConvertirStringParaURL($filaimagen["imgubic"]); 
+					}
+					else
+					{
+						$this->msg_error.="Imagen ".$comando["Nombre"]." no encontrado o vacio en pagina: ".$_GET["pagina"]." / Contenido: ".$this->contcod." / Visualizacion: ".$this->visualizcod."<br>";
+						$seprodujoerror=true;
+					}
+				}
+				elseif($comando["Tipo"]=="cLinks")
+				{
+					$componente=new cLinks($this->conexionobjeto,$this->comentarios);
+					if($componente->Setear(array("contcod"=>$filacontenido["contcod"])))
+					{
+						if(!$componente->Mostrar($salida))
+							$seprodujoerror=true;
+					}
+					else
+						$seprodujoerror=true;
+					
+					$this->msg_error.=$componente->RetornarMsgError();
+					
+				}
+				elseif($comando["Tipo"]=="Parametro")
+				{
+					$paramvisualiz=array();
+					
+					if($this->parametros!="" && !is_null($this->parametros))
+					{			
+						if(!cSepararHTML::ProcesarParametros($this->parametros,$paramvisualiz))
+						{
+							$this->msg_error.="Error en los parámetros de una visualizacion. Contcod: ".$this->contcod." / Visualizcod: ".$this->visualizcod."<br>";
+							$seprodujoerror=true;
+						}
+					}
+
+					// Si el valor está seteado, imprimo ese, sino, imprimo el valor por default
+					if(isset($paramvisualiz[$comando["Nombre"]]))
+						$salida.=$paramvisualiz[$comando["Nombre"]]; 
+					else
+					{
+						if(isset($comando["Default"]))
+							$salida.=$comando["Default"]; 
+					}
+				}
+				else
+				{					
+					$this->msg_error.="Clase ".$comando["Tipo"]." no soportada en pagina: ".$_GET["pagina"]." / Contenido: ".$this->contcod." / Visualizacion: ".$this->visualizcod."<br>";
+					$seprodujoerror=true;
+				}
+			}
+			else
+				$salida.=$comando;
+		}
+
+		if($this->comentarios)
+			$salida.="<!-- /Visualiza: ".$this->visualizcod." Contcod: ".$this->contcod." -->\n";
+		
+		return !$seprodujoerror;
+	}
+
+	function RetornarMsgError()
+	{
+		return $this->msg_error;
+	}
+
+} // Fin clase cVisualizaContenido
+
+//----------------------------------------------------------------------------------------- 
+class cVisualizaNoticia
+{
+	var $conexionobjeto;
+	var $msg_error;
+	var $comentarios;
+	
+	var $pagcod;
+	var $notcod;
+	var $visualizcod;
+	var $parametros;
+	var $datoid;
+	var $ordennoticia;
+	var $modifnotic;
+
+	function cVisualizaNoticia($conexion,$comentarios=false)
+	{
+		$this->conexionobjeto = &$conexion;
+		$this->msg_error="";
+		$this->comentarios=$comentarios;
+	}
+	
+	function Setear($parametros)
+	{
+		$this->pagcod=$parametros["pagcod"];
+		$this->notcod=$parametros["notcod"];
+		$this->visualizcod=$parametros["visualizcod"];
+		$this->parametros=$parametros["parametros"];
+		$this->datoid=$parametros["datoid"];
+		$this->ordennoticia=$parametros["ordennoticia"];
+		$this->modifnotic=$parametros["modifnotic"];
+
+		return true;
+	}
+	
+	function Mostrar(&$salida,&$noticias_mostradas)
+	{
+		$seprodujoerror=false;
+		
+		if($this->visualizcod==0 || $this->notcod==0)
+		{
+			$this->msg_error.="Notcod/Visualizcod no inicializados. Pagcod: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+			return false;
+		}
+		
+		$spnombre="sel_noticias_xnotcod";
+		$spparam=array("pnotcod"=>$this->notcod);
+
+		if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)
+		{
+			$this->msg_error.="Noticias error. Notcod: ".$this->notcod." / Pagina: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+			return false;
+		}
+		$filanoticia=mysqli_fetch_assoc($query);
+
+		// Si la noticia está vencida, salgo
+		if($filanoticia["notfvenc"]!="" && $filanoticia["notfvenc"]<=date('Y-m-d H:i:s'))
+			return true;
+
+		if($this->modifnotic=="S" && $filanoticia["notestado"]!=NOTAPROB)
+			return true;
+
+		if($this->modifnotic!="S")
+		{
+			if($filanoticia["notcopiadoen"]!=NULL) // El contenido se está modificando
+			{
+				$spparam=array("pnotcod"=>$filanoticia["notcopiadoen"]);
+		
+				if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)
+				{
+					$this->msg_error.="Noticias error. Notcod: ".$this->notcod." / Pagina: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+					return false;
+				}
+				$filanoticia=mysqli_fetch_assoc($query);
+			}
+		}
+		
+		if(!is_null($filanoticia["imgcod"]))
+		{
+			$spnombre="sel_noticias_imagenes_ximgcod";
+			$spparam=array("pimgcod"=>$filanoticia["imgcod"]);
+	
+			if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)
+			{
+				$this->msg_error.="Imagen error. Notcod: ".$this->notcod." / Pagina: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+				return false;
+			}
+			$filaimagen=mysqli_fetch_assoc($query);
+		}
+
+		$spnombre="sel_noticias_visualizaciones_xvisualizcod";
+		$spparam=array("pvisualizcod"=>$this->visualizcod);
+	
+		if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$queryv,$numfilasv,$errno) || $numfilasv!=1)
+		{
+			$this->msg_error.="Visualizaciones error. Visualizcod: ".$this->visualizcod." /  Pagina: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+			return false;
+		}
+		$filavisualizacion=mysqli_fetch_assoc($queryv);
+
+		$partes=array();
+		cSepararHTML::ProcesarHTML($filavisualizacion["visualizhtml"],$partes);
+
+		if($this->comentarios)
+			$salida.="<!-- Visualiza: ".$this->visualizcod." Noticia: ".$this->notcod." -->\n";
+
+		foreach($partes as $comando)		
+		{
+			// si es un comando
+			if(is_array($comando))
+			{
+				// si tengo que mostrar el valor de un campo
+				if($comando["Tipo"]=="Campo")
+				{
+					
+					if(isset($filanoticia[$comando["Nombre"]]))
+					{
+						$conv_SGML=false;
+						if($comando["Nombre"]=="contdesccorta" || $comando["Nombre"]=="contcopete" || $comando["Nombre"]=="contdesclarga")
+							$conv_SGML=true;
+						
+						$campo=new cVisualizaCampo($this->conexionobjeto,$this->comentarios);
+						if($campo->Setear(array("ContCampo"=>$filanoticia[$comando["Nombre"]],"conv_SGML"=>$conv_SGML)))
+						{
+							if(!$campo->Mostrar($salida))
+								$seprodujoerror=true;
+						}
+						else
+							$seprodujoerror=true;
+							
+						$this->msg_error.=$campo->RetornarMsgError();
+					}
+					else
+					{
+						$this->msg_error.="Campo ".$comando["Nombre"]." no encontrado o vacio en pagina: ".$_GET["pagina"]." / Contenido: ".$this->contcod." / Visualizacion: ".$this->visualizcod."<br>";
+						$seprodujoerror=true;
+					}
+				}
+				elseif($comando["Tipo"]=="Imagen")
+				{
+					if(isset($filanoticia[$comando["Nombre"]]))
+					{
+//						$salida.=FuncionesPHPPortal::ConvertirStringParaURL(htmlentities($filaimagen["imgubic"],ENT_QUOTES)); 
+						$salida.=FuncionesPHPPortal::ConvertirStringParaURL($filaimagen["imgubic"]); 
+					}
+					else
+					{
+						$this->msg_error.="Imagen ".$comando["Nombre"]." no encontrado o vacio en pagina: ".$_GET["pagina"]." / Contenido: ".$this->contcod." / Visualizacion: ".$this->visualizcod."<br>";
+						$seprodujoerror=true;
+					}
+				}
+				elseif($comando["Tipo"]=="NoticiaAmpliada")
+				{
+					$salida.="&middot; <a href=\"paginas.dhtml?pagina=".$this->pagcod."&amp;datoid=".$this->datoid."&amp;ordennoticia=".$this->ordennoticia."\" target=\"_self\">Más información</a>";
+				
+				}
+				elseif($comando["Tipo"]=="Parametro")
+				{
+					$paramvisualiz=array();
+					
+					if($this->parametros!="" && !is_null($this->parametros))
+					{			
+						if(!cSepararHTML::ProcesarParametros($this->parametros,$paramvisualiz))
+						{
+							$this->msg_error.="Error en los parámetros de una visualizacion. Notcod: ".$this->notcod." / Visualizcod: ".$this->visualizcod."<br>";
+							$seprodujoerror=true;
+						}
+					}
+
+					// Si el valor está seteado, imprimo ese, sino, imprimo el valor por default
+					if(isset($paramvisualiz[$comando["Nombre"]]))
+						$salida.=$paramvisualiz[$comando["Nombre"]]; 
+					else
+					{
+						if(isset($comando["Default"]))
+							$salida.=$comando["Default"]; 
+					}
+				}
+				else
+				{					
+					$this->msg_error.="Clase ".$comando["Tipo"]." no soportada en pagina: ".$_GET["pagina"]." / Noticia: ".$this->notcod." / Visualizacion: ".$this->visualizcod."<br>";
+					$seprodujoerror=true;
+				}
+			}
+			else
+				$salida.=$comando;
+		}
+
+		if($this->comentarios)
+			$salida.="<!-- /Visualiza: ".$this->visualizcod." Noticia: ".$this->notcod." -->\n";
+		
+		$noticias_mostradas++;
+		return !$seprodujoerror;
+	}
+
+	function RetornarMsgError()
+	{
+		return $this->msg_error;
+	}
+
+} // Fin clase cVisualizaContenido
+
+
+
+//----------------------------------------------------------------------------------------- 
+class cVisualizaCampo
+{
+	var $conexionobjeto;
+	var $msg_error;
+	var $comentarios;
+	
+	var $ContCampo="";
+	var $conv_SGML=false;
+
+	var $CONV_SGML_IN=array("“","”","–","-","’","•","…","€");
+	var $CONV_SGML_OUT=array("&#8220;","&#8221;","&ndash;","&ndash;","&rsquo;","&bull;","&hellip;","&euro;");
+
+	function cVisualizaCampo($conexion,$comentarios=false)
+	{
+		$this->conexionobjeto = &$conexion;
+		$this->msg_error="";
+		$this->comentarios=$comentarios;
+	}
+	
+	function Setear($parametros)
+	{
+		$this->ContCampo=$parametros["ContCampo"];
+		$this->conv_SGML=$parametros["conv_SGML"];
+
+		return true;
+	}
+	
+	function Mostrar(&$salida)
+	{
+		$seprodujoerror=false;
+		
+		$partes=array();
+		cSepararHTML::ProcesarHTML($this->ContCampo,$partes);
+
+		foreach($partes as $comando)		
+		{
+			// si es un comando
+			if(is_array($comando))
+			{
+				if($comando["Tipo"]=="Link")
+				{
+					$salida.="<a href='".$comando["URL"]."' target='_blank'>";
+
+					$texto=htmlentities($comando["Texto"],ENT_QUOTES);
+					$texto=str_replace($this->CONV_SGML_IN,$this->CONV_SGML_OUT,$texto); 
+					
+					$salida.=$texto;
+					$salida.="</a>";
+				}
+				elseif($comando["Tipo"]=="Bold")
+					$salida.="<strong>";
+				elseif($comando["Tipo"]=="BoldFin")
+					$salida.="</strong>";
+				elseif($comando["Tipo"]=="Italic")
+					$salida.="<em>";
+				elseif($comando["Tipo"]=="ItalicFin")
+					$salida.="</em>";
+				elseif($comando["Tipo"]=="Underline")
+					$salida.="<u>";
+				elseif($comando["Tipo"]=="UnderlineFin")
+					$salida.="</u>";
+				elseif($comando["Tipo"]=="Bullet")
+					$salida.="&nbsp;&nbsp;&nbsp;&#8226; ";
+				elseif($comando["Tipo"]=="ImagenLinkExterno")
+					$salida.="<img src=\"/argentina/portal/img/ico_link_externo.gif\" width=\"10\" height=\"8\" alt=\"\" /> ";
+				else
+				{					
+					$this->msg_error.="Clase ".$comando["Tipo"]." no soportada en pagina: ".$_GET["pagina"]."<br>";
+					$seprodujoerror=true;
+				}
+			}
+			else
+			{
+				$comando=nl2br(htmlentities($comando,ENT_QUOTES));
+				if($this->conv_SGML)
+					$comando=str_replace($this->CONV_SGML_IN,$this->CONV_SGML_OUT,$comando); 
+								
+				$salida.=$comando; 
+			}
+		}
+
+		return !$seprodujoerror;
+	}
+
+	function RetornarMsgError()
+	{
+		return $this->msg_error;
+	}
+
+} // Fin clase cVisualizaCampo
+
+//----------------------------------------------------------------------------------------- 
+class cLinks
+{
+	var $conexionobjeto;
+	var $msg_error;
+	var $comentarios;
+
+	var $contcod;
+
+	function cLinks($conexion,$comentarios=false)
+	{
+		$this->conexionobjeto = &$conexion;
+		$this->msg_error="";
+		$this->comentarios=$comentarios;
+	}
+	
+	function Setear($parametros)
+	{
+		$this->contcod=$parametros["contcod"];
+
+		return true;
+	}
+	
+	function Mostrar(&$salida)
+	{
+		if($this->contcod==0)
+		{
+			$this->msg_error.="Contcod no inicializado. Pagcod: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+			return false;
+		}
+		
+		$spnombre="sel_cont_link_orden";
+		$spparam=array("pcontcod"=>$this->contcod,"porderby"=>"contlinkcod");
+
+		if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno))
+		{
+			$this->msg_error.="ContenidosLinks error. Contcod: ".$this->contcod." / Pagina: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+			return false;
+		}
+		
+		while($filacontlink=mysqli_fetch_assoc($query))
+		{
+			$salida.="<br /><a href='".$filacontlink["contlink"]."'>".$filacontlink["contlinktexto"]."</a>";
+		}
+		
+		return true;
+	}
+
+	function RetornarMsgError()
+	{
+		return $this->msg_error;
+	}
+
+} // Fin clase cLinks
+
+//----------------------------------------------------------------------------------------- 
+class cObjetos
+{
+	var $conexionobjeto;
+	var $msg_error;
+	var $comentarios;
+
+	var $dinamico=false;
+	
+	var $pagcod;
+	var $plantcod;
+	var $objetocod;
+	var $parametros;
+
+	function cObjetos($conexion,$comentarios=false)
+	{
+		$this->conexionobjeto = &$conexion;
+		$this->msg_error="";
+		$this->comentarios=$comentarios;
+	}
+	
+	function Setear($parametros)
+	{
+		$this->pagcod=$parametros["pagcod"];
+		$this->plantcod=$parametros["plantcod"];
+		
+		// si está seteado datoid, entonces estoy en un dato
+		if(isset($parametros["datoid"]))
+		{
+			$spnombre="sel_datos_objetos_xdatoid_ordenobjeto";
+			$spparam=array("pdatoid"=>$parametros["datoid"],"pordenobjeto"=>$parametros["ordenobjeto"]);
+		}
+		// si está seteado libcod, entonces estoy en una libreria
+		elseif(isset($parametros["libcod"]))
+		{
+			$spnombre="sel_paginas_librerias_objetos_xpagcod_plantzonacod_secuencia_nombreobjeto";
+			$spparam=array("ppagcod"=>$this->pagcod,"pplantzonacod"=>$parametros["plantzonacod"],"psecuencia"=>$parametros["secuencia"],"pnombreobjeto"=>$parametros["Nombre"]);
+		}
+		else
+		{ // el objeto está a nivel plantilla
+			$spnombre="sel_paginas_objetos_xpagcod_nombreobjeto";
+			$spparam=array("ppagcod"=>$this->pagcod,"pnombreobjeto"=>$parametros["Nombre"]);
+		}
+		
+		if($this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) && $numfilas==1)
+		{
+			$filaobjeto=mysqli_fetch_assoc($query);
+			
+			$this->objetocod=$filaobjeto["objetocod"];
+			if($filaobjeto["parametros"]!="" && !is_null($filaobjeto["parametros"]))
+			{			
+				if(!cSepararHTML::ProcesarParametros($filaobjeto["parametros"],$this->parametros))
+				{
+					$this->msg_error.="Error en los parámetros de un objeto. Pagina: ".$parametros["pagcod"]." - Objeto: ".$parametros["Nombre"]."<br>";
+					return false;
+				}
+			}
+		} // Fin de encontró el objeto
+		else
+		{
+			$this->msg_error.="Objeto No Encontrado. Pagina: ".$parametros["pagcod"]." - Objeto: ".$parametros["Nombre"]."<br>";
+			return false;
+		}		
+		
+		if(isset($parametros["Dinamico"]) && $parametros["Dinamico"]=="S")
+			$this->dinamico=true;
+			
+
+		return true;
+	}
+	
+	function Mostrar(&$salida)
+	{
+		$seprodujoerror=false;
+		
+		if($this->objetocod==0)
+		{
+			$this->msg_error.="Objeto No Encontrado. Pagina: ".$parametros["pagcod"]." - Objeto: ".$parametros["Nombre"]."<br>";
+			return false;
+		}
+		
+		$spnombre="sel_objetos_xobjetocod";
+		$spparam=array("pobjetocod"=>$this->objetocod);
+	
+		if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)
+		{
+			$this->msg_error.="Objeto No Encontrado. Pagina: ".$this->pagcod." - Objeto: ".$this->objetocod."<br>";
+			return false;
+		}
+		
+		$filaobjeto=mysqli_fetch_assoc($query);
+
+		if($this->comentarios)
+			$salida.="<!-- Objeto: ".$this->objetocod." -->\n";
+		
+		if($this->dinamico)
+		{
+			$salida.=$filaobjeto["objetohtml"];
+		}
+		else
+		{
+			$partes=array();
+			cSepararHTML::ProcesarHTML($filaobjeto["objetohtml"],$partes);
+	
+			foreach($partes as $comando)		
+			{
+				// si es un comando
+				if(is_array($comando))
+				{
+					if($comando["Tipo"]=="Parametro")
+					{
+						if(isset($this->parametros[$comando["Nombre"]]))
+							$salida.=$this->parametros[$comando["Nombre"]]; 
+						else
+							if(isset($comando["Default"]))
+								$salida.=$comando["Default"]; 
+					}
+					elseif(!class_exists($comando["Tipo"]))
+					{					
+						$this->msg_error.="Clase ".$comando["Tipo"]." no encontrada en página: ".$this->pagcod." / Objeto: ".$this->objetocod."<br>";
+						$seprodujoerror=true;
+					}
+					else
+					{
+						$componente=new $comando["Tipo"]($this->conexionobjeto,$this->comentarios);
+						if($componente->Setear($comando))
+						{
+							if(!$componente->Mostrar($salida))
+								$seprodujoerror=true;
+						}
+						else
+							$seprodujoerror=true;
+					}
+				}
+				else
+					$salida.=$comando;
+			}
+		}
+
+		if($this->comentarios)
+			$salida.="<!-- /Objeto: ".$this->objetocod." -->\n";
+
+		return !$seprodujoerror;
+	}
+
+	function RetornarMsgError()
+	{
+		return $this->msg_error;
+	}
+	
+}
+
+class cMostrarNoticiaAmpliadaDin
+{
+	var $conexionobjeto;
+	var $msg_error;
+	var $comentarios;
+	
+	var $pagcod;
+	var $noticampliada=false;
+	var $modifnotic;
+
+	function cMostrarNoticiaAmpliadaDin($conexion,$comentarios=false)
+	{
+		$this->conexionobjeto = &$conexion;
+		$this->msg_error="";
+		$this->comentarios=$comentarios;
+	}
+	
+	function Setear($parametros)
+	{	
+		$this->pagcod=$parametros["pagcod"];
+		$this->noticampliada=$parametros["noticampliada"];
+		$this->modifnotic=$parametros["modifnotic"];
+				
+		return true;	
+	}
+	
+	function Mostrar(&$salida)
+	{
+		$seprodujoerror=false;
+		$noticias_mostradas=0;
+		
+		if(is_array($this->noticampliada))
+		{
+			$spnombre="sel_datos_noticias_xdatoid_ordennoticia";
+			$spparam=array("pdatoid"=>$this->noticampliada["datoid"],"pordennoticia"=>$this->noticampliada["ordennoticia"],"poriginal"=>$this->modifnotic);
+	
+			if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)
+			{
+				$this->msg_error.="DatoID error. DatoID: ".$this->noticampliada["datoid"]."<br>";
+				return false;
+			}
+			$fila=mysqli_fetch_assoc($query);
+
+			$comando=array();
+			$comando["pagcod"]=$this->pagcod;
+			$comando["notcod"]=$fila["notcod"];
+			$comando["visualizcod"]=$fila["visualiznotampcod"];
+			$comando["parametros"]="";
+			$comando["datoid"]="";
+			$comando["ordennoticia"]="";
+			$comando["modifnotic"]=$this->modifnotic;
+
+			$componente=new cVisualizaNoticia($this->conexionobjeto,$this->comentarios);
+			if($componente->Setear($comando))
+			{
+				if(!$componente->Mostrar($salida,$noticias_mostradas))
+					$seprodujoerror=true;
+			}
+			else
+				$seprodujoerror=true;
+
+			$this->msg_error.=$componente->RetornarMsgError();
+		}
+		
+		return !$seprodujoerror;
+	}
+
+	function RetornarMsgError()
+	{
+		return $this->msg_error;
+	}
+
+}
+
+
+//----------------------------------------------------------------------------------------- 
+class cPaginaEstatica
+{
+	var $conexionobjeto;
+	var $msg_error;
+	var $comentarios;
+	
+	var $pagina;
+
+	function cPaginaEstatica($conexion,$comentarios=false)
+	{
+		$this->conexionobjeto = &$conexion;
+		$this->msg_error="";
+		$this->comentarios=$comentarios;
+	}
+	
+	function Setear($parametros)
+	{
+		$this->pagina=DIR_PAGESTATICA.$parametros["Pagina"];
+
+		return true;
+	}
+	
+	function Mostrar(&$salida)
+	{
+		$seprodujoerror=false;
+		$contenido="";
+
+		if($this->comentarios)
+			$salida.="<!-- Pagina Estatica: ".$this->pagina." -->\n";
+
+		if(!is_readable($this->pagina))
+		{
+			$this->msg_error.="Archivo ".$this->pagina." no se puede leer.<br>";
+			$seprodujoerror=true;
+		}
+
+		if (!$seprodujoerror && !$contenido=file_get_contents($this->pagina))
+		{
+			$this->msg_error.="Error al obtener el contenido del archivo ".$this->pagina."<br>";
+			$seprodujoerror=true;
+		}
+		
+		$salida.=$contenido;
+
+		if($this->comentarios)
+			$salida.="<!-- /Pagina Estatica: ".$this->pagina." -->\n";
+		
+		return !$seprodujoerror;
+	}
+
+	function RetornarMsgError()
+	{
+		return $this->msg_error;
+	}
+		
+}
+
+
+//----------------------------------------------------------------------------------------- 
+class cRuta
+{
+	var $conexionobjeto;
+	var $msg_error;
+	var $comentarios;
+	
+	var $pagcod;
+	var $con_link=true;
+	var $idioma="ESP";
+
+	function cRuta($conexion,$comentarios=false)
+	{
+		$this->conexionobjeto = &$conexion;
+		$this->msg_error="";
+		$this->comentarios=$comentarios;
+	}
+	
+	function Setear($parametros)
+	{
+		$this->pagcod=$parametros["pagcod"];
+		if(isset($parametros["con_link"]))
+			$this->con_link=$parametros["con_link"];
+		if(isset($parametros["Idioma"]))
+			$this->idioma=$parametros["Idioma"];
+
+		return true;
+	}
+	
+	function Mostrar(&$salida)
+	{
+		$seprodujoerror=false;
+		$ruta=array();
+
+		if(!$this->_ObtenerRuta($this->pagcod,0,$ruta))
+			return false;
+
+		array_pop($ruta);
+
+		$rutastr=implode(" / ",$ruta);
+		
+		$salida.=$rutastr;
+		
+		return !$seprodujoerror;
+	}
+
+	function RetornarMsgError()
+	{
+		return $this->msg_error;
+	}
+	
+	function _ObtenerRuta($pagcod,$orden,&$ruta)
+	{
+		if(is_null($pagcod) || $pagcod=="")
+			return true;
+
+		if($orden>10)
+		{
+			$this->msg_error.="La ruta excede el limite. Pagcod: ".$this->pagcod."<br>";
+			return false;
+		}	
+
+		$spnombre="sel_paginas_xpagcod";
+		$spparam=array("ppagcod"=>$pagcod);
+	
+		if($this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) && $numfilas==1)
+		{
+			$filapagina=mysqli_fetch_assoc($query);
+
+			if(!$this->_ObtenerRuta($filapagina["pagsuperior"],$orden+1,$ruta))
+				return false;
+
+			if($orden==0 || !$this->con_link)
+				$ruta[]=$filapagina["pagnomarbol"];
+			else
+			{
+				if($filapagina["pagnomarbol"]=="Principal" && $this->idioma=="ING")
+					$filapagina["pagnomarbol"]="Home";
+					
+				$ruta[]="<a href='paginas.dhtml?pagina=".$pagcod."'>".$filapagina["pagnomarbol"]."</a>";
+			}
+			
+		} // Fin de encontró la pagina
+		else
+		{
+			$this->msg_error.="El código de página es inexistente o contiene un error. Pagina: ".$this->pagcod."<br>";
+			return false;
+		}	
+		
+		return true;	
+	
+	}
+	
+}
+
+//----------------------------------------------------------------------------------------- 
+class cCodPagina
+{
+	var $conexionobjeto;
+	var $msg_error;
+	var $comentarios;
+	
+	var $pagcod;
+
+	function cCodPagina($conexion,$comentarios=false)
+	{
+		$this->conexionobjeto = &$conexion;
+		$this->msg_error="";
+		$this->comentarios=$comentarios;
+	}
+	
+	function Setear($parametros)
+	{
+		$this->pagcod=$parametros["pagcod"];
+
+		return true;
+	}
+	
+	function Mostrar(&$salida)
+	{		
+		$seprodujoerror=false;
+
+		$salida.=$this->pagcod;
+		
+		return !$seprodujoerror;
+	}
+
+	function RetornarMsgError()
+	{
+		return $this->msg_error;
+	}
+		
+}
+
+
+//----------------------------------------------------------------------------------------- 
+class cCodigoHTML
+{
+	var $conexionobjeto;
+	var $msg_error;
+	var $comentarios;
+	
+	var $chtmlcod;
+
+	function cCodigoHTML($conexion,$comentarios=false)
+	{
+		$this->conexionobjeto = &$conexion;
+		$this->msg_error="";
+		$this->comentarios=$comentarios;
+	}
+	
+	function Setear($parametros)
+	{
+		$this->chtmlcod=$parametros["Nombre"];
+
+		return true;
+	}
+	
+	function Mostrar(&$salida)
+	{
+		if($this->chtmlcod==0)
+		{
+			$this->msg_error.="chtmlcod no inicializado. Pagcod: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+			return false;
+		}
+		
+		$spnombre="sel_codigohtml_xchtmlcod";
+		$spparam=array("pchtmlcod"=>$this->chtmlcod);
+
+		if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)
+		{
+			$this->msg_error.="CodigoHTML error. chtmlcod: ".$this->chtmlcod." / Pagina: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+			return false;
+		}
+		
+		$filacodigohtml=mysqli_fetch_assoc($query);
+
+		if($this->comentarios)
+			$salida.="<!-- CodigoHTML: ".$this->chtmlcod." -->\n";
+
+		$salida.=$filacodigohtml["chtmlhtml"];
+
+		if($this->comentarios)
+			$salida.="<!-- /CodigoHTML: ".$this->chtmlcod." -->\n";
+		
+		return true;
+	}
+
+	function RetornarMsgError()
+	{
+		return $this->msg_error;
+	}
+
+} // Fin clase cCodigoHTML
+
+// Fin de Clases
+
+?>

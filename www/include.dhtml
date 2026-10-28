@@ -1,0 +1,162 @@
+<?php
+// magic_quotes_gpc was On and this app never calls stripslashes.
+// Put that slash back on the request once, before password md5() and before
+// SQL is concatenated. mysqli_real_escape_string then stores the same extra
+// slash production stored. Rows read from MySQL are not in these arrays.
+if (!function_exists('sai_apply_magic_quotes_gpc')) {
+    function sai_apply_magic_quotes_gpc($value)
+    {
+        if (is_array($value)) {
+            foreach ($value as $key => $item) {
+                $value[$key] = sai_apply_magic_quotes_gpc($item);
+            }
+            return $value;
+        }
+        if (is_string($value)) {
+            return addslashes($value);
+        }
+        return $value;
+    }
+}
+if (!defined('SAI_MAGIC_QUOTES_GPC')) {
+    define('SAI_MAGIC_QUOTES_GPC', true);
+    if (!function_exists('get_magic_quotes_gpc') || !get_magic_quotes_gpc()) {
+        $_GET = sai_apply_magic_quotes_gpc($_GET);
+        $_POST = sai_apply_magic_quotes_gpc($_POST);
+        $_COOKIE = sai_apply_magic_quotes_gpc($_COOKIE);
+        $_REQUEST = sai_apply_magic_quotes_gpc($_REQUEST);
+    }
+}
+set_include_path('/var/www/sys');
+ini_set("mysql.trace_mode",0);
+ini_set("memory_limit","128M");
+
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED); 
+
+define("DOCUMENT_ROOT",$_SERVER['DOCUMENT_ROOT']);
+//define("DIR_ROOT",$_SERVER['DOCUMENT_ROOT']."/sai/"); // directorio sobre el que está corriendo el sistema
+define("DIR_ROOT",$_SERVER['DOCUMENT_ROOT']."/sai/"); // directorio sobre el que está corriendo el sistema
+define("DIR_ARCH",DOCUMENT_ROOT."/sai/");
+define("DIR_CLASES","clases/"); 
+define("DIR_BUSQUEDA",DIR_ROOT."||".DIR_ROOT.DIR_CLASES);
+define("DIR_JSComunes","js/"); 
+
+
+//define ("CARPETAORIGEN",$_SERVER['DOCUMENT_ROOT'].DIR_ROOT);
+//define("DIR_BUSQUEDA",CARPETAORIGEN."||".CARPETAORIGEN.DIR_CLASES);
+
+require_once("parametros.dhtml");
+require_once('SysONTIMensajesInternos.dhtml');
+
+require_once(DIR_CLASES."accesoBD.dhtml");
+require_once(DIR_CLASES."funcionesphp.dhtml");
+require_once(DIR_CLASES."sesion.dhtml");
+require_once(DIR_CLASES."sistema_bloqueo.dhtml");
+
+require_once("SysONTIJurisdiccionesSai.dhtml");
+require_once("SysONTIListadosTemplate.dhtml");
+require_once("SysONTIGrilla.dhtml");
+require_once("SysONTIExcel.dhtml");
+
+require_once(DIR_CLASES."cEncabezados.dhtml");
+require_once(DIR_CLASES."cEncabezados_Inscripcion.dhtml");
+require_once(DIR_CLASES."cRoles.dhtml");
+require_once(DIR_CLASES."cUsuarios.dhtml");
+require_once(DIR_CLASES."cUsuarios_Enlace_Jurisdiccion_Inap.dhtml");
+
+require_once(DIR_CLASES."cArchivosUpd.dhtml");
+require_once(DIR_CLASES."cGruposModulos.dhtml");
+require_once(DIR_CLASES."cModulos.dhtml");
+require_once(DIR_CLASES."cStored.dhtml");
+require_once(DIR_CLASES."cLogMensajes.dhtml");
+require_once(DIR_CLASES."cConstantesGrales.dhtml");
+require_once(DIR_CLASES."cModulos_Archivos.dhtml");
+require_once(DIR_CLASES."cGruposmod_Modulos.dhtml");
+require_once(DIR_CLASES."cRoles_Modulos.dhtml");
+require_once(DIR_CLASES."cRoles_Abm_Roles.dhtml");
+
+// Tablas descriptores simples.
+require_once(DIR_CLASES."cTablaSysDesc.dhtml");
+require_once(DIR_CLASES."cTablaAreaCursoInap.dhtml");
+require_once(DIR_CLASES."cTablaProgramaCursoInap.dhtml");
+
+require_once(DIR_CLASES."cTablaSede.dhtml");
+require_once(DIR_CLASES."cTablaTipoInscripcion.dhtml");
+require_once(DIR_CLASES."cTablaAgenteTipoFuncion.dhtml");
+
+require_once(DIR_CLASES."cTablaOrganismoPublico.dhtml");
+require_once(DIR_CLASES."cTablaOrganismoPrivado.dhtml");
+
+require_once(DIR_CLASES."cTablaAreaGeneral.dhtml");
+require_once(DIR_CLASES."cTablaAreaContextual.dhtml");
+require_once(DIR_CLASES."cTablaAreaEspecifica.dhtml");
+require_once(DIR_CLASES."cTablaTipoCertificacion.dhtml");
+
+require_once(DIR_CLASES."cTablaUniversidad.dhtml");
+require_once(DIR_CLASES."cTablaCarrera.dhtml");
+require_once(DIR_CLASES."cBecas.dhtml");
+
+require_once(DIR_CLASES."cPersonas.dhtml");
+require_once(DIR_CLASES."cAgentes.dhtml");
+require_once(DIR_CLASES."cEscalafones.dhtml");
+require_once(DIR_CLASES."cProvincias.dhtml");
+
+require_once(DIR_CLASES."cPrestadorDocente.dhtml");
+require_once(DIR_CLASES."cPrestadorDocenteArea.dhtml");
+require_once(DIR_CLASES."cPrestadorInstitucional.dhtml");
+
+require_once(DIR_CLASES."cPoc.dhtml");
+require_once(DIR_CLASES."cPocActividad.dhtml");
+require_once(DIR_CLASES."cPocActividadActividad.dhtml");
+require_once(DIR_CLASES."cPocActividadPocObjetivo.dhtml");
+require_once(DIR_CLASES."cPocArea.dhtml");
+require_once(DIR_CLASES."cPocObjetivo.dhtml");
+require_once(DIR_CLASES."cPocPocObjetivoPocArea.dhtml");
+require_once(DIR_CLASES."cPocTipoPrestador.dhtml");
+
+require_once(DIR_CLASES."cActividad.dhtml");
+require_once(DIR_CLASES."cActividadCurso.dhtml");
+require_once(DIR_CLASES."cActividadCursoInap.dhtml");
+require_once(DIR_CLASES."cActividadCursoJurisdiccional.dhtml");
+require_once(DIR_CLASES."cActividadCursoInstitucional.dhtml");
+require_once(DIR_CLASES."cActividadCursoPrestadorDocente.dhtml");
+require_once(DIR_CLASES."cActividadCursoInstitucionalPersona.dhtml");
+
+require_once(DIR_CLASES."cActividadAutodesarrollo.dhtml");
+require_once(DIR_CLASES."cActividadAutodesarrolloPersona.dhtml");
+
+require_once(DIR_CLASES."cActividadExterna.dhtml");
+require_once(DIR_CLASES."cActividadExternaPersona.dhtml");
+
+require_once(DIR_CLASES."cActividadEducacionFormal.dhtml");
+require_once(DIR_CLASES."cActividadEducacionFormalPersona.dhtml");
+
+require_once(DIR_CLASES."cComision.dhtml");
+require_once(DIR_CLASES."cComisionPrestadorDocente.dhtml");
+require_once(DIR_CLASES."cComisionCronograma.dhtml");
+require_once(DIR_CLASES."cComisionPersona.dhtml");
+require_once(DIR_CLASES."cComisionPersonaCandidato.dhtml");
+
+require_once(DIR_CLASES."cDictamen.dhtml");
+require_once(DIR_CLASES."cPonderadorDictamen.dhtml");
+require_once(DIR_CLASES."cExpediente.dhtml");
+require_once(DIR_CLASES."cDisposicion.dhtml");
+
+require_once(DIR_CLASES.'cDatosDocumentos.dhtml');
+
+// Los comentados hay que revisarlos porque deberian ser 1 o n personas en el 
+// formato no tabla. No estan usando por ahora un formato no tabla
+ 
+// require_once(DIR_CLASES.'cNotificacionCreditosPDF.dhtml');
+require_once(DIR_CLASES.'cNotificacionCreditosTablaPDF.dhtml');
+//require_once(DIR_CLASES.'cConstanciaCreditosPDF.dhtml');
+require_once(DIR_CLASES.'cConstanciaCreditosTablaPDF.dhtml');
+require_once(DIR_CLASES.'cConstanciaCreditosAutoTablaPDF.dhtml');
+require_once(DIR_CLASES.'cConstanciaCreditosInstitucionalTablaPDF.dhtml');
+require_once(DIR_CLASES.'cConstanciaCreditosEformalPDF.dhtml');
+
+require_once(DIR_CLASES.'cResultadoComisionPDF.dhtml');
+require_once(DIR_CLASES.'cActaPDF.dhtml');
+require_once(DIR_CLASES.'cBecaPDF.dhtml');
+require_once(DIR_CLASES.'cActividadDisenoPDF.dhtml');
+?>

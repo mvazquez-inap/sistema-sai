@@ -1,0 +1,730 @@
+<?php class cTablaAreaEspecifica {
+
+	var $conexion;
+//--------------------------------------------------------------------------------------------------
+	public function __construct($conexion)	{
+		$this->conexion = &$conexion;
+	}
+//--------------------------------------------------------------------------------------------------
+	function MostrarGrillaSeleccion($modulo,$area_contextual,$area_general) {
+
+		// Selecciono todos los relacionados
+		$spnombre='sel_area_especifica_xareacon_codigo_areagen_codigo';
+		$spparam = array('pareacon_codigo'=>$area_contextual, 
+						 'pareagen_codigo'=>$area_general, 
+						 'porderby'=>"areaesp_descripcion");
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$result,$numfilas,$errno)) {	
+			$txt_sys_mail="\nareacon_codigo=".$area_contextual."\nareagen_codigo=".$area_general;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar usuarios.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;			
+		}
+	
+		$opciones=array(
+			"numPagina"=>isset($_GET['pagina'])?$_GET['pagina']:1,
+	//		"FilasPagina"=>$numfilas,
+			"NombrePaginaQuery"=>"pagina",
+			"FilasPagina"=>10
+		);
+		
+		if (isset($_GET['pagina']))	{
+			$querystring=FuncionesPHPLocal::ArmarQueryString("pagina","",false);	
+			$opciones['QueryString']=$querystring;
+		}
+		
+		$oGrilla = new cGrilla($opciones);
+	
+		// $oGrilla->SetearTituloGrilla("Areas Específicas dentro del área contextual y general");
+		
+		$oGrilla->SetearAnchoGrilla('90%');
+		
+		$miColumna1 = $oGrilla->AddColumna('txt');
+		$oGrilla->Setear('titulo_columna',$miColumna1,"Area Específica");
+		$oGrilla->Setear('campo_grilla',$miColumna1,"areaesp_descripcion");
+		$oGrilla->Setear('align_columna',$miColumna1,'left');
+	
+		$miColumna2 = $oGrilla->AddColumna('linkimg');
+		$oGrilla->Setear('titulo_columna',$miColumna2,'Editar');
+		$oGrilla->Setear('ancho_columna',$miColumna2,'60');
+		$oGrilla->Setear('url',$miColumna2,$modulo);
+		$oGrilla->Setear('imagen',$miColumna2,'images/editar.jpg');
+		$oGrilla->Setear('altImagen',$miColumna2,'Editar');					
+		$oGrilla->AddParametrosURL($miColumna2,"areacon_codigo","areacon_codigo");
+		$oGrilla->AddParametrosURL($miColumna2,"areagen_codigo","areagen_codigo");
+		$oGrilla->AddParametrosURL($miColumna2,"areaesp_codigo","areaesp_codigo");
+		$oGrilla->AddParametrosURL($miColumna2,"operacion","M","cte");
+	
+		$miColumna3 = $oGrilla->AddColumna('linkimg');
+		$oGrilla->Setear('titulo_columna',$miColumna3,'Eliminar');
+		$oGrilla->Setear('ancho_columna',$miColumna3,'60');
+		$oGrilla->Setear('url',$miColumna3,$modulo);
+		$oGrilla->Setear('imagen',$miColumna3,'images/borrar.jpg');
+		$oGrilla->Setear('altImagen',$miColumna3,'Eliminar');
+		$oGrilla->AddParametrosURL($miColumna3,"areacon_codigo","areacon_codigo");
+		$oGrilla->AddParametrosURL($miColumna3,"areagen_codigo","areagen_codigo");
+		$oGrilla->AddParametrosURL($miColumna3,"areaesp_codigo","areaesp_codigo");
+		$oGrilla->AddParametrosURL($miColumna3,"operacion","B","cte");
+	
+		if (!$oGrilla->CargarGrilla($result))
+			return false;
+			
+		$oGrilla->MostrarGrilla();
+	
+		return true;
+	}
+	
+//--------------------------------------------------------------------------------------------------
+	function ValidarFormSysTabla() {
+	?>
+ 	function ValidarFormSysTabla(formulario,operacion) {
+	
+			if (formulario.areacon_codigo.value=="")	{
+				alert("Debe ingresar el área contextual");
+				formulario.areacon_codigo.focus();
+				return false;
+			}
+			if (formulario.areagen_codigo.value=="")	{
+				alert("Debe ingresar el área general");
+				formulario.areagen_codigo.focus();
+				return false;
+			}			
+
+			if (operacion=="I"  || operacion=="M") { 		
+				if (formulario.areaesp_descripcion.value=="")	{
+					alert("Debe ingresar la descripción");
+					formulario.areaesp_descripcion.focus();
+					return false;
+				}
+			}		
+			return true;
+		}
+	<?php } 
+//---------------------------------------------------------------	
+	function AltaSysTabla($datos)	{
+
+		if(!$this->_DatosValidosAlta($datos,$datosvalidados))
+			return false;
+
+		$spnombre="sel_area_especifica_max_areaesp_codigo";
+		$spparam=array(	'pareacon_codigo'=>$datosvalidados['areacon_codigo'],
+						'pareagen_codigo'=>$datosvalidados['areagen_codigo']);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$result,$numfilas,$errorcod))	{
+			$txt_sys_mail="\nareacon_codigo=".$datosvalidados['areacon_codigo']."\nareagen_codigo=".$datosvalidados['areagen_codigo'];	
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Error al obtener el código de área específica.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+			return false;
+		}
+		
+		if ($numfilas==0)
+			$max_codigo=0;
+		else {
+			$fila=mysqli_fetch_assoc($result);
+			$max_codigo=$fila['max_codigo'];
+		}
+		
+		$spnombre="ins_area_especifica";
+		$spparam=array(	'pareacon_codigo'=>$datosvalidados['areacon_codigo'],
+						'pareagen_codigo'=>$datosvalidados['areagen_codigo'],
+						'pareaesp_codigo'=>$max_codigo+1,
+						'pareaesp_descripcion'=>$datosvalidados['areaesp_descripcion'],
+						'pareaesp_falta'=>date("Y/m/d H:i:s"),
+						'pultmodusuario'=>$_SESSION['usuariocod'],
+						'pultmodfecha'=>date("Y/m/d H:i:s")
+					);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod) || $numfilas!=1)	{
+			if($errorcod==MYSQLCLAVEDUP) {
+				$txt_sys_mail="\nareaesp_descripcion=".$datosvalidados['areaesp_descripcion'];	
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Ya existe un registro con esa clave.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+			}
+			return false;
+		}
+
+		return true;
+	}
+//---------------------------------------------------------------	
+	function BorrarSysTabla($datos,&$tipobaja) {
+
+		if(!$this->_DatosValidosBorrados($datos,$datosvalidados))
+			return false;
+
+		// Si No existen datos asociados a la tabla
+		/* if ($this->PosibleBajaFisica($datosvalidados['areacon_codigo'],$datosvalidados['areagen_codigo'],$datosvalidados['areaesp_codigo']))	{		*/
+
+			$tipobaja=true;
+			
+			// Intento la baja física	
+			$spnombre="del_area_especifica";
+			$spparam=array(	'pareacon_codigo'=>$datosvalidados['areacon_codigo'],
+							'pareagen_codigo'=>$datosvalidados['areagen_codigo'],
+							'pareaesp_codigo'=>$datosvalidados['areaesp_codigo']);		
+
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod)) 
+				return false;					  	 	
+			
+		/* } else { 
+		
+				$tipobaja=false;			
+				$spnombre="upd_area_especifica_cambio_estado_xareacon_codigo_areagen_codigo_areaesp_codigo";
+				$spparam=array(	'pareacon_codigo'=>$datosvalidados['areacon_codigo'],
+								'pareagen_codigo'=>$datosvalidados['areagen_codigo'],
+								'pareaesp_codigo'=>$datosvalidados['areaesp_codigo'],
+							    'pareaesp_estado'=>ESTADOBAJA,					  			    
+							    'pareaesp_fbaja'=>date("Y/m/d H:i:s"),
+							    'pultmodusuario'=>$_SESSION['usuariocod']);	
+								
+				  if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod) || $numfilas!=1) {
+						return false;					  	 	
+				}
+		} */
+
+		return true;
+	}
+//---------------------------------------------------------------	
+	function BorrarEspecificaxAreaGeneral($valor) {
+	
+		$spnombre="del_area_especifica_xareagen_codigo";
+		$spparam=array('pareagen_codigo'=>$valor);		
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod)) 
+			return false;	
+		
+		FuncionesPHPLocal::RegistrarAcceso($this->conexion,"035112","Global / areagen_codigo=".$valor,$_SESSION['usuariocod']);
+		return true;		
+	}
+	//---------------------------------------------------------------	
+	function BorrarEspecificaxAreaContextual($valor) {
+
+		$spnombre="del_area_especifica_xareacon_codigo";
+		$spparam=array('pareacon_codigo'=>$valor);		
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod)) 
+			return false;		
+
+		FuncionesPHPLocal::RegistrarAcceso($this->conexion,"035112","Global / areacon_codigo=".$valor,$_SESSION['usuariocod']);
+		return true;	
+	}
+//---------------------------------------------------------------	
+	function ModificarSysTabla($datos)	{
+
+		if(!$this->_DatosValidosModificacion($datos,$datosvalidados))
+			return false;
+					
+		$spnombre="upd_area_especifica";
+		$spparam=array ('pareacon_codigo'=>$datosvalidados['areacon_codigo'],
+						'pareagen_codigo'=>$datosvalidados['areagen_codigo'],
+					    'pareaesp_codigo'=>$datosvalidados['areaesp_codigo'],
+					    'pareaesp_descripcion'=>$datosvalidados['areaesp_descripcion'],
+					    'pultmodusuario'=>$_SESSION['usuariocod'],
+					    'pultmodfecha'=>date("Y/m/d H:i:s")	);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod) || $numfilas!=1)
+			return false;		
+
+		return true;
+		
+	}
+//---------------------------------------------------------------	
+	function TraerDatosCompletosAreaEspecifica($areagen,$areaesp,&$texto_salida) {
+
+
+		$oTablaAreaGeneral=new cTablaAreaGeneral($this->conexion);	
+		$ArregloDatos= array();
+		$ArregloDatos['clave']=$areagen;
+		if (!$oTablaAreaGeneral->BuscarEnTabla($ArregloDatos,$numfilas,$result,$error,$errormail)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando el detalle del área general.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;			
+		}	
+		if ($numfilas==1)
+			$fila=mysqli_fetch_assoc($result);
+	    else {
+			$txt_sys_mail="Más de una fila para un área general.";
+			$txt_sys_mail.='\nareagen_codigo='.$areagen;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando el detalle del área específica.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;			
+		}
+		$texto_salida.=$fila['areagen_descripcion']."/";
+
+		$ArregloDatos= array();
+		$ArregloDatos['areagen_codigo']=$areagen;
+		$ArregloDatos['areaesp_codigo']=$areaesp;
+		if (!$this->BuscarEnTabla($ArregloDatos,$numfilas,$result,$error,$errormail)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando el detalle del área general.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;			
+		}	
+		if ($numfilas==1)
+			$fila=mysqli_fetch_assoc($result);
+	    else {
+			$txt_sys_mail="Más de una fila para un área especifica";
+			$txt_sys_mail.='\nareacon_codigo='.$areacon.'\nareagen_codigo='.$areagen.'\nareaesp_codigo='.$areaesp;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando el detalle del área específica.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;			
+		}
+		$texto_salida.=$fila['areaesp_descripcion'];
+
+	}	
+//---------------------------------------------------------------	
+	function BuscarEnTabla ($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail) {
+	
+		$sparam=array('pxareacon_codigo'=>0,
+					  'pxareagen_codigo'=>0,
+					  'pxareaesp_codigo'=>0,
+					  'pxareaesp_descripcion'=>0,
+					  'pareacon_codigo'=>"",
+					  'pareagen_codigo'=>"",
+					  'pareaesp_codigo'=>"",
+					  'pareaesp_descripcion'=>"",
+					  'porderby' =>'areacon_codigo, areagen_codigo, areaesp_codigo');
+		
+		if (isset ($ArregloDatos['areacon_codigo']))
+		{
+			if ($ArregloDatos['areacon_codigo']!="")
+			{	
+				$sparam['pareacon_codigo']= $ArregloDatos['areacon_codigo'];
+				$sparam['pxareacon_codigo']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['areagen_codigo']))
+		{
+			if ($ArregloDatos['areagen_codigo']!="")
+			{	
+				$sparam['pareagen_codigo']= $ArregloDatos['areagen_codigo'];
+				$sparam['pxareagen_codigo']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['areaesp_codigo']))
+		{
+			if ($ArregloDatos['areaesp_codigo']!="")
+			{	
+				$sparam['pareaesp_codigo']= $ArregloDatos['areaesp_codigo'];
+				$sparam['pxareaesp_codigo']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['areaesp_descripcion']))
+		{
+			if ($ArregloDatos['areaesp_descripcion']!="")
+			{	
+				$sparam['pareaesp_descripcion']= $ArregloDatos['areaesp_descripcion'];
+				$sparam['pxareaesp_descripcion']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+			{	
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+		
+		$spnombre="sel_area_especifica_xdatos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar en tabla.";
+			$errormail="Error al buscar en tabla ".$errno;
+			return false;
+		}
+
+		return true;
+	}
+//---------------------------------------------------------------	
+	function DescargarExcel()	{
+
+		// Tabla con la siguiente información
+		
+		// Area contextual (codigo, descripcion) 
+		// Area general (codigo, descripcion)
+		// Area Específica (codigo, descripcion)
+		
+		$spnombre="sel_area_especifica_general_contextual";
+		$spparam=array();		
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$result,$numfilas,$errorcod) ) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando datos exportar a excel.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;		
+		} 
+	
+		$nombrearchivo="areas_prestadores.xls";  		
+		$oExcel = new cEscribirExcel($nombrearchivo);
+		$oExcel->AddHoja("areas_prestadores");
+		$oExcel->EsconderGrillas();
+		$oExcel->PaginaHorizontal();
+
+		// Titulo 
+		$oExcel->FormatoColumna (0,10); 
+		$oExcel->FormatoColumna (1,10); 
+		$oExcel->FormatoColumna (2,10); 
+		$oExcel->FormatoColumna (3,60); 
+		$oExcel->FormatoColumna (4,60); 
+		$oExcel->FormatoColumna (5,60); 
+				
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",12);
+		$oExcel->AddFormato ("Color","azul");
+		$oExcel->AddFormato ("FgColor",22);
+		
+		$oExcel->CargarDatosVariasCeldas (0,0,0,5,"Areas de Prestadores Docentes",true);		
+	
+		// Titulos columnas
+		$oExcel->AddFormato ("TextWrap","");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",12);
+		$oExcel->AddFormato ("Color","negro");
+		$oExcel->AddFormato ("FgColor","gris");
+
+		$oExcel->CargarDatos (1,0,"Cód. Area Contextual",true);
+		$oExcel->CargarDatos (1,1,"Cód. Area General",true);
+		$oExcel->CargarDatos (1,2,"Cód. Area Específica",true);
+		$oExcel->CargarDatos (1,3,"Area Contextual",true);
+		$oExcel->CargarDatos (1,4,"Area General",true);
+		$oExcel->CargarDatos (1,5,"Area Específica",true);
+
+		// Formato general del contenido
+/*		$oExcel->AddFormato ("Tamaño",10);
+		$oExcel->AddFormato ("FgColor","blanco");
+		$oExcel->AddFormato ("Align","left");
+*/
+
+//		Lo mando sin formatos porque son demasiados y se cuelga
+//		$formato=$oExcel->GetFormato();
+//		$arregloformatos=array('areacon_codigo'=>array(),'areagen_codigo'=>array(),'areaesp_codigo'=>array(),'areacon_descripcion'=>array(),'areagen_descripcion'=>array(),'areaesp_descripcion'=>array());
+//		print_r($arregloformatos);
+
+		$arrayclaves=array('areacon_codigo','areagen_codigo','areaesp_codigo','areacon_descripcion','areagen_descripcion','areaesp_descripcion');
+
+		$oExcel->CargarGrilla ($result,2,0,$arrayclaves,array());
+		$oExcel->Enviar();	
+
+	}
+	
+//---------------------------------------------------------------	
+	function PosibleBajaFisica($area_contextual,$area_general,$area_especifica) {
+
+		if(!$this->conexion->TraerCampo('prestador_docente_area_especifica','areaesp_codigo',array("areacon_codigo='",$area_contextual,"' and areagen_codigo='",$area_general,"' and areaesp_codigo=",$area_especifica),$dato,$numfilas,$errno)) 
+			return false;				
+		elseif ($numfilas!=0) 
+			return false;	
+
+		return true;
+	}
+//---------------------------------------------------------------	
+	function __PosibleBaja($area_con,$area_gen,$area_esp,&$error,&$errormail) {
+	
+		$oPrestadorDocenteArea = new cPrestadorDocenteArea($this->conexion);
+
+		$ArregloDatos= array();
+		$ArregloDatos['areacon_codigo']=$area_con;
+		$ArregloDatos['areagen_codigo']=$area_gen;
+		$ArregloDatos['areaesp_codigo']=$area_esp;
+
+		if(!$oPrestadorDocenteArea->BuscarPrestadorDocentexArea($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+			return false;	
+		elseif ($numfilas>0)  {
+			$error="Existen Prestadores docentes asociados al área específica <br> que esta intentando eliminar, Deber&aacute; reasignarlos o eliminarlos previamente.";
+			$errormail="";
+			return false;	
+	    } else
+			return true;	
+	}
+//---------------------------------------------------------------	
+	function _DatosValidosComunes($datos,&$datosvalidados) {
+	
+		// La descripcion no puede ser vacía
+		if (trim($datos['areaesp_descripcion'])=="") {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La descripción no puede quedar vacía.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;			
+		}
+
+		// Falta parametrizar el maximo
+		// La descripción no puede superar el máximo definido.
+		if ( strlen(trim($datos['areaesp_descripcion'])) > 200  ) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La descripción no puede superar 200 caracteres.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;			
+		}
+		
+		// El área contextual debe estar.
+		if(!$this->conexion->BuscarRegistroxClave("sel_area_contextual_xareacon_codigo",array("pareacon_codigo"=>$datos['areacon_codigo']),array("areacon_codigo"=>$datos['areacon_codigo']),$result,$fila,$numfilas,$errno)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error seleccionando el area contextual.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}		
+		if($numfilas==0) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error el area contextual ingresada no se encuentra en la tabla.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		// El área general debe estar.
+		if(!$this->conexion->BuscarRegistroxClave("sel_area_general_xareagen_codigo",array("pareagen_codigo"=>$datos['areagen_codigo']),array("areagen_codigo"=>$datos['areagen_codigo']),$result,$fila,$numfilas,$errno)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error seleccionando el area general.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}		
+		if($numfilas==0) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error el area general ingresada no se encuentra.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		// No debe existir la descripción en un registro 
+		$spnombre="sel_area_especifica_xareaesp_descripcion";
+		$spparam=array( "pareacon_codigo"=>$datos['areacon_codigo'],
+						"pareagen_codigo"=>$datos['areagen_codigo'],
+						"pareaesp_descripcion"=>trim($datos['areaesp_descripcion']));		
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod) ) {
+			$txt_sys_mail="\nareacon_codigo=".$datos['areacon_codigo'].
+						  "\nareagen_codigo=".$datos['areagen_codigo'].
+						  "\nareaesp_descripcion=".trim($datos['areaesp_descripcion']);
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionado áreas específicas.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+			return false;
+		}
+	
+		if ($numfilas>0)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Ya existe:".$datos['areaesp_descripcion']." en la tabla.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		
+		$datosvalidados['areacon_codigo']=$datos['areacon_codigo'];		
+		$datosvalidados['areagen_codigo']=$datos['areagen_codigo'];
+		$datosvalidados['areaesp_descripcion']=trim($datos['areaesp_descripcion']);			
+
+		return true;	
+	}
+//---------------------------------------------------------------	
+	function _DatosValidosAlta($datos,&$datosvalidados) {
+
+		if (!$this->_DatosValidosComunes($datos,$datosvalidados))
+		   return false; 
+
+		// El área general no debe estar.
+		$spparam = array("pareacon_codigo"=>$datos['areacon_codigo'],
+						 "pareagen_codigo"=>$datos['areagen_codigo']);
+		if(!$this->conexion->ejecutarStoredProcedure("sel_area_contextual_xareagen_codigo_distinto_areacon_codigo",$spparam,$result,$numfilas,$errno)) {
+		
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error seleccionando el area general.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}		
+		if($numfilas>=1) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"El área general ya ha sido asignada a otra área contextual.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		return true;
+	}
+//---------------------------------------------------------------	
+	function _DatosValidosBorrados($datos,&$datosvalidados) {
+
+		// El registro con el código debe estar activo.
+		$spnombre ="sel_area_especifica_xareacon_codigo_areagen_codigo_areaesp_codigo";
+		$spparam = array("pareacon_codigo"=>$datos['areacon_codigo'],
+						 "pareagen_codigo"=>$datos['areagen_codigo'],
+						 "pareaesp_codigo"=>$datos['areaesp_codigo']);
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod)) {
+			$txt_sys_mail="\nareacon_codigo=".$datos['areacon_codigo'].
+						  "\nareagen_codigo=".$datos['areagen_codigo'].
+						  "\nareaesp_codigo=".$datos['areaesp_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionado de ".$this->ObtenerNombreTabla(),array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+			return false;
+
+		} else {
+			if ($numfilas>1) {
+				$txt_sys_mail="Más de un registro con la clave=".
+								"\nareacon_codigo=".$datos['areacon_codigo'].
+						  		"\nareagen_codigo=".$datos['areagen_codigo'].
+							    "\nareaesp_codigo=".$datos['areaesp_codigo'];
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error existe más de un registro con la misma clave en la tabla.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			} elseif ($numfilas==0) {
+				$txt_sys_mail="No existe el registro=".
+								"\nareacon_codigo=".$datos['areacon_codigo'].
+						  		"\nareagen_codigo=".$datos['areagen_codigo'].
+							    "\nareaesp_codigo=".$datos['areaesp_codigo'];
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No existe el registro a dar de baja.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;			
+			}
+		}					
+
+		// Verifica si hay que evitar hasta la baja según si existen datos asociados datos 		
+		if (!$this->__PosibleBaja($datos['areacon_codigo'],$datos['areagen_codigo'],$datos['areaesp_codigo'],$error, $errormail )) {
+			if($errormail =="")
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			else 	
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		$fila_tabla=mysqli_fetch_assoc($query);
+		
+		$datosvalidados['areacon_codigo']=$datos['areacon_codigo'];		
+		$datosvalidados['areagen_codigo']=$datos['areagen_codigo'];
+		$datosvalidados['areaesp_codigo']=$datos['areaesp_codigo'];
+		$datosvalidados['areaesp_descripcion']=$fila_tabla['areaesp_descripcion'];
+
+		return true;
+	}
+
+//---------------------------------------------------------------	
+	function _DatosValidosModificacion($datos,&$datosvalidados) {
+
+		if (!$this->_DatosValidosComunes($datos,$datosvalidados))
+		   return false; 
+		
+		// El registro con el código debe estar activo.
+		$spnombre ="sel_area_especifica_xareacon_codigo_areagen_codigo_areaesp_codigo";
+		$spparam = array("pareacon_codigo"=>$datos['areacon_codigo'],
+						 "pareagen_codigo"=>$datos['areagen_codigo'],
+						 "pareaesp_codigo"=>$datos['areaesp_codigo']);
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod)) {
+			$txt_sys_mail="\nareacon_codigo=".$datos['areacon_codigo'].
+						  "\nareagen_codigo=".$datos['areagen_codigo'].
+						  "\nareaesp_codigo=".$datos['areaesp_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionado de ".$this->ObtenerNombreTabla(),array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+			return false;
+
+		} else {
+
+			if ($numfilas>1) {
+				$txt_sys_mail="Más de un registro con la clave=".
+								"\nareacon_codigo=".$datos['areacon_codigo'].
+						  		"\nareagen_codigo=".$datos['areagen_codigo'].
+							    "\nareaesp_codigo=".$datos['areaesp_codigo'];
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error existe más de un registro con la misma clave en la tabla.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;				
+			} elseif ($numfilas==0) {
+				$txt_sys_mail="No existe el registro=".
+								"\nareacon_codigo=".$datos['areacon_codigo'].
+						  		"\nareagen_codigo=".$datos['areagen_codigo'].
+							    "\nareaesp_codigo=".$datos['areaesp_codigo'];
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No existe el registro a dar de baja.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;			
+			}
+		}					
+		
+		$datosvalidados['areacon_codigo']=$datos['areacon_codigo'];		
+		$datosvalidados['areagen_codigo']=$datos['areagen_codigo'];
+		$datosvalidados['areaesp_codigo']=$datos['areaesp_codigo'];
+		
+		return true;
+	}
+//---------------------------------------------------------------	
+	function AreaEspecificaAsignableSP($areagen, &$spnombre, &$spparam) {
+		$spnombre="sel_area_especifica_validas";
+		$spparam=array('pareagen_codigo'=>$areagen,'porderby'=>'areaesp_descripcion');
+	}
+//---------------------------------------------------------------	
+	function AreaEspecificaSP($areagen, &$spnombre, &$spparam) {
+		$spnombre="sel_area_especifica_validas";
+		$spparam=array('pareagen_codigo'=>$areagen,'porderby'=>'areaesp_descripcion');
+	}
+	//---------------------------------------------------------------	
+	// 	Funcion:	DescargarCatalogoExcel
+	//  Proceso:	Genera el excel correspondiente al catálogo de Áreas Especificas.
+	//	Entrada:	
+	//				
+	// 	Salida:     false: 	Si exite algún error.
+	// 				true: 	Si todo esta ok.		
+	//---------------------------------------------------------------	
+	function DescargarCatalogoExcel()  {	
+	
+		$nombrearchivo="prestador_docente_catalodo_areas.xls";  
+					
+		$oExcel= new cEscribirExcel($nombrearchivo);
+		$oExcel->AddHoja('Catálogo de Áreas para Prestadores Docentes');
+		$oExcel->EsconderGrillas();
+		$oExcel->PaginaHorizontal();
+			
+		$columnas = array();
+   	    $columnas[] = array("titulo"=>"Clasificación Disciplinar",'ancho'=>100,'campo'=>'campo_detalle');
+		
+		for ($i=0; $i<count($columnas); $i++) 
+			$oExcel->FormatoColumna ($i, $columnas[$i]['ancho']); 
+
+		// Formato titulo del listado	
+		$oExcel->BorrarFormato ();
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",12);
+		$oExcel->AddFormato ("Color","azul");
+		$oExcel->AddFormato ("FgColor","22");
+		$formato_titulo=$oExcel->GetFormato();
+	
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",14);
+		$oExcel->AddFormato ("Color","blanco");
+		$oExcel->AddFormato ("FgColor","gris");
+		$formato_sub_titulo=$oExcel->GetFormato();
+
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",12);
+		$oExcel->AddFormato ("Color","blanco");
+		$oExcel->AddFormato ("FgColor","violeta");
+		$formato_sub_titulo_2=$oExcel->GetFormato();
+	
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",10);
+		$oExcel->AddFormato ("Color","negro");
+		$oExcel->AddFormato ("FgColor","blanco");
+		$formato_texto=$oExcel->GetFormato();
+		
+		$cant_columnas=count($columnas);
+		
+		$fila_excel=-1;
+		//$titulo_listado="Catálogo de Áreas para Prestadores Docentes";
+		//$oExcel->CargarDatosVariasCeldas (0,0,0,$cant_columnas-1,'Catálogo de Áreas para Prestadores Docentes',$formato_titulo);
+		$fila_excel++;
+		
+		$areacon_codigo_anterior=-1;
+		$areagen_codigo_anterior=-1;
+
+		$col_desde=0;
+		$spnombre="sel_area_especifica_general_contextual";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,array(),$resultado,$numfilas,$errno)){
+			$error="Error al buscar áreas temáticas.";
+			$errormail="Error al buscar áreas temáticas.".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		while ($fila_area = mysqli_fetch_assoc($resultado)) {
+	
+			if($fila_area['areacon_codigo'] != $areacon_codigo_anterior) {
+				$fila_result= array('campo_detalle'=>trim($fila_area['areacon_descripcion'])); 
+				for ($k=$col_desde; $k<count($columnas); $k++) 		
+					 $oExcel->CargarDatos ($fila_excel,$k,$fila_result[$columnas[$k]['campo']],$formato_sub_titulo);
+				$fila_excel++;							 	 
+			}		
+			$areacon_codigo_anterior=$fila_area['areacon_codigo'];
+		
+			if($fila_area['areagen_codigo'] != $areagen_codigo_anterior) {
+				$fila_result = array('campo_detalle'=>trim($fila_area['areagen_descripcion'])); 
+				for ($k=$col_desde; $k<$cant_columnas; $k++) 		
+					 $oExcel->CargarDatos ($fila_excel,$k,$fila_result[$columnas[$k]['campo']],$formato_sub_titulo_2);
+				$fila_excel++;							 		 
+			}
+			$areagen_codigo_anterior=$fila_area['areagen_codigo'];
+
+			$fila_result = array('campo_detalle'=>trim($fila_area['areaesp_descripcion'])); 
+			for ($k=$col_desde; $k<$cant_columnas; $k++) 		
+				 $oExcel->CargarDatos ($fila_excel,$k,$fila_result[$columnas[$k]['campo']],$formato_texto);
+			$fila_excel++;						
+							 
+		}	// while
+
+		$oExcel->Enviar();
+		
+		return true;
+
+	} 	// 	 fin - DescargarCatalogoExcel
+
+} // fin de la clase
+?>

@@ -1,0 +1,322 @@
+<?php 
+require('./include.dhtml');
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+
+$oDictamen=new cDictamen($conexion);
+?>
+<script type="text/javascript">
+	<?php $oDictamen->ValidarFormDictamenPedirAprobacion(); ?>
+</script>
+<script type="text/javascript">
+//------------------------------------------------------------------------------------------------
+function Validar(formulario) {
+
+	// El expediente puede estar vacío
+
+	return true;
+}
+//------------------------------------------------------------------------------------------------
+</script>
+
+<br /><br />
+<?php
+//------------------------------------------------------------------------------------------------
+		if (isset($_POST['boton_filtrar'])) {
+			$ok=true;	
+			$_SESSION['filtro_busqueda']=array();
+			$_SESSION['filtro_busqueda']['exp_numero']=trim($_POST['exp_numero']);
+		}			
+
+
+		$result = true;
+		// Se define la acción
+		if (!isset($_GET['operacion'])) {
+			$leyenda_operacion = "";
+			$boton_operacion = "";		
+			$operacion = "";
+		} else {
+			switch ($_GET['operacion']) {		
+			case "P" :
+				$leyenda_operacion = "Pedido de Aprobación";		
+				$boton_operacion = "Pedir Aprobación";		
+				$operacion = "P";				
+				break;
+			default:
+				$operacion = "";
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error de operación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				$result=false;
+			}
+		}
+		
+		$ArregloDatos = array();
+		switch ($_SESSION['rolcod']) {
+			case USUCURSOINAP:
+				$oActividad= new cActividadCursoInap($conexion);
+				$tipoact_codigo=TIPOACTCURSOINAP;
+				$formact_codigo=FORMATOCURSO;		
+				break;
+			case USUACTINS:
+				$oActividad= new cActividadCursoInstitucional($conexion);
+				$tipoact_codigo=TIPOACTCURSOINST;
+				$formact_codigo=FORMATOCURSO;
+				break;
+			case USUACTJUR:
+				$oActividad= new cActividadCursoJurisdiccional($conexion);
+				$tipoact_codigo=TIPOACTCURSOJURISD;
+				$formact_codigo=FORMATOCURSO;
+				$ArregloDatos['jurisdid_inap'] = $_SESSION['jurisdid_inap'];
+				break;
+			case USUACTEXT:
+				$oActividad= new cActividadExterna($conexion);
+				$formact_codigo=FORMATOEXT;
+				$tipoact_codigo=TIPOACTEXTASIS;
+				break;	
+			case USUAUTODESARROLLO:
+				$oActividad= new cActividadAutodesarrollo($conexion);
+				$formact_codigo=FORMATOAUTO;
+				$tipoact_codigo=TIPOACTAUTOEVASIS;
+				break;	
+		}		
+				
+						
+
+// 2. muestro las actividades  luego del filtro
+		
+if (isset($_POST['boton_filtrar']) || isset($_GET['pagina']) || isset($_GET['volver']) ) {  
+
+
+	$exp_codigo = "";
+	if (isset ($_POST['volver']))
+		$exp_codigo = $_POST['exp_codigo'];
+
+	if (isset ($_POST['exp_codigo']))
+		$exp_codigo = $_POST['exp_codigo'];
+
+
+	if (isset ($_GET['volver']))
+		$exp_codigo = $_GET['exp_codigo'];
+		
+
+
+		//------- GRILLA VALORES A MODIFICAR 
+		if ($result)  { ?>
+			<table width="100%" class="textoTablaDato">
+				<tr> 
+					<td> <?php
+
+					// Obtengo los dictamenes
+					$ArregloDatos['dic_estado'] = DICTAMENNUEVO.",".DICTAMENRECHAZADO;
+					$ArregloDatos['tipoact_codigo'] = $tipoact_codigo;
+					if ($exp_codigo != "")
+						$ArregloDatos['exp_codigo'] = $exp_codigo;
+								
+					$ArregloDatos['orderby'] = "act_nombre";
+				
+					if (!$oActividad->BuscarActividadDictaminada($ArregloDatos,$numfilas,$resultDictamenes,$error,$errormail)) {
+						FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al buscar dictámenes.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+						$result=false;		
+					} 
+					if(!$result) {
+						FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar los dictámenes. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+						$error=true;											
+					} else {
+							$opciones=array(
+								"numPagina"=>isset($_GET['paginaG1'])?$_GET['paginaG1']:1,
+								"FilasPagina"=>$numfilas,
+								"NombrePaginaQuery"=>"paginaG1"
+							);				
+							
+							$oGrilla = new cGrilla($opciones);
+							$oGrilla->SetearTituloGrilla('Dictámenes Pendientes de Aprobación ');
+							$oGrilla->SetearAnchoGrilla('95%');
+		
+							$miColumna0 = $oGrilla->AddColumna('txt');
+							$oGrilla->Setear('titulo_columna',$miColumna0,'Expediente');
+							$oGrilla->Setear('campo_grilla',$miColumna0,'exp_numero');
+							$oGrilla->Setear('align_columna',$miColumna0,'left');
+		
+							$miColumna1 = $oGrilla->AddColumna('txt');
+							$oGrilla->Setear('titulo_columna',$miColumna1,'Código INAP');
+							$oGrilla->Setear('campo_grilla',$miColumna1,'act_codinap');
+							$oGrilla->Setear('align_columna',$miColumna1,'left');
+		
+							$miColumna2 = $oGrilla->AddColumna('txt');
+							$oGrilla->Setear('titulo_columna',$miColumna2,'Actividad');
+							$oGrilla->Setear('campo_grilla',$miColumna2,'act_nombre');					
+							$oGrilla->Setear('align_columna',$miColumna2,'left');
+							
+							// Cambio formato fechas
+							$miColumna3 = $oGrilla->AddColumna('txt');
+							$oGrilla->Setear('titulo_columna',$miColumna3,'Vigencia Desde');
+							$oGrilla->Setear('campo_grilla',$miColumna3,'actprog_fecha_inicio_ddmmaaaa');
+							$oGrilla->Setear('align_columna',$miColumna3,'left');
+							$oGrilla->Setear('ancho_columna',$miColumna3,'80');
+		
+							$miColumna4 = $oGrilla->AddColumna('txt');
+							$oGrilla->Setear('titulo_columna',$miColumna4,'Vigencia Hasta' );
+							$oGrilla->Setear('campo_grilla',$miColumna4,'actprog_fecha_fin_ddmmaaaa');
+							$oGrilla->Setear('align_columna',$miColumna4,'left');
+							$oGrilla->Setear('ancho_columna',$miColumna4,'80');
+		
+							$miColumna5 = $oGrilla->AddColumna('linkimg');
+							$oGrilla->Setear('titulo_columna',$miColumna5,'Pedir Aprobación');
+							$oGrilla->Setear('ancho_columna',$miColumna5,'70');
+							$oGrilla->Setear('url',$miColumna5,'actividad_dictaminar_programacion_pedir_aprobacion.dhtml');
+							$oGrilla->Setear('url_ancla',$miColumna5,'Edicion');
+							$oGrilla->Setear('imagen',$miColumna5,'images/pedir_aprobacion.gif');
+							$oGrilla->Setear('altImagen',$miColumna5,'Aprobar');						
+							$oGrilla->AddParametrosURL($miColumna5,"act_codigo","act_codigo");					
+							$oGrilla->AddParametrosURL($miColumna5,"operacion","P","cte");
+							$oGrilla->AddParametrosURL($miColumna5,"actprog_sec","actprog_sec");				
+		
+							if ($oGrilla->CargarGrilla($resultDictamenes)) {
+								$oGrilla->MostrarGrilla();					
+							} else {
+								$ok=false;					
+								$txt_sys_mail = "Error Grilla='".$oGrilla->GetError();
+								FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al mostrar los prestadores docentes a evaluar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+							}		
+						}		
+			?>
+					</td>
+				</tr>	
+			</table>	
+			<br>
+			<a name="Edicion"></a>
+		<?php	
+		}
+
+
+
+} else { 
+
+
+		// 3. actividad seleccionada
+
+		if (isset($_GET['operacion'])) {
+
+
+				//--------------------------------------------------------------------------------------------
+				$ok = true;
+				if ($operacion == "P") {	// PEDIDO DE APROBACIÓN
+					if(!isset($_GET['act_codigo'])) {
+						FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"El dictamen no se encuentra en el sistema.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+						$ok = false;
+					} else {
+						// Hay que chequear que la actividad tenga el formato esperado.	
+						if (!$oActividad->TieneFormatoTipo($_GET['act_codigo'],$formact_codigo,$tipoact_codigo,$tiene_formato_tipo)) {
+							$txt_sys_mail="Error al determinar el formato - tipo de la actividad.\nact_codigo=".$filaactividad['act_codigo'];
+							FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al dictaminar actividad",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+							$ok=false;		
+						} elseif (!$tiene_formato_tipo) {
+							FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No se ha encontrado la Actividad con el formato buscado.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+							$ok=false;		
+						}
+				
+						$oDictamen= new cDictamen($conexion);
+						
+						// ---------------------------------------------------------------------------------
+						if ($ok) {
+						
+							if ($oDictamen->ObtenerDatosParaPedirAprobDictamen($conexion,$oActividad,$_GET['act_codigo'],$tipoact_codigo,
+												$_GET['actprog_sec'],$fila_dictamen,$fila_detalle)) {
+				
+				
+									// Verifica el estado de la actividad 
+									if ($fila_detalle['act_estado']!=ACTAUTOACTIVO) {					
+										FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"El estado de la Actividad no permite actualizar el dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+										$ok=false;													
+									} elseif ($fila_dictamen['dic_estado']!=DICTAMENNUEVO && $fila_dictamen['dic_estado']!=DICTAMENRECHAZADO) {
+										FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"El estado del dictamen no le permite realizar la operación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+										$ok=false;	
+									} else 	{				
+										// Muestra los datos idem que para dictaminar pero solo se visualiza
+										$ok = $oDictamen->MostrarDatosDictamenProgramacion($conexion,$oActividad,$fila_detalle,"V","V",$fila_dictamen);
+									
+											if ($ok) { 
+												$leyenda_operacion = "Pedido de Aprobación";		
+												$boton_operacion = "Pedir Aprobación";		
+												$operacion = "P";				
+							?>					<script type="text/javascript">
+													<?php $oDictamen->ValidarFormDictamenPedirAprobacion(); ?>
+												</script>
+												<form action="<?= "actividad_dictaminar_programacion_pedir_aprobacion_upd.dhtml" ?>" method="post" name="formulario">
+												<table width="100%" class="textoTablaDato" align="center">
+													<tr align="center">
+														<td> 
+														<input type="submit" name="boton_actualizar"   value="Confirma <?php echo $boton_operacion?>" onClick="return confirm('¿Está seguro que desea <?php echo $leyenda_operacion ?> del Dictamen?') &amp;&amp; ValidarFormDictamenPedirAprobacion(formulario);" class="botones"  />
+														<input type="hidden" name="act_codigo" value="<?php echo $fila_detalle['act_codigo']?>" />
+														<input type="hidden" name="dic_codigo" value="<?php echo $fila_dictamen['dic_codigo']?>" />
+														<input type="hidden" name="exp_codigo" value="<?php echo $fila_dictamen['exp_codigo']?>" />
+														<input type="hidden" name="tipoact_codigo" value="<?php echo $fila_dictamen['tipoact_codigo']?>" />
+														<input type="hidden" name="actprog_sec" value="<?php echo $fila_dictamen['actprog_sec']?>" />
+														<input type="hidden" name="operacion" value="<?php echo $operacion ?>" />
+														</td>
+													</tr>
+												</table>
+												</form>
+										<?php 	}  // ok 
+									} // $fila_detalle['act_estado']!=ACTAUTOACTIVO
+							} else { //   $oDictamen->ObtenerDatosParaPedirAprobDictamen
+				
+								FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al buscar dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+								$ok=false;	
+									
+							} //   $oDictamen->ObtenerDatosParaPedirAprobDictamen
+						}	// ok
+					}	//!isset($_GET['act_codigo'])
+				} // $operacion 
+
+		
+		// 1.  Muesgtro el filtro
+		
+		} else {
+
+	
+				unset($_SESSION['filtro_busqueda']); ?>		
+				<form action="<?php echo $_SERVER['PHP_SELF'] ?>" method="post" name="formulario_filtros" id="formulario_filtros">
+				<table id="idTablaFiltros" width="90%" class="textoTablaDato" align="center" border="0" cellpadding="0" cellspacing="1">
+					<tr>
+						<td colspan="2"class="colorTitulosGrupo textoTituloGrupo">Filtro Búsqueda de Dictámenes Pendientes de Aprobación </td>
+					</tr>	
+					<tr>
+						<td width="150" class="textoEtiqueta">Expediente</td>
+						<td class="textoEtiquetaDatoResaltado">
+						<input type="text" size="31" maxlength="30" name="exp_numero" id="exp_numero" class='inputReadonly' readonly value="">
+						<input type="hidden" name="exp_codigo" id="exp_codigo" value=""/>				  
+						<a href='javascript:void(0)' onClick="Popup('expediente_selector.dhtml?formulario=formulario&amp;destino=exp_codigo&amp;submit=<?php echo false ?>&amp;accion=Dictaminar&amp;volver=1','ventana_descripciones_1',630,360,screen.availWidth-650,screen.availHeight-420,'yes');"><img src="images/searchsai.jpg" alt="Buscar" border="0" style="vertical-align:-5px"></a></td>
+					</tr>
+				</table>
+			  <table width="100%" class="textoTablaDato" align="center" border="0">
+					<tr align="center">
+						<td>
+							<input type="submit" name="boton_filtrar" class="botones" value="Buscar" onClick="return Validar(formulario_filtros);">
+							&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+							<input type="reset" name="boton_limpiar" class="botones" value="Limpiar" >
+						</td>
+					</tr>						
+				</table>	
+				</form>	
+<?php		 }  
+
+
+}
+
+$oEncabezados->PieMenuEmergente(); 
+?>

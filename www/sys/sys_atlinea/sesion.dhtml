@@ -1,0 +1,147 @@
+<?php
+
+class Sesion
+{
+	var $conexionsesion;
+	
+	function Sesion($conexion,$inicializa=false)
+	{
+		$this->conexionsesion = &$conexion;
+		
+		session_set_save_handler (
+			array(& $this, 'sessao_open'), 
+			array(& $this, 'sessao_close'), 
+			array(& $this, 'sessao_read'), 
+			array(& $this, 'sessao_write'), 
+			array(& $this, 'sessao_destroy'), 
+			array(& $this, 'sessao_gc')
+		);
+		
+		session_start();
+		
+		if($inicializa || !isset($_SESSION['rolcod']) || !isset($_SESSION['rolcodorigen']) || !isset($_SESSION['usuariocod']) || !isset($_SESSION['mesaayudacod']))
+		{
+			$_SESSION=array();
+			$_SESSION['rolcod']=0;
+			$_SESSION['rolcodorigen']=0;
+			$_SESSION['usuariocod']=0;
+			$_SESSION['mesaayudacod']=0;
+		}
+	}
+
+	function sessao_open($aSavaPath, $aSessionName)
+	{
+	   $this->sessao_gc(TIEMPOSESION);
+	   return true;
+	}
+	
+	function sessao_close()
+	{
+		return true;
+	}
+	
+	function sessao_read($aKey)
+	{
+		$spnombresel="sel_sessions_xsessionid";
+		$spparamsel =array('pkey'=>$aKey);
+		if(!$this->conexionsesion->ejecutarStoredProcedure($spnombresel,$spparamsel,$querysel,$numfilas,$errno))
+			die("Error al acceder a sessions - ".$errno);
+		
+		if($numfilas == 1)
+		{
+			$r = mysqli_fetch_assoc($querysel);
+			return $r['datavalue'];
+		} 
+		else
+		{
+			$spnombreins="ins_sessions";
+			$spparamins=array('pkey'=>$aKey);
+			if(!$this->conexionsesion->ejecutarStoredProcedure($spnombreins,$spparamins,$queryins,$numfilas,$errno))
+				die("Error al acceder a sessions - ".$errno);
+	
+			return "";
+		}
+	}
+	
+	function sessao_write( $aKey, $aVal )
+	{
+		$spnombreupd="upd_sessions_xsessionid";
+		$spparamupd =array('pkey'=>$aKey,'pdata'=>$aVal);
+		if(!$this->conexionsesion->ejecutarStoredProcedure($spnombreupd,$spparamupd,$queryupd,$numfilas,$errno))
+			die("Error al acceder a sessions - ".$errno);
+	
+		return true;
+	}
+	
+	function sessao_destroy( $aKey )
+	{
+		$spnombredel="del_sessions_xsessionid";
+		$spparamdel =array('pkey'=>$aKey);
+		if(!$this->conexionsesion->ejecutarStoredProcedure($spnombredel,$spparamdel,$querydel,$numfilas,$errno))
+			die("Error al acceder a sessions - ".$errno);
+	
+		return true;
+	}
+	
+	function sessao_gc( $aMaxLifeTime )
+	{
+		$spnombredel="del_sessions_xmayortiempo";
+		$spparamdel =array('ptiempolimite'=>$aMaxLifeTime);
+		if(!$this->conexionsesion->ejecutarStoredProcedure($spnombredel,$spparamdel,$querydel,$numfilas,$errno))
+			die("Error al acceder a sessions - ".$errno);
+	
+		return true;
+	}
+	
+//----------------------------------------------------------------------------------------- 
+// Verifica si tiene los permisos suficientes para acceder a un determinado archivo
+
+	function TienePermisos($conexion,$usuariocod,$rolcod,$archivonom)
+	{
+		$archivonom=substr(strrchr($archivonom,'/'),1);
+		
+		if ($rolcod==0 || $usuariocod==0)
+		{
+			FuncionesPHPAtlinea::RegistrarAcceso($conexion,'010002','Usuario no logueado o excesivo tiempo de inactividad',$usuariocod);
+			$arraymensajepantalla =array("formato" => GENERAL_FMT_TEXTO);	
+			$arraymensajepantalla+=array("texto" => "Ud. tiene que registrarse para poder acceder");
+			$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$arraymensajemail+=array("texto" => "Usuario no logueado o excesivo tiempo de inactividad");
+			FuncionesPHPAtlinea::MostrarMensaje($conexion,GENERAL_MSG_ERRSOSP,$arraymensajepantalla,$arraymensajemail);
+			die();
+		}
+		elseif(!isset($_SESSION['sistema']) || $_SESSION['sistema']!=SISTEMA)
+		{
+			FuncionesPHPAtlinea::RegistrarAcceso($conexion,'010005',(isset($_SESSION['sistema'])?$_SESSION['sistema']:"")." - ".$usuariocod,0);
+			$arraymensajepantalla =array("formato" => GENERAL_FMT_TEXTO);	
+			$arraymensajepantalla+=array("texto" => "Ud. no tiene los permisos suficientes para ingresar al sistema");
+			$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$arraymensajemail+=array("texto" => "Usuario sin permisos");
+			FuncionesPHPAtlinea::MostrarMensaje($conexion,GENERAL_MSG_ERRSOSP,$arraymensajepantalla,$arraymensajemail);
+			die();
+		}
+		else
+		{
+			$spnombrerol='sel_roles_modulos_xrolcod_xarchivonom';
+			$spparamrol=array('prolcod'=>$rolcod,'parchivonom'=>$archivonom);
+		
+			if(!$conexion->ejecutarStoredProcedure($spnombrerol,$spparamrol,$queryrol,$numfilas,$errno) || $numfilas<1)
+			{
+				FuncionesPHPAtlinea::RegistrarAcceso($conexion,'010003','Usuario sin permiso',$usuariocod);
+				$arraymensajepantalla =array("formato" => GENERAL_FMT_TEXTO);	
+				$arraymensajepantalla+=array("texto" => "Ud. no tiene los permisos suficientes para ingresar a la página solicitada");
+				$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+				$arraymensajemail+=array("texto" => "Usuario sin permiso - usuario='".$usuariocod."' - numfilas='".$numfilas."' - errno='".$errno."' ");
+				FuncionesPHPAtlinea::MostrarMensaje($conexion,GENERAL_MSG_ERRSOSP,$arraymensajepantalla,$arraymensajemail);
+				die();
+			}
+			
+			FuncionesPHPAtlinea::RegistrarAcceso($conexion,'010001','',$usuariocod);
+		}	
+	}
+}
+
+
+	
+	
+?>

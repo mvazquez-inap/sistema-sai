@@ -1,0 +1,60 @@
+<?php 
+require('./include.dhtml');
+header('Content-Type: text/html; charset=utf-8');
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// Falta
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oComision= new cComision($conexion);
+
+
+//----------------------------------------------------------------------------------------- 
+
+echo "//tienepermisos\n";
+echo "error='";
+
+$tipo=0;
+$comi_codigo="";
+
+if (isset ($_GET['comi_codigo']))
+	$comi_codigo=$_GET['comi_codigo'];
+
+$ok=0;
+
+	if ($oComision->TraerDatosComision($comi_codigo,$filacomision,$es_modif)) {
+		if (!$es_modif) {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No se ha encontrado la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		}
+	}
+
+	$ArregloDatos= array();
+	$ArregloDatos['ppers_apellido'] = "";	
+	$ArregloDatos['porderby'] = "pers_apellido";
+	$ArregloDatos['pcomi_codigo'] = $comi_codigo;
+	
+		
+	if (!$oComision->BuscarComisionInscriptos($ArregloDatos,$numfilas,$result,$error,$errormail)) {
+		$txt_sys_mail="\nvalor_buscado_".$comi_codigo."\nerror=".$errormail;
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando datos a mostrar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;			
+	}			
+
+	if ($filacomision['comi_vacantes']+$filacomision['comi_sobreventa'] > $numfilas) {
+		$ok =1;
+	}
+
+echo "'\n";
+echo "ejecutook=".$ok;
+echo "\n";
+?>

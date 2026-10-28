@@ -1,0 +1,197 @@
+<?php
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+//----------------------------------------------------------------------------------------- 	
+// Funciones para definir 
+//--------------------------------------------------------------------------------------------------
+$objTabla= new cTablaAgenteTipoFuncion($conexion);
+?>
+<script type="text/javascript">
+	<?php $objTabla->ValidarFormSysTabla(); ?>
+</script>
+<?php
+$modulo_recarga= "agente_funcion.dhtml";
+
+$result = true;
+//--------------------------------------------------------------------------------------------------
+// Se confirmo la operacion 
+//--------------------------------------------------------------
+if (isset($_POST['boton_confirma'])) {
+
+	$commit=true;
+	$conexion->ManejoTransacciones("B");
+
+	// Alta - Baja - Modificación
+	if ($commit) {
+
+		switch($_POST['operacion']) {
+
+		case 'I': 	
+			if ($objTabla->AltaSysTabla($_POST)) {
+				$nuevocodigo=$conexion->UltimoCodigoInsertado();
+				FuncionesPHPLocal::RegistrarAcceso($conexion,$objTabla->ObtenerCodigoLog('ins'),$objTabla->ObtenerCampo('clave')."=".$nuevocodigo,$_SESSION['usuariocod']);
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se ha insertado: ".$_POST[$objTabla->ObtenerCampo('descripcion')],array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} else  //  Cualquier error es informado en AltaSysTabla
+				$commit=false;
+
+			break;	
+			
+		case 'M': 
+			if ($objTabla->ModificarSysTabla($_POST)) {
+				FuncionesPHPLocal::RegistrarAcceso($conexion,$objTabla->ObtenerCodigoLog('upd'),$objTabla->ObtenerCampo('clave')."=".$_POST[$objTabla->ObtenerCampo('clave')],$_SESSION['usuariocod']);
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se ha actualizado.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} else //  Cualquier error es informado en ModificarSysTabla
+				$commit=false;
+
+			break;	
+
+		case 'B': 
+
+			if ($objTabla->BorrarSysTabla($_POST,$codlogbaja)) {			
+				FuncionesPHPLocal::RegistrarAcceso($conexion,$codlogbaja,$objTabla->ObtenerCampo('clave')."=".$_POST[$objTabla->ObtenerCampo('clave')],$_SESSION['usuariocod']);	
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se ha eliminado: ".$_POST[$objTabla->ObtenerCampo('descripcion')],array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} else //  Cualquier error es informado en BorrarSysTabla
+				$commit=false;
+			break;	
+
+		default: 
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error operación",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				$commit=false;
+		} // $switch
+		
+		if($commit)
+			$conexion->ManejoTransacciones("C");
+		else
+			$conexion->ManejoTransacciones("R");
+	}	// commit
+} // seteado el confirma 
+
+//------------------------------------------------------------
+// Inicio de pantalla
+//------------------------------------------------------------
+// Se define la acción
+if (!isset($_GET['operacion'])) {
+	$leyenda_operacion = "Agregar";
+	$boton_operacion = "Agregar";		
+	$operacion = "I";
+} else {
+	switch ($_GET['operacion']) {		
+	case "M" :
+			$leyenda_operacion = "Actualizar";		
+			$boton_operacion = "Actualizar";		
+			$operacion = "M";				
+			break;
+	case "B" :
+			$leyenda_operacion = "Eliminar";		
+			$boton_operacion = "Eliminar";		
+			$operacion = "B";				
+			break;
+	default:
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error de operación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		$result=false;
+	}
+}
+
+//------- GRILLA VALORES A MODIFICAR 
+if ($result)  { ?>
+	<div align="right" style="width:95%">
+			<a href="download_tablas_excel.dhtml?tabla=<?php echo $objTabla->ObtenerNombreTabla('clave') ?>"  class="linkFondoBlanco textoAclaraciones"> 
+				<img alt="Bajar en Formato .xls" title="Bajar en Formato .xls" src="./images/iconoexcel.jpg" border="0">
+			</a>
+	</div>
+	<table width="100%" class="textoTablaDato">
+		<tr> 
+			<td align="center">	
+			<?php if (!$objTabla->MostrarGrillaSeleccion($modulo_recarga))
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar datos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			?>
+			</td>
+		</tr>	
+	</table>
+	<br>
+<?php	}
+
+
+//------- DATOS DE UN REGISTRO
+if ($result) { 	
+
+	$fila_tabla=array();						//  NUEVO
+
+	if ($operacion == "I")
+		$fila_tabla[$objTabla->ObtenerCampo('clave')]="";
+		
+	if ($operacion == "M" || $operacion == "B") {	// BAJA o MODIFICACION
+
+		// Datos para la seleccion de un registro por su clave.
+		$objTabla->ObtenerSPxClave($spnombre_clave,$spparam_clave,isset($_GET[$objTabla->ObtenerCampo('clave')])?$_GET[$objTabla->ObtenerCampo('clave')]:"");
+
+		if(!$conexion->ejecutarStoredProcedure($spnombre_clave,$spparam_clave,$query,$numfilas,$errno)) {	
+			$txt_sys_mail="\n".$objTabla->ObtenerCampo('clave')."=".$_GET[$objTabla->ObtenerCampo('clave')];
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando datos de la tabla.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			$result=false;
+		} elseif ($numfilas==0)  {
+				$txt_sys_mail="\n".$objTabla->ObtenerCampo('clave')."=".$_GET[$objTabla->ObtenerCampo('clave')]."\nnumfilas=".$numfilas;
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando datos, no existe el valor buscado.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				$result=false;
+			} else
+				$fila_tabla=mysqli_fetch_assoc($query);
+	} // Obtencion de datos 
+	
+	if ( $result ) {  ?>
+	<table width="80%"  border="0" align="center" cellspacing="0" cellpadding="0">			
+		<!-- DATOS A MODIFICAR -->
+		<tr> 
+			<td>
+				<fieldset class="bordeDetalleRegistro">
+				<legend class="textoLeyendaDetalleRegistro">  Detalle del Registro  ( <?php echo $leyenda_operacion ?>  )</legend>
+				<form action="<?php echo $modulo_recarga; ?>" method="post" name="formulario">
+				<table width="100%" class="textoTablaDato" cellpadding="2" cellspacing="0">
+						<tr>
+							<td valign="top" class="textoEtiqueta">Descripción</td>
+							<td class="textoEtiquetaDatoResaltado">	
+							
+<?php							if ( $objTabla->ObtenerLongCampo('descripcion') <= 80 )  { ;  ?>
+								 <input name="<?php echo $objTabla->ObtenerCampo('descripcion') ?>" type="text" <?php echo ($operacion == "B")?' class="inputReadonly" readonly ':' class="textoInput" ' ?>  size="<?php echo $objTabla->ObtenerLongCampo('descripcion')+1 ?>" maxlength="<?php echo $objTabla->ObtenerLongCampo('descripcion')?>" value="<?php if($operacion == "M" || $operacion == "B") echo htmlspecialchars($fila_tabla[$objTabla->ObtenerCampo('descripcion')],ENT_QUOTES) ?>"> 
+<?php							} else { ?>
+								 <textarea cols="100"  name="<?php echo  $objTabla->ObtenerCampo('descripcion') ?>"  style="width:400px" <?php echo ($operacion == "B")?' class="inputReadonly" readonly ':' class="textoInput" '?>><?php if($operacion == "M" || $operacion == "B") echo htmlspecialchars($fila_tabla[$objTabla->ObtenerCampo('descripcion')],ENT_QUOTES) ?></textarea>
+<?php								if($operacion == "M" || $operacion == "I") { ?>
+									<br><span class="textoAclaraciones">Nota: La longitud de la descripción debe ser menor a  <?php echo $objTabla->ObtenerLongCampo('descripcion') ?> caracteres. </span>
+<?php								} 
+							} ?>
+							</td>
+						</tr> 
+						<tr>
+							<td colspan="2" align="center">
+								<input type="submit" name="boton_confirma" value="<?php echo $boton_operacion; ?>" onClick="return ValidarFormSysTabla(formulario,'<?php echo $operacion ?>'); " class="botones" />
+								<input type="submit" name="boton_cancela" value="Cancelar" class="botones" />
+								<input type="hidden" name="operacion" id="operacion" value="<?php echo $operacion;?>" />
+								<input type="hidden" name="<?php echo $objTabla->ObtenerCampo('clave')?>" id="<?php echo $objTabla->ObtenerCampo('clave') ?>" value="<?php echo $fila_tabla[$objTabla->ObtenerCampo('clave')] ?>" />				  
+							</td>
+						</tr>					
+				</table>
+				</form>
+				</fieldset> 	
+			</td>
+			</tr>
+		</table>
+<?php	} // 
+} //  
+$oEncabezados->PieMenuEmergente(); 
+?>

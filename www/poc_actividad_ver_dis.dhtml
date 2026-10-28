@@ -1,0 +1,37 @@
+<?php require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+$oPocActividad= new cPocActividad($conexion);
+//----------------------------------------------------------------------------------------- 
+?>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 TRANSITIONAL//EN"> 
+<html>
+<head>
+<title>Detalle de la Actividad POC</title>
+<link rel="stylesheet" type="text/css" href="estilos.css">
+<link href="imprimir.css" rel="stylesheet" type="text/css" media="print" >
+</head>
+<body>
+<?php  require ('templates/rpt_imprimir.tpl.dhtml');  ?>
+<br/>
+<?php
+$esta_ok = true;
+if(!$oPocActividad->ListarDisenoPocActividad($_GET['poc_codigo'],$_GET['pocact_codigo'])) {
+	$esta_ok = false;
+}
+?>
+</body>
+</html>

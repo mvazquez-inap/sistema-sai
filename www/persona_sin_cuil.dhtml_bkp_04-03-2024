@@ -1,0 +1,198 @@
+<?php 
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+
+$oPersonas = new cPersonas($conexion);
+?>
+	<script type="text/javascript" src="calendar/calendar.js"></script>
+	<script type="text/javascript" src="calendar/calendar-setup.js"></script>
+	<script type="text/javascript" src="calendar/calendar-es.js"></script>
+
+<?php
+//----------------------------------------------------------------------------------------- 
+$datosvalidados = array();
+
+if (isset($_POST['usuarioCUIT']))
+{
+	$esta_ok = true;
+	if(!$oPersonas->TraerDatosPersona($_POST["usuarioCUIT"],$datospersona,$es_modif)) {
+		$esta_ok=false;
+	} else {	
+		if($datospersona['pers_estado'] == PERSONABAJA) {
+			$msg="La persona ingresada se encuentra dada de baja.<br>Deber&aacute; rehabilitar a la persona.";
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,$msg,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$esta_ok = false;
+		}	
+	}
+
+	if (!$esta_ok) { ;?>
+		<br><div align="center"><a href="persona_modificar.dhtml" class="linkFondoBlanco">Volver</a></div>
+<?php	} 
+	
+	if ($esta_ok) {
+	
+		$esActividad_autodesarrollo_persona = $oPersonas->PersonaEsActividadAautodesarrolloPersona($datospersona["pers_codigo"]);
+		$esActividad_autodesarrollo_dictamen = $oPersonas->PersonaEsActividadAautodesarrolloDictamen($datospersona["pers_codigo"]);
+		$esActividad_externa_persona= $oPersonas->PersonaEsActividadExternaPersona($datospersona["pers_codigo"]);
+		$esComision_persona= $oPersonas->PersonaEsComisionPersona($datospersona["pers_codigo"]);
+		?>
+		<script type="text/javascript">
+		<?php cPersonas::ValidarFormAltaPersonaJS(false); ?>
+		</script>
+		<br>
+		<form name="formulario" action="persona_sin_cuil_upd.dhtml" method="post">
+		<table  width="100%" class="textotablaDato">
+			<tr>
+				<td class='textoEtiquetaClave' width="30%" align="left">N&deg; Documento</td>
+			  <td class="textoEtiquetaDatoResaltado" align="left"><input type="text"  class="textoInput" size="11" maxlength="11" name="pers_cuilt" value="<?php echo $_POST['usuarioCUIT']?>" <?php echo (!$es_modif)?"":" disabled='disabled' "?> /></td>
+			</tr>
+			<tr>
+				<td class='textoEtiqueta' width="30%" align="left">Apellido</td>
+				<td class="textoEtiquetaDatoResaltado" align="left"><input type="text"   size="30" maxlength="30" name="pers_apellido" id="pers_apellido" class="textoInput" onblur="PasarAMayusculas('pers_apellido')" value="<?php echo ($es_modif)?$datospersona['pers_apellido']:""?>" /></td>
+			</tr>
+			<tr>
+				<td class='textoEtiqueta' width="30%" align="left">Nombre</td>
+				<td class="textoEtiquetaDatoResaltado" align="left"><input type="text"  class="textoInput" size="30" maxlength="30" name="pers_nombre" id="pers_nombre" onblur="PasarAMayusculas('pers_nombre')" value="<?php echo ($es_modif)?$datospersona['pers_nombre']:""?>" /></td>
+			</tr>
+			<!-- <tr>
+				<td class='textoEtiqueta' width="30%" align="left">Sexo</td>
+				<td class="textoEtiquetaDatoResaltado" align="left">
+				  <label><input name="pers_sexo" type="radio" value="<?php echo SEXO_FEMENINO?>" <?php echo ($es_modif && $datospersona["pers_sexo"]==SEXO_FEMENINO)?"checked='checked'":"" ?>>Femenino</label>
+				  <label><input name="pers_sexo" type="radio" value="<?php echo SEXO_MASCULINO?>" <?php echo ($es_modif && $datospersona["pers_sexo"]==SEXO_MASCULINO)?"checked='checked'":"" ?>>Masculino</label>
+				</td>
+			</tr>-->
+
+
+<tr>
+    <td class='textoEtiqueta' width="30%" align="left">Identidad de g&eacute;nero</td>
+    <!-- <td class="textoEtiquetaDatoResaltado" align="left">
+    <label><input name="pers_sexo" type="radio" value="<?php // echo SEXO_FEMENINO?>" <?php // echo ($es_modif && $datospersona["pers_sexo"]==SEXO_FEMENINO)?"checked='checked'":"" ?>>Femenino</label>
+    <label><input name="pers_sexo" type="radio" value="<?php // echo SEXO_MASCULINO?>" <?php // echo ($es_modif && $datospersona["pers_sexo"]==SEXO_MASCULINO)?"checked='checked'":"" ?>>Masculino</label>
+    </td> -->
+    
+    <!-- MV - SEXO - 17032023 -->
+    <td class="textoEtiquetaDatoResaltado" align="left">
+    <select name="pers_sexo">
+        <option value="<?php echo SEXO_FEMENINO?>" <?php echo ($es_modif && $datospersona["pers_sexo"]==SEXO_FEMENINO)?" selected":"" ?>>Mujer</option>
+	<option value="<?php echo SEXO_MASCULINO?>" <?php echo ($es_modif && $datospersona["pers_sexo"]==SEXO_MASCULINO)?" selected":"" ?>>Var&oacute;n</option>
+        <option value="<?php echo SEXO_MUJER_TRANS?>" <?php echo ($es_modif && $datospersona["pers_sexo"]==SEXO_MUJER_TRANS)?" selected":"" ?>>Mujer Trans</option>
+        <option value="<?php echo SEXO_VARON_TRANS?>" <?php echo ($es_modif && $datospersona["pers_sexo"]==SEXO_VARON_TRANS)?" selected":"" ?>>Varón Trans</option>
+        <option value="<?php echo SEXO_TRAVESTI?>" <?php echo ($es_modif && $datospersona["pers_sexo"]==SEXO_TRAVESTI)?" selected":"" ?>>Travesti</option>
+        <option value="<?php echo SEXO_TRANSEXUAL?>" <?php echo ($es_modif && $datospersona["pers_sexo"]==SEXO_TRANSEXUAL)?" selected":"" ?>>Transexual</option>
+        <option value="<?php echo SEXO_TRANSGENERO?>" <?php echo ($es_modif && $datospersona["pers_sexo"]==SEXO_TRANSGENERO)?" selected":"" ?>>Transg&eacute;nero</option>
+        <option value="<?php echo SEXO_NO_BINARIE?>" <?php echo ($es_modif && $datospersona["pers_sexo"]==SEXO_NO_BINARIE)?" selected":"" ?>>No binarie</option>
+        <option value="<?php echo SEXO_NINGUNA?>" <?php echo ($es_modif && $datospersona["pers_sexo"]==SEXO_NINGUNA)?" selected":"" ?>>Ninguna de las anteriores</option>
+        <option value="<?php echo SEXO_NO_RESPONDE?>" <?php echo ($es_modif && $datospersona["pers_sexo"]==SEXO_NO_RESPONDE)?" selected":"" ?>>Prefiero no responder</option>
+    </select>
+    </td>
+</tr>
+
+				
+			<tr>
+				<td align="left" class="textoEtiqueta">Email</td>
+				<td class="textoEtiquetaDatoResaltado" align="left"><input type="text" name="pers_email" class='textoInput' size="32"  maxlength="100" value="<?php if (isset($datospersona["pers_email"])) echo htmlspecialchars($datospersona["pers_email"],ENT_QUOTES); ?>"></td>
+			</tr> 	
+			<tr>
+				<td align="left" class="textoEtiqueta">Fecha de Nacimiento</td>
+				<td class="textoEtiquetaDatoResaltado" align="left">
+				
+
+										<input type="text" name="pers_fechanac" id="pers_fechanac"  maxlength="10" size="11" class="textoInput"  value="<?php echo FuncionesPHPLocal::ConvertirFecha($datospersona['pers_fechanac'],'aaaa-mm-dd','dd/mm/aaaa') ?>"> 
+										<img src="images/calendario.gif" id="cal-button-1" name="cal-button-1" style="vertical-align:-4px; cursor:pointer" border="0" alt="Calendario">
+										<script type="text/javascript">
+											Calendar.setup({
+			<?php								
+											if ($es_modif && $datospersona["pers_fechanac"] != "NULL")	{												
+			?>									  date    : "<?php echo  FuncionesPHPLocal::ConvertirFecha($datospersona['pers_fechanac'],'aaaa-mm-dd','dd/mm/aaaa') ?>",
+			<?php								}	?>										
+											range		  : [1900, 2100],
+											inputField    : "pers_fechanac",
+											button        : "cal-button-1",
+											ifFormat	: "%d/%m/%Y"
+											});
+										</script>
+									  <span class="textoAclaraciones">(dd/mm/aaaa)</span>
+									  <div style='font-size: 7px;'>&nbsp;</div>
+								
+				</td>
+			</tr> 									
+			<tr>
+				<td colspan="2" align="left">
+				  <blockquote>
+				  <span class="textoEtiquetaDatoBold">
+					<?php if ($esActividad_autodesarrollo_persona || $esActividad_autodesarrollo_dictamen || $esActividad_externa_persona || $esComision_persona) {
+						echo "<br>La persona se encuentra registrada en alguna actividad INAP.";
+						$puedo_eliminar = false;
+					} else {
+						echo "&nbsp;";
+						$puedo_eliminar = true;
+					}
+					?>
+				   </span>
+				   </blockquote>						
+				</td>
+			</tr>
+			
+			<tr align="left"> 
+				<td colspan="2">
+				  <blockquote>
+				  <span class="textoAclaraciones">Recuerde que solamente Deber&aacute; cambiar el Apellido, Nombre ante un error de escritura, y no para reasignar el CUIT a otra persona.</span>
+				  </blockquote>						
+				</td>
+			</tr>
+			
+			<tr>
+				<td colspan="2" align="center">			
+						<input type="submit" name="BotonAlta" class="botones" value="<?php echo ($es_modif)?"Actualizar":"Agregar" ?>" onClick="return ValidarFormAltaPersonaJS(formulario)">
+						&nbsp;&nbsp;&nbsp; 
+						<?php if ($puedo_eliminar) { ?>
+						<input type="submit" name="BotonBaja" class="botones" value="Borrar" <?php echo ($es_modif)?"":"disabled='disabled'"  ?> onClick="return confirm('¿Está seguro de que desea borrar los datos de persona?');">
+						<?php }  ?>
+						
+						<input type="hidden" name="pers_codigo" value="<?php echo $datospersona['pers_codigo']?>" />
+				</td>
+			</tr>
+		</table>
+		
+		</form>
+<?php
+	} // esta_ok
+}
+
+
+if (!isset($_POST['usuarioCUIT']))
+{
+$cuit="";
+?>
+<div align='center'>
+<form method="POST" action="<?php echo $_SERVER['PHP_SELF'] ?>" name="formulario_cuit" id="formulario_cuit">
+	<table width="100%" class="textoTablaDato" align="center">
+	<tr>
+		<td><?php $oPersonas->PedirCuit($cuit,'formulario_cuit','usuarioCUIT','botoningresoCUIT',true,'Actualizar',false); ?></td>
+	</tr>
+	</table>
+</form>
+</div>
+<?php } ?>
+
+<?php
+$oEncabezados->PieMenuEmergente();
+?>
+

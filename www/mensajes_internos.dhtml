@@ -1,0 +1,434 @@
+<?php require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+
+$oMensajesInternos = new cMensajesInternos($conexion);
+
+//----------------------------------------------------------------------------------------- 
+?>
+
+<script type="text/javascript">
+//------------------------------------------------------------------------------------------------
+function Validar(formulario) {
+
+	// Fecha de Inicio
+	if (formulario.msg_fecha_inicio.value!="" && !ValidarFecha(formulario.msg_fecha_inicio.value))	{
+		alert("La fecha de inicio no es válida");
+		formulario.comi_fecha_inicio.focus();
+		return false;
+	}
+	// Fecha de fin
+	if (formulario.msg_fecha_fin.value!="" && !ValidarFecha(formulario.msg_fecha_fin.value)) {
+		alert("La fecha de finalización no es válida");
+		formulario.comi_fecha_fin.focus();
+		return false;
+	}
+
+	// Si se seleccionan ambas, Fecha de Inicio >= Fecha de Fin 
+	if (formulario.msg_fecha_inicio.value!="" && formulario.msg_fecha_fin.value!="") {
+		var fechainicio=ConvertirFecha(formulario.msg_fecha_inicio.value,'dd/mm/aaaa','aaaammdd');
+		var fechafin=ConvertirFecha(formulario.msg_fecha_fin.value,'dd/mm/aaaa','aaaammdd');
+		if (fechainicio>fechafin) 	{
+			alert("La fecha de finalización debe ser mayor o igual que la fecha de inicio");
+			formulario.msg_fecha_inicio.focus();
+			return false;
+		}
+	}
+	
+	return true;
+}
+
+
+function abrirMensaje(msg_codigo) {
+
+		Popup('mensajes_internos_ver_detalle.dhtml?msg_codigo='+msg_codigo,'ventana_descripciones',650,450,130,50,'yes');
+		var Celda=EncontrarObjeto('sobre_'+msg_codigo);
+		Celda.innerHTML = '';
+
+		var CeldaLupa=EncontrarObjeto('lupa_'+msg_codigo);
+		CeldaLupa.innerHTML = '<a href="javascript:void(0)" onclick="abrirMensaje('+msg_codigo+');"><img src="images/verdetalle.gif" alt="Ver detalle" title="Ver detalle" border="0"><//a>';
+		
+		
+		
+		
+}
+
+//------------------------------------------------------------------------------------------------
+</script>
+<script type="text/javascript" src="calendar/calendar.js"></script>
+<script type="text/javascript" src="calendar/calendar-setup.js"></script>
+<script type="text/javascript" src="calendar/calendar-es.js"></script>
+
+
+<?php
+//--------------------------------------------------------------------------------------------------------------------------------
+function esMensajeNuevo($array_fila_grilla) {
+	if ( $array_fila_grilla['msg_estado'] == $array_fila_grilla['mensajenuevo'])  
+		return true;
+	else 
+		return false;
+}
+
+
+//--------------------------------------------------------------------------------------------------------------------------------
+function esMensajeLeido($array_fila_grilla) {
+	if ( $array_fila_grilla['msg_estado'] == $array_fila_grilla['mensajeleido'])  
+		return true;
+	else 
+		return false;
+}
+
+
+
+
+//-------------------------------------------------------------------------------------
+function MostrarMensajes($conexion,$ArregloDatos) {
+
+		$oMensajesInternos = new cMensajesInternos($conexion);
+		if (!$oMensajesInternos ->BuscarMensajesInternos($ArregloDatos,$numfilas_msg,$result_msg,$error,$errormail))
+		{
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error en la búsqueda de Mensajes internos. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		if ($numfilas_msg ==0) {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No hay mensajes internos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+
+		$i=0;
+		while ($fila_mensaje = mysqli_fetch_assoc($result_msg)) {
+			$arrayresult[$i]['msg_estado'] = $fila_mensaje['msg_estado'];
+			$arrayresult[$i]['msg_fecha'] = date("d/m/Y H:i",strtotime($fila_mensaje['msg_fecha']));
+			$arrayresult[$i]['msg_asunto'] = $fila_mensaje['msg_asunto'];			
+			$arrayresult[$i]['msg_codigo'] = $fila_mensaje['msg_codigo'];					
+			$arrayresult[$i]['mensajenuevo'] = $oMensajesInternos->MENSAJENUEVO;								
+			$arrayresult[$i]['mensajeleido'] = $oMensajesInternos->MENSAJELEIDO;				
+			
+			$i++;
+		}
+		
+		$opciones=array(
+			"numPagina"=>isset($_GET['pagina'])?$_GET['pagina']:1,
+			"NombrePaginaQuery"=>"pagina",
+			"FilasPagina"=>TAMANO_PAGINA_30
+		);
+		
+		if (isset($_GET['pagina']))	{
+			$querystring=FuncionesPHPLocal::ArmarQueryString("pagina","",false);	
+			$opciones['QueryString']=$querystring;
+		}
+
+		$oGrilla = new cGrilla($opciones);
+		$oGrilla->SetearAnchoGrilla('90%');
+
+		$miColumna1 = $oGrilla->AddColumna('linkimg');
+		$oGrilla->Setear('condicion_visualizar_columna',$miColumna1,'esMensajeNuevo');
+		$oGrilla->Setear('ancho_columna',$miColumna1,'60');
+		$oGrilla->Setear('imagen',$miColumna1,'images/email_nuevo.gif');
+		$oGrilla->Setear('altImagen',$miColumna1,'Ver detalle');		
+		$oGrilla->Setear('titulo_columna',$miColumna1,'Nuevo');
+		$oGrilla->Setear('onClick_function',$miColumna1,'abrirMensaje');
+		$oGrilla->Setear('url',$miColumna1,'javascript:void(0)');
+		$oGrilla->AddParametrosURL($miColumna1,"msg_codigo",'msg_codigo');
+		$oGrilla->SetId($miColumna1,'sobre_','msg_codigo');
+
+		$miColumna2 = $oGrilla->AddColumna('txt');
+		$oGrilla->Setear('titulo_columna',$miColumna2,'Fecha');
+		$oGrilla->Setear('campo_grilla',$miColumna2,'msg_fecha');
+		$oGrilla->Setear('align_columna',$miColumna2,'left');
+		
+		$miColumna3 = $oGrilla->AddColumna('txt');
+		$oGrilla->Setear('titulo_columna',$miColumna3,'Asunto');
+		$oGrilla->Setear('campo_grilla',$miColumna3,'msg_asunto');
+		$oGrilla->Setear('align_columna',$miColumna3,'left');
+		
+
+		$miColumna4 = $oGrilla->AddColumna('linkimg');
+		$oGrilla->Setear('condicion_visualizar_columna',$miColumna4,'esMensajeLeido');
+		$oGrilla->Setear('ancho_columna',$miColumna4,'60');
+		$oGrilla->Setear('imagen',$miColumna4,'images/verdetalle.gif');
+		$oGrilla->Setear('altImagen',$miColumna4,'Ver detalle');		
+		$oGrilla->Setear('titulo_columna',$miColumna4,'Detalle');
+		$oGrilla->Setear('onClick_function',$miColumna4,'abrirMensaje');
+		$oGrilla->Setear('url',$miColumna4,'javascript:void(0)');
+		$oGrilla->AddParametrosOnClick($miColumna4,"msg_codigo",'var');
+		$oGrilla->SetId($miColumna4,'lupa_','msg_codigo');
+		
+
+		$miColumna5 = $oGrilla->AddColumna('linkimg');
+		$oGrilla->Setear('titulo_columna',$miColumna5,'Eliminar');
+		$oGrilla->Setear('ancho_columna',$miColumna5,'60');
+		$oGrilla->Setear('url',$miColumna5,"mensajes_internos.dhtml");
+		$oGrilla->Setear('imagen',$miColumna5,'images/borrar.jpg');
+		$oGrilla->Setear('altImagen',$miColumna5,'Eliminar');
+		$oGrilla->AddParametrosURL($miColumna5,"msg_codigo","msg_codigo");
+		$oGrilla->AddParametrosURL($miColumna5,"operacion","B","cte");
+	
+		if (!$oGrilla->CargarGrilla($arrayresult)) {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al mostrar mensajes. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		
+			return false;
+		}
+
+		$oGrilla->MostrarGrilla();
+
+		return true;
+}
+
+	if (isset($_POST['boton_filtrar'])) {
+	
+		$ok=true;	
+	
+		$_SESSION['filtro_busqueda']=array();
+		$_SESSION['filtro_busqueda']['msg_nivel_mensaje']=trim($_POST['msg_nivel_mensaje']);
+		$_SESSION['filtro_busqueda']['msg_archivo_ejec']=trim($_POST['msg_archivo_ejec']);
+		$_SESSION['filtro_busqueda']['msg_funcion']=trim($_POST['msg_funcion']);
+		$_SESSION['filtro_busqueda']['msg_usuariocod_origen']=trim($_POST['msg_usuariocod_origen']);
+
+		
+		$_SESSION['filtro_busqueda']['msg_ip_origen']=trim($_POST['msg_ip_origen']);
+		
+		if ($_SESSION['rolcod'] == ADMIONTI) 
+			$_SESSION['filtro_busqueda']['msg_tipo_origen']=$oMensajesInternos ->MENSAJE_TIPO_ORIGEN_SISTEMA;
+		else 
+			$_SESSION['filtro_busqueda']['msg_tipo_origen']=$oMensajesInternos ->MENSAJE_TIPO_ORIGEN_USUARIO;
+	
+		$_SESSION['filtro_busqueda']['msg_usuariocod_destino']=$_SESSION['usuariocod'];
+
+		// se es DESARROLLO busca todos los mensajes
+		if (RUN_ACTUAL == RUN_DESARROLLO) {
+			$_SESSION['filtro_busqueda']['msg_usuariocod_destino']="";
+			$_SESSION['filtro_busqueda']['msg_tipo_origen'] = "";
+		}	
+
+
+	
+		if (isset($_POST['msg_fecha_inicio'])) 
+			$_SESSION['filtro_busqueda']['msg_fecha_inicio']=FuncionesPHPLocal::ConvertirFecha($_POST['msg_fecha_inicio'],'dd/mm/aaaa','aaaa-mm-dd');
+			
+		if (isset($_POST['comi_fecha_fin'])) 
+			$_SESSION['filtro_busqueda']['msg_fecha_fin']=FuncionesPHPLocal::ConvertirFecha($_POST['msg_fecha_fin'],'dd/mm/aaaa','aaaa-mm-dd');
+		
+		$_SESSION['filtro_busqueda']['orderby']="msg_fecha DESC";
+	}	
+
+	if (isset($_POST['boton_filtrar']) || isset($_GET['pagina']) ) {  ?>
+
+        <table width="100%" class="textoTablaDato" align="center">
+            <tr align="center">
+                <td valign="top">
+                <?php  MostrarMensajes($conexion,$_SESSION['filtro_busqueda']); ?>
+                </td>
+            </tr>
+        </table>
+        <br />
+        <div align="center"><a href="mensajes_internos.dhtml" class="linkFondoBlanco">Volver a Buscar</a></div>
+        <br />
+        <?php   
+	
+
+	} else { 
+	
+			if (isset($_GET['operacion'])) {
+			switch ($_GET['operacion']) {		
+			case "B" :
+					$leyenda_operacion = "Eliminar";		
+					$boton_operacion = "Eliminar";		
+					$operacion = "B";				
+					break;
+			default:
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error de operación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				$result=false;
+			}
+
+			$ok = true;
+			$ArregloDatos = array();
+			$ArregloDatos['msg_codigo'] = $_GET['msg_codigo'];
+	
+			if (!$oMensajesInternos ->BuscarMensajesInternos($ArregloDatos,$numfilas_msg,$result_msg,$error,$errormail))
+			{
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error en la búsqueda de Mensajes internos. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				$ok = false;
+				
+
+			}
+			if (!$oMensajesInternos ->CambioEstado($_GET['msg_codigo'],$oMensajesInternos->MENSAJELEIDO,$error,$errormail))
+			{
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al cambiar el estado del mensaje. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				$ok = false;
+			} 
+
+			if ($ok && ($numfilas_msg ==1)) {
+				$fila_mensaje = mysqli_fetch_assoc($result_msg);	
+				
+			?><p class="textonombreclave"> Ha seleccionado el siguiente mensaje para <?php echo $leyenda_operacion?></p>
+
+				<form action="mensajes_internos_upd.dhtml" method="post" name="formulario">
+				<table width="90%"  border="0" align="center" cellpadding="2" cellspacing="3" class="textotabla">
+				<tr>
+                        <td class='textoEtiqueta' width="20%" align="left">Fecha</td>
+                      <td colspan="2" class="textoEtiquetaDatoResaltado" align="left"><?php echo date("d/m/Y H:i",strtotime($fila_mensaje['msg_fecha']))?></td>  
+                    </tr>  
+                    <tr>
+                        <td class='textoEtiqueta' width="20%" align="left">Asunto</td>
+                      <td colspan="2" class="textoEtiquetaDatoResaltado" align="left"><?php echo htmlspecialchars($fila_mensaje['msg_asunto'],ENT_QUOTES) ?></td>  
+                    </tr>  
+                    <tr>
+                        <td class='textoEtiqueta' width="20%" align="left">De</td>
+                      <td colspan="2" class="textoEtiquetaDatoResaltado" align="left"><?php echo htmlspecialchars($fila_mensaje['msg_usuariocod_origen'],ENT_QUOTES) ?></td>  
+                    </tr>  
+                    <tr>
+                        <td class='textoEtiqueta' width="20%" align="left">Mensaje</td>
+                      <td colspan="2" class="textoEtiquetaDatoResaltado" align="left"><?php echo nl2br(htmlspecialchars($fila_mensaje['msg_mensaje'],ENT_QUOTES)) ?></td>  
+                    </tr>  
+
+                    <tr>
+	                    <td colspan="2" align="center">
+							<input type="submit" name="boton_confirma" class="botones" value="<?php echo $boton_operacion?>" />                        
+							<input type="hidden" name="operacion" id="operacion" value="<?php echo $operacion;?>" />
+							<input type="hidden" name="msg_codigo" id="msg_codigo" value="<?php echo $fila_mensaje['msg_codigo'] ?>" />				  
+                            
+                        </td>
+                    </tr>
+                    <tr>
+	                    <td colspan="2" align="center">
+							<a href="mensajes_internos.dhtml" class="linkFondoBlanco">Volver a Buscar</a>
+                        </td>
+                    </tr>
+
+                </table>				
+                
+                
+                
+                </form>
+				
+			<?php	
+				
+			}	
+			
+		} else {
+			
+		?>
+				<div align="right" style="width:97%">
+					<a href="ingreso.dhtml" class="linkfondoblanco textoaclaraciones">Volver</a>
+				</div>
+		<?php
+
+
+			
+            unset($_SESSION['filtro_busqueda']); ?>		
+            
+            <form action="<?php echo $_SERVER['PHP_SELF'] ?>" method="post" name="formulario_filtros" id="formulario_filtros">
+            <table id="idTablaFiltros" width="100%" class="textoTablaDato" align="center" border="0" cellpadding="0" cellspacing="1">
+                <tr>
+                    <td colspan="2"class="colorTitulosGrupo textoTituloGrupo">Filtro Búsqueda de Mensajes</td>
+                </tr>	
+                <tr>
+                    <td width="150" class="textoEtiqueta">Nivel</td>
+                    <td class="textoEtiquetaDatoResaltado"><input name="msg_nivel_mensaje" type="text" size="21" maxlength="2" class="textoInput"></td>
+                </tr>		
+                <tr>
+                    <td width="150" class="textoEtiqueta">Archivo</td>
+                    <td class="textoEtiquetaDatoResaltado"><input name="msg_archivo_ejec" type="text" size="21" maxlength="255" class="textoInput"></td>
+                </tr>		
+                <tr>
+                    <td width="150" class="textoEtiqueta">Funci&oacute;n</td>
+                    <td class="textoEtiquetaDatoResaltado"><input name="msg_funcion" type="text" size="21" maxlength="255" class="textoInput"></td>
+                </tr>		
+                <tr>
+                    <td width="150" class="textoEtiqueta">De (usuario)</td>
+                    <td class="textoEtiquetaDatoResaltado"><input name="msg_usuariocod_origen" type="text" size="21" maxlength="4" class="textoInput"></td>
+                </tr>		
+                            
+                
+                <tr>
+                    <td width="150" class="textoEtiqueta">IP or&iacute;gen</td>
+                    <td class="textoEtiquetaDatoResaltado"><input name="msg_ip_origen" type="text" size="21" maxlength="15" class="textoInput"> 
+                    999.999.999.999</td>
+                </tr>		
+                
+                <tr> 
+                    <td colspan="2">
+                        <table width="100%" class="textoTablaDato" border="0" cellpadding="0" cellspacing="0">
+                            <tr>
+                                <td width="150" class="textoEtiqueta">Fecha de Mensajes</td>		
+                                <td>
+                                    <table width="100%" class="textoTablaDato" border="0" cellpadding="3" cellspacing="0">
+                                        <tr valign="middle">
+                                            <td class="textoEtiquetaDatoResaltado">Desde</td>
+                                            <td class="textoEtiquetaDatoResaltado" align="right"> 
+                                                <input type="text" name="msg_fecha_inicio" id="msg_fecha_inicio" maxlength="10" size="11" value=""> 
+                                            </td>
+                                            <td class="textoEtiquetaDatoResaltado" align="left"> 
+                                                <img src="images/calendario.gif" id="cal-button-1" name="cal-button-1" style="vertical-align:-4px; cursor:pointer" border="0" alt="Calendario">
+                                                <script type="text/javascript"> 
+                                                    Calendar.setup({
+                                                    date    : "",
+                                                    range		: [1900, <?php echo date("Y") ?>],
+                                                    inputField  : "msg_fecha_inicio",
+                                                    button      : "cal-button-1",
+                                                    ifFormat	: "%d/%m/%Y"
+                                                    });
+                                                </script> 
+                                            </td>
+                                            <td class="textoEtiquetaDatoResaltado">Hasta</td>
+                                            <td class="textoEtiquetaDatoResaltado" align="right"> 
+                                                <input type="text" name="msg_fecha_fin" id="msg_fecha_fin" maxlength="10" size="11" value=""> 
+                                            </td>	
+                                            <td class="textoEtiquetaDatoResaltado"  align="left"> 
+                                                <img src="images/calendario.gif" id="cal-button-2" name="cal-button-2" style="vertical-align:-4px; cursor:pointer" border="0" alt="Calendario">
+                                                <script type="text/javascript">
+                                                        Calendar.setup({
+                                                        date    : "",
+                                                        range	 : [1900,<?php echo date("Y") ?>],
+                                                        inputField : "msg_fecha_fin",
+                                                        button     : "cal-button-2",
+                                                        ifFormat   : "%d/%m/%Y"
+                                                        });
+                                                </script>
+                                            </td>
+                                        </tr>												
+                                    </table>				
+                                </td>
+                            </tr>						
+                        </table>
+                    </td>		
+                </tr>
+            </table>
+            <table width="100%" class="textoTablaDato" align="center" border="0">
+                <tr align="center">
+                    <td>
+                        <input type="submit" name="boton_filtrar" class="botones" value="Buscar" onClick="return Validar(formulario_filtros);">
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                        <input type="reset" name="boton_limpiar" class="botones" value="Limpiar" >
+                    </td>
+                </tr>						
+            </table>	
+            </form>		
+	<?php }
+	
+	}
+
+?>
+
+
+
+<?php $oEncabezados->PieMenuEmergente(); ?>

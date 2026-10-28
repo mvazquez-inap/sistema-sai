@@ -1,0 +1,1533 @@
+<?php
+//-----------------------------------------------------------------------------------------
+class cActividadCursoInap extends cActividadCurso {
+	public function __construct($conexion) {
+		parent::__construct($conexion);
+	}
+//-----------------------------------------------------------------------------------------
+	function TraerDatosActividadDetalles($act_codigo,$tipoact_codigo,&$datosresult,&$es_modif) {
+		if (!$this->TraerDatosActividadCursoInap($act_codigo,$datosresult_detalle,$es_modif)) {
+			return false;
+		} else {
+			$datosresult['act_codigo']=$datosresult_detalle['actividad']['act_codigo'];
+			$datosresult['act_formato']=FORMATOCURSO;
+			$datosresult['tipoact_codigo']=TIPOACTCURSOINAP;
+			$datosresult['act_nombre']=$datosresult_detalle['actividad']['act_nombre'];
+			$datosresult['act_codinap']=$datosresult_detalle['actividad']['act_codinap'];
+			if (isset($datosresult_detalle['actividad']['dis_numero']))
+				$datosresult['dis_numero']=$datosresult_detalle['actividad']['dis_numero'];
+			$datosresult['act_duracionhs']=$datosresult_detalle['actividad_curso_inap']['actdisinap_duracionhs'];
+			$datosresult['act_estado']=$datosresult_detalle['actividad_curso']['actcur_estado'];
+			$datosresult['act_creditos']=$datosresult_detalle['actividad_curso']['actcur_creditos'];
+			$datosresult['jurisdid_inap']=$datosresult_detalle['actividad_curso']['jurisdid_inap'];
+			$datosresult['univ_codigo']=$datosresult_detalle['actividad_curso_inap']['univ_codigo'];
+			return true;
+		}
+	}
+//-----------------------------------------------------------------------------------------
+	function TraerDatosActividadCursoInap($act_codigo,&$datosresult,&$es_modif) {
+
+		// Si se hay error al ejecutar algún SQL retorna error, sino si no encuentra
+		// la actividad o la actividad curso no es Curso INAP, retorna que es_modif=false
+		// pues no se encontro una actividad curso inap con el codigo enviado
+
+		$datosresult=array();
+		$es_modif = false;
+
+
+		if (!$this->TraerDatosActividad($act_codigo,$result_actividad,$es_modif_act))
+			return false;
+
+		if ($es_modif_act) {
+
+			$datosresult['actividad']=$result_actividad; // Datos de la actividad
+
+			if (!$this->TraerDatosActividadCurso($act_codigo,$result_actividad_curso,$es_modif_act_curso))
+				return false;
+
+
+			if ($es_modif_act_curso) { // Datos de la actividad curso
+				$datosresult['actividad_curso']=$result_actividad_curso;
+				// Verifico que sea una actividad curso INAP
+				if ($datosresult['actividad_curso']['tipoact_codigo'] != TIPOACTCURSOINAP) {
+					$es_modif=false;
+				}
+				$sparam=array('pact_codigo'=>$act_codigo);
+				$spnombre="sel_actividad_curso_diseno_inap_xact_codigo";
+				if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+				{
+					$errormail="\nact_codigo".$act_codigo;
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+					return false;
+				}
+				if ($numfilas == 1)	{
+					$datosresult['actividad_curso_inap']= mysqli_fetch_assoc($resultado);
+					$es_modif = true;
+				}
+			} // $es_modif_act_curso
+
+
+		} // $es_modif_act
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function AltaDatosActividadCursoInap($datos,&$act_codigo_nuevo, &$act_codinap) {
+
+		$datosvalidados=array();
+		$this->_AguparDatosPost($datos,$datos_agrup,false);
+
+		$datoscurso['actividad']=$datos_agrup['actividad'];
+		$datoscurso['actividad_curso']=$datos_agrup['actividad_curso'];
+
+		if(!$this->AltaDatosActividadCurso($datoscurso,$act_codigo_nuevo, $act_codinap))
+			return false;
+		FuncionesPHPLocal::RegistrarAcceso($this->conexion,"38101","act_codigo=".$act_codigo_nuevo,$_SESSION['usuariocod']);
+
+		if(!$this->_DatosValidosAltaActividadCursoInap($datos_agrup['actividad_curso_inap'],$datosvalidados))
+			return false;
+
+		$spnombre="ins_actividad_curso_diseno_inap";
+		$spparam=array('pact_codigo'=>$act_codigo_nuevo,
+					  'pprogcur_codigo'=>$datosvalidados['progcur_codigo'],
+					  'pareacur_codigo'=>$datosvalidados['areacur_codigo'],
+					  'puniv_codigo'=>$datosvalidados['univ_codigo'],
+					  'pactdisinap_fundamentacion'=>$datosvalidados['actdisinap_fundamentacion'],
+					  'pactdisinap_contribucion'=>$datosvalidados['actdisinap_contribucion'],
+					  'pactdisinap_perfil'=>$datosvalidados['actdisinap_perfil'],
+					  'pactdisinap_objetivos'=>$datosvalidados['actdisinap_objetivos'],
+					  'pactdisinap_contenido'=>$datosvalidados['actdisinap_contenido'],
+					  'pactdisinap_modaldesc'=>$datosvalidados['actdisinap_modaldesc'],
+					  'pactdisinap_eval'=>$datosvalidados['actdisinap_eval'],
+					  'pactdisinap_evalinstru'=>$datosvalidados['actdisinap_evalinstru'],
+					  'pactdisinap_requiaprobacion'=>$datosvalidados['actdisinap_requiaprobacion'],
+					  'pactdisinap_duracionhs'=>$datosvalidados['actdisinap_duracionhs'],
+					  'pactdisinap_duraciondetalle'=>$datosvalidados['actdisinap_duraciondetalle'],
+					  'pactdisinap_lugar'=>$datosvalidados['actdisinap_lugar'],
+
+					  'pactdisinap_metodologia'=>$datosvalidados['actdisinap_metodologia'],
+					  'pactdisinap_bibliografia'=>$datosvalidados['actdisinap_bibliografia'],
+					  'pactdisinap_perfil_instructor'=>$datosvalidados['actdisinap_perfil_instructor'],
+
+					  'pactdisinap_planrecursos'=>"---",
+					  'pactdisinap_plancontenidos'=>"---",
+					  'pactdisinap_planestrategias'=>"---",
+
+					  'pactdisinap_origen'=>$datosvalidados['actdisinap_origen'],
+
+					  'pactdisinap_unico'=>$datosvalidados['actdisinap_unico'],
+					  'pactdisinap_beca'=>$datosvalidados['actdisinap_beca'],
+					  'pultmodusuario'=>$_SESSION['usuariocod'],
+  			          'pultmodfecha'=> date("Y/m/d H:i:s")
+		);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al insertar la Actividad Curso INAP.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function EliminarDatosActividadCursoInap($act_codigo) {
+
+		if(!$this->_DatosValidosEliminarActividadCursoInap($act_codigo,$datosvalidados))
+			return false;
+
+		$spnombre="del_actividad_curso_diseno_inap";
+		$spparam=array('pact_codigo'=>$act_codigo);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			$txt_sys_mail="\nact_codigo=".$act_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al eliminar la Actividad Curso INAP.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		if(!$this->EliminarDatosActividadCurso($act_codigo))
+			return false;
+		FuncionesPHPLocal::RegistrarAcceso($this->conexion,"38102","act_codigo=".$act_codigo,$_SESSION['usuariocod']);
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function ModifDatosActividadCursoInap($datos)	{
+
+		$this->_AguparDatosPost($datos,$datos_agrup,true);
+
+		$datoscurso['actividad']=$datos_agrup['actividad'];
+		$datoscurso['actividad_curso']=$datos_agrup['actividad_curso'];
+
+		if(!$this->ModifDatosActividadCurso($datoscurso))
+			return false;
+		FuncionesPHPLocal::RegistrarAcceso($this->conexion,"38103","act_codigo=".$datos_agrup['actividad']['act_codigo'],$_SESSION['usuariocod']);
+
+		if(!$this->_DatosValidosModifActividadCursoInap($datos_agrup['actividad_curso_inap'],$datosvalidados))
+			return false;
+
+		$spnombre="upd_actividad_curso_diseno_inap";
+		$spparam=array('pact_codigo'=>$datosvalidados['act_codigo'],
+			   		  'pprogcur_codigo'=>$datosvalidados['progcur_codigo'],
+					  'pareacur_codigo'=>$datosvalidados['areacur_codigo'],
+					  'puniv_codigo'=>$datosvalidados['univ_codigo'],
+					  'pactdisinap_fundamentacion'=>$datosvalidados['actdisinap_fundamentacion'],
+					  'pactdisinap_contribucion'=>$datosvalidados['actdisinap_contribucion'],
+					  'pactdisinap_perfil'=> $datosvalidados['actdisinap_perfil'],
+					  'pactdisinap_objetivos'=>$datosvalidados['actdisinap_objetivos'],
+					  'pactdisinap_contenido'=>$datosvalidados['actdisinap_contenido'],
+					  'pactdisinap_modaldesc'=>$datosvalidados['actdisinap_modaldesc'],
+					  'pactdisinap_eval'=>$datosvalidados['actdisinap_eval'],
+					  'pactdisinap_evalinstru'=>$datosvalidados['actdisinap_evalinstru'],
+					  'pactdisinap_requiaprobacion'=>$datosvalidados['actdisinap_requiaprobacion'],
+					  'pactdisinap_duracionhs'=>$datosvalidados['actdisinap_duracionhs'],
+					  'pactdisinap_duraciondetalle'=>$datosvalidados['actdisinap_duraciondetalle'],
+					  'pactdisinap_lugar'=>$datosvalidados['actdisinap_lugar'],
+
+   					  'pactdisinap_metodologia'=>$datosvalidados['actdisinap_metodologia'],
+					  'pactdisinap_bibliografia'=>$datosvalidados['actdisinap_bibliografia'],
+					  'pactdisinap_perfil_instructor'=>$datosvalidados['actdisinap_perfil_instructor'],
+
+					  'pactdisinap_planrecursos'=>$datosvalidados['actdisinap_planrecursos'],
+					  'pactdisinap_plancontenidos'=>$datosvalidados['actdisinap_plancontenidos'],
+					  'pactdisinap_planestrategias'=>$datosvalidados['actdisinap_planestrategias'],
+
+					  'pactdisinap_origen'=>$datosvalidados['actdisinap_origen'],
+
+					  'pactdisinap_unico'=>$datosvalidados['actdisinap_unico'],
+					  'pactdisinap_beca'=>$datosvalidados['actdisinap_beca'],
+
+		  			  'pultmodusuario'=>$_SESSION['usuariocod'],
+  			          'pultmodfecha'=> date("Y/m/d H:i:s")
+		);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			$txt_sys_mail='\nact_codigo='.$datosvalidados['act_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al modificar la Actividad Curso INAP.".$errno,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function ValidarFormAltaActividadCursoInap() {
+
+	// Incluir las validaciones javascript de las 3 tablas.
+	$this->ValidarFormAltaActividad();
+	$this->ValidarFormAltaActividadCurso();
+?>
+
+
+	function SeleccionBeca(formulario, divbeca, divactividad){
+		var elSelectBeca= document.getElementById(divbeca);
+		var elSelectActividad = document.getElementById(divactividad);
+			if (formulario.actdisinap_beca.value =="si") {
+				elSelectBeca.style.display ="block";
+				elSelectActividad.style.display ="none";
+			} else {
+				if (formulario.actdisinap_beca.value =="no") {
+					elSelectBeca.style.display ="none";
+					elSelectActividad.style.display ="block";
+				} else {
+					elSelectBeca.style.display ="none";
+					elSelectActividad.style.display ="none";
+				}
+			}
+	}
+
+
+
+	function ValidarFormAltaActividadCursoInap(formulario,operacion) {
+
+
+	if (formulario.actdisinap_beca.value =="si") {
+			// Universidad							- [univ_codigo] 				- [OBLIG]
+			if ((trim(univ_codigo)=="")) {
+				alert("Debe ingresar la Universidad");
+				formulario.univ_codigo.focus();
+				return false;
+			}
+
+	} else {
+			// Programa							- [progcur_codigo] 				- [OBLIG]
+			if ((trim(formulario.progcur_codigo.value)=="")) {
+				alert("Debe ingresar el programa inap");
+				formulario.progcur_codigo.focus();
+				return false;
+			}
+
+			// Área								- [areacur_codigo] 				- [OBLIG]
+			if ((trim(formulario.areacur_codigo.value)=="")) {
+				alert("Debe ingresar el área inap");
+				formulario.areacur_codigo.focus();
+				return false;
+			}
+
+			// Fundamentación 					- [actdisinap_fundamentacion] 	- [OBLIG]
+			if ((trim(formulario.actdisinap_fundamentacion.value)=="")) {
+				alert("Debe ingresar la fundamentación");
+				formulario.actdisinap_fundamentacion.focus();
+				return false;
+			}
+
+			// Contribución esperada 			- [actdisinap_contribucion] 	- [OBLIG]
+			if ((trim(formulario.actdisinap_contribucion.value)=="")) {
+				alert("Debe ingresar la contribución esperada");
+				formulario.actdisinap_contribucion.focus();
+				return false;
+			}
+
+			// Perfil del participante 			- [actdisinap_perfil] 			- [OBLIG]
+			if ((trim(formulario.actdisinap_perfil.value)=="")) {
+				alert("Debe ingresar el perfil del participante");
+				formulario.actdisinap_perfil.focus();
+				return false;
+			}
+
+			// Objetivos 						- [actdisinap_objetivos] 		- [OBLIG]
+			if ((trim(formulario.actdisinap_objetivos.value)=="")) {
+				alert("Debe ingresar los objetivos");
+				formulario.actdisinap_objetivos.focus();
+				return false;
+			}
+
+			// Contenido 						- [actdisinap_contenido] 		- [OBLIG]
+			if ((trim(formulario.actdisinap_contenido.value)=="")) {
+				alert("Debe ingresar el contenido");
+				formulario.actdisinap_contenido.focus();
+				return false;
+			}
+
+			// Metodologia							- [actdisinap_metodologia] 			- [OBLIG]
+			if ((trim(formulario.actdisinap_metodologia.value)=="")) {
+				alert("Debe ingresar las estrategias metodológicas y recursos didácticos.");
+				formulario.actdisinap_metodologia.focus();
+				return false;
+			}
+
+			// Descripción de la modalidad 		- [actdisinap_modaldesc] 		- [OBLIG]
+			if ((trim(formulario.actdisinap_modaldesc.value)=="")) {
+				alert("Debe ingresar la modalidad");
+				formulario.actdisinap_modaldesc.focus();
+				return false;
+			}
+
+			// Bibliografia							- [actdisinap_bibliografia] 			- [OBLIG]
+			if ((trim(formulario.actdisinap_bibliografia.value)=="")) {
+				alert("Debe ingresar la bibliografía");
+				formulario.actdisinap_bibliografia.focus();
+				return false;
+			}
+
+			// Evaluación de los aprendizajes 	- [actdisinap_eval] 			- [OBLIG]
+			if ((trim(formulario.actdisinap_eval.value)=="")) {
+				alert("Debe ingresar la evaluación de los aprendizajes");
+				formulario.actdisinap_eval.focus();
+				return false;
+			}
+
+			// Instrumentos para la evaluación 	- [actdisinap_evalinstru] 		- [OPCIONAL]
+
+			// Requisitos de Asistencia y aprobación			- [actdisinap_requiaprobacion] 	- [OBLIG]
+			if ((trim(formulario.actdisinap_requiaprobacion.value)=="")) {
+				alert("Debe ingresar los requisitos de Asistencia y aprobación");
+				formulario.actdisinap_requiaprobacion.focus();
+				return false;
+			}
+
+			// Duración	en hs. - [actdisinap_duracionhs] 	- [OBLIG]
+			if (!ValidarContenido(formulario.actdisinap_duracionhs.value,'NumericoEntero') ) {
+				alert("La duración en hs. debe ser un número entero");
+				formulario.actdisinap_duracionhs.focus();
+				return false;
+			}
+			if (formulario.actdisinap_duracionhs.value<=0) {
+				alert("La duración en hs. debe ser mayor que cero");
+				formulario.actdisinap_duracionhs.focus();
+				return false;
+			}
+
+			// Detalle sobre la duración	 	- [actdisinap_duraciondetalle] 	- [OBLIG]
+			if ((trim(formulario.actdisinap_duraciondetalle.value)=="")) {
+				alert("Debe ingresar el detalle de la duración");
+				formulario.actdisinap_duraciondetalle.focus();
+				return false;
+			}
+
+			// Lugar 							- [actdisinap_lugar] 			- [OBLIG]
+			if ((trim(formulario.actdisinap_lugar.value)=="")) {
+				alert("Debe ingresar el lugar");
+				formulario.actdisinap_lugar.focus();
+				return false;
+			}
+
+			// Perfil del instructor				- [actdisinap_perfil_instructor] 			- [OBLIG]
+			if ((trim(formulario.actdisinap_perfil_instructor.value)=="")) {
+				alert("Debe ingresar el perfil del instructor");
+				formulario.actdisinap_perfil_instructor.focus();
+				return false;
+			}
+
+
+			/*
+			// Plan de Clase - Recursos				- [actdisinap_planrecursos] 			- [OBLIG]
+			if ((trim(formulario.actdisinap_planrecursos.value)=="")) {
+				alert("Debe ingresar el Plan de Clase - Recursos");
+				formulario.actdisinap_planrecursos.focus();
+				return false;
+			}
+
+			// Plan de Clase - Contenidos				- [actdisinap_plancontenidos] 			- [OBLIG]
+			if ((trim(formulario.actdisinap_plancontenidos.value)=="")) {
+				alert("Debe ingresar el Plan de Clase - Contenidos");
+				formulario.actdisinap_plancontenidos.focus();
+				return false;
+			}
+
+			// Plan de Clase - Estrategias				- [actdisinap_planestrategias] 			- [OBLIG]
+			if ((trim(formulario.actdisinap_planestrategias.value)=="")) {
+				alert("Debe ingresar el Plan de Clase - Estrategias");
+				formulario.actdisinap_planestrategias.focus();
+				return false;
+			}
+			*/
+
+			// tipo de inscripción 	- [actdisinap_unico] 	- [OBLIG]
+			if ((trim(formulario.actdisinap_unico.value)=="")) {
+				alert("Debe ingresar el tipo de inscripción");
+				formulario.actdisinap_unico.focus();
+				return false;
+			}
+
+			if ((trim(formulario.actdisinap_unico.value)=="<?php echo NO?>")) {
+				return confirm("Atención: se podrá inscribir a un mismo agente en varias comisiones de esta actividad. ¿Esta seguro?");
+			}
+
+			// Origen				- [actdisinap_origen] 			- [OBLIG]
+			if ((trim(formulario.actdisinap_origen.value)=="")) {
+				alert("Debe ingresar el Origen de la demanda");
+				formulario.actdisinap_origen.focus();
+				return false;
+			}
+
+		} // if (formulario.actdisinap_beca.value =="si") {
+		}
+<?php }
+//-----------------------------------------------------------------------------------------------------
+	function BuscarActividadCursoInap($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+		echo "(Falta) BuscarActividadCursoInap <br>";
+	}
+//-----------------------------------------------------------------------------------------------------
+	function PedirActividad($codinap,$formularioName,$inputName,$accion,$submit=true) {
+?>		<table width="100%" class="textoTablaDato" align="center">
+			<tr>
+				<td valign="middle" width="15%" class='textoEtiqueta'>Código INAP</td>
+				<td class="textoEtiquetaDato" valign="middle" align="left" width="50">
+					<input type="text" size="21" maxlength="20" name="<?php echo $inputName ?>" id="<?php echo $inputName ?>" onblur="PasarAMayusculas('<?php echo $inputName ?>')"  value="<?php echo trim($codinap) ;?>">
+				</td>
+				<td class="textoEtiquetaDato" align="center" width="7%">
+					<a href='javascript:void(0)' onClick="Popup('actividad_selector.dhtml?formulario=<?php echo $formularioName ?>&amp;destino=<?php echo $inputName."&amp;submit=".$submit."&amp;tipoact_codigo=".TIPOACTCURSOINAP."&amp;accion=".$accion ?>&amp;volver=1','ventana_descripciones',630,360,screen.availWidth-650,screen.availHeight-420,'yes');"><img src="images/searchsai.jpg" alt="Buscar" border="0" style="vertical-align:-5px"></a>
+				</td>
+				<td class="textoEtiquetaDato"  valign="middle" align="left">
+					<input type="submit" name="Confirma" value="Confirma" class="botones" />
+				</td>
+			</tr>
+		</table>
+<?php		unset($_SESSION['array_busqueda_basica_actividad']);
+		unset($_SESSION['filtro_busqueda']);
+?>
+<?php	}
+//-----------------------------------------------------------------------------------------------------
+	function PidoActividadProgramacion($formularioName,$inputNameAct,$inputNameFormato,$inputNameTipo,$inputNameSec,$accion,$submit=true) {
+?>		<table width="100%" class="textoTablaDato" align="center" cellpadding="0" cellspacing="0" border="0" >
+			<tr>
+				<td class="textoEtiquetaClave" align="left">
+					Seleccione Actividad/Programación  &nbsp;&nbsp;&nbsp;
+					<a href='javascript:void(0)' onClick="Popup('actividad_asignable_selector.dhtml?formulario=<?php echo $formularioName."&amp;submit=".$submit."&amp;accion=".$accion."&amp;act_codigo_seleccion=".$inputNameAct."&amp;formact_codigo_seleccion=".$inputNameFormato."&amp;tipoact_codigo_seleccion=".$inputNameTipo."&amp;actprog_sec_seleccion=".$inputNameSec ?>&amp;volver=1','ventana_descripciones',700,500,screen.availWidth-710,screen.availHeight-550,'yes');"><img src="images/searchsai.jpg" alt="Buscar" border="0" style="vertical-align:-5px"></a>
+					<input type="hidden" name="<?php echo $inputNameAct?>" id="<?php echo $inputNameAct?>" value="" />
+					<input type="hidden" name="<?php echo $inputNameFormato?>" id="<?php echo $inputNameFormato?>" value="" />
+					<input type="hidden" name="<?php echo $inputNameTipo?>" id="<?php echo $inputNameTipo?>" value="" />
+					<input type="hidden" name="<?php echo $inputNameSec?>" id="<?php echo $inputNameSec?>" value="" />
+				</td>
+			</tr>
+		</table>
+<?php		unset($_SESSION['array_busqueda_basica_actividad']);
+		unset($_SESSION['filtro_busqueda']);
+?>
+<?php	}
+//-----------------------------------------------------------------------------------------------------
+	function ListarDisenoActividadPDF($act_codigo) {
+		function GenerarActividadDiseno(&$pdf,$filacurso,$prestadores) {
+
+			$pdf->AddAcividadDiseno();
+			$pdf->Set('datos_actividad',$filacurso);
+			$pdf->Set('datos_actividad_prestador',$prestadores);
+			$pdf->Set('formact_codigo',FORMATOCURSO);
+			$pdf->Set('tipoact_codigo',$filacurso['actividad_curso']['tipoact_codigo']);
+
+		} // GenerarActa
+
+		if (!$this->TraerDatosActividadCursoInap($act_codigo,$filacurso,$es_modif))  {
+			$txt_sys_mail="\nact_codigo=".$act_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error, buscando la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} elseif (!$es_modif) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha encontrado la Actividad con el formato buscado.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		$descri="";
+		if ($this->conexion->TraerCampo("programa_curso_inap","progcur_descripcion",array("progcur_codigo='",$filacurso['actividad_curso_inap']['progcur_codigo'],"'"),$descri,$numfilas,$errorcod))
+			$filacurso['actividad_curso_inap'] += array('progcur_descripcion'=>$descri);
+
+		$descri="";
+		if ($this->conexion->TraerCampo("area_curso_inap","areacur_descripcion",array("areacur_codigo='",$filacurso['actividad_curso_inap']['areacur_codigo'],"'"),$descri,$numfilas,$errorcod))
+			$filacurso['actividad_curso_inap'] +=  array('areacur_descripcion'=>$descri);
+
+		$descri="";
+		if ($this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","ACTCURSOESTADO","' and constantecod='",$filacurso['actividad_curso']['actcur_estado'],"'"),$descri,$numfilas,$errorcod))
+			$filacurso['actividad_curso'] += array('actcur_estado_desc'=>$descri);
+
+		// Selecciono todos los prestadores asociados a la actividad.
+		$oPrestadorDocente = new cPrestadorDocente($this->conexion);
+		$ArregloDatos = array();
+		$ArregloDatos['act_codigo']=$act_codigo;
+
+		if(!$oPrestadorDocente->BuscarPrestadorDocentexActividad($ArregloDatos,$numfilas,$prestadores,$error,$errormail)) {
+			$txt_sys_mail="\nact_codigo=".$act_codigo."\nerror=".$error;
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error buscando los prestadores docentes de la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+		$pdf = new cActividadDisenoPDF();
+		GenerarActividadDiseno($pdf,$filacurso,$prestadores);
+		$pdf->MostrarActividadDiseno($this->conexion);
+		$pdf->Output("disenoActividad.pdf","I");
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function ListarDisenoActividad($act_codigo) {
+
+	$ok=true;
+ 	if (!$this->TraerDatosActividadCursoInap($act_codigo,$filacurso,$es_modif))  {
+		$txt_sys_mail="\nact_codigo=".$act_codigo;
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error, buscando la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		$ok=false;
+	} elseif (!$es_modif) {
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha encontrado la Actividad con el formato buscado.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		$ok=false;
+	}
+
+?>
+	<br><div class="textoTitulo" align="left">Detalle de la Actividad Curso INAP</div><br>
+<?php
+
+	if ($ok) {
+?>
+		<table width="100%" class="textoTablaDatoBorde" align="center" border="1" cellpadding="4" cellspacing="0">
+			<tr>
+				<td class='textoTablaDato' width="30%">Nombre</td>
+				<td class='textoEtiquetaDatoResaltado'>
+					<?= htmlspecialchars($filacurso['actividad']['act_nombre'],ENT_QUOTES); ?>
+				</td>
+			</tr>
+			<tr>
+				<td class='textoTablaDato'>Código INAP</td>
+				<td class='textoEtiquetaDatoResaltado'>
+					<?= htmlspecialchars($filacurso['actividad']['act_codinap'],ENT_QUOTES); ?>
+				</td>
+			</tr>
+			<tr>
+				<td class='textoTablaDato'>Es Beca</td>
+				<td class='textoEtiquetaDatoResaltado'>
+					<?= htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_beca'],ENT_QUOTES); ?>
+				</td>
+			</tr>
+			<tr>
+				<td class='textoTablaDato'>Programa </td>
+				<td class='textoEtiquetaDatoResaltado'>
+					<?php	if ($this->conexion->TraerCampo("programa_curso_inap","progcur_descripcion",array("progcur_codigo='",$filacurso['actividad_curso_inap']['progcur_codigo'],"'"),$descri,$numfilas,$errorcod))
+							echo htmlspecialchars($descri,ENT_QUOTES)	?>
+				</td>
+			</tr>
+			<tr>
+				<td class='textoTablaDato'>Área</td>
+				<td class='textoEtiquetaDatoResaltado'>
+				<?php if ($this->conexion->TraerCampo("area_curso_inap","areacur_descripcion",array("areacur_codigo='",$filacurso['actividad_curso_inap']['areacur_codigo'],"'"),$descri,$numfilas,$errorcod))
+					 echo htmlspecialchars($descri,ENT_QUOTES) ?>
+				</td>
+			</tr>
+<?php			if (isset($filacurso['actividad_curso_inap']['actdisinap_fundamentacion'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Fundamentación</td>
+				<td class='textoEtiquetaDatoResaltado'>
+					<?= nl2br(htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_fundamentacion'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?php			} ?>
+
+<?php			if (isset($filacurso['actividad_curso_inap']['actdisinap_contribucion'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Contribución esperada</td>
+				<td class='textoEtiquetaDatoResaltado'>
+					<?= htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_contribucion'],ENT_QUOTES); ?>
+				</td>
+			</tr>
+<?php			} ?>
+
+<?php			if (isset($filacurso['actividad_curso_inap']['actdisinap_perfil'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Perfil del participante</td>
+				<td class='textoEtiquetaDatoResaltado'>
+				<?= nl2br(htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_perfil'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?php			} ?>
+
+<?php			if (isset($filacurso['actividad_curso_inap']['actdisinap_objetivos'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Objetivos</td>
+				<td class='textoEtiquetaDatoResaltado'>
+				<?= nl2br(htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_objetivos'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?php			} ?>
+
+<?php			if (isset($filacurso['actividad_curso_inap']['actdisinap_contenido'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Contenido</td>
+				<td class='textoEtiquetaDatoResaltado'>
+				<?= nl2br(htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_contenido'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?php			} ?>
+
+<?php			if (isset($filacurso['actividad_curso_inap']['actdisinap_metodologia'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Estrategias metodológicas y recursos didácticos</td>
+				<td class='textoEtiquetaDatoResaltado'><?= nl2br(htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_metodologia'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?php			} ?>
+
+<?php			if (isset($filacurso['actividad_curso_inap']['actdisinap_modaldesc'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Descripción de la modalidad</td>
+				<td class='textoEtiquetaDatoResaltado'>
+				<?= nl2br(htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_modaldesc'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?php			} ?>
+
+<?php			if (isset($filacurso['actividad_curso_inap']['actdisinap_bibliografia'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Bibliografía</td>
+				<td class='textoEtiquetaDatoResaltado'><?= nl2br(htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_bibliografia'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?php			} ?>
+
+<?php			if (isset($filacurso['actividad_curso_inap']['actdisinap_eval'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Evaluación de los aprendizajes</td>
+				<td class='textoEtiquetaDatoResaltado'>
+				<?= nl2br(htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_eval'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?php			} ?>
+
+<?php			if (isset($filacurso['actividad_curso_inap']['actdisinap_evalinstru'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Instrumentos para la evaluación</td>
+				<td class='textoEtiquetaDatoResaltado'>
+				<?= nl2br(htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_evalinstru'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?php			} ?>
+
+<?php			if (isset($filacurso['actividad_curso_inap']['actdisinap_requiaprobacion'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Requisitos de Asistencia y aprobación</td>
+				<td class='textoEtiquetaDatoResaltado'>
+				<?= nl2br(htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_requiaprobacion'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?php			} ?>
+
+<?php			if (isset($filacurso['actividad_curso_inap']['actdisinap_duracionhs'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Duración (Hs.)</td>
+				<td class='textoEtiquetaDatoResaltado'>
+				<?= htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_duracionhs'],ENT_QUOTES); ?>
+				</td>
+			</tr>
+<?php			} ?>
+
+<?php			if (isset($filacurso['actividad_curso_inap']['actdisinap_duraciondetalle'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Detalle sobre la duración</td>
+				<td class='textoEtiquetaDatoResaltado'>
+				<?= nl2br(htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_duraciondetalle'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?php			} ?>
+
+<?php			if (isset($filacurso['actividad_curso_inap']['actdisinap_lugar'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Lugar</td>
+				<td class='textoEtiquetaDatoResaltado'>
+				<?= nl2br(htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_lugar'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?php			} ?>
+
+<?php			if (isset($filacurso['actividad_curso_inap']['actdisinap_perfil_instructor'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Perfil de Instructor</td>
+				<td class='textoEtiquetaDatoResaltado'><?= nl2br(htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_perfil_instructor'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?php			} ?>
+
+<?php /*			if (isset($filacurso['actividad_curso_inap']['actdisinap_planrecursos'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Recursos</td>
+				<td class='textoEtiquetaDatoResaltado'><?= nl2br(htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_planrecursos'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?			} ?>
+
+
+<?			if (isset($filacurso['actividad_curso_inap']['actdisinap_plancontenidos'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Contenidos</td>
+				<td class='textoEtiquetaDatoResaltado'><?= nl2br(htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_plancontenidos'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?			} ?>
+
+
+<?			if (isset($filacurso['actividad_curso_inap']['actdisinap_planestrategias'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Estrategias</td>
+				<td class='textoEtiquetaDatoResaltado'><?= nl2br(htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_planestrategias'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?			}
+
+*/?>
+
+			<tr>
+				<td class='textoTablaDato'>Permitir inscripci&oacute;n &uacute;nica</td>
+				<td class='textoEtiquetaDatoResaltado'><?= nl2br(htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_unico'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?php			if (isset($filacurso['actividad_curso_inap']['actdisinap_origen'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Origen de la demanda</td>
+				<td class='textoEtiquetaDatoResaltado'><?= nl2br(htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_origen'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?php			} ?>
+
+
+
+
+		</table>
+
+		<br>
+<?php 		// Muestro los prestadores docentes de la actividad
+		$this->MostrarPrestadoresActividad($this->conexion,$act_codigo);
+?>		<br>
+<?php
+		}	// ok
+		return $ok;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function MostrarDatoActividadCursoInap($conexion,$operacion,$filacurso=array()) {
+
+	// si queda esta opcion no mandar la conexion
+	if ($operacion=="A") {
+	   $es_modif = false;
+	} elseif ($operacion=="M" || $operacion=="V") {
+	   	$es_modif = true;
+	   } else {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error en la llamada, operación inválida.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+	   }
+
+	// deberia mandarle el fomulario
+	?>
+	<!-- Datos comunes de actividad -->
+	<table width="100%" class="textoTablaDato" align="center" cellpadding="2">
+		<tr>
+			<td colspan="2" >
+				<fieldset class="bordeDetalleRegistro">
+				<legend class="textoLeyendaDetalleRegistro">Datos Actividad </legend>
+				<table width="100%" class="textoTablaDato" align="center">
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Nombre</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="2" onblur="PasarAMayusculas('act_nombre')" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?>  name="act_nombre" id="act_nombre" style="width:400px" ><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad']['act_nombre'],ENT_QUOTES):""; ?></textarea>
+					<?php  if (!$es_modif) { ?>
+					 		<input type="hidden" name="act_codinap" id="act_codinap" size="21" maxlength="20" value="##">
+					<?php  } ?>
+					</td>
+				</tr>
+
+				<?php  if ($es_modif) { ?>
+					<tr>
+						<td valign="top" width="15%" class='textoEtiqueta'>Código INAP</td>
+						<td class="textoEtiquetaDatoResaltado">
+						<input type="text" name="act_codinap" id="act_codinap" class="inputReadonly" readonly="readonly" size="21" maxlength="20" value="<?=htmlspecialchars($filacurso['actividad']['act_codinap'],ENT_QUOTES)?>">
+						</td>
+					</tr>
+				<?php  } ?>
+
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Observación</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="5" name="act_obs"  id="act_obs" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='readonly'":"'textoInput'" ?>  style="width:400px" ><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad']['act_obs'],ENT_QUOTES):"" ?></textarea>
+					</td>
+				</tr>
+
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Es Actividad Beca</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<?php	if ($operacion=="V") {
+						echo $filacurso['actividad_curso_inap']['actdisinap_beca'];
+					} else {
+
+
+						//$valores_combo[1]['actdisinap_beca'] = SI;
+						$valores_combo[2]['actdisinap_beca'] = NO;
+						$querystring ="";
+						$formulario = "formulario";
+						FuncionesPHPLocal::ArmarCombo_SinSalto_deArray($valores_combo,$formulario,"actdisinap_beca","actdisinap_beca",($es_modif)?$filacurso['actividad_curso_inap']['actdisinap_beca']:"no","actdisinap_beca",$querystring,"-- Seleccione",$regactual,$seleccion_tipoorg,1,"SeleccionBeca(formulario, \"datos_beca\", \"datos_actividad\")");
+					}
+						?>
+					</td>
+				</tr>
+
+				</table>
+				</fieldset>
+			</td>
+		</tr>
+	</table>
+
+	<!-- Varia según el formato -->
+	<table width="100%" class="textoTablaDato" align="center" cellpadding="2">
+		<tr>
+			<td colspan="2">
+				<fieldset class="bordeDetalleRegistro">
+				<legend class="textoLeyendaDetalleRegistro">Datos Actividad Curso </legend>
+				<table width="100%" class="textoTablaDato" align="center">
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Observación </td>
+						<td class="textoEtiquetaDatoResaltado">
+						<textarea  rows="5" cols="100" name="actcur_obs" id="actcur_obs" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso']['actcur_obs'],ENT_QUOTES):"" ?></textarea>
+						</td>
+					</tr>
+				</table>
+				</fieldset>
+			</td>
+		</tr>
+	</table>
+
+	<!-- Varia según el formato (Formato curso - INAP)-->
+	<table width="100%" class="textoTablaDato" align="center" cellpadding="2">
+		<tr>
+			<td colspan="2" >
+
+			<div id="datos_beca" <?php  echo ((($es_modif && $filacurso['actividad_curso_inap']['actdisinap_beca']=="no") || !$es_modif)?"style=\"display:none\"":"");?> >
+				<fieldset class="bordeDetalleRegistro">
+				<legend class="textoLeyendaDetalleRegistro">Datos Actividad BECA </legend>
+				<table width="100%" class="textoTablaDato" align="center">
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Universidad </td>
+					<td class="textoEtiquetaDatoResaltado">
+					<?php	if ($operacion=="V") {
+							if ($conexion->TraerCampo("universidad","univ_descripcion",array("univ_codigo='",$filacurso['actividad_curso_inap']['univ_codigo'],"'"),$descri,$numfilas,$errorcod))
+					?>			<input name="univ_codigo" id="univ_codigo" class='inputReadonly' readonly='readonly' style="width:400px" value="<?php echo htmlspecialchars($descri,ENT_QUOTES)?>" />
+					<?php	} else {
+							$oTablaUniversidad = new cTablaUniversidad($this->conexion);
+							$oTablaUniversidad -> TablaDescriptoresSP($spnombre,$spparam);
+							FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","univ_codigo","univ_codigo","univ_descripcion",($es_modif)?$filacurso['actividad_curso_inap']['univ_codigo']:"","-- Seleccione Universidad",$filauniversidad,$seleuniversidad);
+						}
+					?>					</td>
+				</tr>
+				</table>
+				</fieldset>
+
+			</div>
+
+			<div id="datos_actividad" <?php  echo (($es_modif && $filacurso['actividad_curso_inap']['actdisinap_beca']=="si")?"style=\"display:none\"":"");?> >
+
+				<fieldset class="bordeDetalleRegistro">
+				<legend class="textoLeyendaDetalleRegistro">Datos Actividad Curso INAP </legend>
+				<table width="100%" class="textoTablaDato" align="center">
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Programa </td>
+					<td class="textoEtiquetaDatoResaltado">
+					<?php	if ($operacion=="V") {
+							if ($conexion->TraerCampo("programa_curso_inap","progcur_descripcion",array("progcur_codigo='",$filacurso['actividad_curso_inap']['progcur_codigo'],"'"),$descri,$numfilas,$errorcod))
+					?>			<input name="progcur_codigo" id="progcur_codigo" class='inputReadonly' readonly='readonly' style="width:400px" value="<?php echo htmlspecialchars($descri,ENT_QUOTES)?>" />
+					<?php	} else {
+							$oTablaProgramaCursoInap = new cTablaProgramaCursoInap($this->conexion);
+							$oTablaProgramaCursoInap -> TablaDescriptoresSP($spnombre,$spparam);
+							FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","progcur_codigo","progcur_codigo","progcur_descripcion",($es_modif)?$filacurso['actividad_curso_inap']['progcur_codigo']:"","-- Seleccione Programa INAP",$filaprograma,$seleprograma);
+						}
+					?>					</td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Área</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<?php	if ($operacion=="V") {
+							if ($conexion->TraerCampo("area_curso_inap","areacur_descripcion",array("areacur_codigo='",$filacurso['actividad_curso_inap']['areacur_codigo'],"'"),$descri,$numfilas,$errorcod))
+					?>			<input name="areacur_codigo" id="areacur_codigo" class='inputReadonly' readonly='readonly' style="width:400px" value="<?php echo htmlspecialchars($descri,ENT_QUOTES)?>"/>
+					<?php	} else {
+							$oTablaAreaCursoInap = new cTablaAreaCursoInap($this->conexion);
+							$oTablaAreaCursoInap -> TablaDescriptoresSP($spnombre,$spparam);
+							FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","areacur_codigo","areacur_codigo","areacur_descripcion",($es_modif)?$filacurso['actividad_curso_inap']['areacur_codigo']:"","-- Seleccione Área INAP",$filaarea,$selearea);
+						}
+					?>					</td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Fundamentación</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="5" name="actdisinap_fundamentacion" id="actdisinap_fundamentacion" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?>  style="width:400px"><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_fundamentacion'],ENT_QUOTES):"" ?></textarea>					</td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Contribución esperada</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="5" name="actdisinap_contribucion" id="actdisinap_contribucion" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_contribucion'],ENT_QUOTES):"" ?></textarea>					</td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Perfil del participante</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="5" name="actdisinap_perfil"  id="actdisinap_perfil" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?>  style="width:400px" ><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_perfil'],ENT_QUOTES):"" ?></textarea>					</td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Objetivos</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="5" name="actdisinap_objetivos"  id="actdisinap_objetivos" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?>  style="width:400px" ><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_objetivos'],ENT_QUOTES):"" ?></textarea>					</td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Contenido</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="5" name="actdisinap_contenido"  id="actdisinap_contenido" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_contenido'],ENT_QUOTES):"" ?></textarea>					</td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Estrategias metodológicas y recursos didácticos</td>
+					<td class="textoEtiquetaDatoResaltado">	<textarea cols="100" rows="5" name="actdisinap_metodologia"  id="actdisinap_metodologia" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_metodologia'],ENT_QUOTES):"" ?></textarea></td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Descripción de la modalidad</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="2" name="actdisinap_modaldesc"  id="actdisinap_modaldesc" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_modaldesc'],ENT_QUOTES):"" ?></textarea>					</td>
+				</tr>
+                <tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Bibliografía</td>
+					<td class="textoEtiquetaDatoResaltado"><textarea cols="100" rows="5" name="actdisinap_bibliografia"  id="actdisinap_bibliografia" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_bibliografia'],ENT_QUOTES):"" ?></textarea></td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Evaluación de los aprendizajes</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="5" name="actdisinap_eval" id="actdisinap_eval" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px" ><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_eval'],ENT_QUOTES):"" ?></textarea>					</td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Instrumentos para la evaluación</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="5" name="actdisinap_evalinstru"  id="actdisinap_evalinstru" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px" ><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_evalinstru'],ENT_QUOTES):"" ?></textarea>					</td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Requisitos de Asistencia y aprobación</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="5" name="actdisinap_requiaprobacion" id="actdisinap_requiaprobacion" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_requiaprobacion'],ENT_QUOTES):"" ?></textarea>					</td>
+				</tr>
+
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Duración</td>
+					<td class="textoEtiquetaDatoResaltado"><input type="text" name="actdisinap_duracionhs" id="actdisinap_duracionhs" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> size="3" maxlength="3" value="<?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_duracionhs'],ENT_QUOTES):""; ?>"> &nbsp;&nbsp;hora/s </td>
+				</tr>
+
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Detalle sobre la duración</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="5" name="actdisinap_duraciondetalle"  id="actdisinap_duraciondetalle" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px" ><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_duraciondetalle'],ENT_QUOTES):"" ?></textarea>					</td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Lugar</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="2" name="actdisinap_lugar"  id="actdisinap_lugar" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_lugar'],ENT_QUOTES):"" ?></textarea>					</td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Perfil del instructor</td>
+					<td class="textoEtiquetaDatoResaltado"><textarea cols="100" rows="5" name="actdisinap_perfil_instructor"  id="actdisinap_perfil_instructor" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_perfil_instructor'],ENT_QUOTES):"" ?></textarea></td>
+				</tr>
+				<!--
+				<tr>
+				  <td colspan="2" valign="top" class='textoEtiquetaDatoResaltado'>Plan de Clases</td>
+				  </tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Recursos</td>
+					<td class="textoEtiquetaDatoResaltado"><textarea cols="100" rows="5" name="actdisinap_planrecursos"  id="actdisinap_planrecursos" class=<?php //echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php //echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_planrecursos'],ENT_QUOTES):"" ?></textarea></td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Contenido</td>
+					<td class="textoEtiquetaDatoResaltado"><textarea cols="100" rows="5" name="actdisinap_plancontenidos"  id="actdisinap_plancontenidos" class=<?php //echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php //echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_plancontenidos'],ENT_QUOTES):"" ?></textarea></td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Estrategias</td>
+					<td class="textoEtiquetaDatoResaltado"><textarea cols="100" rows="5" name="actdisinap_planestrategias"  id="actdisinap_planestrategias" class=<?php //echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php //echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_planestrategias'],ENT_QUOTES):"" ?></textarea></td>
+				</tr>
+				 -->
+
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Permitir inscripci&oacute;n &uacute;nica</td>
+					<td class="textoEtiquetaDatoResaltado">
+						<?php
+						$valores_combo[1]['actdisinap_unico'] = SI;
+						$valores_combo[2]['actdisinap_unico'] = NO;
+						$querystring ="";
+						$formulario = "formulario";
+						FuncionesPHPLocal::ArmarCombo_SinSalto_deArray($valores_combo,$formulario,"actdisinap_unico","actdisinap_unico",($es_modif)?$filacurso['actividad_curso_inap']['actdisinap_unico']:"si","actdisinap_unico",$querystring,"-- Seleccione",$regactual,$seleccion_tipoorg,1,"");
+						?>                    </td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Origen de la demanda</td>
+					<td class="textoEtiquetaDatoResaltado"><textarea cols="100" rows="5" name="actdisinap_origen"  id="actdisinap_origen" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_inap']['actdisinap_origen'],ENT_QUOTES):"" ?></textarea></td>
+				</tr>
+
+				<tr>
+					<td colspan=2 >
+					<input type="hidden" name="actdisinap_planrecursos" id="actdisinap_planrecursos" value="---" />
+					<input type="hidden" name="actdisinap_plancontenidos" id="actdisinap_plancontenidos" value="---" />
+					<input type="hidden" name="actdisinap_planestrategias" id="actdisinap_planestrategias" value="---" />
+					</td>
+				</tr>
+
+				</table>
+			  </fieldset>
+
+			  </div>
+
+			</td>
+		</tr>
+	</table>
+<?php return true;
+}
+//-----------------------------------------------------------------------------------------------------
+	function DescargarExcelDisenoActividad($act_codigo, &$oExcel, $nuevo_excel=true) {
+
+		 if (!$this->TraerDatosActividadCursoInap($act_codigo,$filacurso,$es_modif)) {
+		 	FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se pueden obtener los datos de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		 }
+
+		if ($nuevo_excel) {
+			$nombrearchivo="actividad.xls";
+			$oExcel= new cEscribirExcel($nombrearchivo);
+		}
+
+		$oExcel->AddHoja('Actividad');
+		$ancho_columna['leyenda']=30;
+		$ancho_columna['valor']=70;
+
+		$oExcel->FormatoColumna (0,$ancho_columna['leyenda']);
+		$oExcel->FormatoColumna (1,$ancho_columna['valor']);
+
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",12);
+		$oExcel->AddFormato ("Color","azul");
+		$oExcel->AddFormato ("FgColor",22);
+		$oExcel->CargarDatosVariasCeldas (0,0,0,1,'Detalle de la Actividad Curso INAP',true);
+
+		// Titulos de las columnas
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("TextWrap","");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",12);
+		$oExcel->AddFormato ("Color","negro");
+		$oExcel->AddFormato ("FgColor","gris");
+
+		$arrayclaves=array('leyenda','valor');
+
+		$array_datos[]  = array('leyenda' => "Actividad",
+								'valor' => $filacurso['actividad']['act_nombre']);
+		$array_datos[]  = array('leyenda' => "Código de Actividad",
+								'valor' => $filacurso['actividad']['act_codinap']);
+
+		$oExcel->BorrarFormato("");
+		$oExcel->AddFormato ("Tamaño",8);
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("TextWrap","");
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Color","negro");
+		$oExcel->AddFormato ("FgColor","gris");
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("VAlign","vcenter");
+		$formato_leyenda=$oExcel->GetFormato();
+
+		$oExcel->BorrarFormato("");
+		$oExcel->AddFormato ("Tamaño",8);
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("TextWrap","");
+		$oExcel->AddFormato ("FgColor","blanco");
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("VAlign","vcenter");
+		$formato_dato=$oExcel->GetFormato();
+
+		foreach ($arrayclaves as $clave => $valor) {
+			if ($valor == 'leyenda')
+	 			$arrayformato[$valor]=$formato_leyenda;
+			else
+	 			$arrayformato[$valor]=$formato_dato;
+		}
+
+		// Programa
+		if (!$this->conexion->TraerCampo("programa_curso_inap","progcur_descripcion",array("progcur_codigo='",$filacurso['actividad_curso_inap']['progcur_codigo'],"'"),$descri_programa,$numfilas,$errorcod)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se ha encontrado el programa.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		}
+		$array_datos[]  = array('leyenda' => "Programa",
+								'valor' => $descri_programa);
+
+		// Área
+		if (!$this->conexion->TraerCampo("area_curso_inap","areacur_descripcion",array("areacur_codigo='",$filacurso['actividad_curso_inap']['areacur_codigo'],"'"),$descri_area,$numfilas,$errorcod)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se ha encontrado el área.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		}
+		$array_datos[]  = array('leyenda' => "Area",
+								'valor' => $descri_area);
+		$array_datos[]  = array('leyenda' => "Fundamentación",
+								'valor' => $filacurso['actividad_curso_inap']['actdisinap_fundamentacion']);
+		$array_datos[]  = array('leyenda' => "Contribución esperada",
+								'valor' => $filacurso['actividad_curso_inap']['actdisinap_contribucion']);
+		$array_datos[]  = array('leyenda' => "Perfil del participante",
+								'valor' => $filacurso['actividad_curso_inap']['actdisinap_perfil']);
+		$array_datos[]  = array('leyenda' => "Objetivos",
+								'valor' => $filacurso['actividad_curso_inap']['actdisinap_objetivos']);
+		$array_datos[]  = array('leyenda' => "Contenido",
+								'valor' => $filacurso['actividad_curso_inap']['actdisinap_contenido']);
+		$array_datos[]  = array('leyenda' => "Metodología",
+								'valor' => $filacurso['actividad_curso_inap']['actdisinap_metodologia']);
+		$array_datos[]  = array('leyenda' => "Descripción de la modalidad",
+								'valor' => $filacurso['actividad_curso_inap']['actdisinap_modaldesc']);
+		$array_datos[]  = array('leyenda' => "Bibliografía",
+								'valor' => $filacurso['actividad_curso_inap']['actdisinap_bibliografia']);
+		$array_datos[]  = array('leyenda' => "Evaluación de los aprendizajes",
+								'valor' => $filacurso['actividad_curso_inap']['actdisinap_eval']);
+		$array_datos[]  = array('leyenda' => "Instrumentos para la evaluación",
+								'valor' => $filacurso['actividad_curso_inap']['actdisinap_evalinstru']);
+		$array_datos[]  = array('leyenda' => "Requisitos de Asistencia y aprobación",
+								'valor' => $filacurso['actividad_curso_inap']['actdisinap_requiaprobacion']);
+		$array_datos[]  = array('leyenda' => "Duración (Hs.)",
+								'valor' => $filacurso['actividad_curso_inap']['actdisinap_duracionhs']);
+		$array_datos[]  = array('leyenda' => "Detalle sobre la duración)",
+								'valor' => $filacurso['actividad_curso_inap']['actdisinap_duraciondetalle']);
+		$array_datos[]  = array('leyenda' => "Lugar",
+								'valor' => $filacurso['actividad_curso_inap']['actdisinap_lugar']);
+		$array_datos[]  = array('leyenda' => "Perfil Instructor",
+								'valor' => $filacurso['actividad_curso_inap']['actdisinap_perfil_instructor']);
+
+/*		$array_datos[]  = array('leyenda' => "Recursos",
+								'valor' => $filacurso['actividad_curso_inap']['actdisinap_planrecursos']);
+		$array_datos[]  = array('leyenda' => "Contenidos",
+								'valor' => $filacurso['actividad_curso_inap']['actdisinap_plancontenidos']);
+		$array_datos[]  = array('leyenda' => "Estrtegias",
+								'valor' => $filacurso['actividad_curso_inap']['actdisinap_planestrategias']);
+*/
+		$array_datos[]  = array('leyenda' => "Origen de la demanda",
+								'valor' => $filacurso['actividad_curso_inap']['actdisinap_origen']);
+
+		$fila_datos = array();
+
+		foreach ($array_datos as $i => $valor) {
+			$fila_datos['leyenda'] = $array_datos[$i]['leyenda'];
+			$fila_datos['valor'] = $array_datos[$i]['valor'];
+			// Saco los /r que no se lo banca el excel.
+			$fila_datos['valor']=str_replace("\r\n","\n", $array_datos[$i]['valor']);
+			$oExcel->CargarGrilla ($fila_datos,2+$i,0,$arrayclaves,$arrayformato);
+		}
+
+		if ($nuevo_excel)
+			$oExcel->Enviar();
+
+	}
+//-----------------------------------------------------------------------------------------------------
+	function _AguparDatosPost($datos,&$datos_agrup,$es_modif)	{
+
+		//-----------------------------------------------------------
+		$datos_agrup['actividad']=array('act_codinap'=>$datos['act_codinap'],
+										'act_nombre'=>$datos['act_nombre'],
+										'act_obs'=>$datos['act_obs']);
+		if ($es_modif)
+			$datos_agrup['actividad']+=array('act_codigo'=>$datos['act_codigo']);
+		else
+			$datos_agrup['actividad']+=array('formact_codigo'=>FORMATOCURSO);
+
+		//-------------------------------------------------------------
+		$datos_agrup['actividad_curso']=array('actcur_obs'=>$datos['actcur_obs']);
+		if ($es_modif)
+			$datos_agrup['actividad_curso']+=array('act_codigo'=>$datos['act_codigo']);
+		else {
+		 	$datos_agrup['actividad_curso']+=array('tipoact_codigo'=>TIPOACTCURSOINAP);
+		 	$datos_agrup['actividad_curso']+=array('actcur_creditos'=>0);
+			$datos_agrup['actividad_curso']+=array('jurisdid_inap'=>0);
+			$datos_agrup['actividad_curso']+=array('actcur_estado'=>ACTCURSOACTIVO);
+		}
+		//--------------------------------------------------------------
+		$datos_agrup['actividad_curso_inap']=array(
+						  'progcur_codigo'=>$datos['progcur_codigo'],
+						  'areacur_codigo'=>$datos['areacur_codigo'],
+						  'univ_codigo'=>$datos['univ_codigo'],
+						  'actdisinap_fundamentacion'=>$datos['actdisinap_fundamentacion'],
+						  'actdisinap_contribucion'=>$datos['actdisinap_contribucion'],
+						  'actdisinap_perfil'=>$datos['actdisinap_perfil'],
+						  'actdisinap_objetivos'=>$datos["actdisinap_objetivos"],
+						  'actdisinap_contenido'=>$datos['actdisinap_contenido'],
+						  'actdisinap_modaldesc'=>$datos['actdisinap_modaldesc'],
+						  'actdisinap_eval'=>$datos['actdisinap_eval'],
+						  'actdisinap_evalinstru'=>$datos['actdisinap_evalinstru'],
+						  'actdisinap_requiaprobacion'=>$datos['actdisinap_requiaprobacion'],
+						  'actdisinap_duracionhs'=>$datos['actdisinap_duracionhs'],
+						  'actdisinap_duraciondetalle'=>$datos['actdisinap_duraciondetalle'],
+						  'actdisinap_lugar'=>$datos['actdisinap_lugar'],
+
+				  		  'actdisinap_metodologia'=>$datos['actdisinap_metodologia'],
+						  'actdisinap_bibliografia'=>$datos['actdisinap_bibliografia'],
+						  'actdisinap_perfil_instructor'=>$datos['actdisinap_perfil_instructor'],
+
+						  'actdisinap_planrecursos'=>$datos['actdisinap_planrecursos'],
+						  'actdisinap_plancontenidos'=>$datos['actdisinap_plancontenidos'],
+						  'actdisinap_planestrategias'=>$datos['actdisinap_planestrategias'],
+
+						  'actdisinap_origen'=>$datos['actdisinap_origen'],
+
+						  'actdisinap_unico'=>$datos['actdisinap_unico'],
+						  'actdisinap_beca'=>$datos['actdisinap_beca']
+
+		);
+		if ($es_modif)
+			$datos_agrup['actividad_curso_inap']+=array('act_codigo'=>$datos['act_codigo']);
+		else {
+		 	$datos_agrup['actividad_curso_inap']+=array('actdisinap_duracionhs'=>0);
+		}
+	}
+//-----------------------------------------------------------------------------------------------------
+	function _DatosValidosAltaActividadCursoInap($datos,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		if (!$this->_DatosValidosComunesActividadCursoInap($datos,$datosvalidados))
+		   return false;
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function _DatosValidosEliminarActividadCursoInap($act_codigo,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		if (!$this->TienePermisoBaja($act_codigo,$_SESSION['rolcod'],$_SESSION['jurisdid_inap'])) {
+			return false;
+		}
+
+		// Es una actividad curso inap
+		$tipook=$this->EsActividadCursoTipo($act_codigo,TIPOACTCURSOINAP,$error,$errormsg);
+		if ($error) {
+			$errormail="\nact_codigo=".$act_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$errormsg,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		} elseif(!$tipook) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se ha encontrado la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+
+
+		// Verificar que la actividad no tenga dictamen.
+		$oDictamen = new cDictamen($this->conexion);
+		$ArregloDatos=array();
+		$ArregloDatos=array('act_codigo'=>$act_codigo);
+		$oDictamen->BuscarDictamen($ArregloDatos,$numfilas,$array_resultado,$error,$errormail);
+		if ($error)  {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		} elseif ($numfilas>0 && $_SESSION['rolcod']!=SUPERUSUARIO) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La actividad no puede ser modificada, pues tiene dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados['act_codigo'] = $act_codigo;
+
+		/*
+		// Para estar asociada a un poc debería tener dictamen y no lo tiene
+		// No debe estar asociada la actividad a ningun POC
+		$oPocActividadActividad=new cPocActividadActividad($this->conexion);
+		$ArregloDatos=array();
+		$ArregloDatos['act_codigo']=$act_codigo;
+		if (!$oPocActividadActividad->BuscarPocActividadActividad($ArregloDatos,$numfilas,$resultado,$error,$errormail)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		if ($numfilas>=1) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"La actividad esta asociada a un POC.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		*/
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function _DatosValidosModifActividadCursoInap($datos,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		if (!$this->TienePermisoModificar($datos['act_codigo'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap'])) {
+			return false;
+		}
+
+		if (!$this->_DatosValidosComunesActividadCursoInap($datos,$datosvalidados))
+		   return false;
+
+		$tipook = $this->EsActividadCursoTipo($datos['act_codigo'],TIPOACTCURSOINAP,$error,$errormsg);
+		if ($error) {
+			$errormail="\nact_codigo=".$datos['act_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$errormsg,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		} elseif(!$tipook) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se ha encontrado la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+
+		$datosvalidados+=array('act_codigo'=>$datos['act_codigo']);
+
+		// Verificar que la actividad no tenga dictamen.
+		$oDictamen = new cDictamen($this->conexion);
+		$ArregloDatos=array();
+		$ArregloDatos=array('act_codigo'=>$datos['act_codigo']);
+		$oDictamen->BuscarDictamen($ArregloDatos,$numfilas,$array_resultado,$error,$errormail);
+		if ($error)  {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		} elseif ($numfilas>0 && $_SESSION['rolcod']!=SUPERUSUARIO) { //  el superusuario puede actualizarla mas alla que tenga dictamen
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La actividad no puede ser modificada, pues tiene dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function _DatosValidosComunesActividadCursoInap($datos,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		if ($datos["actdisinap_beca"] == "si") {
+
+			$oTablaUniversidad = new cTablaUniversidad($this->conexion);
+			$oTablaUniversidad -> TablaDescriptoresSP($spnombre,$spparam);
+			$arraybusq=array("univ_codigo"=>$datos["univ_codigo"]);
+			if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,$arraybusq,$query,$filaret,$numfilasmatcheo,$errorcod) || $numfilasmatcheo!=1)
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en la selección de la Universidad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["univ_codigo"]=$datos["univ_codigo"];
+			$datosvalidados["actdisinap_beca"]=$datos["actdisinap_beca"];
+
+			// datos de actividad curso que se inicializar
+			$datosvalidados["progcur_codigo"]="NULL";
+			$datosvalidados["areacur_codigo"]="NULL";
+			$datosvalidados["actdisinap_fundamentacion"]="---";
+			$datosvalidados["actdisinap_contribucion"]="---";
+			$datosvalidados["actdisinap_perfil"]="---";
+			$datosvalidados["actdisinap_objetivos"]="---";
+			$datosvalidados["actdisinap_contenido"]="---";
+			$datosvalidados["actdisinap_modaldesc"]="---";
+			$datosvalidados["actdisinap_eval"]="---";
+			$datosvalidados["actdisinap_evalinstru"]="---";
+			$datosvalidados["actdisinap_requiaprobacion"]="---";
+			$datosvalidados["actdisinap_duracionhs"]="---";
+			$datosvalidados["actdisinap_duraciondetalle"]="---";
+			$datosvalidados["actdisinap_lugar"]="---";
+			$datosvalidados["actdisinap_metodologia"]="---";
+			$datosvalidados["actdisinap_bibliografia"]="---";
+			$datosvalidados["actdisinap_perfil_instructor"]="---";
+			$datosvalidados["actdisinap_planrecursos"]="---";
+			$datosvalidados["actdisinap_plancontenidos"]="---";
+			$datosvalidados["actdisinap_planestrategias"]="---";
+			$datosvalidados["actdisinap_origen"]="---";
+			$datosvalidados["actdisinap_unico"]="si";
+
+
+
+		} else {
+			$datosvalidados["univ_codigo"]="NULL";
+			$datosvalidados["actdisinap_beca"]=$datos["actdisinap_beca"];
+
+			// Programa							- [progcur_codigo] 				- [OBLIG]
+			$oTablaProgramaCursoInap = new cTablaProgramaCursoInap($this->conexion);
+			$oTablaProgramaCursoInap -> TablaDescriptoresSP($spnombre,$spparam);
+			$arraybusq=array("progcur_codigo"=>$datos["progcur_codigo"]);
+			if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,$arraybusq,$query,$filaret,$numfilasmatcheo,$errorcod) || $numfilasmatcheo!=1)
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en la selección del programa INAP.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["progcur_codigo"]=$datos["progcur_codigo"];
+
+			// Área								- [areacur_codigo] 				- [OBLIG]
+			$oTablaAreaCursoInap = new cTablaAreaCursoInap($this->conexion);
+			$oTablaAreaCursoInap -> TablaDescriptoresSP($spnombre,$spparam);
+			$arraybusq=array("areacur_codigo"=>$datos["areacur_codigo"]);
+			if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,$arraybusq,$query,$filaret,$numfilasmatcheo,$errorcod) || $numfilasmatcheo!=1)
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en la selección del área INAP.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["areacur_codigo"]=$datos["areacur_codigo"];
+
+			// Fundamentación 					- [actdisinap_fundamentacion] 	- [OBLIG]
+			if (trim($datos['actdisinap_fundamentacion']) == "") {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar la fundamentación de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["actdisinap_fundamentacion"]=$datos["actdisinap_fundamentacion"];
+
+			// Contribución esperada 			- [actdisinap_contribucion] 	- [OBLIG]
+			if (trim($datos['actdisinap_contribucion']) == "") {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar la contribución esperada de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["actdisinap_contribucion"]=$datos["actdisinap_contribucion"];
+
+			// Perfil del participante 			- [actdisinap_perfil] 			- [OBLIG]
+			if (trim($datos['actdisinap_perfil']) == "") {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar el perfil de los participantes de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["actdisinap_perfil"]=$datos["actdisinap_perfil"];
+
+			// Objetivos 						- [actdisinap_objetivos] 		- [OBLIG]
+			if (trim($datos['actdisinap_objetivos']) == "") {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar los objetivos de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["actdisinap_objetivos"]=$datos["actdisinap_objetivos"];
+
+			// Contenido 						- [actdisinap_contenido] 		- [OBLIG]
+			if (trim($datos['actdisinap_contenido']) == "") {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar los contenido de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["actdisinap_contenido"]=$datos["actdisinap_contenido"];
+
+			// Metodologia							- [actdisinap_metodologia] 			- [OBLIG]
+			if (trim($datos['actdisinap_metodologia']) == "") {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar las estrategias metodológicas y recursos didácticos",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["actdisinap_metodologia"]=$datos["actdisinap_metodologia"];
+
+			// Descripción de la modalidad 		- [actdisinap_modaldesc] 		- [OBLIG]
+			if (trim($datos['actdisinap_modaldesc']) == "") {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar la modalidad de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["actdisinap_modaldesc"]=$datos["actdisinap_modaldesc"];
+
+			// Bibliografia 							- [actdisinap_bibliografia] 			- [OBLIG]
+			if (trim($datos['actdisinap_bibliografia']) == "") {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar la Bibliografía.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["actdisinap_bibliografia"]=$datos["actdisinap_bibliografia"];
+
+			// Evaluación de los aprendizajes 	- [actdisinap_eval] 			- [OBLIG]
+			if (trim($datos['actdisinap_eval']) == "") {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar la evaluación de los aprendizajes de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["actdisinap_eval"]=$datos["actdisinap_eval"];
+
+			// Instrumentos para la evaluación 	- [actdisinap_evalinstru] 		- [OPCIONAL]
+			$datosvalidados["actdisinap_evalinstru"]=$datos["actdisinap_evalinstru"];
+
+			// Requisitos de Asistencia y aprobación			- [actdisinap_requiaprobacion] 	- [OBLIG]
+			if (trim($datos['actdisinap_requiaprobacion']) == "") {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar los requisitos de Asistencia y aprobación de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["actdisinap_requiaprobacion"]=$datos["actdisinap_requiaprobacion"];
+
+			// Duración	en horas 		- [actdisinap_duracionhs] 	- [OBLIG]
+			if (!FuncionesPHPLocal::ValidarContenido($this->conexion, $datos['actdisinap_duracionhs'],'NumericoEntero') || $datos['actdisinap_duracionhs'] <=0 ) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La duración en hs. de la Actividad debe ser un número entero mayor que cero.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["actdisinap_duracionhs"]=$datos["actdisinap_duracionhs"];
+
+			// Detalle sobre la duración	 	- [actdisinap_duraciondetalle] 	- [OBLIG]
+			if (trim($datos['actdisinap_duraciondetalle']) == "") {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar el detalle de la duración de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["actdisinap_duraciondetalle"]=$datos["actdisinap_duraciondetalle"];
+
+			// Lugar 							- [actdisinap_lugar] 			- [OBLIG]
+			if (trim($datos['actdisinap_lugar']) == "") {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar el lugar de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["actdisinap_lugar"]=$datos["actdisinap_lugar"];
+
+			// Perfil del Instructor 							- [actdisinap_perfil_instructor] 			- [OBLIG]
+			if (trim($datos['actdisinap_perfil_instructor']) == "") {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar el perfil del instructor de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["actdisinap_perfil_instructor"]=$datos["actdisinap_perfil_instructor"];
+
+			/*
+			// Plan de Clases - Recursos 							- [actdisinap_planrecursos] 			- [OBLIG]
+			if (trim($datos['actdisinap_planrecursos']) == "") {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar el Plan de Clases - Recursos 	 de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["actdisinap_planrecursos"]=$datos["actdisinap_planrecursos"];
+
+			// Plan de Clases - contenidos 							- [actdisinap_plancontenidos] 			- [OBLIG]
+			if (trim($datos['actdisinap_plancontenidos']) == "") {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar el Plan de Clases - contenidos de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["actdisinap_plancontenidos"]=$datos["actdisinap_plancontenidos"];
+
+			// Plan de Clases - Estretegias						- [actdisinap_planestrategias] 			- [OBLIG]
+			if (trim($datos['actdisinap_planestrategias']) == "") {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar el Plan de Clases - Estretegias de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["actdisinap_planestrategias"]=$datos["actdisinap_planestrategias"];
+			*/
+
+			$datosvalidados["actdisinap_plancontenidos"]="NULL";
+			$datosvalidados["actdisinap_planrecursos"]="NULL";
+			$datosvalidados["actdisinap_planestrategias"]="NULL";
+
+			// Origen 						- [actdisinap_origen] 			- [OBLIG]
+			if (trim($datos['actdisinap_origen']) == "") {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar Origen de la demanda.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["actdisinap_origen"]=$datos["actdisinap_origen"];
+
+
+
+
+			// Tipo inscripción - [actdisinap_unico] 	- [OBLIG]
+			if(!($datos['actdisinap_unico'] == SI ||$datos['actdisinap_unico'] == NO) )	{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar el tipo de inscripción. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados['actdisinap_unico'] = $datos['actdisinap_unico'];
+		} // if ($datos["actdisinap_beca"] == "si") {
+
+		return true;
+	}
+
+} // class
+?>

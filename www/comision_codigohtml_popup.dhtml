@@ -1,0 +1,60 @@
+<?php 
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+?>
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 TRANSITIONAL//EN"> 
+<html>
+<head>
+<title>Comisiones - Inscripción Web</title>
+<link rel="stylesheet" type="text/css" href="estilos.css">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+</head>
+<body>
+
+
+<br />
+<p>Inserte el siguiente código en la página web en la que desa enlazar la Inscripción Web</p>
+<br />
+<div class="bordeDetalleRegistro">
+
+
+<?php 
+function strleft($s1, $s2) { return substr($s1, 0, strpos($s1, $s2));}
+
+function selfURL() { 
+$s = empty($_SERVER["HTTPS"]) ? '' : ($_SERVER["HTTPS"] == "on") ? "s" : ""; 
+$protocol = strleft(strtolower($_SERVER["SERVER_PROTOCOL"]), "/").$s; 
+$port = ($_SERVER["SERVER_PORT"] == "80") ? "" : (":".$_SERVER["SERVER_PORT"]); 
+$URL = $protocol."://".$_SERVER['SERVER_NAME']."/";
+$pos = strpos($URL, "www.");
+if ($pos === false){
+    $pos = strlen("http://");
+    $URL = substr($URL,0,$pos).'www.'.substr($URL,$pos);
+}
+return $URL;
+} 
+
+
+$codigo = "<a href=\"https://".$_SERVER['SERVER_NAME']."/inscripcion_web.dhtml?comi_codigo=".$_GET['comi_codigo']."\">Inscripción Web</a>";	
+
+echo htmlentities($codigo, ENT_QUOTES);
+?>
+
+</div>
+
+

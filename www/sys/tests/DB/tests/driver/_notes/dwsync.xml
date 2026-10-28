@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<dwsync>
+<file name="01connect.phpt" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="02fetch.phpt" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="03simplequery.phpt" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="04numcols.phpt" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="05sequences.phpt" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="06prepexec.phpt" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="08affectedrows.phpt" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="09numrows.phpt" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="10errormap.phpt" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="11transactions.phpt" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="13limit.phpt" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="14fetchmode_object.phpt" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="15quote.phpt" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="16tableinfo.phpt" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="17query.phpt" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="18get.phpt" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="19getlistof.phpt" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="20locale.phpt" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="21freeResult.phpt" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="connect.inc" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="droptable.inc" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="mktable.inc" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="multiconnect.php" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="run.cvs" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="setup.inc.cvs" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="skipif.inc" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+</dwsync>

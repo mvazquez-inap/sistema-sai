@@ -1,0 +1,131 @@
+<?php 
+require_once('SysONTIPdf.dhtml');
+
+// Constancia de Certificación de créditos por ahora para actividades
+// externas. viejo x persona no formato tabla 
+
+class cConstanciaCreditosPDF extends cPDF {
+
+	// Datos de la Certificacion
+	var $array_datos = array();
+
+	// Ctes para la impresion de la Certificacion
+	var $ver_borde=0;	
+	var $xContenido = 5;
+	var $imagenLogo = 'images/escudo_secretaria.jpg';
+	
+	
+	var $orientacionPagina = 'portrait';
+	var $topMargen = 10;
+	var $leftMargen = 10;
+	var $rightMargen = 10;
+	var $footerMargen = 10;
+	var $anchoMaxTexto = 190;	
+	var $altoLineaDefault = 6;	
+	var $pag_x_inscripto= "N";			// Indica si se imprime un salto x cada inscripto 
+										// por el momento la unica manera de llamarla es "S", pero manda 1 solo inscripto
+	var $altoMaxPag = 270;
+	
+		
+				
+	public function __construct() {	    
+		 $format = "A4";
+		parent::__construct($this->orientacionPagina,'mm',$format);
+	}	
+	
+	//------------------------------------------------------------------------
+	function AddCertificacionCreditos() {
+		// Inicializa formato de la pagina 
+		$this->AddPage($this->orientacionPagina);
+		$this->SetMargins($this->leftMargen,$this->topMargen,$this->rightMargen);
+		// Para que el pie tenga 0.5 por defecto son 2cm
+		$this->SetAutoPageBreak(true,$this->footerMargen);
+		// Inicializa datos 
+		$this->array_datos = array('act_nombre'=>'',
+									'actext_direccion'=>'',
+									'pais_nom'=>'',
+									'prov_nom'=>'',
+									'jurisdnom'=>'',
+									'actext_creditos'=>'',
+									'pers_cuilt'=>'',
+									'nombre_completo'=>'',
+									'nivel'=>'',
+									'grado'=>'',
+									'actext_act_fecha_inicio'=>'',
+									'actext_act_fecha_fin'=>'',									
+									'dis_numero'=>'');
+	}	
+	//------------------------------------------------------------------------
+	function Set($campo,$valor) {
+		$this->array_datos[$campo]=$valor;
+	}
+	//------------------------------------------------------------------------
+	function Get($campo) {
+		return ($this->array_datos[$campo]);
+	}
+	//------------------------------------------------------------------------
+	function Header() { }
+	//------------------------------------------------------------------------
+	function MostrarConstanciaCertificacion() {
+	
+//		$this->SetFont('Arial','',8);
+//		$this->Image($this->imagenLogo,$this->lMargin+$this->xContenido,$this->tMargin+2,0,0);
+
+		$ancho_fila_dato = 180;
+		$alto_fila_dato =  6;
+
+		$this->SetFont('Arial','BI',12);
+//		$this->SetXY($this->lMargin+$this->xContenido+20,$this->tMargin+3) ;
+//		$this->MultiCellMaxLine(120,$alto_fila_dato,"Jefatura de Gabinete de Ministros \nSecretaria de la Gestión Pública \nInstituto Nacional de la Administración Pública",
+//								$this->ver_borde,'L',0,3);
+
+ 		$this->Ln(10);	
+    	$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								"SISTEMA NACIONAL DE CAPACITACION\n CONSTANCIA DE CERTIFICACION DE CREDITOS",$this->ver_borde,'C',0,2);
+ 		$this->Ln(10);	
+		$this->SetFont('Arial','',10);
+
+		$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'ACTIVIDAD NOMBRE: '.$this->Get('act_nombre'),$this->ver_borde,'L',0,2);
+
+		$this->Ln(4);	
+    	$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'ORGANISMO: '.$this->Get('jurisdnom'),$this->ver_borde,'L',0,1);
+
+		$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'DISPOSICION: '.$this->Get('dis_numero'),$this->ver_borde,'L',0,1);
+
+    	$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'LUGAR: '.$this->Get('actext_direccion').' '.$this->Get('prov_nom').'/'.$this->Get('pais_nom'),$this->ver_borde,'L',0,1);
+
+    	$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'RELALIZADA DEL: '.$this->Get('actext_act_fecha_inicio').
+								str_repeat(' ',5).'AL: '.$this->Get('actext_act_fecha_fin'),$this->ver_borde,'L',0,1);
+
+    	$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'CREDITOS: '.$this->Get('actext_creditos'),$this->ver_borde,'L',0,1);
+
+		$this->Ln(5);
+
+		$this->SetFont('Arial','IB',10);
+    	$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								"DATOS DE LA PERSONA",$this->ver_borde,'L',0,1);
+
+		$this->SetFont('Arial','',10);
+    	$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'CUIT/CUIL/CDI:'.$this->Get('pers_cuilt'),$this->ver_borde,'L',0,1);
+
+    	$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'APELLIDO Y NOMBRE:'.$this->Get('nombre_completo'),$this->ver_borde,'L',0,1);
+
+    	$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'NIVEL: '.$this->Get('nivel'),$this->ver_borde,'L',0,1);
+
+    	$this->MultiCellMaxLine($ancho_fila_dato,$alto_fila_dato,
+								'GRADO: '.$this->Get('grado'),$this->ver_borde,'L',0,1);
+	
+	}
+	//------------------------------------------------------------------------
+	function Footer() { }
+} // fin clase	
+?>

@@ -1,0 +1,21 @@
+<form name="<?php $this->_($this->FormularioBotonera) ?>" action="<?php $this->_($this->ArchivoDestino) ?>">
+<table width="95%" align="center" border=0 cellpadding="0" cellspacing="0">
+	<tr>
+		<td align="left"  width="30%">
+			<input name="btcambiar" class="botones" style="width:25px" type="button" value="<<" <?php $this->_($this->DeshabilitarBtsAtras) ?>  onClick="GoToURL('self','<?php $this->_($this->ArchivoDestino); ?>1') ; return document.ReturnValue" /> 
+			<input name="btcambiar" class="botones" style="width:25px" type="button" value="<" <?php $this->_($this->DeshabilitarBtsAtras) ?> onClick="GoToURL('self','<?php  $this->_($this->ArchivoDestino); echo ($this->PaginaActual-1) ?>') ; return document.ReturnValue" />
+		</td>
+		<td align="center" width="40%">
+			<select style="width:40px"  name="goToPage_<?php $this->_($this->FormularioBotonera); ?>" class="combospaginas" onchange="GoToURL('self','<?php $this->_($this->ArchivoDestino) ?>'+document.<?php ($this->_($this->FormularioBotonera)); echo ".goToPage_"; ($this->_($this->FormularioBotonera)); ?>[document.<?php ($this->_($this->FormularioBotonera)); echo ".goToPage_"; ($this->_($this->FormularioBotonera)) ?>.selectedIndex].value); " <?php if (($this->DeshabilitarBtsAdelante=="disabled") && ($this->DeshabilitarBtsAtras=="disabled")) $this->_($this->DeshabilitarBtsAdelante)?> >
+			    <?php for ($ciclocombo=1;$ciclocombo<=$this->PaginaUltima;$ciclocombo++): ?>
+				<option <?php if ($this->PaginaActual==$ciclocombo): echo " selected style='font-weight: bold'"; endif; ?> value="<?php echo $ciclocombo ?>"><?php echo $ciclocombo ?></option>
+			    <?php endfor; ?>
+			</select>		
+		</td>
+		<td align="right"  width="30%">
+			<input name="btcambiar" style="width:25px" class="botones" type="button" value=">" <?php $this->_($this->DeshabilitarBtsAdelante) ?> onClick="GoToURL('self','<?php $this->_($this->ArchivoDestino);  echo ($this->PaginaActual+1) ?>') ; return document.ReturnValue" />
+			<input name="btcambiar" style="width:25px" class="botones" type="button" value=">>" <?php $this->_($this->DeshabilitarBtsAdelante) ?> onClick="GoToURL('self','<?php $this->_($this->ArchivoDestino); $this->_($this->PaginaUltima) ?>') ; return document.ReturnValue" />
+		</td>
+	</tr>
+</table>
+</form>

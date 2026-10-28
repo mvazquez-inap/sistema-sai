@@ -1,0 +1,550 @@
+<?php 
+
+//--------------------------------------------------------------------------
+//  Define el acceso a la Base de datos.
+//--------------------------------------------------------------------------
+
+class accesoBDAtlinea
+{
+	var $idconexion;
+	var $admigeneral;
+	
+	function accesoBDAtlinea($servidor,$usuariodb,$clave)
+	{
+		mysqli_report(MYSQLI_REPORT_OFF);
+		$this->idconexion = mysqli_connect($servidor, $usuariodb, $clave) or die("No es posible establecer conexion con MySQL Server");
+	}
+//-----------------------------------------------------------------------------------------
+//							 PUBLICAS	
+//----------------------------------------------------------------------------------------- 
+
+//----------------------------------------------------------------------------------------- 
+// Permite la selección de la base de datos sobre la cual se va a trabajar.
+	
+	function SeleccionBD($base_datos)
+	{
+		mysqli_select_db($this->idconexion, $base_datos) or die("No es posible conectar a la base de datos");
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Ejecuta el SQL almacenado en la base stored_procedures con nombre $sp_nombre
+
+// 1) Sintaxis del SQL en la tabla stored_procedures:
+//		Los parametros deben ser escritos entre #.
+
+// 2) Recibe un array asociativo con los parametros del requeridos para el SQL.
+
+//	  - La cantidad de parametros enviados debe se igual a la cantidad de parametros.
+//    - Los nombres de los parametros no pueden ser igual al de campos asociados a las tablas 
+//      involucradas en el SQL ni pueden ser palabras reservadas del SQL. 	
+
+// Ejemplo llamada:
+//		$pnombre="sel_archivos_xnombre";
+// 		$spparam=array("parchivonom" => $_POST['archivonom']);		
+//		$conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno);
+// Ejemplo definicion en la base de stored_procedures: 
+//      select archivonom from archivos where archivonom="#parchivonom#"
+
+// Retorna:	
+//		- En un SELECT:
+//			-> si se ejecutó bien retorna true, el resultado del query y la cantidad de filas
+//			-> en caso contrario, retorna false y el numero de error
+//		- En otra operación:
+//			-> si se ejecutó bien retorna true y la cantidad de filas afectadas
+//			-> en caso contrario, retorna false y el numero de error
+
+	function ejecutarStoredProcedure($sp_nombre,$sp_param,&$querysalida,&$numfilassalida,&$errnosalida)
+	{
+		$querysalida=false;
+		$numfilassalida=-1;
+		$errnosalida=0;
+		
+		
+		if (!is_array($sp_param))
+		{
+			$arraymensajepantalla =array();	
+			$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$arraymensajemail+=array("texto" => "Problema en la llamada al stored procedure, no se envia un array. ");
+			FuncionesPHPAtlinea::MostrarMensaje($this,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+
+			return false;
+		}	
+
+		$sql ="SELECT * FROM stored_procedures";
+		$sql.=" WHERE ucase(spnombre)='".strtoupper($sp_nombre)."'";
+
+		if(!$this->EjecutarQuery($sql,'ejecutarStoredProcedure',$query,$errno))
+		{
+			$arraymensajepantalla =array();	
+			$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$arraymensajemail+=array("texto" => "Problema en la tabla stored_procedures - errno='".$errno."'. ");
+			FuncionesPHPAtlinea::MostrarMensaje($this,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+
+			return false;
+		}
+	
+		// Debe estar en la tabla de stored procedures 
+		if (mysqli_num_rows($query)!=1)
+		{
+			$arraymensajepantalla =array();	
+			$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$arraymensajemail+=array("texto" => "No se encuentra el procedimiento: ".$sp_nombre." en la tabla stored_procedures. ");
+			FuncionesPHPAtlinea::MostrarMensaje($this,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+
+			return false;
+		} 
+		
+		$fila=mysqli_fetch_assoc($query);
+	
+		// Valida que los nombres y cantidad de parametros 
+		if (!$this->ValidarParametros($fila['spsqlstring'],$sp_param))
+		{
+			$arraymensajepantalla =array();	
+			$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$arraymensajemail+=array("texto" => "Error en los parámetros enviados a ".$sp_nombre.". ");
+			FuncionesPHPAtlinea::MostrarMensaje($this,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+			
+			return false;
+		}
+	
+		// Todo es inicialmente valido para la ejecucion del Stored Procedure	
+		// Reemplazo los parametros enviados en el string SQL
+		if (!$this->ReemplazarParametros($fila['spsqlstring'],$sp_param,$sql_sp))
+		{
+			$arraymensajepantalla =array();	
+			$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$arraymensajemail+=array("texto" => "Error al reemplazar parámetros en ".$sp_nombre.". ");
+			FuncionesPHPAtlinea::MostrarMensaje($this,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+				
+			return false;
+		}
+
+		if (!$this->EjecutarQuery($sql_sp,"stored procedure ".$fila['spcod']." - ".$fila['spnombre'],$querysalida,$errnosalida))
+		{
+			$arraymensajepantalla =array();	
+			$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$arraymensajemail+=array("texto" => "Problema en la ejecución del stored procedure '".$sp_nombre."' - errnosalida '".$errnosalida."'. ");
+			FuncionesPHPAtlinea::MostrarMensaje($this,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+				
+			return false;
+		}
+		
+		if($fila['spoperacion']=="SEL")
+			$numfilassalida=mysqli_num_rows($querysalida);
+		else
+			$numfilassalida=mysqli_affected_rows($this->idconexion);
+
+		return true;
+	}
+//----------------------------------------------------------------------------------------- 
+// Usada para el manejo de transacciones
+
+// Retorna true si no hubo problema, sino retorna false
+
+	function ManejoTransacciones($transtipo)
+	{
+		switch($transtipo)
+		{
+			case "B": // begin
+				if (!$this->EjecutarQuery("BEGIN",'ManejoTransacciones',$query,$errno))
+				{
+					$arraymensajepantalla =array();	
+					$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+					$arraymensajemail+=array("texto" => "Problema en BEGIN transacción - errno='".$errno."'. ");
+					FuncionesPHPAtlinea::MostrarMensaje($this,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+					return false;
+				}
+				break;
+			case "C": // commit
+				if (!$this->EjecutarQuery("COMMIT",'ManejoTransacciones',$query,$errno)) 
+				{
+					$arraymensajepantalla =array();	
+					$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+					$arraymensajemail+=array("texto" => "Problema en COMMIT transacción - errno='".$errno."'. ");
+					FuncionesPHPAtlinea::MostrarMensaje($this,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+					return false;
+				}
+				break;
+			case "R": // rollback
+				if (!$this->EjecutarQuery("ROLLBACK",'ManejoTransacciones',$query,$errno)) 
+				{
+					$arraymensajepantalla =array();	
+					$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+					$arraymensajemail+=array("texto" => "Problema en ROLLBACK transacción - errno='".$errno."'. ");
+					FuncionesPHPAtlinea::MostrarMensaje($this,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+					return false;
+				}
+				break;
+			default:
+				$arraymensajepantalla =array();	
+				$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+				$arraymensajemail+=array("texto" => "Tipo de transacción no definida '".$transtipo."'. ");
+				FuncionesPHPAtlinea::MostrarMensaje($this,GENERAL_MSG_ERRPGM,$arraymensajepantalla,$arraymensajemail);
+				return false;
+				break;
+		}
+
+		return true;
+	}
+//--------------------------------------------------------------------------
+// Trae el valor de un campo de un registro de una tabla, según la condición especificada
+
+// Parámetros:
+//		$arraywhere: un array (no asociativo) simulando tal cual lo que iria en el where del sql,
+//			aplicándose el escapeado a los elementos impares.
+
+// Retorna:
+//		Si se produjo un error, retorna false y el numero de error
+//		Si se ejecutó con exito, retorna true y el numero de filas encontradas. En caso que el numero de filas 
+//			sea mayor a 0, retorna el valor del campo seleccionado de la primer fila.
+
+	function TraerCampo($tabla,$camponom,$arraywhere,&$dato,&$numfilas,&$errno)
+	{
+		$query=false;
+		$numfilas=-1;
+		$errno=0;
+	
+		$sql = "select ".$camponom." as campodevuelto  "."from ".$tabla;
+		if (count($arraywhere)>0)
+		{ 
+			$sql.= " where ";
+	
+			for ($i=0;$i<count($arraywhere);$i++)
+			{
+				if ($i%2 == 0)
+					$sql.=$arraywhere[$i];
+				else	
+					$sql.=mysqli_real_escape_string($this->idconexion, $arraywhere[$i]);
+			}
+		}
+	
+		if (!$this->EjecutarQuery($sql,'TraerCampo',$query,$errno)) 
+		{
+			$arraymensajepantalla =array();	
+			$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$arraymensajemail+=array("texto" => "Problema en TraerCampo.  Error='".$errno."'. ");
+			FuncionesPHPAtlinea::MostrarMensaje($this,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+	
+			return false;
+		}
+		
+		$numfilas=mysqli_num_rows($query);
+		if($numfilas>0)
+		{
+			$fila=mysqli_fetch_assoc($query);
+			$dato=$fila['campodevuelto'];
+		}
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Actualiza el valor de un campo de un registro de una tabla, según la condición especificada
+
+// Parámetros:
+//		$arraywhere: un array (no asociativo) simulando tal cual lo que iria en el where del sql,
+//			aplicándose el escapeado a los elementos impares.
+//		$datosauditoria: S/N para determinar si se actualiza o no ultmodusuario/ultmodfecha
+
+// Retorna:
+//		Si se produjo un error, retorna false y el numero de error
+//		Si se ejecutó con exito, retorna true y el numero de filas afectadas
+
+	function ActualizarCampo($tabla,$camponom,$campovalor,$arraywhere,$datosauditoria,&$numfilas,&$errno)
+	{
+		$sql="update $tabla";
+		if($campovalor=="NULL")
+			$sql.=" set $camponom=NULL";
+		else
+			$sql.=" set $camponom='".mysqli_real_escape_string($this->idconexion, $campovalor)."'";
+		if ($datosauditoria=="S")
+		{
+			$sql.=",ultmodusuario='".$_SESSION['usuariocod']."'";
+			$sql.=",ultmodfecha='".date('Y/m/d H:i:s')."'";
+		}
+		if (count($arraywhere)>0)
+		{
+			$sql.=" where ";
+			for ($i=0;$i<count($arraywhere);$i++)
+			{
+				if ($i%2 == 0)
+					$sql.=$arraywhere[$i];
+				else	
+					$sql.=mysqli_real_escape_string($this->idconexion, $arraywhere[$i]);
+			}
+		}
+	
+		if (!$this->EjecutarQuery($sql,'ActualizarCampo',$query,$errno)) 
+		{
+			$arraymensajepantalla =array();	
+			$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$arraymensajemail+=array("texto" => "Problema en ActualizarCampo.  Error='".$errno."'. ");
+			FuncionesPHPAtlinea::MostrarMensaje($this,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+	
+			return false;
+		}
+		
+		$numfilas=mysqli_affected_rows($this->idconexion);
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Busca en el resultado de la ejecucion de un SP, la/s clave/s enviada/s
+//	$arraybusq: es una array asociativo donde la clave será el nombre del campo
+//				y el valor el valor buscado.
+
+// Ejemplo de uso:
+// $spnombre="sel_roles_orden";
+// $spparam =array("porderby"=>"rolcod");
+// $arraybusq=array("rolcod"=>$_POST['rolcod'];
+// BuscarRegistroxClave($spnombre,$spparam,$arraybusq,$query,$filaret,$numfilasmatcheo,$errno)
+	
+//  Retorna:
+//		Si se produjo un error, false y el numero de error
+//		Si se ejecutó con exito:
+//			-> retorna true
+//			-> en query, todo el query de la ejecución del SP
+//			-> en filaret, la fila que cumple las condiciones, en caso que sea la unica de todos los registros del SP
+//			-> en numfilasmatcheo, la cantidad de filas que cumplen las condiciones
+
+	function BuscarRegistroxClave($spnombre,$spparam,$arraybusq,&$query,&$filaret,&$numfilasmatcheo,&$errno)
+	{
+		$filaret=array();
+
+		if(!$this->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno))
+			return false;
+	
+		$numfilasmatcheo=0;
+		while($fila=mysqli_fetch_assoc($query))
+		{
+			foreach ($arraybusq as $clave => $valor)
+			{
+				$matcheo=true;
+				if (!isset($fila[$clave]))
+				{
+					$arraymensajepantalla =array();	
+					$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+					$arraymensajemail+=array("texto" => "Problema en BuscarRegistroxClave.  No existe '".$clave."'. ");
+					FuncionesPHPAtlinea::MostrarMensaje($this,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+
+					return false;
+				}
+
+				if($fila[$clave]!=$valor)
+				{
+					$matcheo=false;
+					break;
+				}
+			} // for each arraybusq
+			if($matcheo)
+			{
+				$filaret=$fila;
+				$numfilasmatcheo++;
+			}
+		} // while del query
+		if($numfilasmatcheo!=1)
+			$filaret=array();
+	
+		return true;
+	}
+//--------------------------------------------------------------------------
+// Retorna el texto del último error producido
+
+	function TextoError()
+	{
+		return mysqli_error($this->idconexion);
+	}
+
+//--------------------------------------------------------------------------
+// Retorna el codigo del administrador general
+
+	function VerAdmiGeneral()
+	{
+		return $this->admigeneral;
+	}
+	
+//--------------------------------------------------------------------------
+// Setea el codigo del administrador general
+
+	function SetearAdmiGeneral($admigeneralcod)
+	{
+		$this->admigeneral=$admigeneralcod;
+	}
+
+//--------------------------------------------------------------------------
+// Cierra la conexion
+
+	function CerrarConexion()
+	{
+		mysqli_close($this->idconexion);
+	}
+
+//--------------------------------------------------------------------------
+// Retorna el ultimo codigo insertado
+
+	function UltimoCodigoInsertado()
+	{
+		return mysqli_insert_id($this->idconexion);
+	}
+
+//--------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------------------
+//							 PRIVADAS
+//----------------------------------------------------------------------------------------- 
+// Ejecuta una instrucción SQL. En caso de error, envía un mail a los usuarios admigeneral
+
+// Retorna:
+//		En caso de error, retorna false y el numero de error
+//		Si se ejecutó con éxito, retorna true y el resultado del query
+
+	function EjecutarQuery($sql,$erroren,&$query,&$errno)
+	{
+		$errno=0;
+		$query=mysqli_query($this->idconexion, $sql);
+
+		if(!$query)
+		{
+			$errno=mysqli_errno($this->idconexion);
+
+			// MANDAR MAIL
+			$textomail ="\nError en ".$erroren."\n\n";
+			$textomail.="SQL= ".$sql."\n\n";
+			$textomail.="Error Mysql: '".$errno."' - '".mysqli_error($this->idconexion)."' ";
+
+			$arraymensajepantalla =array();	
+			$arraymensajemail =array("texto" => $textomail);
+			FuncionesPHPAtlinea::MostrarMensaje($this,GENERAL_MSG_ERRPGM,$arraymensajepantalla,$arraymensajemail);
+			return false;
+		}
+		else
+			return true;
+	}
+//----------------------------------------------------------------------------------------- 
+// Valida los parametros del SQL contra los enviados
+// OJO - los parametros del stored_procedure deben estar en minúsculas
+// Retorna: true o false según si están correctos los parámetros o no
+
+	function ValidarParametros($sql,$param) 
+	{
+		$param_count = substr_count($sql,"#")/2; 
+		
+		if ($param_count != count($param))
+		{
+			$arraymensajepantalla =array();	
+			$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$arraymensajemail+=array("texto" => "Error en la cantidad de parámetros en la llamada al procedimiento. ");
+			FuncionesPHPAtlinea::MostrarMensaje($this,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+				
+			return false;
+		} 
+		else 
+		{  
+			$strSql=trim($sql);
+			$i=0;
+	
+			$param_nomSQL=array();
+			// Armo un arreglo con los nombres de los parametros en $sql (vienen de la tabla stored_procedure)
+			while (strpos($strSql,"#")>0 ) 
+			{
+				$pos_ini = strpos($strSql,"#"); 
+				$strSql = substr($strSql,$pos_ini+1,strlen($strSql) - $pos_ini+1) ;
+				$pos_fin = strpos($strSql, "#"); 
+				$param_nomSQL[$i] = substr($strSql,0,$pos_fin); 			
+				$strSql = substr($strSql,$pos_fin+1,strlen($strSql) - $pos_fin);
+				$i=$i+1;
+			}
+
+			
+			// Comparo un arreglo con las claves del array enviado como parametro
+			// con el arreglo que surge del string sql.
+			$param_nomArray=array_keys(array_change_key_case($param,CASE_LOWER));
+	
+			// No hay parametros en la llamada ni definicion del stored proceduce
+			if (count($param_nomSQL)==0 && count($param_nomArray)==0 ) 
+				return true;
+	
+			$diff_array1=array_diff($param_nomSQL,$param_nomArray); 
+			$diff_array2=array_diff($param_nomArray,$param_nomSQL); 
+	
+			if ( count($diff_array1)!=0  || count($diff_array2)!=0 ) 
+			{
+				$texto="Error en el nombre de los parámetros en la llamada al procedimiento.";
+				$texto.="\n";
+				$texto.="Parámetros que sobran del SQL:";
+				$texto.="\n";
+				$texto.=var_export($diff_array1,true);
+				$texto.="\n";
+				$texto.="Parámetros que sobran del array de parámetros:";
+				$texto.="\n";
+				$texto.=var_export($diff_array2,true);
+				$texto.="\n";
+				
+				$arraymensajepantalla =array();	
+				$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+				$arraymensajemail+=array("texto" => $texto);
+				
+				FuncionesPHPAtlinea::MostrarMensaje($this,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+					
+				return false;
+			}		
+		}
+		return true;
+	}
+
+//--------------------------------------------------------------------------
+// Reemplaza los parametros en el string SQL 
+
+// Retorna en sql_resu el resultado de reemplazar los parametros del SP con los enviados
+
+	function ReemplazarParametros($sql,$param,&$sql_resu) 
+	{
+		$sql_pieces = explode("#",strtolower(trim($sql))); 
+		$param_nom = array_keys(array_change_key_case($param,CASE_LOWER));
+
+		while (count($param_nom)) 
+		{
+			$param_search=array_shift($param_nom);
+			 
+			// Busco la key en las piezas y lo reemplazo por el valor
+			foreach ($sql_pieces as $xsql_pieces) 
+			{
+				$posicion=array_search($param_search,$sql_pieces); 
+				
+				if ($posicion) 
+				{
+					// busco si el parametro es null
+
+					if(is_array($param[$param_search]))
+					{
+						$sql_pieces[$posicion]="";
+						
+						for ($i=0;$i<count($param[$param_search]);$i++)
+						{
+							if ($i%2 == 0)
+								$sql_pieces[$posicion].=$param[$param_search][$i];
+							else	
+								$sql_pieces[$posicion].=mysqli_real_escape_string($this->idconexion, $param[$param_search][$i]);
+						}
+					}
+					elseif(trim($param[$param_search])=="NULL")
+					{
+						$sql_pieces[$posicion-1]=substr($sql_pieces[$posicion-1],0,strlen($sql_pieces[$posicion-1])-1);
+						$sql_pieces[$posicion+1]=substr($sql_pieces[$posicion+1],1);
+						$sql_pieces[$posicion]="NULL"; 
+					}
+					else  // Saco caracteres que podrian traer problemas para el SQL. 				 
+						$sql_pieces[$posicion]=mysqli_real_escape_string($this->idconexion, $param[$param_search]); 
+				}  	
+				  
+			}
+		}
+	   $sql_resu=implode("",$sql_pieces);
+	   return true;
+	}
+
+//--------------------------------------------------------------------------
+	
+} // fin clase
+
+
+?>

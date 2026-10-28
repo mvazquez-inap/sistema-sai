@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<dwsync>
+<file name="db_error.phpt" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="db_error2.phpt" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="db_factory.phpt" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="db_ismanip.phpt" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="db_parsedsn.phpt" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="errors.inc" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="fetchmode_object.inc" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="fetchmodes.inc" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="include.inc" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="limit.inc" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="numcols.inc" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="numrows.inc" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="prepexe.inc" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="run.cvs" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="sequences.inc" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="simplequery.inc" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="skipif.inc" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="transactions.inc" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+</dwsync>

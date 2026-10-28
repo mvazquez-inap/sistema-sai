@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<xsd:schema elementFormDefault="qualified" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+
+  <xsd:complexType name="resultado">
+    <xsd:element name="tabla_descriptores" type="tns:tabla_descriptores" />
+  </xsd:complexType>
+
+  <xsd:complexType name="tabla_descriptores" >
+    <xsd:element name="descriptor" type="tns:descriptor_type" />
+  </xsd:complexType>
+
+  <xsd:complexType name="descriptor_type" >
+    <xsd:sequence>
+      <xsd:element name="codigo_tipoact">
+        <xsd:simpleType>
+          <xsd:restriction base="xsd:int">
+            <xsd:maxLength value="2" />
+          </xsd:restriction>
+        </xsd:simpleType>
+      </xsd:element>
+      <xsd:element name="descripcion">
+        <xsd:simpleType>
+          <xsd:restriction base="xsd:string">
+            <xsd:maxLength value="255" />
+          </xsd:restriction>
+        </xsd:simpleType>
+      </xsd:element>
+      <xsd:element name="codigo_formato">
+        <xsd:simpleType>
+          <xsd:restriction base="xsd:int">
+            <xsd:maxLength value="2" />
+          </xsd:restriction>
+        </xsd:simpleType>
+      </xsd:element>
+    </xsd:sequence>
+  </xsd:complexType>
+</xsd:schema>

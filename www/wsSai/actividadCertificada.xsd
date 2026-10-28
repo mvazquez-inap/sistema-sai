@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<xsd:schema elementFormDefault="qualified" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  
+  <xsd:complexType name="resultado">
+    <xsd:sequence maxOccurs="unbounded">
+      <xsd:element name="actividades_certificadas" type="tns:actividades_certificadas_type" />
+    </xsd:sequence>
+  </xsd:complexType>
+  
+  <xsd:complexType name="actividades_certificadas_type" >
+    <xsd:element name="actividad_certificada" type="tns:actividad_certificada_type" />
+  </xsd:complexType>
+  
+  <xsd:complexType name="actividad_certificada" >
+  	<xsd:sequence>
+		<xsd:element name="act_codinap">
+		  <xsd:simpleType>
+			<xsd:restriction base="xsd:string">
+			  <xsd:maxLength value="20" />
+			</xsd:restriction>
+		  </xsd:simpleType>
+		</xsd:element>
+		<xsd:element name="act_nombre">
+		  <xsd:simpleType>
+			<xsd:restriction base="xsd:string">
+			  <xsd:maxLength value="255" />
+			</xsd:restriction>
+		  </xsd:simpleType>
+		</xsd:element>
+		<xsd:element name="tipoact_codigo">
+		  <xsd:simpleType>
+			<xsd:restriction base="xsd:int">
+			  <xsd:maxLength value="1" />
+			</xsd:restriction>
+		  </xsd:simpleType>
+		</xsd:element>
+		<xsd:element name="total_creditos">
+		  <xsd:simpleType>
+			<xsd:restriction base="xsd:int">
+			  <xsd:maxLength value="5" />
+			</xsd:restriction>
+		  </xsd:simpleType>
+		</xsd:element>
+		<xsd:element name="exp_numero">
+		  <xsd:simpleType>
+			<xsd:restriction base="xsd:string">
+			  <xsd:maxLength value="30" />
+			</xsd:restriction>
+		  </xsd:simpleType>
+		</xsd:element>
+		<xsd:element name="fecha_inicio">
+		  <xsd:simpleType>
+			<xsd:restriction base="xsd:string">
+			  <xsd:maxLength value="8" />
+			</xsd:restriction>
+		  </xsd:simpleType>
+		</xsd:element>
+		<xsd:element name="fecha_fin">
+		  <xsd:simpleType>
+			<xsd:restriction base="xsd:string">
+			  <xsd:maxLength value="8" />
+			</xsd:restriction>
+		  </xsd:simpleType>
+		</xsd:element>
+		<xsd:element name="dis_numero">
+		  <xsd:simpleType>
+			<xsd:restriction base="xsd:string">
+			  <xsd:maxLength value="20" />
+			</xsd:restriction>
+		  </xsd:simpleType>
+		</xsd:element>
+		<xsd:element name="dis_fecha">
+		  <xsd:simpleType>
+			<xsd:restriction base="xsd:string">
+			  <xsd:maxLength value="8" />
+			</xsd:restriction>
+		  </xsd:simpleType>
+		</xsd:element>
+	</xsd:sequence>
+  </xsd:complexType>
+  
+</xsd:schema>

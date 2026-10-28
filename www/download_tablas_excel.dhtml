@@ -1,0 +1,171 @@
+<?php 
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+	
+switch ($_GET['tabla']) {
+	case 'area_especifica':
+		  $objTabla= new cTablaAreaEspecifica($conexion);
+		  $objTabla->DescargarExcel();
+		  break;
+	case 'prestador_institucional':
+		 $objPrestadorInstitucional = new cPrestadorInstitucional($conexion);
+		 $objPrestadorInstitucional->DescargarExcel();
+		 break; 				 
+	case 'prestador_docente':		 	
+		 $objPrestadorDocente = new cPrestadorDocente($conexion);
+		 $objPrestadorDocente->DescargarExcel();
+		 break; 		
+	case 'prestador_docente_noasignado':		 	
+		 $objPrestadorDocente = new cPrestadorDocente($conexion);
+		 $objPrestadorDocente->DescargarExcelNoAsignado();
+		 break; 		
+	case 'prestador_docente_busqueda':		 	
+		 $objPrestadorDocenteArea = new cPrestadorDocenteArea($conexion);
+		 $objPrestadorDocenteArea->DescargarBusquedaExcel($_SESSION['filtro_busqueda_presdoc'],$_GET['formato']);
+		 break; 		
+	case 'prestador_docente_area':
+		 $objPrestadorDocenteArea = new cPrestadorDocenteArea($conexion);
+		 $objPrestadorDocenteArea->DescargarExcel($_GET['formato']);
+		 break; 		
+	case 'prestador_docente_catalogo_de_areas':
+		 $objTablaAreaEspecifica = new cTablaAreaEspecifica($conexion);
+		 $objTablaAreaEspecifica->DescargarCatalogoExcel();
+		 break; 		
+	case 'prestador_docente_actividad':		 	
+		 $objPrestadorDocente = new cPrestadorDocente($conexion);
+		 $objPrestadorDocente->DescargarExcelActividad();
+		 break; 		
+	case 'prestador_docente_comision':		 	
+		 $objPrestadorDocente = new cPrestadorDocente($conexion);
+		 $objPrestadorDocente->DescargarExcelComision();
+		 break; 		
+		 
+	case 'dictamen_en_lista':
+		 $objDictamen = new cDictamen($conexion);
+		 $objDictamen->DescargarExcelDictamen(array('xrol'=>true,'lstDic'=>$_GET['lstDic']));
+		 break; 		
+	case 'dictamen_de_dispo':
+		 $objDictamen = new cDictamen($conexion);
+		 $objDictamen->DescargarExcelDictamen(array('xrol'=>false,'dis_codigo'=>$_GET['dis_codigo']));
+		 break; 		
+	case 'roles_modulos':
+		 $oRolesModulos = new cRoles_Modulos($conexion);
+		 $oRolesModulos->DescargarExcel(array('rolcod'=>$_GET['rolcod'],'modulocod'=>$_GET['modulocod']));
+		 break; 		
+	case 'actividad_curso_persona':
+		 $oComisionPersona = new cComisionPersona($conexion);	
+		 if (!$oComisionPersona->DescargarExcel($_SESSION['filtro_busqueda']))
+		 	FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error en datos al generar el archivo Excel.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		 break; 		
+
+	case 'actividad_comision':
+		$oComision = new cComision($conexion);
+
+		if ($oComision->TraerDatosComision($_GET['comi_codigo'], $filacomision, $es_modif)) {
+			if (!$es_modif) 
+			 	FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error no se ha encontrado la Comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		}
+
+		$nombrearchivo="actividad_comision.xls";  
+		$oExcel= new cEscribirExcel($nombrearchivo);
+		
+		$oActividadCurso = new cActividadCurso($conexion);
+		$oActividadCurso->newActividadCursoTipo($filacomision['act_codigo'],$oActividadCurso);
+
+		$oActividadCurso->DescargarExcelDisenoActividad ($filacomision['act_codigo'],$oExcel,false);				
+		$oComision->DescargarExcelComision ($_GET['comi_codigo'],$oExcel,false);				
+
+		$oExcel->Enviar();			
+		 break; 		
+		 
+	case 'comision':
+			
+		 $oComision = new cComision($conexion);	
+		 $oComision->DescargarExcelComision($_GET['comi_codigo'],$oExcel,true);
+		 break; 		
+
+	case 'comision_buscar':
+		 $oComision = new cComision($conexion);	
+		 $oComision->DescargarExcelComisionBuscar($_SESSION['filtro_busqueda'],$oExcel,true);
+		 break; 		
+
+	case 'actividad_buscar':
+		 $oActividad = new cActividad($conexion);	
+		 $oActividad->DescargarExcelActividad($_SESSION['filtro_busqueda'],$oExcel,true);
+		 break; 		
+
+	case 'actividad_buscar_avanzado':
+		 $oActividad = new cActividad($conexion);	
+		 $oActividad->DescargarExcelActividadAvanzado($_SESSION['filtro_busqueda'],$oExcel,true);
+		 break; 		
+
+	case 'actividad_diseno':
+		 $oActividadCurso = new cActividadCurso($conexion);
+		 $oActividadCurso->newActividadCursoTipo($_GET['act_codigo'], $oActividadCurso);
+		 $oActividadCurso->DescargarExcelDisenoActividad($_GET['act_codigo'],$oExcel,true);
+		 break; 		
+
+	case 'actividad_persona_buscar_comisiones':
+
+		 $oComisionPersona = new cComisionPersona($conexion);	
+		 if (!$oComisionPersona->DescargarExcel($_SESSION['filtro_busqueda']))
+		 	FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error en datos al generar el archivo Excel.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		 break; 		
+
+	case 'actividad_persona_buscar_externa':
+		 $oActividadPersona=new cActividadExternaPersona($conexion);
+		 if (!$oActividadPersona->DescargarExcel($_SESSION['filtro_busqueda']))
+		 	FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error en datos al generar el archivo Excel.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		 
+		 break; 		
+
+	case 'actividad_persona_buscar_autodesarrollo':
+		 $oActividadPersona = new cActividadAutodesarrolloPersona($conexion);
+		 if (!$oActividadPersona->DescargarExcel($_SESSION['filtro_busqueda']))
+		 	FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error en datos al generar el archivo Excel.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		 break; 		
+
+	case 'actividad_persona_buscar_institucional':
+		 $oActividadCursoInstitucionalPersona = new cActividadCursoInstitucionalPersona($conexion);
+		 if (!$oActividadCursoInstitucionalPersona->DescargarExcel($_SESSION['filtro_busqueda']))
+		 	FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error en datos al generar el archivo Excel.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		 break; 		
+	 
+	case 'inscripcion_web':
+		 $oComisionPersonaCandidato = new cComisionPersonaCandidato($conexion);
+		 if (!$oComisionPersonaCandidato->DescargarExcel($_SESSION['filtro_busqueda']))
+		 	FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error en datos al generar el archivo Excel.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		 break; 		
+ 
+ 	case 'actividad_persona_buscar_eformal':
+		 $oActividadEducacionFormalPersona = new cActividadEducacionFormalPersona($conexion);
+		 if (!$oActividadEducacionFormalPersona->DescargarExcel($_SESSION['filtro_busqueda']))
+		 	FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error en datos al generar el archivo Excel.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		 break; 		
+		
+ 
+	default:
+		if (cTablaSysDesc::CrearSubtipo($conexion,$_GET['tabla'],$objTabla))
+			$objTabla->DescargarExcel();
+		else 
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error en la tabla a exportar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+}
+//-----------------------------------------------------------------------------------------------------	
+?>
+
+

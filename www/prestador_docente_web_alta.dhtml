@@ -1,0 +1,76 @@
+<?php 
+ob_start();
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+//$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados_Inscripcion($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+
+
+//----------------------------------OBJETOS------------------------------------------------ 
+$oComisionPersonaCandidato = new cComisionPersonaCandidato($conexion);
+$oPersonas = new cPersonas($conexion);
+$oAgentes = new cAgentes($conexion);
+$oComision = new cComision($conexion);
+$oComisionPersona =	new cComisionPersona($conexion);
+//----------------------------------------------------------------------------------------- 
+
+$ok_actualiza = true;
+$ok = true;
+
+$comi_codigo = $_POST['comi_codigo'];
+$act_codigo = $_POST['act_codigo'];
+
+
+			foreach($_POST as $clave=>$valor) {
+			
+				if (substr($clave,0, 12) =="eval_codigo_") {
+				
+					$pers_codigo = substr($clave,12);
+					
+					if (isset($_POST['cambio_eval_codigo_'.$pers_codigo]) && $_POST['cambio_eval_codigo_'.$pers_codigo]==1)  {
+			
+						$datos_evaluacion = array(	'comi_codigo'=>$comi_codigo,
+													'pers_codigo'=>$pers_codigo,
+													'eval_codigo'=>$valor
+						);
+						
+						$conexion->ManejoTransacciones("B");
+						if ($oComisionPersona->ModifDatosComisionVolcarResultados($datos_evaluacion)) {
+							FuncionesPHPLocal::RegistrarAcceso($conexion,"50404","pers_codigo=".$datos_evaluacion['pers_codigo']." - comi_codigo=".$comi_codigo." - eval_codigo=".$datos_evaluacion['eval_codigo'],$_SESSION['usuariocod']);
+							$conexion->ManejoTransacciones("C");
+						} else {
+							$conexion->ManejoTransacciones("R");
+							$ok_actualiza = false;
+						}
+			
+					}	// cambio la evaluacion
+				} // es un combo de evaluacion
+				
+			} // for each 
+// solo se muestra el mensaje de OK, porque el error lo informa ModifDatosComisionVolcarResultados
+
+if ($ok_actualiza) 
+{
+	ob_end_clean();
+	$_SESSION['accion_ejectuada'] = "Se han actualizado los datos de Evaluaci&oacute;n.";
+	header("Location:prestador_docente_ingreso.dhtml?comi_codigo=".$comi_codigo."&act_codigo=".$act_codigo);
+}	
+
+ob_end_flush();
+$oEncabezados->PieMenuEmergente();
+?>

@@ -1,0 +1,128 @@
+<?php
+
+class Sesion
+{
+	var $conexionsesion;
+	
+	function Sesion($conexion,$inicializa=false,$id=false)
+	{
+		$this->conexionsesion = &$conexion;
+		
+		session_set_save_handler(
+			array(& $this, 'sessao_open'), 
+			array(& $this, 'sessao_close'), 
+			array(& $this, 'sessao_read'), 
+			array(& $this, 'sessao_write'), 
+			array(& $this, 'sessao_destroy'), 
+			array(& $this, 'sessao_gc')
+		);
+		
+		if($id!==false)
+			session_id($id);
+		
+		session_start();
+		
+		if($inicializa || !isset($_SESSION['rolcod']) || !isset($_SESSION['usuariocod']))
+		{
+			$_SESSION=array();
+			$_SESSION['rolcod']=0;
+			$_SESSION['usuariocod']=0;
+		}
+	}
+
+	function sessao_open($aSavaPath, $aSessionName)
+	{
+	   $this->sessao_gc(TIEMPOSESION);
+	   return true;
+	}
+	
+	function sessao_close()
+	{
+		return true;
+	}
+	
+	function sessao_read($aKey)
+	{
+		$spparam=array('pkey'=>$aKey);
+		if(!$this->conexionsesion->ejecutarStoredProcedure("sel_sessions_xsessionid",$spparam,$resultado,$numfilas,$errno))
+			die("Error al acceder a sessions - ".$errno);
+		
+		if($numfilas == 1)
+		{
+			$r = mysqli_fetch_assoc($resultado);
+			return $r['datavalue'];
+		} 
+		else
+		{
+			$spparam=array('pkey'=>$aKey);
+			if(!$this->conexionsesion->ejecutarStoredProcedure("ins_sessions",$spparam,$resultado,$numfilas,$errno))
+				die("Error al acceder a sessions - ".$errno);
+	
+			return "";
+		}
+	}
+	
+	function sessao_write( $aKey, $aVal )
+	{
+		$spparam=array('pkey'=>$aKey,'pdata'=>$aVal);
+		if(!$this->conexionsesion->ejecutarStoredProcedure("upd_sessions_xsessionid",$spparam,$resultado,$numfilas,$errno))
+			die("Error al acceder a sessions - ".$errno);
+	
+		return true;
+	}
+	
+	function sessao_destroy( $aKey )
+	{
+		$spparam=array('pkey'=>$aKey);
+		if(!$this->conexionsesion->ejecutarStoredProcedure("del_sessions_xsessionid",$spparam,$resultado,$numfilas,$errno))
+			die("Error al acceder a sessions - ".$errno);
+	
+		return true;
+	}
+	
+	function sessao_gc( $aMaxLifeTime )
+	{
+		$spparam=array('ptiempolimite'=>$aMaxLifeTime);
+		if(!$this->conexionsesion->ejecutarStoredProcedure("del_sessions_xmayortiempo",$spparam,$resultado,$numfilas,$errno))
+			die("Error al acceder a sessions - ".$errno);
+	
+		return true;
+	}
+	
+//----------------------------------------------------------------------------------------- 
+// Verifica si tiene los permisos suficientes para acceder a un determinado archivo
+
+	function TienePermisos($conexion,$usuariocod,$rolcod,$archivonom)
+	{
+		$archivonom=substr(strrchr($archivonom,'/'),1);
+		
+		if ($rolcod==0 || $usuariocod==0)
+		{
+			FuncionesPHPPortal::RegistrarAcceso($conexion,'010002','',$usuariocod);
+			die ('Ud. tiene que registrarse para poder acceder.');
+		}
+		elseif(!isset($_SESSION['sistema']) || $_SESSION['sistema']!=SISTEMA)
+		{
+			FuncionesPHPPortal::RegistrarAcceso($conexion,'010005',(isset($_SESSION['sistema'])?$_SESSION['sistema']:"")." - ".$usuariocod,0);
+			die ('Ud. no tiene los permisos suficientes para ingresar a la página solicitada.');
+		}
+		else
+		{
+			$spnombrerol='sel_roles_modulos_xrolcod_xarchivonom';
+			$spparamrol=array('prolcod'=>$rolcod,'parchivonom'=>$archivonom);
+		
+			if(!$conexion->ejecutarStoredProcedure($spnombrerol,$spparamrol,$resultado,$numfilas,$errno) || $numfilas<1)
+			{
+				FuncionesPHPPortal::RegistrarAcceso($conexion,'010003','',$usuariocod);
+				die ('Ud. no tiene los permisos suficientes para ingresar a la página solicitada.');
+			}
+			
+			FuncionesPHPPortal::RegistrarAcceso($conexion,'010001','',$usuariocod);
+		}	
+	}
+}
+
+
+	
+	
+?>

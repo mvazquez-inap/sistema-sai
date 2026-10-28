@@ -1,0 +1,162 @@
+<?php
+class cEscalafones
+{
+var $conexion;
+	// Función para la conexión
+	public function __construct($conexion)
+	{
+		$this->conexion = &$conexion;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function EscalafonesSP(&$spnombre,&$spparam)
+	{
+		$spnombre="sel_escalafones_validos";
+		$spparam =array('porderby'=>"escalafnom",'pescalafestado'=>30);
+	}
+	
+//-----------------------------------------------------------------------------------------------------	
+	function AgrupamientosSP($escalafon,&$spnombre,&$spparam)
+	{
+		$spnombre="sel_agrupamientos_validos";
+		$spparam =array('porderby'=>"agrupnom",'pagrupestado'=>30,'pescalafcod'=>$escalafon);
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function Escalafones_NivelesSP($escalafon,$agrupamiento,&$spnombre,&$spparam)
+	{
+		$spnombre="sel_esc_niv_validos";
+		$spparam =array('porderby'=>"escalafnivnom",'pescalafnivestado'=>30,'pescalafcod'=>$escalafon,'pagrupcod'=>$agrupamiento);
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function Escalafones_TramosSP($escalafon,$agrupamiento,$nivel,&$spnombre,&$spparam)
+	{
+		$spnombre="sel_esc_tramo_validos";
+		$spparam =array('porderby'=>"escalaftramonom",'pescalaftramoestado'=>30,'pescalafcod'=>$escalafon,'pagrupcod'=>$agrupamiento,'pescalafnivcod'=>$nivel);
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function Escalafones_GradosSP($escalafon,$agrupamiento,$nivel,$tramo, &$spnombre,&$spparam)
+	{
+		$spnombre="sel_esc_grado_validos";
+		$spparam =array('porderby'=>"escalafgradonom",'pescalafgradoestado'=>30,'pescalafcod'=>$escalafon,'pagrupcod'=>$agrupamiento,'pescalafnivcod'=>$nivel,'pescalaftramocod'=>$tramo);
+	}
+	
+//-----------------------------------------------------------------------------------------------------	
+	function EscalafonCargado($agcodigo,&$escalaf_cargados)
+	{
+		$escalaf_cargados=array();
+		if(!$this->TraerRegistrosPrimariosAgente($agcodigo,"ag_escalafon_tmp",$query,$numfilas)||($numfilas!=1))
+			return false;
+		
+		while($fila=mysqli_fetch_assoc($query))
+			$escalaf_cargados[]=$fila;
+
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+    function EscalafonesNivelAccesoSP(&$spnombre,&$spparam) {	
+		$spnombre="sel_escalafones_nivel_acceso_orden";
+		$spparam=array('porderby'=>"escalafnivaccnom",'pescalafnivaccestado'=>30);		
+	
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function TraerDatosCompletosEscalafon($escalafcod,$agrupcod,$escalafnivcod,$escalaftramocod, $escalafgradocod,&$texto_salida)
+	{
+	
+		$texto_salida="";
+		$spnombre="sel_datoscompletos_escalafon";
+		$spparam=array(
+					"pescalafcod"=>$escalafcod,
+					"pagrupcod"=>$agrupcod,
+					"pescalafnivcod"=>$escalafnivcod,
+					"pescalaftramocod"=>$escalaftramocod,
+					"pescalafgradocod"=>$escalafgradocod
+					);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)
+		{
+			$texto_salida = "Escalafón inválido. Debe actualizar los datos de Escalafón.";
+		//	FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return true;
+		}
+		$fila=mysqli_fetch_assoc($query);
+		
+		$texto_salida=$fila["escalafnom"]." / ".$fila["agrupnom"]." / ".$fila["escalafnivnom"]." / ".$fila["escalaftramonom"]." / ".$fila["escalafgradonom"];
+		
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ValidarEscalafon($esc_agrup_niv_grado, &$datosvalidados) {
+
+		list($escalafcod,$agrupcod,$escalafnivcod,$escalaftramocod,$escalafgradocod)=explode("_",$esc_agrup_niv_grado);
+		
+		// Escalafón
+		if ($escalafcod=="")
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar el escalafón.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["escalafcod"]=$escalafcod;
+			
+		// Agrupamiento	
+		if ($agrupcod=="")
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar el agrupamiento.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["agrupcod"]=$agrupcod;
+
+		// Nivel
+		if ($escalafnivcod=="")
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar el nivel.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["escalafnivcod"]=$escalafnivcod;
+	
+		// Tramo
+		if ($escalaftramocod=="")
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar el tramo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["escalaftramocod"]=$escalaftramocod;
+			
+
+		// Grado
+		if ($escalafgradocod=="")
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar el grado.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["escalafgradocod"]=$escalafgradocod;
+
+		
+		// Escalafon - Agrupamiento - Nivel - Tramo - Grado
+		$spnombre ="sel_escalafones_xescalafcod_agrupcod_escalafnivcod_escalafgradocod";
+		$spparam=array("pescalafgradocod"=>$escalafgradocod,
+					 	"pagrupcod"=>$agrupcod,
+						"pescalafnivcod"=>$escalafnivcod,
+						"pescalaftramocod"=>$escalaftramocod,
+						"pescalafcod"=>$escalafcod
+		);
+
+		$arraybusq=array("escalafgradocod"=>$escalafgradocod,
+						 "agrupcod"=>$agrupcod,
+						 "escalafnivcod"=>$escalafnivcod,
+						 "escalaftramocod"=>$escalaftramocod,
+						 "escalafcod"=>$escalafcod
+		);
+
+		if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,$arraybusq,$query,$filaret,$numfilasmatcheo,$errorcod) || $numfilasmatcheo!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en la selección de escalafón.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+
+}// FIN CLASE	
+
+?>

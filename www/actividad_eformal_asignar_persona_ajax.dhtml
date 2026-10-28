@@ -1,0 +1,301 @@
+<?php
+require('./include.dhtml');
+header('Content-Type: text/html; charset=utf-8');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+//-----------------------------------------------------------------------------------------
+$oActividadEducacionFormal= new cActividadEducacionFormal($conexion);
+$oActividadEducacionFormalPersona = new cActividadEducacionFormalPersona($conexion);
+$oPersonas = new cPersonas($conexion);
+$oAgentes = new cAgentes($conexion);
+$escalafon = new cEscalafones($conexion);
+$jurisdicciones	 = new jurisdicciones;
+$oExpediente = new cExpediente($conexion);
+//-----------------------------------------------------------------------------------------
+$leyendaBoton = "";
+$operacion = "";
+$ok = true;
+
+// Busco la persona y saco sus datos o informo que debe dar el alta
+if(!$oPersonas->TraerDatosPersona($_POST["pers_cuilt"],$datospersona,$es_modif)) {
+	$ok=false;
+} elseif (!$es_modif) {
+		$mensaje = "La Persona no se encuentra en el sistema. <br> Deber&aacute; crearla haciendo click en el botón Nueva Persona";
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,$mensaje,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		$ok=false;
+	} elseif($datospersona['pers_estado'] == PERSONABAJA) {
+		$error="La persona ingresada se encuentra dada de baja.<br>Deber&aacute; rehabilitar a la persona.";
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		$ok = false;
+	}
+
+if ($ok) {
+
+	$tiene_dictamen_editable = false;
+
+	// Busco la asignacion
+	if ($ok) {
+		$ArregloDatos = array();
+		$ArregloDatos['pers_codigo'] = $datospersona['pers_codigo'];
+		$ArregloDatos['act_codigo'] = $_POST['act_codigo'];
+		if(!$oActividadEducacionFormalPersona->BuscarActividadAsignadaPersona ($ArregloDatos, $numfilasAsignacion, $result, $error, $errormail)) {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			$ok = false;
+		} elseif($numfilasAsignacion > 1)	{
+			$error = "La persona ya tiene acreditada la actividad.";
+			$errormail ="La persona tiene más de 1 tipo de actividad acreditada.\npers_codigo=".$ArregloDatos['pers_codigo']."\nact_codigo=".$ArregloDatos['act_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			$ok = false;
+		}
+	} // $ok
+
+	if ($ok) {
+		// Buscamos datos del agente y los pegamos o no a la asignacion
+		if(!$oAgentes->TraerDatosAgente($_POST["pers_cuilt"],$datosagente,$es_modif_agente)) {
+			$ok=false;
+			?><br><br><br><div align="center"><a href="agente_modificar.dhtml" class="linkFondoBlanco">Volver</a></div><?php
+		} elseif (($es_modif_agente ) && ($datosagente['pers_estado'] == PERSONABAJA)) {
+				$error="La persona ingresada se encuentra dada de baja.<br>Deber&aacute; rehabilitar a la persona.";
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				$ok = false;
+			//
+			// MV 2024 - PECIFA
+			}  elseif ($numfilasAsignacion == 0 && isset($datosagente['escalafcod']) && $datosagente['escalafcod'] != SINEP && $datosagente['escalafcod'] != PECIFA )) {
+					// cuando se realizo la asignación era SINEP
+					$txt_sys_mail="\npers_codigo=".$datosagente['pers_codigo'];
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"La persona seleccionada no es un Agente de SINEP.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+					$ok = false;
+				} elseif ($numfilasAsignacion == 0) { // No tiene asignada la actividad
+						$tiene_asignacion = false;
+						$leyendaBoton = "Agregar";
+						$operacion = "I";
+						$fila_asignacion = $datosagente;
+					} else { // La persona tiene asignada la actividad
+						$tiene_asignacion = true;
+						$leyendaBoton = "Actualizar";
+						$operacion = "M";
+						$fila_asignacion = mysqli_fetch_assoc($result);
+//
+		} // if	!$oAgentes->TraerDatosAgente
+	} // if ok
+
+	// Determino la jurisdiccion a mostar
+	if ($ok) {
+		$jurisdnom = "";
+		if (isset($fila_asignacion['jurisdid_apn'])) {
+			$tipoorg_codigo = ORGANISMO_APN;
+			$jurisdid = 'jurisdid_apn';
+			if ($jurisdicciones->SelectJurisdxID($fila_asignacion['jurisdid_apn'],array(),TABGRALES_TS_ARRAY,$fila_jurisd,array(),$NumFilas,$CodError))
+				$jurisdnom=htmlspecialchars($fila_jurisd[$fila_asignacion['jurisdid_apn']]['jurisdnom'],ENT_QUOTES);
+		} elseif (isset($fila_asignacion['orgapub_codigo'])) {
+				$tipoorg_codigo = ORGANISMO_NO_APN;
+				$jurisdid = 'orgapub_codigo';
+				$spnombre = "sel_organismo_publico_xdatos";
+				$spparam = array("pxclave"=>"1","porgapub_codigo"=>$fila_asignacion["orgapub_codigo"],"pxdescripcion"=>"0","porgapub_nombre"=>"0","porgapub_nombre"=>"0","pxestado"=>"0","porgapub_estado"=>"0","porderby"=>"orgapub_nombre");
+				if(!$conexion->BuscarRegistroxClave($spnombre,$spparam,array("orgapub_codigo"=>$fila_asignacion["orgapub_codigo"]),$resultado,$filaret,$numfilasmatcheo,$errno)) {
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al seleccionar el organismo público. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					$ok =  false;
+				} elseif($numfilasmatcheo!=1) {
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al seleccionar el organismo público. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					$ok =  false;
+				}
+				$jurisdnom = $filaret['orgapub_nombre'];
+		} // isset($fila_asignacion['jurisdid_apn'])
+	} // ok - determino jurisdiccion
+
+} // if ok
+
+
+//-----------------------------------------------------------------------------
+if ($ok) {	?>
+		<br />
+		<fieldset class="bordeDetalleRegistro">
+		<legend class="textoLeyendaDetalleRegistro">Datos de la Persona</legend>
+		<table  width="100%" class="textotablaDato" cellpadding="2" cellspacing="2" border="0">
+			<tr>
+				<td class='textoEtiqueta' width="30%" align="left">Apellido</td>
+				<td class="textoEtiquetaDatoResaltado" align="left"><input type="text"   size="30" maxlength="30" name="pers_apellido" class="textoInput" disabled="disabled" value="<?php echo ($es_modif)?$datospersona['pers_apellido']:""?>" /></td>
+			</tr>
+			<tr>
+				<td class='textoEtiqueta' width="30%" align="left">Nombre</td>
+				<td class="textoEtiquetaDatoResaltado" align="left"><input type="text"  class="textoInput" size="30" maxlength="30" name="pers_nombre" disabled="disabled" value="<?php echo ($es_modif)?$datospersona['pers_nombre']:""?>" /></td>
+			</tr>
+		</table>
+		</fieldset>
+		<br />
+		<fieldset class="bordeDetalleRegistro" >
+		<legend class="textoLeyendaDetalleRegistro">Datos de Acreditación</legend>
+		<table width="90%" class="textoTablaDato"  border="0" cellpadding="2" cellspacing="2" align="center">
+
+
+			<tr height="20px"><td colspan="2" class="textoEtiquetaDatoResaltado">Realización de la Actividad</td></tr>
+
+                    <tr>
+                        <td valign="top" width="30%" class='textoEtiqueta'>Institución</td>
+                        <td class="textoEtiquetaDatoResaltado">
+                   			<textarea  rows="2" cols="100" name="actformpers_institucion" id="actformpers_institucion" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php echo ($tiene_asignacion)?htmlspecialchars($fila_asignacion['actformpers_institucion'],ENT_QUOTES):"" ?></textarea>
+                        </td>
+                    </tr>
+
+				    <tr>
+                        <td valign="top" width="30%" class='textoEtiqueta'>Materias</td>
+                        <td class="textoEtiquetaDatoResaltado">
+                   			<textarea  rows="2" cols="100" name="actformpers_materias" id="actformpers_materias" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php echo ($tiene_asignacion)?htmlspecialchars($fila_asignacion['actformpers_materias'],ENT_QUOTES):"" ?></textarea>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td valign="middle" width="30%" class='textoEtiqueta'>Fecha de Fin</td>
+                        <td class="textoEtiquetaDatoResaltado">
+                        <input type="text" name="actformpers_fecha_fin" id="actformpers_fecha_fin"  maxlength="10" size="11"  class="textoInput" value="<?php echo ($tiene_asignacion)?FuncionesPHPLocal::ConvertirFecha($fila_asignacion['actformpers_fecha_fin'],'aaaa-mm-dd','dd/mm/aaaa'):"";?>">
+                         <img src="images/calendario.gif" id="cal-button-2" name="cal-button-2" style="vertical-align:-4px; cursor:pointer" border="0" alt="Calendario">
+								
+                         
+                          <span class="textoAclaraciones">(dd/mm/aaaa)</span>
+                          <div style='font-size: 7px;'>&nbsp;</div>
+                        </td>
+                    </tr>
+            
+				    <tr>
+                        <td valign="top" width="30%" class='textoEtiqueta'>Créditos</td>
+                        <td class="textoEtiquetaDatoResaltado">
+	                   		<input name="actformpers_creditos"  id="actformpers_creditos" type="text" size="3"  class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?>  value="<?php echo ($tiene_asignacion)?htmlspecialchars($fila_asignacion['actformpers_creditos'],ENT_QUOTES):"" ?>">
+                    	</td>
+                    </tr>
+                    
+            
+			<tr  height="20px">
+				<td colspan="2" class="textoEtiquetaDatoResaltado">Datos Laborales&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+					<span class="textoAclaraciones">&nbsp;Actualiza &uacute;ltimo registro <input type="checkbox" name="grabar_datos_agente" value="si" <?php echo (!$es_modif_agente)? "checked='checked' disabled='disabled' class='inputReadonly'":"" ?>  />	 (<?php echo ($es_modif_agente)?FuncionesPHPLocal::ConvertirFecha($datosagente['ultmodfecha'],'aaaa-mm-dd','dd/mm/aaaa'):"No hay datos registrados"?>)
+					</span>
+				</td>
+			</tr>
+
+			<tr>
+				<td width="30%" class='textoEtiqueta'>Organismo del Coordinador T&eacute;cnico de Capacitaci&oacute;n</td>
+				<td class="textoEtiquetaDatoResaltado"> 
+                <?php		$oAgentes->Jurisdid_InapSP($spnombre,$spparam);
+				FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","jurisdid_coordinacion","jurisdid","jurisdnom",$datosagente['jurisdid_inap'],"-- Seleccione un Organismo",$filaajurisdid,$selejurisdid);
+				?>
+                </td>
+        	</tr>
+			<tr>
+				<td valign="top" width="30%" ><span class='textoEtiqueta'>Último nivel de estudios alcanzado</span></td>
+				<td class="textoEtiquetaDatoResaltado">
+				<?php
+				$sparam=array('porderby' =>"nivest_codigo");
+				$spnombre="sel_nivel_estudios_xorden";
+				FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$sparam,"formulario","nivest_codigo","nivest_codigo","nivest_descricpcion",$fila_asignacion['nivest_codigo'],"-- Seleccione un Nivel",$filaniveledu,$selejurisdid);
+		?>		</td>
+			</tr>
+			<tr>
+				<td valign="top" width="30%" ><span class='textoEtiqueta'>Cantidad de agentes a cargo </span></td>
+				<td class="textoEtiquetaDatoResaltado">
+				<input name="agentes_a_cargo" id="agentes_a_cargo" size="5" type="text" class="textoinput" value="<?php echo $fila_asignacion["agentes_a_cargo"] ?>">				</td>
+			</tr>
+			<tr>
+			  <td colspan="2" valign="top" class="textoEtiquetaDatoResaltado" >Lugar de Revista </td>
+			  </tr>
+			<tr>
+				<td valign="top" width="30%" ><span class='textoEtiqueta'>País</span></td>
+				<td class="textoEtiquetaDatoResaltado">
+				<?php
+							$spnombre = "sel_paises_xestado";
+							$spparam = array("ppaisestado"=>ESTADOACTIVO, "porderby"=>"paisnom");
+							FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","paiscod_revista","paiscod","paisnom",($fila_asignacion['paiscod_revista'] != 0)?$fila_asignacion['paiscod_revista']:ARGENTINA,"-- Seleccione un País",$filapais_codigo,$selepais_codigo,1,"SeleccionPais(formulario)");
+				?>				</td>
+			</tr>
+			<tr>
+			<td valign="top" colspan="2" >
+				<div id="datos_provincia" style="display: <?php echo (($fila_asignacion['paiscod_revista'] == ARGENTINA || $fila_asignacion['paiscod_revista'] == 0))?'block':'none'; ?>">
+				<table width="100%">
+					<tr>
+						<td valign="top" width="30%"> <span class='textoEtiqueta'>Provincia</span></td>
+						<td class="textoEtiquetaDatoResaltado">
+							<?php
+									$oprovincia = new cProvincias($conexion);
+									$oprovincia->ProvinciasSP($spnombre,$spparam);
+									FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","provinciacod_revista","provinciacod","provincianom",(isset($fila_asignacion['provinciacod_revista']) && $fila_asignacion['provinciacod_revista'] != "00")?$fila_asignacion['provinciacod_revista']:PARTIDO_CAPITAL,"-- Seleccione una Provincia",$filaprov_codigo,$seleprov_codigo);
+							?>						</td>
+					</tr>
+				</table>
+				</div>			</td>
+			</tr>
+			<tr>
+				<td valign="middle" width="30%"><span class='textoEtiqueta'>Situaci&oacute;n escalafonaria</span>	</td>
+				<td class="textoEtiquetaDatoResaltado">
+				<a href='javascript:void(0)' onClick="Popup('esc_agrup_niv_grado_selector_combo.dhtml?destino=esc_agrup_niv_grado&amp;texto=esc_agrup_niv_grado_texto&amp;tipo_escalafon=T&amp;escalafcod=<?php echo $fila_asignacion["escalafcod"]?>&amp;agrupcod=<?php echo $fila_asignacion["agrupcod"]?>&amp;escalafnivcod=<?php echo $fila_asignacion["escalafnivcod"]?>&amp;escalaftramocod=<?php echo $fila_asignacion["escalaftramocod"]?>&amp;escalafgradocod=<?php echo $fila_asignacion["escalafgradocod"]?>','ventana_escalafon',550,300,screen.availWidth-600,screen.availHeight-350,'yes');" title="Seleccionar Escalafón"><img src="images/versai.jpg" border="0" style="vertical-align:-5px" alt="Seleccionar Escalafón"></a>
+				<input name="esc_agrup_niv_grado" id="esc_agrup_niv_grado" type="hidden" class="textoinput" value="<?php echo (($es_modif_agente || $tiene_asignacion))?$fila_asignacion["escalafcod"]."_".$fila_asignacion["agrupcod"]."_".$fila_asignacion["escalafnivcod"]."_".$fila_asignacion["escalaftramocod"].'_'. $fila_asignacion["escalafgradocod"]:"" ?>">
+				<span class="textoEtiquetaDatoResaltado" id="esc_agrup_niv_grado_texto">
+	<?php				if( ($es_modif_agente || $tiene_asignacion) && $escalafon->TraerDatosCompletosEscalafon($fila_asignacion["escalafcod"],$fila_asignacion["agrupcod"],$fila_asignacion["escalafnivcod"],$fila_asignacion["escalaftramocod"],$fila_asignacion["escalafgradocod"],$texto_salida))
+						echo htmlspecialchars($texto_salida,ENT_QUOTES); ?>
+				</span>
+				<input name="escalafon"  id="escalafon" type="hidden" value="<?php echo ($fila_asignacion["escalafcod"]==SINEP)?"A":"T" ?>"/>
+			  </td>
+			</tr>
+		</table>
+
+<?php 		//-------- define Organismo Laboral objetos: jurisdid-tipoorg_codigo-jurisdnom---
+		$jurisdid_agente = ($es_modif_agente || $tiene_asignacion)?$fila_asignacion[$jurisdid]:"";
+		$jurisdid_campo = "";
+		$tipoorg_codigo= ($es_modif_agente || $tiene_asignacion)?$tipoorg_codigo:ORGANISMO_APN;
+		$filtro_organismo = "A";
+		$oAgentes->PedirOrganismoLaboral($es_modif_agente,$filtro_organismo,$tipoorg_codigo, $jurisdid_agente, $jurisdid_campo);
+		//-------------------------------------------------------------------------------
+?>
+		<!-- <div id="datos_apn">-->
+		<div id="datos_apn"style="display:<?php echo (($es_modif_agente || $tiene_asignacion) && $fila_asignacion["escalafcod"]==SINEP)?"":"none" ?>">
+
+		<table width="90%" class="textoTablaDato"  border="0" cellpadding="2" cellspacing="2" align="center">
+			<tr>
+				<td valign="top" width="30%"><span class='textoEtiqueta'>Función</span></td>
+				<td class="textoEtiquetaDatoResaltado"><?php
+					$oAgentes->FuncionSP($spnombre,$spparam);
+					FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","agfunc_codigo","agfunc_codigo","agfunc_descripcion",$fila_asignacion['agfunc_codigo'],"-- Seleccione una Función",$filaagfuncion,$seleagfuncion);
+				?></td>
+			</tr>
+		</table>
+		</div>
+		<table width="90%" class="textoTablaDato"  border="0" cellpadding="2" cellspacing="2" align="center">
+			<tr height="20px">
+				<td colspan="2" class="textoEtiquetaDatoResaltado">Observaciones</td>
+			</tr>
+			<tr>
+				<td valign="top" width="30%" class='textoEtiqueta'>&nbsp;</td>
+				<td class="textoEtiquetaDatoResaltado"><textarea cols="100" rows="5" name="actformpers_obs"  id="actform_pers_obs" class='textoInput' style="width:400px"><?php echo ($tiene_asignacion)?htmlspecialchars($fila_asignacion['actformpers_obs'],ENT_QUOTES):"" ?></textarea></td>
+			</tr>
+			<tr>
+				<td colspan="2" align="center">&nbsp;</td>
+			</tr>
+		</table>
+
+	</fieldset>
+	<div align="center">
+	<input type="submit" name="boton_actualizar" value="<?php echo $leyendaBoton?>" class="botones"
+		onclick="return ValidarFormAltaActividadFormalPersona(formulario,'A');"/>
+	<input type="hidden" name="operacion" id="operacion" value="<?php echo $operacion?>" />
+	<input type="hidden" name="act_codigo" id="act_codigo" value="<?= $_POST['act_codigo'] ?>" />
+	<input type="hidden" name="tipoact_codigo" id="tipoact_codigo" value="<?=isset($_POST['tipoact_codigo'])?$_POST['tipoact_codigo']:"";?>"/>
+	<input type="hidden" name="pers_codigo" id="pers_codigo" value="<?= isset($datospersona['pers_codigo'])?$datospersona['pers_codigo'] :""?>" />
+	<?php if ($tiene_asignacion) { ?>
+		<input type="submit" name="boton_eliminar" id="boton_eliminar" class="botones" value="Eliminar" onClick="return confirm('¿Está seguro que desea eliminar la asignación de la Persona a esta Actividad?');">
+	<?php } // $tiene_asignacion  	?>
+	</div>
+
+<?php } // ok  
+
+?>

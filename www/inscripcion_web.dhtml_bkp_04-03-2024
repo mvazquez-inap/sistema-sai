@@ -1,0 +1,766 @@
+<?php
+require('./include.dhtml');
+
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+//$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+require_once("./veriword/class.verificator.dhtml");
+
+$oEncabezados_Inscripcion = new cEncabezados_Inscripcion($conexion);
+$oEncabezados_Inscripcion->EncabezadoMenuEmergente("","","");
+
+//-----------------------------------OBJETOS---------------------------------------//
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+$oAgentes = new cAgentes($conexion);
+$oPersonas = new cPersonas($conexion);
+$oComisionPersona= new cComisionPersona($conexion);
+//---------------------------------------------------------------------------------//
+
+
+//--------------------------------------------------------------------------------------//
+//--------------------------------------JAVASCRIPT--------------------------------------//
+//--------------------------------------------------------------------------------------//
+?>
+<script language="javascript" src="<?php echo DIR_JSComunes ?>funcionesjs.js" type="text/javascript"></script>
+
+<script type="text/javascript" language="javascript">
+	 <?php $oAgentes->ActualizarOrganismoLaboralJS();  ?>
+//--------------------------------------------------------------------------------------//
+//----------------------------------VALIDAR---------------------------------------------//
+//--------------------------------------------------------------------------------------//
+
+
+<?php //$oAgentes->ValidarFormAltaAgenteJS(); ?>
+		//-----------------------------------------------------------------------------------------------------
+		function LimpioOrganismoIndividual(docu,jurisdid,jurisdnom,jurisdid_coordinacion,es_orga_publico) {
+			if(es_orga_publico == '<?php echo NO ?>') {
+				var elValor=docu.getElementById(jurisdid);
+				SetearTexto(jurisdid,'',docu);
+				var elValor=docu.getElementById(jurisdnom);
+				SetearTexto(jurisdnom,'',docu);
+				var elSel=docu.getElementById(jurisdid_coordinacion);
+                elSel.selectedIndex = -1;
+				elSel.value = <?php echo NO_CORRESPONDE ?>;
+			}
+		}
+
+
+function ValidarAgenteJS(formulario) {
+
+	if (!ValidarContenido(formulario.pers_cuilt.value,"CUIT")){
+		alert("El CUIT/CUIL/CDI no es válido");
+		formulario.pers_cuilt.focus();
+		return false;
+	}
+	
+
+	// if ((!formulario.pers_sexo[0].checked) && (!formulario.pers_sexo[1].checked))
+	// {
+	// 	alert("Debe seleccionar el sexo");
+	//	return false;
+	// }
+
+	// MV - SEXO - 17032023 
+	if (
+		(!formulario.pers_sexo[0].selected) &&
+		(!formulario.pers_sexo[1].selected) &&
+		(!formulario.pers_sexo[2].selected) &&
+		(!formulario.pers_sexo[3].selected) &&
+		(!formulario.pers_sexo[4].selected) &&
+		(!formulario.pers_sexo[5].selected) &&
+		(!formulario.pers_sexo[6].selected) &&
+		(!formulario.pers_sexo[7].selected) &&
+		(!formulario.pers_sexo[8].selected) &&
+		(!formulario.pers_sexo[9].selected)
+	  )
+	{
+		alert("Debe seleccionar el sexo");
+		return false;
+	}
+
+// ----------------------------------------------------------------------
+// Debajo se agrega nueva fn para validar email - JS
+// ----------------------------------------------------------------------
+
+if(formulario.pers_email.value=="" || !ValidarContenido(formulario.pers_email.value,"Email"))
+{
+    alert("No se puede dejar vacío el email");
+    formulario.pers_email.focus();
+    return false;
+}	
+
+
+
+	if (trim(formulario.jurisdid_coordinacion.value)=="0" && formulario.escalafon.value == "A" ){
+		return confirm("Ha seleccionado un agente SINEP y no le ha asignado un Organismo de Coordinación\n ¿Quiere asignar estos datos?");
+	}
+
+	if (trim(formulario.nivest_codigo.value)==""){
+		alert("Debe ingresar el Último nivel de estudios alcanzado");
+		formulario.nivest_codigo.focus();
+		return false;
+	}
+
+	if (trim(formulario.agentes_a_cargo.value)==""){
+		alert("Debe ingresar la Cantidad de agentes a cargo");
+		formulario.agentes_a_cargo.focus();
+		return false;
+	}
+
+	if (trim(formulario.paiscod_revista.value)==""){
+		alert("Debe ingresar el País de revista");
+		formulario.paiscod_revista.focus();
+		return false;
+	}
+
+	if (formulario.paiscod_revista.value == <?php echo ARGENTINA?> ) {
+		if (trim(formulario.provinciacod_revista.value)==""){
+			alert("Debe ingresar la provincia de revista");
+			formulario.provinciacod_revista.focus();
+			return false;
+		}
+	}
+
+	if(formulario.pers_fechanac.value=="" || !ValidarFecha(formulario.pers_fechanac.value))
+	{
+		alert("Debe ingresar la fecha de nacimiento válida");
+		formulario.pers_fechanac.focus();
+		return false;
+	}
+
+	if (formulario.tipo_individual_con_org[0].checked) {
+
+		if (trim(formulario.jurisdid_coordinacion.value)==""){
+			alert("Debe ingresar un Organismo del Coordinador T&eacute;cnico de Capacitaci&oacute;n válido");
+			formulario.jurisdid.focus();
+			return false;
+		}
+
+		if ((trim(formulario.esc_agrup_niv_grado.value)=="")){
+			alert("Debe ingresar una situación escalafonaria válida");
+			return false;
+		}
+
+		if (formulario.escalafon.value == "A") {
+
+			if ((trim(formulario.agfunc_codigo.value)=="")){
+				alert("Debe ingresar una función válida");
+				formulario.agfunc_codigo.focus();
+				return false;
+			}
+
+		}
+
+		if (trim(formulario.jurisdid.value)==""){
+			alert("Debe ingresar un Organismo donde trabaja el agente válido");
+			formulario.jurisdid.focus();
+			return false;
+		}
+
+
+		if (trim(formulario.carr_codigo.value)==""){
+			alert("Debe ingresar una Carrera");
+			formulario.carr_codigo.value();
+			return false;
+		}
+
+	}
+
+
+
+	return true;
+}
+
+
+
+function Validar(formulario,codigo,veriword){
+
+// || !ValidarContenido(formulario.pers_cuilt.value,"CUIT")
+	if(!ValidarContenido(formulario.pers_cuilt.value,"CUIT") ||  formulario.pers_cuilt.value=="")
+	{
+		alert("No se puede dejar vacío CUIT/CUIL/CDI o no es válido");
+		formulario.pers_cuilt.focus();
+		return false;
+	}
+
+
+
+	if(!ValidarContenido(formulario.pers_apellido.value,"AlfabeticoPuro") ||  formulario.pers_apellido.value=="")
+	{
+		alert("No se puede dejar vacío Apellido o no es válido");
+		formulario.pers_apellido.focus();
+		return false;
+	}
+
+
+	if(!ValidarContenido(formulario.pers_nombre.value,"AlfabeticoPuro") ||  formulario.pers_nombre.value=="")
+	{
+		alert("No se puede dejar vacío Nombre o no es válido");
+		formulario.pers_nombre.focus();
+		return false;
+	}
+
+
+
+	buscarPersona('formulario','datosPersona',formulario.pers_cuilt.value,formulario.pers_apellido.value,formulario.pers_nombre.value,codigo,veriword)
+
+}
+
+function Validar_candidato(formulario,codigo,cuilt,pers_apellido, pers_nombre, jurisinap, esc_agrup_niv_grado, escalafon, agfunc_codigo, jurislaboral,boton, pers_sexo, pers_email, agfunc_codigo, tareas, carr_codigo){
+	// if (pers_sexo[0].checked)
+	//	p_sexo = "<?php echo SEXO_FEMENINO?>";
+	// if (pers_sexo[1].checked)
+	//	p_sexo = "<?php echo SEXO_MASCULINO?>";
+	
+if (pers_sexo[0].selected)
+    p_sexo = "<?php echo SEXO_FEMENINO?>";
+if (pers_sexo[1].selected)
+    p_sexo = "<?php echo SEXO_MASCULINO?>";
+if (pers_sexo[2].selected)
+    p_sexo = "<?php echo SEXO_MUJER_TRANS?>";
+if (pers_sexo[3].selected)
+    p_sexo = "<?php echo SEXO_VARON_TRANS?>";
+if (pers_sexo[4].selected)
+    p_sexo = "<?php echo SEXO_TRAVESTI?>";
+if (pers_sexo[5].selected)
+    p_sexo = "<?php echo SEXO_TRANSEXUAL?>";
+if (pers_sexo[6].selected)
+    p_sexo = "<?php echo SEXO_TRANSGENERO?>";
+if (pers_sexo[7].selected)
+    p_sexo = "<?php echo SEXO_NO_BINARIE?>";
+if (pers_sexo[8].selected)
+    p_sexo = "<?php echo SEXO_NINGUNA?>";
+if (pers_sexo[9].selected)
+    p_sexo = "<?php echo SEXO_NO_RESPONDE?>";
+
+	 InscribirPersonaBotonConFirma(formulario,'datosInscribir',cuilt,pers_apellido, pers_nombre,codigo, jurisinap, esc_agrup_niv_grado, escalafon, agfunc_codigo, jurislaboral,boton, p_sexo, pers_email, agfunc_codigo, tareas, carr_codigo);
+
+}
+
+function Validar_candidato_nuevo(formulario,codigo,cuilt,pers_apellido, pers_nombre, p_fechanac, jurisinap, esc_agrup_niv_grado, escalafon, agfunc_codigo, jurislaboral, tipoorg_codigo, boton, pers_sexo, pers_email, nivest_codigo, agentes_a_cargo, paiscod_revista, provinciacod_revista, tipo_individual_con_org, tareas, carr_codigo){
+
+	var item_obj_inicio = EncontrarObjeto("datosPersonaForm");
+
+	// if (pers_sexo[0].checked)
+	//	p_sexo = "<?php echo SEXO_FEMENINO?>";
+	//if (pers_sexo[1].checked)
+	//	p_sexo = "<?php echo SEXO_MASCULINO?>";
+
+if (pers_sexo[0].selected)
+    p_sexo = "<?php echo SEXO_FEMENINO?>";
+if (pers_sexo[1].selected)
+    p_sexo = "<?php echo SEXO_MASCULINO?>";
+if (pers_sexo[2].selected)
+    p_sexo = "<?php echo SEXO_MUJER_TRANS?>";
+if (pers_sexo[3].selected)
+    p_sexo = "<?php echo SEXO_VARON_TRANS?>";
+if (pers_sexo[4].selected)
+    p_sexo = "<?php echo SEXO_TRAVESTI?>";
+if (pers_sexo[5].selected)
+    p_sexo = "<?php echo SEXO_TRANSEXUAL?>";
+if (pers_sexo[6].selected)
+    p_sexo = "<?php echo SEXO_TRANSGENERO?>";
+if (pers_sexo[7].selected)
+    p_sexo = "<?php echo SEXO_NO_BINARIE?>";
+if (pers_sexo[8].selected)
+    p_sexo = "<?php echo SEXO_NINGUNA?>";
+if (pers_sexo[9].selected)
+    p_sexo = "<?php echo SEXO_NO_RESPONDE?>";
+
+
+// ----------------------------------------------------------------------
+// Nueva función para validar email - JS
+// ----------------------------------------------------------------------
+// MVAZQUEZ 28-03-2023
+// Validar email
+
+if(formulario.pers_email.value=="" || !ValidarContenido(formulario.pers_email.value,"Email"))
+{
+    alert("Verifique el email ingresado");
+    formulario.pers_email.focus();
+    return false;
+}
+
+
+
+	if (tipo_individual_con_org[0].checked)
+		p_tipo_individual_con_org = "<?php echo SI?>";
+	if (tipo_individual_con_org[1].checked)
+		p_tipo_individual_con_org = "<?php echo NO?>";
+
+	if (ValidarAgenteJS(formulario)) {
+		item_obj_inicio.innerHTML="";
+		InscribirPersonaNuevo(formulario,'datosInscribir',cuilt,pers_apellido, pers_nombre,jurisinap, esc_agrup_niv_grado, escalafon, agfunc_codigo, jurislaboral,tipoorg_codigo, codigo,boton,p_sexo,p_fechanac, pers_email, nivest_codigo, agentes_a_cargo, paiscod_revista, provinciacod_revista, p_tipo_individual_con_org, tareas, carr_codigo);
+	}
+	else
+		return false;
+
+
+
+}
+function Validar_formulario_candidato(formulario,codigo,boton){
+
+
+	if (!ValidarContenido(formulario.pers_apellido.value,"AlfabeticoPuro") || (trim(formulario.pers_apellido.value)==""))
+	{
+		alert("No se puede dejar vacío el Apellido");
+		formulario.pers_apellido.focus();
+		return false;
+	}
+	if (!ValidarContenido(formulario.pers_nombre.value,"AlfabeticoPuro") || (trim(formulario.pers_nombre.value)==""))
+	{
+		alert("No se puede dejar vacío el Nombre");
+		formulario.pers_nombre.focus();
+		return false;
+	}
+	if(formulario.pers_sexo.value=="")
+	{
+		alert("Debe selecciona Sexo");
+		formulario.pers_sexo.focus();
+		return false;
+	}
+	if(formulario.pers_email.value=="" || !ValidarContenido(formulario.pers_email.value,"Email"))
+	{
+		alert("No se puede dejar vacío el email");
+		formulario.pers_email.focus();
+		return false;
+	}
+	if(formulario.pers_fechanac.value=="")
+	{
+		alert("Debe ingresar la fecha de nacimiento");
+		formulario.pers_fechanac.focus();
+		return false;
+	}
+	if(formulario.jurisdid_coordinacion.value=="" )
+	{
+		alert("Debe Seleccionar un Organismo del Coordinador T&eacute;cnico de Capacitaci&oacute;n");
+		formulario.jurisdid_coordinacion.focus();
+		return false;
+	}
+
+
+		if(formulario.esc_agrup_niv_grado.value=="" )
+		{
+			alert("Debe Seleccionar una Situación escalafonaria");
+			formulario.esc_agrup_niv_grado.focus();
+			return false;
+		}
+		if(formulario.jurisdid.value=="" )
+		{
+			alert("Debe Seleccionar una Jurisdiccion Laboral");
+			formulario.jurisdid.focus();
+			return false;
+		}
+
+		if(formulario.escalafon.value=="A"){
+				if(formulario.agfunc_codigo.value=="" )
+				{
+					alert("Debe Seleccionar una Funcion");
+					formulario.agfunc_codigo.focus();
+					return false;
+				}
+		}
+
+	InscribirPersona(formulario,'datosInscribir',formulario.pers_cuilt.value,jurisinap.value, esc_agrup_niv_grado.value, escalafon.value, agfunc_codigo.value, jurislaboral.value,codigo,boton);
+return true;
+}
+
+//--------------------------------------------------------------------------------------//
+//----------------------------------Inscribir AJAX--------------------------------------//
+//--------------------------------------------------------------------------------------//
+
+function InscribirPersonaBotonConFirma(formulario,divPersona,pers_cuilt,pers_apellido, pers_nombre,comi_codigo,
+									   jurisinap, esc_agrup_niv_grado, escalafon, agfunc_codigo, jurislaboral,
+									   boton, pers_sexo, pers_email, agfunc_codigo, tareas, carr_codigo) {
+
+
+	var item_obj = EncontrarObjeto(divPersona);
+	var objAguarde = EncontrarObjeto('idAguarde');
+	if (objAguarde != null)
+		objAguarde.innerHTML='Aguarde ...';
+
+	item_obj.innerHTML="";
+
+	var ajax=nuevoAjax();
+	var datos="pers_cuilt="+trim(pers_cuilt)+"&comi_codigo="+comi_codigo+"&boton="+boton+"&pers_apellido="+trim(pers_apellido)+"&pers_nombre="+trim(pers_nombre)
+	+"&jurisinap="+jurisinap+"&esc_agrup_niv_grado="+esc_agrup_niv_grado+"&escalafon="+escalafon+"&agfunc_codigo="+agfunc_codigo+"&jurislaboral="+jurislaboral+"&pers_sexo="+pers_sexo+"&pers_email="+pers_email+"&agfunc_codigo="+agfunc_codigo+"&tareas="+tareas+"&carr_codigo="+carr_codigo;
+
+
+
+
+	var archivo = "inscripcion_web_inscribir_ajax.dhtml";
+	ajax.open("POST",archivo,true);
+	ajax.onreadystatechange=function() {
+		if (ajax.readyState==4) {
+			if (objAguarde != null)
+				objAguarde.innerHTML='';
+			item_obj.innerHTML=ajax.responseText;
+			$('datosPersona').innerHTML = "<div class=\"textoTitulo\" align=\"center\" style=\"padding-top:50px\"> Se ha realizado la Pre Inscripción correctamente. <br>Próximamente recibirá la confirmación de su inscripción.</div>";
+
+			$('pers_cuilt').value="";
+			$('pers_nombre').value="";
+			$('pers_apellido').value="";
+			$('veriword').value="";
+
+
+
+			return true;
+
+		}
+	};
+	ajax.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
+	ajax.send(datos);
+
+	return false;
+}
+
+function InscribirPersona(formulario,divPersona,pers_cuilt,jurisinap, esc_agrup_niv_grado, escalafon, agfunc_codigo, jurislaboral,comi_codigo,boton) {
+
+	var item_obj = EncontrarObjeto(divPersona);
+	var objAguarde = EncontrarObjeto('idAguarde');
+	if (objAguarde != null)
+		objAguarde.innerHTML='Aguarde ...';
+
+	item_obj.innerHTML="";
+	var apellido;
+	var nombre;
+	var email;
+	var escalafgrado;
+	var escalafon;
+	var agfunc_codigo;
+	var jurislaboral;
+	var jurisinap;
+	var tipoorg_codigo;
+
+
+
+	if($('pers_sexo_fem').checked==true){
+ 		sexo = $('pers_sexo_fem').value;
+	}else{
+		sexo = $('pers_sexo_masc').value;
+	}
+
+	apellido = $('pers_apellido').value;
+	nombre = $('pers_nombre').value;
+	email = $('pers_email').value;
+	esc_agrup_niv_grado = $('esc_agrup_niv_grado').value;
+	escalafon = $('escalafon').value;
+	agfunc_codigo = $('agfunc_codigo').value;
+	jurislaboral = $('jurisdid').value;
+	jurisinap = $('jurisdid_coordinacion').value;
+	tipoorg_codigo = $('tipoorg_codigo').value;
+	tareas = $('tareas').value;
+	carr_codigo = $('carr_codigo').value;
+
+	var ajax=nuevoAjax();
+	var datos="pers_cuilt="+trim(pers_cuilt)+"&comi_codigo="+comi_codigo+"&apellido="+apellido+"&nombre="+nombre+"&sexo="+sexo+"&email="+email+"&esc_agrup_niv_grado="+esc_agrup_niv_grado+"&escalafon="+escalafon+"&agfunc_codigo="+trim(agfunc_codigo)+"&jurislaboral="+jurislaboral+"&jurisinap="+jurisinap+"&tipoorg_codigo="+tipoorg_codigo+"&boton="+boton+"&tareas="+tareas+"&carr_codigo="+carr_codigo;
+
+	var archivo = "inscripcion_web_inscribir_ajax.dhtml";
+	ajax.open("POST",archivo,true);
+	ajax.onreadystatechange=function() {
+		if (ajax.readyState==4) {
+			if (objAguarde != null)
+				objAguarde.innerHTML='';
+				item_obj.innerHTML=ajax.responseText;
+				//$('datosPersona').innerHTML = "<div class=\"textoTitulo\" align=\"center\" style=\"padding-top:105px\"> Se ha realizado la Pre Inscripción.</div>";
+				$('pers_cuilt').value="";
+				$('pers_nombre').value="";
+				$('pers_apellido').value="";
+				$('veriword').value="";
+
+
+			return true;
+		}
+	};
+	ajax.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
+	ajax.send(datos);
+
+	return false;
+}
+
+function InscribirPersonaNuevo(formulario,divPersona,pers_cuilt,pers_apellido, pers_nombre,jurisinap, esc_agrup_niv_grado, escalafon, agfunc_codigo, jurislaboral,tipoorg_codigo, comi_codigo,boton, pers_sexo, pers_fechanac, pers_email, nivest_codigo, agentes_a_cargo, paiscod_revista, provinciacod_revista, tipo_individual_con_org, tareas, carr_codigo) {
+
+	var item_obj = EncontrarObjeto(divPersona);
+	var objAguarde = EncontrarObjeto('idAguarde');
+	if (objAguarde != null)
+		objAguarde.innerHTML='Aguarde ...';
+
+	item_obj.innerHTML="";
+
+	var ajax=nuevoAjax();
+	var datos="pers_cuilt="+trim(pers_cuilt)+"&comi_codigo="+comi_codigo+"&pers_apellido="+trim(pers_apellido)+"&pers_nombre="+trim(pers_nombre)+"&boton="+boton+"&pers_sexo="+pers_sexo+"&pers_email="+pers_email+"&pers_fechanac="+pers_fechanac+"&nivest_codigo="+nivest_codigo+"&agentes_a_cargo="+agentes_a_cargo+"&paiscod_revista="+paiscod_revista+"&provinciacod_revista="+provinciacod_revista+"&jurisinap="+jurisinap+"&esc_agrup_niv_grado="+esc_agrup_niv_grado+"&escalafon="+escalafon+"&agfunc_codigo="+agfunc_codigo+"&jurislaboral="+jurislaboral+"&tipoorg_codigo="+tipoorg_codigo+"&tipo_individual_con_org="+tipo_individual_con_org+"&tareas="+tareas+"&carr_codigo="+carr_codigo;
+
+
+	var archivo = "inscripcion_web_inscribir_ajax.dhtml";
+	ajax.open("POST",archivo,true);
+	ajax.onreadystatechange=function() {
+		if (ajax.readyState==4) {
+			if (objAguarde != null)
+				objAguarde.innerHTML='';
+			item_obj.innerHTML=ajax.responseText;
+			//$('datosPersona').innerHTML = "<div class=\"textoTitulo\" align=\"center\" style=\"padding-top:50px\"> Se ha realizado la Pre Inscripción correctamente 222. <br>Próximamente recibirá la confirmación de parte de su Coordinador Técnico de Capacitación.</div>";
+
+			$('pers_cuilt').value="";
+			$('pers_nombre').value="";
+			$('pers_apellido').value="";
+			$('veriword').value="";
+
+
+			return true;
+
+		}
+	};
+	ajax.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
+	ajax.send(datos);
+
+	return false;
+}
+
+
+//--------------------------------------------------------------------------------------//
+//----------------------------------BUSQUEDAS AJAX--------------------------------------//
+//--------------------------------------------------------------------------------------//
+
+function buscarPersona(formulario,divPersona,pers_cuilt,pers_apellido, pers_nombre,comi_codigo,veriword) {
+
+	var item_obj = EncontrarObjeto(divPersona);
+	var item_obj_inicio = EncontrarObjeto("datosInicio");
+
+	var objAguarde = EncontrarObjeto('idAguarde');
+	if (objAguarde != null)
+		objAguarde.innerHTML='Aguarde ...';
+
+	item_obj.innerHTML="";
+	item_obj_inicio.innerHTML="";
+
+	var ajax=nuevoAjax();
+	var datos="pers_cuilt="+trim(pers_cuilt)+"&pers_apellido="+trim(pers_apellido)+"&pers_nombre="+trim(pers_nombre)+"&comi_codigo="+comi_codigo+"&veriword="+veriword;
+	var archivo = "inscripcion_web_validar_ajax.dhtml";
+	var hay_calendario = true;
+	ajax.open("POST",archivo,true);
+	ajax.onreadystatechange=function() {
+		if (ajax.readyState==4) {
+			if (objAguarde != null)
+				objAguarde.innerHTML='';
+			item_obj.innerHTML=ajax.responseText;
+
+			if (hay_calendario)
+				Calendar.setup({
+				range		  : [1900, 2100],
+				inputField    : "pers_fechanac",
+				button        : "cal-button-1",
+				ifFormat	: "%d/%m/%Y"
+				});
+
+
+
+			return true;
+		}
+	};
+	ajax.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
+	ajax.send(datos);
+	return false;
+}
+
+//-----------------------------------------------------------------
+
+//-----------------------------------------------------------------------------------------------------
+function SeleccionTieneOrganismo(formulario, seccion ){
+	var elSelect = document.getElementById(seccion);
+	if (formulario.tipo_individual_con_org[0].checked) {
+		elSelect.style.display ="block";
+	} else {
+		elSelect.style.display ="none";
+	}
+}
+
+function bajarFormulario(nombre, pers_cuilt) {
+
+
+	var escalaf = document.getElementById('esc_agrup_niv_grado_texto');
+	var jurisdnom = document.getElementById('jurisdnom');
+
+
+	dir = 'download_pdf.dhtml?contenido=formulario_beca&nombre='+nombre+'&carrera=';
+	dir += $('carr_codigo').options[$('carr_codigo').selectedIndex].text;
+	dir += "&pers_cuilt="+pers_cuilt;
+	dir += "&email="+$('pers_email').value;
+	dir += "&fecha_nac="+$('pers_fechanac').value;
+	dir += "&estudios="+$('nivest_codigo').options[$('nivest_codigo').selectedIndex].text;
+	dir += "&agentes="+$('agentes_a_cargo').value;
+	dir += "&pais="+$('paiscod_revista').options[$('paiscod_revista').selectedIndex].text;
+	dir += "&provincia="+$('provinciacod_revista').options[$('provinciacod_revista').selectedIndex].text;
+	dir += "&organismo_ccordinador="+$('jurisdid_coordinacion').options[$('jurisdid_coordinacion').selectedIndex].text;
+	dir += "&escalafon="+escalaf.innerHTML ;
+	dir += "&organismo_trabajo="+jurisdnom.innerHTML;
+	dir += "&funcion="+$('agfunc_codigo').options[$('agfunc_codigo').selectedIndex].text;
+
+	window.open(dir,'_blank');
+}
+
+
+
+	function SeleccionPais(formulario){
+		var elSelect = document.getElementById('datos_provincia');
+		if (formulario.paiscod_revista.value == <?php echo ARGENTINA ?>) {
+			elSelect.style.display ="";
+		} else {
+			elSelect.style.display ="none";
+		}
+	}	
+	
+	
+</script>
+
+
+
+
+
+  		  <div align="center">
+		  	<p class="textoTitulo">Sistema de Inscripción Web</p>
+		  	<p class="textoTitulo">Ud. está a punto de solicitar la inscripción para la siguiente actividad</p>
+		  </div>
+
+
+<?php
+		$ok=false;
+
+		if (isset($_GET['comi_codigo'])) {
+
+			$comi_codigo = $_GET['comi_codigo'];
+			if ($oComisionPersona->TraerDatosComision($comi_codigo,$filacomision,$es_modif)) {
+				if (!$es_modif) {
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No se ha encontrado la Comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				} else {
+					$ok=true;
+				} // Tiene permiso el usuario sobre la comision
+
+			} // No se produjo error al buscar la comisión
+		} else {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No se ha encontrado la Comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+
+		}
+
+if ($ok) {
+	$act_codigo=$filacomision['act_codigo'];
+	$actprog_sec=$filacomision['actprog_sec'];
+
+	$oActividadCurso = new cActividadCursoJurisdiccional($conexion);
+	$formact_codigo=FORMATOCURSO;
+	$tipoact_codigo=TIPOACTCURSOINAP;
+
+
+
+		if ( $oActividadCurso->TraerDatosActividad($act_codigo,$filaactividad,$es_modif)) {
+
+		?>
+
+				  <table width="90%" class="textoTablaDato" align="center" cellpadding="5" cellspacing="0" border="0">
+						<tr>
+							<td width="15%" valign="middle" class='textoEtiquetaClave'>Actividad</td>
+						  <td class="textoEtiquetaDatoResaltado" ><?php echo "(".$filaactividad["act_codinap"].") ". $filaactividad["act_nombre"]?>						  </td>
+					  </tr>
+						<tr>
+							<td  valign="middle" class='textoEtiquetaClave' align="left">Comisión </td>
+						  <td class="textoEtiquetaDatoResaltado" ><?php echo $filacomision["comi_codinap"]?>						  </td>
+					  </tr>
+						<tr>
+							<td  valign="middle" class='textoEtiquetaClave'>Realización </td>
+						  <td class="textoEtiquetaDatoResaltado" >
+						  <table width="100%" class="textoTablaDato" align="center" cellpadding="2" cellspacing="0" border="0">
+							<tr>
+								<td width="35%" valign="middle" class="textoEtiquetaClave">Fecha de Inicio </td>
+								<td valign="middle" class='textoEtiquetaDatoResaltado'><?php echo FuncionesPHPLocal::ConvertirFecha($filacomision['comi_fecha_inicio'],'aaaa-mm-dd','dd/mm/aaaa'); ?></td>
+							</tr>
+							<tr>
+							  <td valign="middle" class="textoEtiquetaClave">Fecha de Finalización</td>
+							  <td valign="middle" class='textoEtiquetaDatoResaltado'><?php echo FuncionesPHPLocal::ConvertirFecha($filacomision['comi_fecha_fin'],'aaaa-mm-dd','dd/mm/aaaa')?></td>
+						    </tr>
+						</table>
+
+					      </td>
+					  </tr>
+
+
+				  </table>
+<?php
+//	if ($oActividadCurso->MostrarDatosActividadAsignable($conexion,$act_codigo,$formact_codigo,$tipoact_codigo,$actprog_sec)) {
+	?>
+
+
+
+
+
+
+ 		 <span id="datosInicio">
+		  <div align="left" style="margin-left:50px">
+		  	<span class="textoTitulo"><br> <br>Por favor complete con sus datos</span>
+		  </div>
+		  <br><br>
+
+
+		<form method="POST" action="#" onSubmit="return false" name="formulario_cuit" id="formulario_cuit" style=" padding:0px">
+
+		  <table width="90%" class="textoTablaDato" align="center" cellpadding="5" cellspacing="0" border="0">
+		  <tr>
+				<td width="15%" valign="middle" class='textoEtiquetaClave'>CUIT/CUIL/CDI</td>
+			  <td class="textoEtiquetaDatoResaltado" width="20%">
+					<input type="text" name="pers_cuilt" id="pers_cuilt" size="11" maxlength="11" class='textoInput' value="">			  </td>
+				<td class="textoEtiqueta" align="center">									</td>
+		  </tr>
+			<tr>
+				<td valign="middle" class='textoEtiquetaClave'>Apellido</td>
+			  <td class="textoEtiquetaDatoResaltado" width="20%">
+					<input type="text" name="pers_apellido" id="pers_apellido" size="30" maxlength="30" class='textoInput' value="" onBlur="PasarAMayusculas('pers_apellido')">			  </td>
+			  <td class="textoEtiqueta" align="center">									</td>
+		  </tr>
+			<tr>
+				<td valign="middle" class='textoEtiquetaClave'>Nombre</td>
+			  <td class="textoEtiquetaDatoResaltado" width="20%">
+					<input type="text" name="pers_nombre" id="pers_nombre" size="30" maxlength="30" class='textoInput' value="" onBlur="PasarAMayusculas('pers_nombre')">			  </td>
+				<td class="textoEtiqueta" align="center">									</td>
+		  </tr>
+			<tr>
+			  <td colspan="3" valign="middle" class='textoEtiquetaClave'>&nbsp;</td>
+		  </tr>
+			<tr>
+<!--			  
+<td colspan="3" valign="middle" class='textoEtiquetaClave'><div align="center"><img src="./veriword/image.veriword.dhtml?width=200&amp;height=80" width="200" height="80" alt="imagen" /><br /><br />
+		          Ingrese la palabra mostrada en la imagen<br /><br /> -->
+	            <input name="veriword" type="hidden" class="textoInput" id="veriword" size="10" maxlength="5" />
+			    <br />
+		      </div></td>
+		  </tr>
+			<tr>
+			  <td colspan="3" valign="middle" class='textoEtiquetaClave'><div align="center">
+			    <input type="button" name="boton_confirma" value="Confirma" onClick="return Validar(formulario_cuit,<?= $comi_codigo?>,formulario_cuit.veriword.value); " class="botones" />
+		      </div></td>
+		  </tr>
+		</table>
+		</form>
+	</span>
+
+
+        <span id="datosPersona"></span>
+
+<?php
+	}
+
+	}
+
+$oEncabezados_Inscripcion->PieMenuEmergente();
+?>
+
+<script>(function(d){var s = d.createElement("script");s.setAttribute("data-account", "kEDxQVMPcM");s.setAttribute("src", "https://cdn.userway.org/widget.js");(d.body || d.head).appendChild(s);})(document)</script><noscript>Please ensure Javascript is enabled for purposes of <a href="https://userway.org">website accessibility</a></noscript>
+
+</body>
+</html>

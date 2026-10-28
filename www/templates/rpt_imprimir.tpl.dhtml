@@ -1,0 +1,12 @@
+<table width="95%" class="textoTablaDato" align="center">
+	<tr>
+		<td align="left" width="100%">
+		<div class="imprimir" align="right">
+			<input type="image" name="bot_imprimir" onClick='window.print()' value="Imprimir" src="images/print.gif" alt="Imprimir" >
+			&nbsp;&nbsp;&nbsp;&nbsp;
+			<input type="image" name="bot_cerrar" onClick='window.close()' value="Cerrar Ventana" src="images/cross.gif" alt="Cerrar" >
+		</div>
+		</td>
+	</tr>
+</table>
+

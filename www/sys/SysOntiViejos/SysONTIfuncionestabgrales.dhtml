@@ -1,0 +1,67 @@
+<?php
+
+require_once("SysONTIaccesoBD.dhtml");
+require_once("SysONTIfuncionesphp.dhtml");
+
+
+class FuncionesTabGrales extends FuncionesPHP 
+{
+
+//----------------------------------------------------------------------------------------- 
+// Usada para el envio automatico de mails, según rol/jurisdiccion
+
+// Retorna true si no hubo problema, 
+//		sino retorna false en caso de error al ejecutar el SP para seleccionar los usuarios,
+//		por rol inválido o por error al enviar el mail.
+
+	function MandarMail($conexion,$rolcod,$jurisdcod,$subjectmail,$textomail)
+	{
+		switch($rolcod)
+		{
+			case TABGRALES_ADMIONTI:
+				$spparam=array('prolcod'=>$rolcod,'pusuarioestado'=>TABGRALES_USUARIOACT);		
+				$spnombre="sel_mail_usuarios_con_mail_xrol_xmenorestado";
+				break;
+	
+			default:
+				$arraymensajepantalla =array("formato" => GENERAL_FMT_TEXTO);	
+				$arraymensajepantalla+=array("texto" => "Error al generar mail. ");
+				$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+				$arraymensajemail+=array("texto" => $arraymensajepantalla['texto']." Intento de enviar mail a rol inexistente '".$rolcod."'. ");
+				FuncionesPHP::MostrarMensaje($conexion,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+			
+				return false;
+		}
+		
+		if(!isset($spnombre))
+		{
+			$arraymensajepantalla =array("formato" => GENERAL_FMT_TEXTO);	
+			$arraymensajepantalla+=array("texto" => "Error al generar mail. ");
+			$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$arraymensajemail+=array("texto" => $arraymensajepantalla['texto']." No se pudo determinar el nombre del stored procedure. ");
+			FuncionesPHP::MostrarMensaje($conexion,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+			return false;
+		}
+		if(!$conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+			return false;
+	
+		while($fila=mysqli_fetch_assoc($resultado))
+			if(!mail($fila['usuarioemail'],$subjectmail,$textomail))
+			{
+				$arraymensajepantalla =array("formato" => GENERAL_FMT_TEXTO);	
+				$arraymensajepantalla+=array("texto" => "Imposible enviar mail. ");
+				$arraymensajemail =array();			
+				FuncionesPHP::MostrarMensaje($conexion,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+				return false;
+			}
+		
+		return true;	
+	}
+
+
+}
+
+
+
+
+?>

@@ -1,0 +1,44 @@
+<?php 
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+
+$oActividadCursoInstitucional= new cActividadCursoInstitucional($conexion);
+//----------------------------------------------------------------------------------------- 	
+$conexion->ManejoTransacciones("B");
+$result=true;
+
+if(!$oActividadCursoInstitucional->ModifDatosActividadCursoInstitucional($_POST))
+	$result=false;
+
+if($result) {
+	FuncionesPHPLocal::RegistrarAcceso($conexion,"38403","act_codigo=".$_POST["act_codigo"],$_SESSION['usuariocod']);
+	FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se modificó el diseño del curso Institucional.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+	$conexion->ManejoTransacciones("C");
+} else	
+	$conexion->ManejoTransacciones("R");
+
+?>	
+<br>
+<!-- <div align="center"><a href="actividad_curso_prestador_docente.dhtml?act_codigo=<?php //echo $_POST["act_codigo"]?> " class="linkFondoBlanco">Actualizar Equipo de Prestadores Docentes</a></div> -->
+<br>
+<div align="center"><a href="actividad_curso_diseno_institucional_modificar.dhtml" class="linkFondoBlanco">Volver</a></div>
+<?php
+$oEncabezados->PieMenuEmergente();
+?>

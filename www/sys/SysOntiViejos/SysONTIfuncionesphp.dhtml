@@ -1,0 +1,613 @@
+<?php
+require_once("SysONTIaccesoBD.dhtml");
+class FuncionesPHP
+{
+//----------------------------------------------------------------------------------------- 
+// Genera todas las constantes necesarias para el sistema
+
+	function CargarConstantes($conexion,$tipocarga)
+	{
+
+		$conexiongral=new accesoBD(getenv("SAI_RUNSQL_ALT_HOST") ?: "", getenv("SAI_RUNSQL_ALT_USER") ?: "", getenv("SAI_RUNSQL_ALT_PASSWORD") ?: "");
+		$conexiongral->SeleccionBD("tabgrales");
+		
+		// Constantes Generales 
+		$spparam=array('psistemanom'=>"SYSONTI");
+		if(!$conexiongral->ejecutarStoredProcedure("sel_constantes_grales_xsistemanom",$spparam,$resultado,$numfilas,$errno))
+			die("Error al cargar las constantes");
+		
+		while ($fila = mysqli_fetch_assoc($resultado))
+			if(!defined($fila['constantenom']))
+				define ($fila['constantenom'],$fila['constantecod']);
+
+		$conexiongral->CerrarConexion();
+
+
+		if(isset($tipocarga['roles']))
+		{
+			// constantes ROL de USUARIOS
+			$spparam=array('porderby'=>"rolcod" );
+			if(!$conexion->ejecutarStoredProcedure("sel_roles_orden",$spparam,$resultado,$numfilas,$errno))
+				die("Error al cargar los roles");
+			
+			while ($fila = mysqli_fetch_assoc($resultado))
+				if($fila['rolcod']!=0)
+					if(!defined($fila['rolnom']))
+						define ($fila['rolnom'],$fila['rolcod']);
+		}
+
+		if(isset($tipocarga['tipoorganismo']))
+		{
+			// Constantes Generales
+		   $spparam=array('porderby'=>"tipoorgid" );
+		   if(!$conexion->ejecutarStoredProcedure("sel_tipoorganismos_orden",$spparam,$resultado,$numfilas,$errno))
+			   die("Error al cargar los tipos de organismos");
+
+		   while ($fila = mysqli_fetch_assoc($resultado))
+				if(!defined($fila['tipoorgnom']))
+			   		define ($fila['tipoorgnom'],$fila['tipoorgid']);
+		}
+		
+		if(isset($tipocarga['sistema']))
+		{
+			// Constantes Generales 
+			$spparam=array('psistemanom'=>$tipocarga['sistema']);
+			if(!$conexion->ejecutarStoredProcedure("sel_constantes_grales_xsistemanom",$spparam,$resultado,$numfilas,$errno))
+				die("Error al cargar las constantes");
+			
+			while ($fila = mysqli_fetch_assoc($resultado)) 
+				if(!defined($fila['constantenom']))
+					define ($fila['constantenom'],$fila['constantecod']);
+		}
+
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Usada para el envio automatico de mails, según rol/jurisdiccion
+
+// Retorna true si no hubo problema, 
+//		sino retorna false en caso de error al ejecutar el SP para seleccionar los usuarios,
+//		por rol inválido o por error al enviar el mail.
+
+	function MandarMail($conexion,$rolcod,$jurisdcod,$subjectmail,$textomail)
+	{
+		switch($rolcod)
+		{
+			case TABGRALES_ADMIONTI:
+				$spparam=array('prolcod'=>$rolcod,'pusuarioestado'=>GENERAL_USUARIOACT);		
+				$spnombre="sel_mail_usuarios_con_mail_xrol_xmenorestado";
+				break;
+	
+			default:
+				$arraymensajepantalla =array("formato" => GENERAL_FMT_TEXTO);	
+				$arraymensajepantalla+=array("texto" => "Error al generar mail. ");
+				$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+				$arraymensajemail+=array("texto" => $arraymensajepantalla['texto']." Intento de enviar mail a rol inexistente '".$rolcod."'. ");
+				FuncionesPHP::MostrarMensaje($conexion,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+				return false;
+		}
+		
+		if(!isset($spnombre))
+		{
+			$arraymensajepantalla =array("formato" => GENERAL_FMT_TEXTO);	
+			$arraymensajepantalla+=array("texto" => "Error al generar mail. ");
+			$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$arraymensajemail+=array("texto" => $arraymensajepantalla['texto']." No se pudo determinar el nombre del stored procedure. ");
+			FuncionesPHP::MostrarMensaje($conexion,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+			return false;
+		}
+		if(!$conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+			return false;
+	
+		while($fila=mysqli_fetch_assoc($resultado))
+			if(!mail($fila['usuarioemail'],$subjectmail,$textomail))
+			{
+				$arraymensajepantalla =array("formato" => GENERAL_FMT_TEXTO);	
+				$arraymensajepantalla+=array("texto" => "Imposible enviar mail. ");
+				$arraymensajemail =array();			
+				FuncionesPHP::MostrarMensaje($conexion,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+				return false;
+			}
+		
+		return true;	
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Muestra un mensaje en pantalla y/o envía mail a ADMIONTI
+
+//	Parametros: 
+//	$arraymensajepantalla (array asociativo)
+//		$arraymensajepantalla['formato']=FMT_TEXTO|FMT_TABLA
+//		$arraymensajepantalla['cantcols'] usado para colspan cuando es FMT_TABLA
+//		$arraymensajepantalla['texto'] = texto a mostrar por pantalla
+//	$arraymensajemail (array asociativo) para enviar mail al administrador definido en la conexion
+//		$arraymensajemail['archivo'] = nombre php de llamada
+//		$arraymensajemail['funcion'] = nombre función de llamada
+//		$arraymensajemail['linea'] = línea de llamada
+//		$arraymensajemail['texto'] = texto a mostrar por mail
+
+	function MostrarMensaje($conexion,$nivelmensaje,$arraymensajepantalla,$arraymensajemail=array())
+	{
+		
+		if(count($arraymensajepantalla)>0)
+		{ // mostrar el mensaje en pantalla
+			if(!isset($arraymensajepantalla['formato']))
+				$arraymensajepantalla['formato']=GENERAL_FMT_TEXTO;	
+			if(!isset($arraymensajepantalla['texto']))
+				$arraymensajepantalla['texto']=" ";
+			if ($nivelmensaje==GENERAL_MSG_ERRGRAVE)
+				$arraymensajepantalla['texto']=$arraymensajepantalla['texto']."\n\n Avise a su Administrador o a la ONIG.";
+
+			switch($arraymensajepantalla['formato'])
+			{
+				case GENERAL_FMT_TEXTO:
+					echo "<br><div align='center' class='textonombreclave'>".$arraymensajepantalla['texto']."</div> <br>";	
+					break;
+				case GENERAL_FMT_TABLA:
+					if(!isset($arraymensajepantalla['cantcols']))
+						$arraymensajepantalla['cantcols']=1;	
+	?>
+		<tr>
+			<td colspan="<?php echo $arraymensajepantalla['cantcols'] ?>" height="100" align="center" valign="middle">
+				<span class='textonombreclave'><?php echo $arraymensajepantalla['texto'] ?></span>
+			</td>
+		</tr>	
+	<?php
+					break;
+				default:
+					echo $arraymensajepantalla['texto'];	
+					break;
+			}
+		}
+		if(count($arraymensajemail)>0)
+		{ // envio de mail
+			if(!isset($arraymensajemail['texto']))
+			{
+				$arraymensajemail['texto']=" ";
+				if(isset($arraymensajepantalla['texto']))
+					$arraymensajemail['texto']=$arraymensajepantalla['texto'];
+			}
+
+			if(defined('SISTEMAMOSTRAR'))
+				$subjectmail=SISTEMAMOSTRAR;
+			elseif(defined('SISTEMA'))
+				$subjectmail=SISTEMA;
+
+			switch($nivelmensaje)
+			{
+				case GENERAL_MSG_OK:
+					$subjectmail.=" - Mensaje OK";
+					break;
+				case GENERAL_MSG_INF:
+					$subjectmail.=" - Mensaje Informativo";
+					break;
+				case GENERAL_MSG_ERRGRAVE:
+					$subjectmail.=" - Error de Inconsistencia de Datos";
+					break;
+				case GENERAL_MSG_ERRSOSP:
+					$subjectmail.=" - Error Datos Sospechosos";
+					break;
+				case GENERAL_MSG_ERRPGM:
+					$subjectmail.=" - Error en Programa";
+					break;
+				default:
+					$subjectmail.=" - Nivel de mensaje no definido";
+					break;
+			}
+
+			$textomail ="\nMensaje:\n".$arraymensajemail['texto']."\n\n";
+			$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n";
+			if(isset($arraymensajemail['archivo']))
+				$textomail.="Ubic Archivo:       ".$arraymensajemail['archivo']."\n";
+			if(isset($arraymensajemail['funcion']))
+				$textomail.="Ubic Función:       ".$arraymensajemail['funcion']."\n";
+			if(isset($arraymensajemail['linea']))
+				$textomail.="Ubic Línea:         ".$arraymensajemail['linea']."\n";
+
+			if(isset($_SESSION['usuariocod']) && $_SESSION['usuariocod']!=0)
+				$textomail.="\nUsuario sesion:    '".$_SESSION['usuariocod']."'";
+
+			if(isset($_SESSION['rolcod']) && $_SESSION['rolcod']!=0)
+				$textomail.="\nRol sesion:        '".$_SESSION['rolcod']."'";
+
+			if(isset($_SESSION['jurisdid']) && $_SESSION['jurisdid']!=0)
+			{
+				$textomail.="\nOrganismo sesion:  '".$_SESSION['jurisdid']."' - ";
+				$cjurisdmail = new jurisdicciones();
+				if($cjurisdmail->SelectJurisdxID($_SESSION['jurisdid'],array('pjurisdestado'=>TABGRALES_JURISDACTIVA),TABGRALES_TS_ARRAY,$filaret,array(),$NumFilas,$CodError))
+				{
+					$filajurisd = current($filaret);
+					$nombrejurisd=htmlspecialchars($filajurisd['jurisdnom'],ENT_QUOTES);
+					$textomail.=$nombrejurisd;
+				}
+			}
+
+			FuncionesPHP::MandarMail($conexion,$conexion->VerAdmiGeneral(),"",$subjectmail,$textomail);
+		}
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Registra el acceso de un usuario en el sistema
+
+	function RegistrarAcceso($conexion,$codigo_mensaje,$acciondesc,$usuariocod) 
+	{
+		$archivonom=substr(strrchr($_SERVER['PHP_SELF'],'/'),1);
+	
+		if($usuariocod=='')
+			$usuariocod=0;
+		
+		$spnombrelog='ins_logusuarios';
+		$spparamlog=array('pcodigo_mensaje'=>$codigo_mensaje,'pacciondesc'=>$acciondesc,'pnumeroip'=>$_SERVER['REMOTE_ADDR'],'parchivonom'=>$archivonom,'pfecha'=>date('Y/m/d H:i:s'),'pusuariocod'=>$usuariocod);
+	
+		if(!$conexion->ejecutarStoredProcedure($spnombrelog,$spparamlog,$resultado,$numfilas,$errno) || $numfilas!=1)
+		{
+			$textoerror="Error registrar_acceso ".$errno." - ".$conexion->TextoError();
+			// MANDAR MAIL con los parámetros de la llamada errónea
+			if(defined('SISTEMAMOSTRAR'))
+				$subjectmail=SISTEMAMOSTRAR;
+			elseif(defined('SISTEMA'))
+				$subjectmail=SISTEMA;				
+			$subjectmail.=" - Error en registrar acceso";
+			$texto="Se ha producido un error en ".$_SERVER['PHP_SELF']." \n\n";
+			if($usuariocod!=0)
+			{
+				if(!$conexion->TraerCampo("usuarios","concat(usuarionombre,' ',usuarioapellido)",array("usuariocod='",$usuariocod,"'" ),$nombreusuario,$numfilas,$errno))
+					$texto.="Usuario ".$nombreusuario."\n\n";
+			}
+			$texto.="parámetros de acceso \n";
+			$texto.="pcodigo_mensaje ".$codigo_mensaje."\n";
+			$texto.="pacciondesc ".$acciondesc."\n";
+			$texto.="pnumeroip ".$_SERVER['REMOTE_ADDR']."\n";
+			$texto.="parchivonom ".$archivonom."\n";
+			$texto.="pfecha ".date('Y/m/d H:i:s')."\n";
+			$texto.="pusuariocod ".$usuariocod;
+			FuncionesPHP::MandarMail($conexion,$conexion->VerAdmiGeneral(),"",$subjectmail,$texto);
+			return false;
+		}
+		return true;
+	}
+//----------------------------------------------------------------------------------------- 
+// Valida el contenido del campo según tipovalidacion
+
+	function ValidarContenido($conexion,$campo,$tipovalidacion)
+	{
+		switch($tipovalidacion)
+		{
+			case "AlfanumericoPuro": // campo alfanumerico sin caracteres especiales
+				if ( strspn(strtoupper($campo), '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ' ) != strlen($campo) ) 
+					return false;
+				break;
+			case "CUIT": // 11 posiciones numericas con digito mod.11
+				if(!preg_match("#^[0-9]{11}$#i",$campo))
+					return false;
+					
+				$array_factor_peso = array(5,4,3,2,7,6,5,4,3,2);
+				$suma=0;
+				$digito_verificador=0;
+ 
+ 				for ($i=0; $i<=9; $i++)  
+					$suma=$suma+(substr($campo,$i,1)*$array_factor_peso[$i]); 	
+			
+				$digito_verificador=11-($suma%11);
+				
+				if ($digito_verificador == 11)
+					$digito_verificador = 0;
+			
+				if ($digito_verificador!=substr($campo,10,1)) 
+					return false; 
+				break;
+			case "Email": // campo alfanumerico con algunos caracteres especiales (emails)
+				if(!preg_match("#^[\._a-z0-9]+@([a-z0-9]+[\.]{1}){1,2}[a-z]{2,4}([\.]{1}[a-z]{2}){0,1}$#i",$campo))
+					return false;
+				break;
+			case "FechaDDMMAAAA": // valida fecha en formato DD/MM/AAAA
+				if(!preg_match("#^[0-9]{2}/[0-9]{2}/[0-9]{4}$#i",$campo))
+					return false;	
+				list($dia, $mes, $anio) = preg_split ('#/#', $campo); 
+				if(!checkdate($mes, $dia, $anio))
+					return false;
+				break;
+			case "Hexa6Digitos": // color semáforo
+				if(!preg_match("#^[0-9A-F]{6}$#i",$campo))
+					return false;
+				break;
+			case "Jurisdiccion": // campo numerico con puntos (sólo para Jurisdicciones)
+				if(!preg_match("#^[0-9]{2}\.([0-9]{3}\.([0-9a-zA-Z ]{2}\.){0,7}){0,1}$#i",$campo))
+					return false;
+				break;
+			case "NumericoEntero": // campo numerico entero
+				if ( strspn($campo, '0123456789' ) != strlen($campo) ) 
+					return false;
+				break;
+			case "Numerico2Decimales": // campo numerico con 2 decimales maximo
+				if(!preg_match("#^[0-9]+(,[0-9]{1,2}){0,1}$#i",$campo))
+					return false;
+				break;
+			case "Periodo": // campo MM/AAAA
+				if(!preg_match("#^[0-9]{2}/[0-9]{4}$#i",$campo))
+					return false;
+			
+				$anio = substr($campo,3,4);
+				$mes = substr($campo,0,2);
+				if(($anio < 2000) || ($anio > 2050) || ($mes < 1) || ($mes > 12))
+				   return false;
+					
+				break;	
+			default:
+				$arraymensajepantalla =array("formato" => GENERAL_FMT_TEXTO);	
+				$arraymensajepantalla+=array("texto" => "Validación no definida. ");
+				$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+				$arraymensajemail+=array("texto" => $arraymensajepantalla['texto']." '".$tipovalidacion."'. ");
+				FuncionesPHP::MostrarMensaje($conexion,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+				return false;
+				break;
+		}
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Arma un combo que recarga la página según la opción seleccionada
+
+// Parametros:
+// 		->spnombre y spparam se usan para armar el query
+// 		->nomformulario es el nombre del formulario sobre el que está el combo
+// 		->nomcombo es el nombre del combo
+// 		->clavecombo y desccombo son campos del query con los que arma el combo
+// 		->querystring lo coloca despues del nombre del php
+// 		->textolineauno es el texto del primer option del combo, cuando no hay nada seleccionado
+// 		->regactual, en caso que exista una variables GET con el nombre del combo y coincide con algun registro del query, retorna la fila
+// 		->seleccionado, en caso que se haya seleccionado un option del combo
+
+	function ArmarCombo($conexion,$spnombre,$spparam,$nomformulario,$nomcombo,$clavecombo,$desccombo,$querystring,$textolineauno,&$regactual,&$seleccionado)
+	{
+		// Cargo los registros del query seleccionado
+		if(!$conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$num_filas,$errno))
+			return false;
+
+		// Genera codigo JavaScript para autollamarse cuando selecciona un elemento del combo
+		echo "<SCRIPT LANGUAGE='JavaScript'>\n";
+		echo "<!--\n";
+		
+		echo "function ".$nomcombo."_newpage() {\n";
+	
+		$temp="";
+		if($querystring!='')
+			$temp="?";
+	
+		echo "if(document.".$nomformulario.".".$nomcombo.".selectedIndex==0)\n";
+		echo "    location='".$_SERVER['PHP_SELF'].$temp.$querystring."';\n";
+		echo "else\n";
+	
+		if($querystring!='')
+			$querystring.="&";
+	
+		echo "    location='".$_SERVER['PHP_SELF']."?".$querystring.$nomcombo."='+document.".$nomformulario.".".$nomcombo."[document.".$nomformulario.".".$nomcombo.".selectedIndex].value;\n";
+		echo "}\n";
+		
+		echo "//-->\n";
+		echo "</SCRIPT>\n";
+	
+		// Generación del combo, poniendo como primera linea $textolineauno
+		echo "<select name='".$nomcombo."' size=1 onChange='".$nomcombo."_newpage();' class='textotabla' style='width: 370px'><br>\n";
+		echo "<option value=''>".htmlspecialchars($textolineauno,ENT_QUOTES)."</option><br>\n";
+		$seleccionado=false;
+		if($num_filas>0) 
+		{
+			// Recorre el cursor desde el principio, poniendo cada fila en una linea del combo
+			$textopopup='';
+			while ($fila = mysqli_fetch_assoc($resultado))
+			{ 
+				if(isset($_GET[$nomcombo]) && $fila[$clavecombo]==$_GET[$nomcombo]) 
+				{
+					echo "<option selected value='".htmlspecialchars($fila[$clavecombo],ENT_QUOTES)."'> ".htmlspecialchars($fila[$desccombo],ENT_QUOTES)." </option>\n";
+					$seleccionado=true;
+					$regactual=$fila;
+					$textopopup=$fila[$desccombo];
+				}
+				else
+					echo "<option value='".htmlspecialchars($fila[$clavecombo],ENT_QUOTES)."'> ".htmlspecialchars($fila[$desccombo],ENT_QUOTES)." </option>\n";
+			}
+		}
+	
+		echo("</select>\n");
+		if($textopopup!='')
+			echo "<br><a href='javascript:void(0)' onClick=\"javascript:popup('ventanatexto.dhtml?textopopup='+".$nomformulario.".".$clavecombo."[".$nomformulario.".".$clavecombo.".selectedIndex].text,'ventanatexto',330,80,screen.availWidth-350,screen.availHeight-140,'yes')\" class='linkfondoblanco'><span class='textoaclaraciones'>Ver texto completo</span></a>\n";
+		else
+			echo "<div style='font-size: 7px;'>&nbsp;</div>\n";
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Arma un combo con la informacion del SP enviado
+
+// Parametros:
+// 		->spnombre y spparam se usan para armar el query
+// 		->nomformulario es el nombre del formulario sobre el que está el combo
+// 		->nomcombo es el nombre del combo
+// 		->clavecombo y desccombo son campos del query con los que arma el combo
+// 		->claveselec es el registro que hay que seleccionar
+// 		->textolineauno es el texto del primer option del combo, cuando no hay nada seleccionado
+// 		->regactual, en caso que se haya seleccionado un option se retorna la fila completa
+// 		->seleccionado, en caso que se haya seleccionado un option del combo
+
+	function ArmarCombo_SinSalto($conexion,$spnombre,$spparam,$nomformulario,$nombrecombo,$clavecombo,$desccombo,$claveselec,$textolineauno,&$regactual,&$seleccionado)
+	{
+		// Cargo los registros del query seleccionado
+		if(!$conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$num_filas,$errno))
+			return false;
+
+		// Generación del combo, poniendo como primera linea $textolineauno
+		echo "<select name=".$nombrecombo." size=1 class='textotabla' style='width: 370px'><br>\n";
+		echo "<option value=''>".htmlspecialchars($textolineauno,ENT_QUOTES)."</option><br>\n";
+		$seleccionado=false;
+		if($num_filas>0) 
+		{
+			// Recorre el cursor desde el principio, poniendo cada fila en una linea del combo
+			while ($fila = mysqli_fetch_assoc($resultado))
+			{ 
+				if($fila[$clavecombo]==$claveselec) 
+				{
+					echo "<option selected value='".htmlspecialchars($fila[$clavecombo],ENT_QUOTES)."'> ".htmlspecialchars($fila[$desccombo],ENT_QUOTES)." </option>\n";
+					$seleccionado=true;
+					$regactual=$fila;
+				}
+				else
+					echo "<option value='".htmlspecialchars($fila[$clavecombo],ENT_QUOTES)."'> ".htmlspecialchars($fila[$desccombo],ENT_QUOTES)." </option>\n";
+			}
+		}
+	
+		echo("</select>\n");
+		echo "<br><a href='javascript:void(0)' onClick=\"javascript:popup('ventanatexto.dhtml?textopopup='+".$nomformulario.".".$nombrecombo."[".$nomformulario.".".$nombrecombo.".selectedIndex].text,'ventanatexto',330,80,screen.availWidth-350,screen.availHeight-140,'yes')\" class='linkfondoblanco'><span class='textoaclaraciones'>Ver texto completo</span></a>\n";
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Si existe clavecombo en el QUERY_STRING, elimina todo desde ahi en adelante
+
+/*	function ArmarQueryString($nomcombo)
+	{
+		// si existe en el get la variable $nomcombo, la elimino
+		if(isset($_GET[$nomcombo]))
+			return substr($_SERVER['QUERY_STRING'],0,strpos($_SERVER['QUERY_STRING'],$nomcombo)-1);
+		else
+			return $_SERVER['QUERY_STRING'];
+	}*/
+
+//----------------------------------------------------------------------------------------- 
+// Si existe la variable en el QUERY_STRING,
+// elimina todo desde ahi en adelante
+
+	function ArmarQueryString($variable,$querystring="")
+	{
+		// si no se informa $querystring, 
+		// se toma el el querystring del server 
+		if($querystring=="")
+			$querystring=$_SERVER['QUERY_STRING'];
+		
+		// si existe en el querystring la variable $variable, se elimina
+		// para asegurarse que el nombre de la variable es exacto:
+		
+		// Primero se buscan variables intermedias
+		// 1- se agrega a variable un '&' al principio
+		// 2- se agrega a variable un '=' al final
+		$variablebusq="&".$variable."=";  
+		$posicion=strpos($querystring,$variablebusq);
+		if($posicion>0)
+			return substr($querystring,0,$posicion);
+		
+		// Si no se encontró, se busca si es la primera variable
+		$variablebusq=$variable."=";  
+		$posicion=strpos($querystring,$variablebusq);
+		if($posicion===false)
+			return $querystring;
+		elseif($posicion==0)
+			return "";
+		else
+			return $querystring;
+	}
+
+
+//----------------------------------------------------------------------------------------- 	
+// Convierta fechas/periodos de un formato a otro
+
+	function ConvertirFecha($fecha,$formatoinput,$formatooutput)
+	{
+		if($fecha=='') return "";
+		
+		if($formatoinput=='dd/mm/aaaa' && $formatooutput=='aaaa/mm/dd')
+			return substr($fecha,6,4)."/".substr($fecha,3,2)."/".substr($fecha,0,2);
+		elseif($formatoinput=='aaaa-mm-dd' && $formatooutput=='dd/mm/aaaa')
+			return substr($fecha,8,2)."/".substr($fecha,5,2)."/".substr($fecha,0,4);
+		elseif($formatoinput=='timestamp' && $formatooutput=='dd/mm/aaaa')
+			return substr($fecha,6,2)."/".substr($fecha,4,2)."/".substr($fecha,0,4);
+		elseif($formatoinput=='mm/aaaa' && $formatooutput=='aaaamm')
+			return substr($fecha,3,4).substr($fecha,0,2);
+		elseif($formatoinput=='aaaamm' && $formatooutput=='mm/aaaa')
+			return substr($fecha,4,2)."/".substr($fecha,0,4);
+		else
+			return "";
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Retorna un array con los valores convertidos en pesos (en porcentaje)
+
+	function PasarArrayPorcentaje($ValoresOriginales,&$ResuPeso)
+	{
+		$suma = array_sum($ValoresOriginales);
+		$ResuPeso=$ValoresOriginales;
+		array_walk($ResuPeso,array('FuncionesPHP','PasarValorPorcentaje'),$suma);
+		$diferencia = 100 - array_sum($ResuPeso);
+		
+		end($ResuPeso);
+		$ResuPeso[key($ResuPeso)]+=$diferencia;
+		
+	}
+//----------------------------------------------------------------------------------------- 
+// Retorna el valor convertido en porcentaje del total
+// $clave es la clave en el array origen, necesario para ser usada por la funcion array_walk
+
+	function PasarValorPorcentaje(&$valor,$clave,$total)
+	{
+		$valor=round($valor*100/$total,2);
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Combina dos string, haciendo un explode de cada uno de ellos, e intercalando los elementos
+
+// Parametros: clave y condicion son dos string cuyos elementos estan separados por #
+// Retorna:
+//		-> resultadoarray: es un array asociativo
+//		-> resultadostring: es un array, pero con formato where
+
+	function CombinarClaveCondicion($conexion,$clave,$condicion,&$resultadoarray,&$resultadostring)
+	{
+		$arrclave=explode("#",$clave);
+		$arrcondicion=explode("#",$condicion);
+		if(count($arrclave)!=count($arrcondicion))
+		{
+			$arraymensajepantalla =array("formato" => GENERAL_FMT_TEXTO);	
+			$arraymensajepantalla+=array("texto" => "Error en la cantidad de parámetros en la clave. ");
+			$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$arraymensajemail+=array("texto" => $arraymensajepantalla['texto']."\nCantidad arrclave='".count($arrclave)."' - Cantidad arrcondicion '".count($arrcondicion)."'. ");
+			FuncionesPHP::MostrarMensaje($conexion,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+			return false;
+		}
+	
+		$resultadostring=array();
+		$resultadoarray=array();
+	
+		for($i=0;$i<count($arrclave);$i++)
+		{
+			if($i>0)
+				$resultadostring[]="' and ".$arrclave[$i]."='";
+			else
+				$resultadostring[]=$arrclave[$i]."='";
+	
+			$resultadostring[]=$arrcondicion[$i];
+			
+			if($i+1==count($arrclave))
+				$resultadostring[]="'";
+				
+			$resultadoarray[$arrclave[$i]]=$arrcondicion[$i];
+		}
+		
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+	function ArrayToArray($ArrayValores,$TextoComienzo,$Separador,$TextoFinal)
+	{
+		$ArrayFinal=array();
+		$ArrayFinal[]=$TextoComienzo;
+		
+		foreach($ArrayValores as $valor)
+		{
+			$ArrayFinal[]=$valor;
+			$ArrayFinal[]=$Separador;
+		}
+		
+		$ArrayFinal[count($ArrayFinal)-1]=$TextoFinal;
+		
+		return $ArrayFinal;
+		
+	}
+} // Fin clase FuncionesPHP
+?>

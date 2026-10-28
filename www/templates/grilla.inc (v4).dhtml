@@ -1,0 +1,10 @@
+<?php
+$glb_grilla=array();
+$glb_grilla['botonera_posicion']="abajo";
+$glb_grilla['estilo']['textoTitulo']="textoTitulosGrilla";
+$glb_grilla['estilo']['textoColumnasTitulo']="colorTitulosGrupo textoTituloGrupo";
+$glb_grilla['estilo']['textoFilaPaginado']="colorTitulosGrupo textoTituloGrupo";
+$glb_grilla['estilo']['textoTablaDato']="textoTablaDato";
+$glb_grilla['estilo']['textoLink']="linkFondoBlanco";
+$glb_grilla['tpl_botones']='templates/rpt_botones.tpl.dhtml';
+?>

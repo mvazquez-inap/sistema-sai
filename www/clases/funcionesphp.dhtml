@@ -1,0 +1,1860 @@
+<?php
+
+date_default_timezone_set('America/Argentina/Buenos_Aires');
+
+/*
+La clase requiere que esten definidos:
+
+	Stored Básicos: sel_constantes_grales_xsistemanom 	// y en tabgrales
+					sel_roles_orden
+					sel_tipoorganismos_orden 			// en tabgrales
+					sel_mail_usuarios_con_mail_xrol_xmenorestado
+					ins_logusuarios
+
+	Registros de Acceso: 
+*/
+class FuncionesPHPLocal
+{
+//----------------------------------------------------------------------------------------- 
+// Genera todas las constantes necesarias para el sistema
+
+	static function CargarConstantes($conexion,$tipocarga)
+	{
+
+/*
+		// Cambio Prueba	
+		// $conexiongral=new accesoBDLocal(getenv("SAI_RUNSQL_ALT_HOST") ?: "", getenv("SAI_RUNSQL_ALT_USER") ?: "", getenv("SAI_RUNSQL_ALT_PASSWORD") ?: "");
+		// $conexiongral->SeleccionBD("tabgrales");
+
+
+		$conexiongral=new SysONTIAccesoBD2(getenv("SAI_TABGRALES2C_HOST") ?: "", getenv("SAI_TABGRALES2C_USER") ?: "", getenv("SAI_TABGRALES2C_PASSWORD") ?: "");
+		$conexiongral->SeleccionBD("tabgrales2");
+		
+		// Constantes Generales 
+		$spparam=array('psistemanom'=>"SYSONTI");
+		if(!$conexiongral->ejecutarStoredProcedure("sel_constantes_grales_xsistemanom",$spparam,$resultado,$numfilas,$errno))
+			die("Error al cargar las constantes");
+		
+		while ($fila = mysql_fetch_assoc($resultado))
+			if(!defined($fila['constantenom']))
+				define ($fila['constantenom'],$fila['constantecod']);
+
+		$conexiongral->CerrarConexion();
+
+*/
+		if(isset($tipocarga['roles']))
+		{
+			// constantes ROL de USUARIOS
+			$spparam=array('porderby'=>"rolcod" );
+			if(!$conexion->ejecutarStoredProcedure("sel_roles_orden",$spparam,$resultado,$numfilas,$errno))
+				die("Error al cargar los roles");
+			
+			while ($fila = mysqli_fetch_assoc($resultado))
+				if($fila['rolcod']!=0)
+					if(!defined($fila['rolnom']))
+						define ($fila['rolnom'],$fila['rolcod']);
+		}
+
+		if(isset($tipocarga['tipoorganismo']))
+		{
+			// Constantes Generales
+		   $spparam=array('porderby'=>"tipoorgid" );
+		   if(!$conexion->ejecutarStoredProcedure("sel_tipoorganismos_orden",$spparam,$resultado,$numfilas,$errno))
+			   die("Error al cargar los tipos de organismos");
+
+		   while ($fila = mysqli_fetch_assoc($resultado))
+				if(!defined($fila['tipoorgnom']))
+			   		define ($fila['tipoorgnom'],$fila['tipoorgid']);
+		}
+		
+		if(isset($tipocarga['sistema']))
+		{
+			// Constantes Generales 
+			$spparam=array('psistemanom'=>$tipocarga['sistema']);
+			if(!$conexion->ejecutarStoredProcedure("sel_constantes_grales_xsistemanom",$spparam,$resultado,$numfilas,$errno))
+				die("Error al cargar las constantes");
+			
+			while ($fila = mysqli_fetch_assoc($resultado)) 
+				if(!defined($fila['constantenom']))
+					define ($fila['constantenom'],$fila['constantecod']);
+					
+			// Constantes Formato Actividad
+			$spparam=array('porderby'=>"formact_descripcion" );
+			if(!$conexion->ejecutarStoredProcedure("sel_formato_actividad_orden",$spparam,$resultado,$numfilas,$errno))
+				die("Error al cargar los formatos de actividad");
+			
+			while ($fila = mysqli_fetch_assoc($resultado))
+				if(!defined($fila['formact_nom']))
+					define ($fila['formact_nom'],$fila['formact_codigo']);
+
+			// Constantes Tipo de Actividad
+			$spparam=array('porderby'=>"tipoact_descripcion" );
+			if(!$conexion->ejecutarStoredProcedure("sel_tipo_actividad_orden",$spparam,$resultado,$numfilas,$errno))
+				die("Error al cargar los tipos de actividad");
+			
+			while ($fila = mysqli_fetch_assoc($resultado))
+				if(!defined($fila['tipoact_nom']))
+					define ($fila['tipoact_nom'],$fila['tipoact_codigo']);
+		
+			// Constantes Tipo de Ponderadores
+			$spparam=array('porderby'=>"tipopond_descripcion" );
+			if(!$conexion->ejecutarStoredProcedure("sel_tipo_ponderador_orden",$spparam,$resultado,$numfilas,$errno))
+				die("Error al cargar los tipos de ponderadores");
+			
+			while ($fila = mysqli_fetch_assoc($resultado))
+				if(!defined($fila['tipopond_nom']))
+					define ($fila['tipopond_nom'],$fila['tipopond_codigo']);
+
+			// Constantes Evaluación
+			$spparam=array('porderby'=>"eval_descripcion" );
+			if(!$conexion->ejecutarStoredProcedure("sel_evaluacion_orden",$spparam,$resultado,$numfilas,$errno))
+				die("Error al cargar las evaluaciones");
+			
+			while ($fila = mysqli_fetch_assoc($resultado))
+				if(!defined($fila['eval_nom']))
+					define ($fila['eval_nom'],$fila['eval_codigo']);
+					
+		}
+
+	}
+	
+//----------------------------------------------------------------------------------------- 
+	static function ArmarQueryString($variable,$querystring="",$elminino_resto=true)	{
+
+		// Cambio!!!
+		// Agrego un parametro para que elimine sólo la variable a limpiar y deje
+		// el resto tal cual o saque todo lo que viene después.
+
+		// si no se informa $querystring, 
+		// se toma el el querystring del server 
+		if($querystring=="")
+			$querystring=$_SERVER['QUERY_STRING'];
+		
+		// si existe en el querystring la variable $variable, se elimina
+		// para asegurarse que el nombre de la variable es exacto:
+		
+		// Primero se buscan variables intermedias
+		// 1- se agrega a variable un '&' al principio
+		// 2- se agrega a variable un '=' al final
+		$variablebusq="&".$variable."=";  
+		$posicion=strpos($querystring,$variablebusq);
+		if($posicion>0) {
+			if (!$elminino_resto) 
+			    return substr($querystring,0,$posicion).substr($querystring,$posicion+strlen($variablebusq)+2,strlen($querystring));
+			else				
+				return substr($querystring,0,$posicion);			
+		}
+
+		// Si no se encontró, se busca si es la primera variable
+		$variablebusq=$variable."=";  
+		$posicion=strpos($querystring,$variablebusq);
+		if($posicion===false) 
+			return $querystring;
+		elseif($posicion==0) {
+			if (!$elminino_resto)
+				return substr($querystring,strlen($variablebusq)+2,strlen($querystring));
+			else
+				return "";	
+		} else 
+			return $querystring;
+	}	
+	
+//----------------------------------------------------------------------------------------- 
+// Usada para el envio automatico de mails, según rol/jurisdiccion
+
+// Retorna true si no hubo problema, 
+//		sino retorna false en caso de error al ejecutar el SP para seleccionar los usuarios,
+//		por rol inválido o por error al enviar el mail.
+
+	static function MandarMail($conexion,$rolcod,$jurisdcod,$subject,$texto)
+	{
+		switch($rolcod)		{
+			case ADMIONTI:
+				$spnombre="sel_mail_usuarios_con_mail_xrol_xmenorestado";
+				$spparam=array('prolcod'=>$rolcod,'pusuarioestado'=>USUARIOACT);		
+				break;	
+			case USUCURSOINAP:
+				$spnombre="sel_usuarios_roles_jurisdiccion_inap_xrolcod_jurisdid";
+				$spparam=array('prolcod'=>$rolcod,'pjurisdid_inap'=>0);			
+				break;			
+			case USUACTINS:
+				$spnombre="sel_usuarios_roles_jurisdiccion_inap_xrolcod_jurisdid";
+				$spparam=array('prolcod'=>$rolcod,'pjurisdid_inap'=>0);			
+				break;			
+			case USUACTJUR:
+				$spnombre="sel_usuario_enlace_jurisdiccion_inap_xrolcod_jurisdid";
+				$spparam=array('prolcod'=>$rolcod,'pjurisdid_inap'=>$jurisdcod);			
+				break;			
+			case COORDINADORTECNICO:
+				$spnombre="sel_usuarios_roles_jurisdiccion_inap_xrolcod_jurisdid";
+				$spparam=array('prolcod'=>$rolcod,'pjurisdid_inap'=>$jurisdcod);			
+				break;			
+			case USUORGANISMO:
+				$spnombre="sel_usuarios_roles_jurisdiccion_inap_xrolcod_jurisdid";
+				$spparam=array('prolcod'=>$rolcod,'pjurisdid_inap'=>$jurisdcod);			
+				break;	
+			case COORDINADORINAP:
+				$spnombre="sel_usuarios_roles_jurisdiccion_inap_xrolcod_jurisdid";
+				$spparam=array('prolcod'=>$rolcod,'pjurisdid_inap'=>0);			
+				break;			
+			case USUACTEXT:
+				$spnombre="sel_usuarios_roles_jurisdiccion_inap_xrolcod_jurisdid";
+				$spparam=array('prolcod'=>$rolcod,'pjurisdid_inap'=>0);			
+				break;			
+			case USUAUTODESARROLLO:
+				$spnombre="sel_usuarios_roles_jurisdiccion_inap_xrolcod_jurisdid";
+				$spparam=array('prolcod'=>$rolcod,'pjurisdid_inap'=>0);			
+				break;			
+			default:
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Intento de enviar mail a rol inexistente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+		}
+		
+		if(!isset($spnombre)) {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al generar el mail.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		if(!$conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+			return false;
+
+	
+		if ($numfilas>0) { // hay destinatarios
+
+			// Agrego cabeceras al mail
+			$cabeceras = "Content-type: text/plain; charset=utf-8\r\n";
+			$cabeceras .= "From: ".MAIL_SISTEMA_FROM;
+			$cabeceras .= "\r\nReturn-Path: ".MAIL_SISTEMA_FROM;
+
+			$destinatarios=array();
+			while($fila=mysqli_fetch_assoc($resultado))
+				$destinatarios[]=$fila['usuarioemail'];
+			
+			$str_destinatarios=implode(",",$destinatarios);		
+			
+			if(!mail($str_destinatarios,$subject,$texto,$cabeceras)) {
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"Imposible enviar el mail.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			
+		} else {
+		
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No hay destinatarios para notificar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+				
+		return true;	
+	}
+
+
+//----------------------------------------------------------------------------------------- 
+// Graba el mail en la base de datos
+// parámetros de entrada
+// datos = array
+
+	static function MandarMailInterno($conexion,$datos)
+	{
+		$rolcod = $datos['usuario_destino']['rolcod'];
+		
+		$destinatarios=array();
+
+		if ($datos['usuario_destino']['usuariocod'] == TODOS) {
+		
+			switch($rolcod)		{
+				case ADMIONTI:
+					$spnombre="sel_mail_usuarios_con_mail_xrol_xmenorestado";
+					$spparam=array('prolcod'=>$rolcod,'pusuarioestado'=>USUARIOACT);		
+					break;	
+				case USUCURSOINAP:
+					$spnombre="sel_usuarios_roles_jurisdiccion_inap_xrolcod_jurisdid";
+					$spparam=array('prolcod'=>$rolcod,'pjurisdid_inap'=>0);			
+					break;			
+				case USUACTINS:
+					$spnombre="sel_usuarios_roles_jurisdiccion_inap_xrolcod_jurisdid";
+					$spparam=array('prolcod'=>$rolcod,'pjurisdid_inap'=>0);			
+					break;			
+				case USUACTJUR:
+					$spnombre="sel_usuario_enlace_jurisdiccion_inap_xrolcod_jurisdid";
+					$spparam=array('prolcod'=>$rolcod,'pjurisdid_inap'=>$jurisdcod);			
+					break;			
+				case COORDINADORTECNICO:
+					$spnombre="sel_usuarios_roles_jurisdiccion_inap_xrolcod_jurisdid";
+					$spparam=array('prolcod'=>$rolcod,'pjurisdid_inap'=>$jurisdcod);			
+					break;			
+				case USUORGANISMO:
+					$spnombre="sel_usuarios_roles_jurisdiccion_inap_xrolcod_jurisdid";
+					$spparam=array('prolcod'=>$rolcod,'pjurisdid_inap'=>$jurisdcod);			
+					break;	
+				case COORDINADORINAP:
+					$spnombre="sel_usuarios_roles_jurisdiccion_inap_xrolcod_jurisdid";
+					$spparam=array('prolcod'=>$rolcod,'pjurisdid_inap'=>0);			
+					break;			
+				case USUACTEXT:
+					$spnombre="sel_usuarios_roles_jurisdiccion_inap_xrolcod_jurisdid";
+					$spparam=array('prolcod'=>$rolcod,'pjurisdid_inap'=>0);			
+					break;			
+				case USUAUTODESARROLLO:
+					$spnombre="sel_usuarios_roles_jurisdiccion_inap_xrolcod_jurisdid";
+					$spparam=array('prolcod'=>$rolcod,'pjurisdid_inap'=>0);			
+					break;			
+				default:
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Intento de enviar mail a rol inexistente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+			}
+
+			if(!isset($spnombre)) {
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al generar el mail.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+	
+			if(!$conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+				return false;
+
+			while($fila=mysqli_fetch_assoc($resultado))
+				$destinatarios[]=$fila['usuariocod'];
+
+		
+		} else { 
+				
+			$destinatarios[]=$datos['usuario_destino']['usuariocod'];
+		
+		}
+		
+		
+		$oMensajesInternos = new cMensajesInternos($conexion);
+		//grabo un mensaje por cada destinatario
+		foreach ($destinatarios as $clave => $valor ) {
+			$datos['usuario_destino']['usuariocod'] = $valor;	
+			$oMensajesInternos->AltaMensajesInternos ($conexion,$datos); 
+		}
+		
+				
+		return true;	
+	}
+
+
+		
+//----------------------------------------------------------------------------------------- 
+// Muestra un mensaje en pantalla y, segun el nivel del mensaje, envía tambien mail a ADMIONTI
+
+// Parametros: $formatomensaje es un array asociativo
+//					$formatomensaje['formato']=FMT_TEXTO|FMT_TABLA
+//					$formatomensaje['cantcols'] usado para colspan cuando es FMT_TABLA
+//				$enviarmail: en caso que sea necesario enviar mail y esta variable esta seteada en true, envia mail al administrador
+//						definida en la conexion
+//				$graba_variables: en caso de querar grabar las variables de entorno $_GET, $_POST, y $_SESSION
+
+	static function MostrarMensaje($conexion,$nivelmensaje,$texto,$ubicerror,$formatomensaje,$texto_sys="",$enviarmail=true, $graba_variables=true)
+	{
+	
+		if ($nivelmensaje==MSG_ERRGRAVE)
+			$texto.=" Avise a su Administrador.";
+		
+		switch($nivelmensaje)
+		{
+			case MSG_OK:
+			case MSG_INF:
+			case MSG_ERRGRAVE:
+			case MSG_ERRSOSP:
+				if($formatomensaje['formato']==FMT_TEXTO)
+					echo "<BR><p align='center' class='textoDatoBold'>".$texto."</p> <BR>";	
+				elseif($formatomensaje['formato']==FMT_TABLA) {
+				?>	<tr>
+						<td colspan="<?php echo $formatomensaje['cantcols'] ?>" height="100" align="center" valign="middle">
+							<span class='textoDatoBold'><?php echo $texto ?></span>
+						</td>
+					</tr> <?php
+				} else
+					echo $texto;	
+				break;
+		}
+
+		if($enviarmail)	{
+		
+			$oMensajesInternos = new cMensajesInternos($conexion);
+		
+			// envio de mail
+			switch($nivelmensaje)
+			{
+				case MSG_ERRGRAVE:
+					$subject=" ( ".SISTEMA.' - '.$_SERVER['SERVER_NAME']." ) - Error de Inconsistencia de Datos ";
+					$textomail="Se produjo un error:\n";
+					$textomail.="  Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n";
+					$textomail.="  Ubic Archivo: ".$ubicerror['archivo']."\n";
+					$textomail.="  Ubic Función: ".($ubicerror['funcion']==""?"-":$ubicerror['funcion'])."\n";
+					$textomail.="  Ubic Línea: ".$ubicerror['linea']."\n";
+					$textomail.="Texto error:".$texto."\n";
+	
+					if(isset($_SESSION['usuariocod']))
+						$textomail.="Usuario sesion: ".$_SESSION['usuariocod']."\n";
+	
+					if ($texto_sys!="")
+						$textomail.="\nInformación Adicional: ".$texto_sys;
+				
+
+					$datos = array( 
+					
+									'tipo_origen' => cMensajesInternos::MENSAJE_TIPO_ORIGEN_SISTEMA,
+									'tipo_destino' => cMensajesInternos::MENSAJE_TIPO_DESTINO_ROL,			
+					
+									'usuario_origen' => array(
+															  'rolcod' => $_SESSION['rolcod'], 
+															  'usuariocod' => $_SESSION['usuariocod']
+															  ), 
+		
+									'usuario_destino' => array(
+															  'rolcod' => $conexion->VerAdmiGeneral(),
+															  'usuariocod' => TODOS
+															  ), 
+									'nivel_mensaje' => $nivelmensaje,
+									'asunto' => $subject,
+									'mensaje' => $textomail,
+									'archivo' => $ubicerror['archivo'],
+									'funcion' => $ubicerror['funcion'],
+									'var_session' => $_SESSION ,
+									'var_post' => $_POST ,
+									'var_get' => $_GET 
+								);
+					if (!$graba_variables) {
+						$datos['var_session'] = "privado";
+						$datos['var_post'] = "privado";
+						$datos['var_get'] = "privado";
+					}	
+					
+								
+								
+					FuncionesPHPLocal::MandarMailInterno($conexion,$datos);			
+					
+					//FuncionesPHPLocal::MandarMail($conexion,$conexion->VerAdmiGeneral(),"",$subject,$textomail);
+					break;
+	
+				case MSG_ERRSOSP:
+					$subject=" ( ".SISTEMA.' - '.$_SERVER['SERVER_NAME']." ) - Error Datos Sospechosos ";
+					$textomail="Se produjo un error:\n";
+					$textomail.="  Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n";
+					$textomail.="  Ubic Archivo: ".$ubicerror['archivo']."\n";
+					$textomail.="  Ubic Función: ".($ubicerror['funcion']==""?"-":$ubicerror['funcion'])."\n";
+					$textomail.="  Ubic Línea: ".$ubicerror['linea']."\n";
+					$textomail.="Texto error:".$texto."\n";
+	
+					if(isset($_SESSION['usuariocod']))
+						$textomail.="Usuario sesion: ".$_SESSION['usuariocod']."\n";
+
+					if ($texto_sys!="")
+						$textomail.="Información Adicional: ".$texto_sys;
+
+					$datos = array( 
+					
+									'tipo_origen' => cMensajesInternos::MENSAJE_TIPO_ORIGEN_SISTEMA,
+									'tipo_destino' => cMensajesInternos::MENSAJE_TIPO_DESTINO_ROL,			
+					
+									'usuario_origen' => array(
+															  'rolcod' => $_SESSION['rolcod'], 
+															  'usuariocod' => $_SESSION['usuariocod']
+															  ), 
+		
+									'usuario_destino' => array(
+															  'rolcod' => $conexion->VerAdmiGeneral(),
+															  'usuariocod' => TODOS
+															  ), 
+									'nivel_mensaje' => $nivelmensaje,
+									'asunto' => $subject,
+									'mensaje' => $textomail,
+									'archivo' => $ubicerror['archivo'],
+									'funcion' => $ubicerror['funcion'],
+									'var_session' => $_SESSION ,
+									'var_post' => $_POST ,
+									'var_get' => $_GET 
+								);
+					
+					if (!$graba_variables) {
+						$datos['var_session'] = "privado";
+						$datos['var_post'] = "privado";
+						$datos['var_get'] = "privado";
+					}	
+								
+								
+					FuncionesPHPLocal::MandarMailInterno($conexion,$datos);			
+
+					//FuncionesPHPLocal::MandarMail($conexion,$conexion->VerAdmiGeneral(),"",$subject,$textomail);
+					break;
+			} // switch
+			
+		}
+	}
+//----------------------------------------------------------------------------------------- 
+// Registra el acceso de un usuario en el sistema
+
+	static function RegistrarAcceso($conexion,$codigo_mensaje,$acciondesc,$usuariocod) 
+	{
+		$archivonom=substr(strrchr($_SERVER['PHP_SELF'],'/'),1);
+	
+		if($usuariocod=='')
+			$usuariocod=0;
+		
+		$spnombrelog='ins_logusuarios';
+		$spparamlog=array('pcodigo_mensaje'=>$codigo_mensaje,'pacciondesc'=>$acciondesc,'pnumeroip'=>$_SERVER['REMOTE_ADDR'],'parchivonom'=>$archivonom,'pfecha'=>date('Y/m/d H:i:s'),'pusuariocod'=>$usuariocod);
+	
+		if(!$conexion->ejecutarStoredProcedure($spnombrelog,$spparamlog,$resultado,$numfilas,$errno) || $numfilas!=1)
+		{
+			$textoerror="Error registrar_acceso ".$errno." - ".$conexion->TextoError();
+			// MANDAR MAIL con los parámetros de la llamada errónea
+				
+			$subject=" ( ".SISTEMA.' - '.$_SERVER['SERVER_NAME']." ) - Error en registrar acceso";		
+			$texto="Se ha producido un error en ".$_SERVER['PHP_SELF']." \n\n";
+			if($usuariocod!=0)
+			{
+				if(!$conexion->TraerCampo("usuarios","concat(usuarioapellido,',',usuarionombre)",array("usuariocod='",$usuariocod,"'" ),$nombreusuario,$numfilas,$errno))
+					$texto.="Usuario ".$nombreusuario."\n\n";
+			}
+			$texto.="parámetros de acceso \n";
+			$texto.="pcodigo_mensaje ".$codigo_mensaje."\n";
+			$texto.="pacciondesc ".$acciondesc."\n";
+			$texto.="pnumeroip ".$_SERVER['REMOTE_ADDR']."\n";
+			$texto.="parchivonom ".$archivonom."\n";
+			$texto.="pfecha ".date('Y/m/d H:i:s')."\n";
+			$texto.="pusuariocod ".$usuariocod;
+//			FuncionesPHPLocal::MandarMail($conexion,$conexion->VerAdmiGeneral(),"",$subject,$texto);
+
+			$oMensajesInternos = new cMensajesInternos($conexion);
+
+
+			$datos = array( 
+			
+							'tipo_origen' => cMensajesInternos::MENSAJE_TIPO_ORIGEN_SISTEMA,
+							'tipo_destino' => cMensajesInternos::MENSAJE_TIPO_DESTINO_ROL,			
+			
+							'usuario_origen' => array(
+													  'rolcod' => $_SESSION['rolcod'], 
+													  'usuariocod' => $_SESSION['usuariocod']
+													  ), 
+
+							'usuario_destino' => array(
+													  'rolcod' => $conexion->VerAdmiGeneral(),
+													  'usuariocod' => TODOS
+													  ), 
+							'nivel_mensaje' => MSG_ERRGRAVE,
+							'asunto' => $subject,
+							'mensaje' => $texto,
+							'archivo' => $archivonom,
+							'funcion' => "RegistrarAcceso",
+							'var_session' => $_SESSION ,
+							'var_post' => $_POST ,
+							'var_get' => $_GET 
+						);
+						
+			FuncionesPHPLocal::MandarMailInterno($conexion,$datos);		
+			
+			return false;
+		}
+		return true;
+	}
+//----------------------------------------------------------------------------------------- 
+// Arma un combo que recarga la página según la opción seleccionada
+
+// Parametros:
+// 		->spnombre y spparam se usan para armar el query
+// 		->nomformulario es el nombre del formulario sobre el que está el combo
+// 		->nomcombo es el nombre del combo
+// 		->clavecombo y desccombo son campos del query con los que arma el combo
+// 		->querystring lo coloca despues del nombre del php
+// 		->textolineauno es el texto del primer option del combo, cuando no hay nada seleccionado
+// 		->regactual, en caso que exista una variables GET con el nombre del combo y coincide con algun registro del query, retorna la fila
+// 		->seleccionado, en caso que se haya seleccionado un option del combo
+//      ->style estilo del combo
+
+	static function ArmarCombo_BD($conexion,$spnombre,$spparam,$nomformulario,$nomcombo,$clavecombo,$desccombo,$querystring,$textolineauno,&$regactual,&$seleccionado, $style="width: 370px",$vertextocompleto=true)
+	{
+		// Cargo los registros del query seleccionado
+		if(!$conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$num_filas,$errno))
+			return false;
+
+		// Genera codigo JavaScript para autollamarse cuando selecciona un elemento del combo
+		echo "<SCRIPT LANGUAGE='JavaScript' type='text/javascript'>\n";
+		echo "<!--\n";
+		
+		echo "function ".$nomcombo."_newpage() {\n";
+	
+		$temp="";
+		if($querystring!='')
+			$temp="?";
+	
+		echo "if(document.".$nomformulario.".".$nomcombo.".selectedIndex==0)\n";
+		echo "    location='".$_SERVER['PHP_SELF'].$temp.$querystring."';\n";
+		echo "else\n";
+	
+		if($querystring!='')
+			$querystring.="&";
+	
+		echo "    location='".$_SERVER['PHP_SELF']."?".$querystring.$nomcombo."='+document.".$nomformulario.".".$nomcombo."[document.".$nomformulario.".".$nomcombo.".selectedIndex].value;\n";
+		echo "}\n";
+		
+		echo "//-->\n";
+		echo "</SCRIPT>\n";
+	
+		// Generación del combo, poniendo como primera linea $textolineauno
+		echo "<select name='".$nomcombo."' size=1 onChange='".$nomcombo."_newpage();' class='combos' style='".$style."'>\n";
+		echo "<option value=''>".htmlspecialchars($textolineauno,ENT_QUOTES)."</option>\n";
+		$seleccionado=false;
+		if($num_filas>0) 
+		{
+			// Recorre el cursor desde el principio, poniendo cada fila en una linea del combo
+			$textopopup='';
+			while ($fila = mysqli_fetch_assoc($resultado))
+			{ 
+				if(isset($_GET[$nomcombo]) && $fila[$clavecombo]==$_GET[$nomcombo]) 
+				{
+					echo "<option selected value='".htmlspecialchars($fila[$clavecombo],ENT_QUOTES)."'> ".htmlspecialchars($fila[$desccombo],ENT_QUOTES)." </option>\n";
+					$seleccionado=true;
+					$regactual=$fila;
+					$textopopup=$fila[$desccombo];
+				}
+				else
+					echo "<option value='".htmlspecialchars($fila[$clavecombo],ENT_QUOTES)."'> ".htmlspecialchars($fila[$desccombo],ENT_QUOTES)." </option>\n";
+			}
+		}
+	
+		echo "</select>\n";
+
+		if(isset($textopopup) && $vertextocompleto)
+			echo "<div><a href='javascript:void(0)' onClick=\"javascript:Popup('ventanatexto.dhtml?textopopup='+".$nomformulario.".".$clavecombo."[".$nomformulario.".".$clavecombo.".selectedIndex].text,'ventanatexto',330,80,screen.availWidth-350,screen.availHeight-140,'yes')\" class='linkFondoBlanco'><span class='textoAclaraciones'>Ver texto completo</span></a>\n</div>\n";
+		else
+			echo "<div style='font-size: 7px;'>&nbsp;</div>\n";
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Arma un combo con la informacion del SP enviado
+
+// Parametros:
+// 		->spnombre y spparam se usan para armar el query
+// 		->nomformulario es el nombre del formulario sobre el que está el combo
+// 		->nomcombo es el nombre del combo
+// 		->clavecombo y desccombo son campos del query con los que arma el combo
+// 		->claveselec es el registro que hay que seleccionar
+// 		->textolineauno es el texto del primer option del combo, cuando no hay nada seleccionado
+// 		->regactual, en caso que se haya seleccionado un option se retorna la fila completa
+// 		->seleccionado, en caso que se haya seleccionado un option del combo
+//		->$filas, si es 1, es un combo, sino es una lista
+//		->$onchange: la accion javascript al momento de seleccionar un elemento de la lista
+//		->$style: estilo a aplicar sobre el combo
+//		->$multiple: si se permite que en una lista se puedan elegir mas de un item
+//		->$vertextocompleto: indica si se muestra el link abajo para ver texto completo
+
+	static function ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,$nomformulario,$nombrecombo,$clavecombo,$desccombo,$claveselec,$textolineauno,&$regactual,&$seleccionado,$filas=1,$onchange="",$style="width: 370px",$multiple=false,$vertextocompleto=true,$onDbClick="",$disabled=false)
+	{
+		// Cargo los registros del query seleccionado
+		if(!$conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$num_filas,$errno))
+			return false;
+		
+		
+		$mostrardisabled="";
+		if ($disabled)
+			$mostrardisabled="disabled";
+		// Generación del combo, poniendo como primera linea $textolineauno
+		echo "<select name='".$nombrecombo."' id='".$nombrecombo."'  size='".$filas."' class='combos' style='".$style."' onChange='".$onchange."'  ondblclick='".$onDbClick."' ".($multiple?"multiple":"")." ".$mostrardisabled.">\n";
+		if($filas==1)
+			echo "<option value=''>".htmlspecialchars($textolineauno,ENT_QUOTES)."</option>\n";
+
+		$seleccionado=false;
+		if($num_filas>0) 
+		{
+			// Recorre el cursor desde el principio, poniendo cada fila en una linea del combo
+			while ($fila = mysqli_fetch_assoc($resultado))
+			{ 
+				if($fila[$clavecombo]==$claveselec) 
+				{
+					echo "<option selected value='".htmlspecialchars($fila[$clavecombo],ENT_QUOTES)."'> ".htmlspecialchars($fila[$desccombo],ENT_QUOTES)." </option>\n";
+					$seleccionado=true;
+					$regactual=$fila;
+				}
+				else
+					echo "<option value='".htmlspecialchars($fila[$clavecombo],ENT_QUOTES)."'> ".htmlspecialchars($fila[$desccombo],ENT_QUOTES)." </option>\n";
+			}
+		}
+	
+		echo "</select>\n" ;
+		if($filas==1 && $vertextocompleto)
+			echo "<br><a href='javascript:void(0)' onClick=\"javascript:Popup('ventanatexto.dhtml?textopopup='+".$nomformulario.".".$nombrecombo."[".$nomformulario.".".$nombrecombo.".selectedIndex].text,'ventanatexto',330,80,screen.availWidth-350,screen.availHeight-140,'yes')\" class='linkFondoBlanco'><span class='textoAclaraciones'>Ver texto completo</span></a>\n";
+	}
+	
+//----------------------------------------------------------------------------------------- 
+// Arma un combo en base a la informacion proveniente en un array. Con salto.
+
+// Parametros:
+// 		->valores_combo: array asociativo, del que salen los valores para el combo
+//			valores_combo=array(1=>array($clavecombo=>"valor",$desccombo=>"valor"),2=>array($clavecombo=>"valor",$desccombo=>"valor"))
+// 		->nomformulario es el nombre del formulario sobre el que está el combo
+// 		->nomcombo es el nombre del combo
+// 		->clavecombo y desccombo son campos del array con los que arma el combo
+//		->querystring es el string que se agrega a la linea
+// 		->textolineauno es el texto del primer option del combo, cuando no hay nada seleccionado
+// 		->regactual, en caso que se haya seleccionado un option se retorna la fila completa
+// 		->seleccionado, en caso que se haya seleccionado un option del combo
+//      ->style, estilo del combo
+
+	static function ArmarCombo_deArray($valores_combo,$nomformulario,$nomcombo,$clavecombo,$desccombo,$querystring,$textolineauno,&$regactual,&$seleccionado,$style="width: 370px",$vertextocompleto=true) 
+	{
+		$seleccionado=false;
+		$regactual=array();
+
+		
+		// Genera codigo JavaScript para autollamarse cuando selecciona un elemento del combo
+		echo "<SCRIPT LANGUAGE='JavaScript' type='text/javascript'>\n";
+		echo "<!--\n";
+		
+		echo "function ".$nomcombo."_newpage() {\n";
+	
+		$temp="";
+		if($querystring!='')
+			$temp="?";
+	
+		echo "if(document.".$nomformulario.".".$nomcombo.".selectedIndex==0)\n";
+		echo "    location='".$_SERVER['PHP_SELF'].$temp.$querystring."';\n";
+		echo "else\n";
+	
+		if($querystring!='')
+			$querystring.="&";
+	
+		echo "    location='".$_SERVER['PHP_SELF']."?".$querystring.$nomcombo."='+document.".$nomformulario.".".$nomcombo."[document.".$nomformulario.".".$nomcombo.".selectedIndex].value;\n";
+		echo "}\n";
+		
+		echo "//-->\n";
+		echo "</SCRIPT>\n";
+	
+		// Generación del combo, poniendo como primera linea $textolineauno
+		echo "<select name='".$nomcombo."' size=1 onChange='".$nomcombo."_newpage();' class='textoTablaDato' style='".$style."'>";
+		echo "<option value=''>".htmlspecialchars($textolineauno,ENT_QUOTES)."</option>";
+	
+		foreach($valores_combo as $optioncombo)
+		{
+			// Recorre el array, poniendo cada fila en una linea del combo
+			echo "<option ";
+	
+			if(isset($_GET[$nomcombo]) && $optioncombo[$clavecombo]==$_GET[$nomcombo]) 
+			{
+				echo " selected ";
+				$seleccionado=true;
+				$regactual=$optioncombo;
+			}
+			
+			echo " value='".htmlspecialchars($optioncombo[$clavecombo],ENT_QUOTES)."'> ".htmlspecialchars($optioncombo[$desccombo],ENT_QUOTES);
+			echo "</option>";
+		}
+	
+		echo "</select>\n";
+		if($vertextocompleto)
+			echo "<a href='javascript:void(0)' onClick=\"javascript:Popup('ventanatexto.dhtml?textopopup='+formulario.".$nomcombo."[formulario.".$nomcombo.".selectedIndex].text,'ventanatexto',330,80,screen.availWidth-350,screen.availHeight-140,'yes')\" class='linkFondoBlanco'><span class='textoAclaraciones'>Ver texto completo</span></a>";
+	}
+	
+//----------------------------------------------------------------------------------------- 
+// Arma un combo en base a la informacion proveniente en un array. Sin salto.
+
+// Parametros:
+// 		->valores_combo: array asociativo, del que salen los valores para el combo
+//			valores_combo=array(1=>array($clavecombo=>"valor",$desccombo=>"valor"),2=>array($clavecombo=>"valor",$desccombo=>"valor"))
+// 		->nomformulario es el nombre del formulario sobre el que está el combo
+// 		->nombrecombo es el nombre del combo
+// 		->clavecombo y desccombo son campos del array con los que arma el combo
+// 		->claveselec es el registro que hay que seleccionar
+//		->querystring es el string que se agrega a la linea
+// 		->claselec está algo seleccionado
+// 		->textolineauno es el texto del primer option del combo, cuando no hay nada seleccionado
+// 		->regactual, en caso que se haya seleccionado un option se retorna la fila completa
+// 		->seleccionado, en caso que se haya seleccionado un option del combo
+//		->$filas, si es 1, es un combo, sino es una lista
+//		->$onchange: la accion javascript al momento de seleccionar un elemento de la lista
+//		->$style: estilo a aplicar sobre el combo
+
+//	static function ArmarCombo_SinSalto_deArray($valores_combo,$nomformulario,$nombrecombo,$clavecombo,$desccombo,$querystring,$claveselec,$textolineauno,&$regactual,&$seleccionado,$filas=1,$onchange="",$style="width: 370px;") 
+	static function ArmarCombo_SinSalto_deArray($valores_combo,$nomformulario,$nombrecombo,$clavecombo,$claveselec,$desccombo,$querystring,$textolineauno,&$regactual,&$seleccionado,$filas=1,$onchange="",$style="width: 370px;",$disabled=false) 
+	{
+		$seleccionado=false;
+		$regactual=array();
+
+		$mostrardisabled="";
+		if ($disabled)
+			$mostrardisabled="disabled";
+			
+		// Generación del combo, poniendo como primera linea $textolineauno
+		echo "<select name='".$nombrecombo."' id='".$nombrecombo."' size='".$filas."' onChange='".$onchange."' class='combos' style='".$style."' ".$mostrardisabled.">";
+		
+		if($filas==1)
+			echo "<option value=''>".htmlspecialchars($textolineauno,ENT_QUOTES)."</option>";
+	
+		foreach($valores_combo as $optioncombo)
+		{
+			// Recorre el array, poniendo cada fila en una linea del combo
+			echo "<option ";
+	
+//			if($optioncombo[$clavecombo]==$claveselec)
+			if( (isset($_GET[$nombrecombo]) && $optioncombo[$clavecombo]==$_GET[$nombrecombo]) 
+				|| ($optioncombo[$clavecombo]==$claveselec)
+				)
+			{
+				echo " selected ";
+				$seleccionado=true;
+				$regactual=$optioncombo;
+			}
+			
+			
+			echo " value='".htmlspecialchars($optioncombo[$clavecombo],ENT_QUOTES)."'> ".htmlspecialchars($optioncombo[$desccombo],ENT_QUOTES);
+			echo "</option>";
+		}
+	
+		echo "</select>\n";
+			
+		if($filas==1)
+			echo "<br><a href='javascript:void(0)' onClick=\"javascript:popup('ventanatexto.dhtml?textopopup='+".$nomformulario.".".$nombrecombo."[".$nomformulario.".".$nombrecombo.".selectedIndex].text,'ventanatexto',330,80,screen.availWidth-350,screen.availHeight-140,'yes')\" class='linkFondoBlanco'><span class='textoAclaraciones'>Ver texto completo</span></a>\n";
+	}	
+//----------------------------------------------------------------------------------------- 
+// cambia algunos caracteres para que no de error el JS
+
+	static function ReemplazarCharJS($texto)
+	{
+		if($texto!="")
+			return str_replace(array("'","\r","\n"),array("\'","\\r","\\n"),$texto);
+		else
+			return $texto;
+	}
+
+/*	
+//----------------------------------------------------------------------------------------- 
+// Si existe la variable en el QUERY_STRING, elimina todo desde ahi en adelante
+
+	static function ArmarQueryString($variable)
+	{
+		// si existe en el get la variable $variable, la elimino
+		if(isset($_GET[$variable]))
+		{
+			$posicion=strpos($_SERVER['QUERY_STRING'],$variable);
+			if($posicion===false)
+				return $_SERVER['QUERY_STRING'];
+			elseif($posicion==0)
+				return "";
+			else	
+				return substr($_SERVER['QUERY_STRING'],0,$posicion-1);
+		}
+		else
+			return $_SERVER['QUERY_STRING'];
+	}
+*/
+//----------------------------------------------------------------------------------------- 
+// Valida el contenido del campo según tipovalidacion
+
+	static function ValidarContenido($conexion,$campo,$tipovalidacion)
+	{
+		switch($tipovalidacion)
+		{
+			case "AlfanumericoPuro": // campo alfanumerico sin caracteres especiales
+				if ( strspn(strtoupper($campo), '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ' ) != strlen($campo) ) 
+					return false;
+				break;
+			case "AlfabeticoPuro": // campo alfabetico sin caracteres especiales
+				// El upper de ñáéíóúü es ñáéíóúü		
+				if ( strspn(strtoupper($campo), '\'ABCDEFGHIJKLMNOPQRSTUVWXYZÑñ ÁÉÍÓÚÄËÏÖÜáéíóúäëïöüàèìòùâêîôûÇç' ) != strlen($campo) ) 
+					return false;
+				break;
+			case "Email": // campo alfanumerico con algunos caracteres especiales (emails)
+				if(!preg_match("/^[-\._a-z0-9]+@([-_a-z0-9]+[\.]{1}){1,2}[a-z]{2,4}([\.]{1}[a-z]{2}){0,1}$/i",$campo))
+					return false;
+				break;
+			case "FechaDDMMAAAA": // valida fecha en formato DD/MM/AAAA
+				 //if(!eregi("^[0-9]{2}/[0-9]{2}/[0-9]{4}$",$campo))
+				
+				if(!preg_match("/^[0-9]{2}\/[0-9]{2}\/[0-9]{4}$/i",$campo))
+					return false;
+				list($dia, $mes, $anio) = explode ('/', $campo);
+				if(!checkdate($mes, $dia, $anio))
+					return false;
+				break;
+			case "Periodo": // campo MM/AAAA
+				if(!preg_match("/^[0-9]{2}/[0-9]{4}$/i",$campo))
+					return false;
+			
+				$anio = substr($campo,3,4);
+				$mes = substr($campo,0,2);
+				if(($anio < 2000) || ($anio > 2050) || ($mes < 1) || ($mes > 12))
+				   return false;
+					
+				break;	
+			case "Hexa6Digitos": // color semáforo
+				if(!preg_match("/^[0-9A-F]{6}$/i",$campo))
+					return false;
+				break;
+			case "Jurisdiccion": // campo numerico con puntos (sólo para Jurisdicciones)
+				if(!preg_match("/^[0-9]{2}\.([0-9]{3}\.([0-9a-zA-Z ]{2}\.){0,7}){0,1}$/i",$campo))
+					return false;
+				break;
+			case "NumericoEntero": // campo numerico entero
+				if ( strspn($campo, '0123456789' ) != strlen($campo) ) 
+					return false;
+				break;
+			case "Numerico2Decimales": // campo numerico con 2 decimales maximo
+				if(!preg_match("/^[0-9]+(,[0-9]{1,2}){0,1}$/i",$campo))
+					return false;
+				break;
+
+			case "Hora24": // campo HH:MM
+
+				$hora = substr($campo,0,2);
+				$minuto = substr($campo,3,2);
+			
+				if(!preg_match("/^[0-9]{2}:[0-9]{2}$/i",$campo))
+					return false;
+				
+				if(($hora < 0) || ($hora > 23) || ($minuto < 0) || ($minuto > 59))
+				   return false;
+
+				break;
+
+			case "CUIT": // 11 posiciones numericas con digito mod.11
+
+				if (RUN_ACTUAL==RUN_DESARROLLO) { // En desarrollo no se valida el cuit!
+	
+					return true;
+	
+				} else {
+				
+					if ( strspn($campo, '0' ) == strlen($campo) ) 
+							return false;
+		
+						if(!preg_match("/^[0-9]{11}$/i",$campo))
+							return false;
+							
+						$array_factor_peso = array(5,4,3,2,7,6,5,4,3,2);
+						$suma=0;
+						$digito_verificador=0;
+		 
+						for ($i=0; $i<=9; $i++)  
+							$suma=$suma+(substr($campo,$i,1)*$array_factor_peso[$i]); 	
+					
+						$digito_verificador=11-($suma%11);
+						
+						if ($digito_verificador == 11)
+							$digito_verificador = 0;
+					
+						if ($digito_verificador!=substr($campo,10,1)) 
+							return false; 
+				}					
+				break;
+
+			default:
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Validación no definida.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+				break;
+		} 
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Valida la clave
+
+	static function ValidarPassword($clave,$claveactual,$identificacion,$longmin)
+	{
+		$i = 0;
+		$p = 0; // codigo de error que se produjo
+		$c3 = 1; // cantidad de letras iguales secuenciales
+		$a = 0; // mantiene el codigo ascii al recorrer la clave para las validaciones
+		$sa = 1; // cantidad de letras consecutivas segun abecedario
+		$sd = 1; // cantidad de letras consecutivas segun abecedario inverso
+		$pa = 0; // mantiene la cantidad de caracteres iguales entre la nueva clave y la clave actual
+		$ca = 0; // cuenta la cantidad de letras
+		$cn = 0; // cuenta la cantidad de numeros
+		$ant = 0; // mantiene un registro de la letra anterior
+		$layout = array(); // array que contiene secuencia de caracteres comunes
+	
+		$layout[] = "QWERTY";
+		$layout[] = "YTREWQ";
+		$layout[] = "ASDFG";
+		$layout[] = "GFDSA";
+		$layout[] = "ZXCVB";
+		$layout[] = "BVCXZ";
+	
+		if (strlen($clave)<$longmin)
+			$p=12;
+	
+		$UsrId = strrev($identificacion); // contiene la identificacion al reves
+	
+		// Verifica si la clave contiene a la identificacion (al derecho y al reves)
+		if(strpos($identificacion,$clave)!==false || strpos($clave,$identificacion)!==false)
+			$p = 9;
+		else
+			if(strpos($UsrId,$clave)!==false || strpos($clave,$UsrId)!==false)
+				$p = 10;
+	
+		// Verifica si la clave contiene una secuencia de caracteres comunes
+		if ($p == 0)
+		{
+			for ($i = 0; $i < count($layout); $i++)
+			{
+				if (strpos(strtoupper($clave),$layout[$i])!== false)
+				{
+					$p = 6;
+					break;
+				}
+			}
+		}
+	
+		if ($p == 0)
+		{
+			for ($i = 0; $i < strlen($clave); $i++)
+			{
+				$a = ord(substr($clave,$i,1));
+
+				if ($a >= 48 && $a <= 57)
+					$cn++;
+				else
+					if (($a >= 65 && $a <= 90) || ($a >= 97 && $a <= 122))
+						$ca++;
+	
+				if ($a == $ant)
+				{
+					if (++$c3 > 3) // si tengo mas de 3 letras iguales consecutivas
+					{
+						$p = 2;
+						break;
+					}
+				}
+				else
+				{
+					$c3 = 1;
+					if ($ant == $a - 1)
+					{
+						if (++$sa > 3) // mas de 3 letras consecutivas segun abecedario
+						{
+							$p = 4;
+							break;
+						}
+						$sd = 1;
+					}
+					else
+					{
+						if ($ant == $a + 1)
+						{
+							if (++$sd > 3) // mas de 3 letras consecutivas segun abecedario inverso
+							{
+								$p = 5;
+								break;
+							}
+							$sa = 1;
+						}
+						else
+						{
+							$sa = 1;
+							$sd = 1;
+						}
+					}
+				}
+	
+				if ($a == ord(substr($claveactual,$i,1)))
+				{
+					if (++$pa > 5) // si tiene mas de 5 caracteres iguales que la clave actual
+					{
+						$p = 14;
+						break;
+					}
+				}
+	
+				$ant = $a;
+	
+			}
+		}
+	
+		if ($p == 0 && (($ca + $cn) != strlen($clave))) // si la cantidad de letras y numeros es distinta al largo total, entonces hay caracteres especiales
+			$p = 11;
+
+		if ($p != 0)
+			return false;
+		else
+			return true;
+	}
+/*
+//----------------------------------------------------------------------------------------- 
+// Arma los 2 listbox para pasar de uno al otro (de izquierda a derecha)
+
+// Parametros:
+// 		->sp_nombre y sp_param es el SP con el que se genera la lista de la izquierda
+// 		->clavecombo y desccombo son campos del array con los que arma el combo
+// 		->nomformulario es el nombre del formulario sobre el que está el combo
+//		->nombrelista es el nombre que van a recibir las listas, botones, etc
+//		->textoizq y textoder es el texto que aparecerá arriba de cada lista
+//		->style es el estilo que se aplicará a las listas
+//		->altura1/altura2: son las alturas en px de cada lista
+//		->subebaja si se quiere que en la lista de la derecha aparezcan los botones para subir y bajar elementos
+
+	static function ArmarListasConCajaTexto($conexion,$sp_nombre,$sp_param,$clavecombo,$desccombo,$nomformulario,$nombrelista,$textoizq,$textoder,$style,$altura1,$altura2,$subebaja)
+	{
+?>
+<table width="100%" class="textoTablaDato">
+	<tr>
+		<td width="50%" valign="bottom">
+			<label>
+				<b><? echo htmlspecialchars($textoizq,ENT_QUOTES) ?></b><br />
+				<input type="text" name="model_<? echo $nombrelista ?>" id="intext_<? echo $nombrelista ?>" size="25" onkeyup="ListaBuscarTexto('<? echo $nombrelista ?>',this.value,cod_todos_<? echo $nombrelista ?>,txt_todos_<? echo $nombrelista ?>,cod_activos_<? echo $nombrelista ?>,txt_activos_<? echo $nombrelista ?>);" style="width:188px;">
+			</label>
+<?
+	if(!$conexion->ejecutarStoredProcedure($sp_nombre,$sp_param,$result,$numfilas,$errno)) die();
+
+	$codigos=array();
+	$textos=array();
+	while($fila=mysql_fetch_assoc($result))
+	{
+		$codigos[]=FuncionesPHPLocal::ReemplazarComillas($fila[$clavecombo]);
+		$textos[]=FuncionesPHPLocal::ReemplazarComillas($fila[$desccombo]);
+	}
+	
+	if(count($codigos)>0)
+	{
+		$codigos="'".implode("','",$codigos)."'";
+		$textos="'".implode("','",$textos)."'";
+	}
+	else
+	{
+		$codigos="";
+		$textos="";
+	}
+?>
+<script language="javascript" type="text/javascript">
+
+var cod_todos_<? echo $nombrelista ?>=new Array(<? echo $codigos ?>);
+var txt_todos_<? echo $nombrelista ?>=new Array(<? echo $textos ?>);
+var cod_activos_<? echo $nombrelista ?>=new Array();
+var txt_activos_<? echo $nombrelista ?>=new Array();
+
+var selec_cod_<? echo $nombrelista ?> = new Array();
+var selec_txt_<? echo $nombrelista ?> = new Array();
+
+</script>
+
+		</td>
+		<td width="50%" valign="bottom">
+			<b><? echo htmlspecialchars($textoder,ENT_QUOTES) ?>:</b>
+		</td>
+	</tr>
+	<tr>
+		<td width="50%" valign="top">
+			<i>click para agregar:</i>
+			<div id="<? echo $nombrelista ?>" style="height:<? echo $altura1 ?>px;border:1px solid #c0c0c0;padding:5px;overflow:auto;<? echo $style ?>"></div>
+		</td>
+		<td width="50%" valign="top">
+			<i>click para eliminar:</i>
+			<div id="<? echo $nombrelista ?>_selec" style="height:<? echo $altura2 ?>px;border:1px solid #c0c0c0;padding:5px;overflow:auto;<? echo $style ?>"></div>
+			<p>		
+			<input type="hidden" name="<? echo $nombrelista ?>_cod_selec" id="<? echo $nombrelista ?>_cod_selec"> 
+			</p>
+		</td>
+	</tr>
+</table>
+<?	
+	}
+*/
+//----------------------------------------------------------------------------------------- 
+// Arma los 2 listbox para pasar de uno al otro (de izquierda a derecha)
+
+// Parametros:
+// 		->sp_nombre y sp_param es el SP con el que se genera la lista de la izquierda
+// 		->clavecombo y desccombo son campos del array con los que arma el combo
+// 		->nomformulario es el nombre del formulario sobre el que está el combo
+//		->nombrelista es el nombre que van a recibir las listas, botones, etc
+//		->textoizq y textoder es el texto que aparecerá arriba de cada lista
+//		->style es el estilo que se aplicará a las listas
+//		->filas es la cantidad de filas en la lista
+//		->subebaja si se quiere que en la lista de la derecha aparezcan los botones para subir y bajar elementos
+
+
+	static function ArmarListas($conexion,$sp_nombre,$sp_param,$clavecombo,$desccombo,$nomformulario,$nombrelista,$textoizq,$textoder,$style,$filas,$subebaja,$disabled=false)
+	{
+?>
+
+<table width="100%" class="textoTablaDato">
+	<tr align="center">
+		<td><strong><?php echo htmlspecialchars($textoizq,ENT_QUOTES) ?></strong></td>
+		<td>&nbsp;</td>
+		<td><strong><?php echo htmlspecialchars($textoder,ENT_QUOTES) ?></strong></td>
+	</tr>
+	<tr>
+		<td>
+<?php 
+		$texto="PasarItemListaMultiple(document.".$nomformulario."[\"".$nombrelista."izq[]\"],document.".$nomformulario."[\"".$nombrelista."der[]\"],true)";
+		FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$sp_nombre,$sp_param,$nomformulario,$nombrelista."izq[]",$clavecombo,$desccombo,"","",$regnousar,$validonousar,$filas,"",$style,true,true,$texto,$disabled)
+?>		
+		</td>
+		<td>
+			<a href="JavaScript:PasarItemListaMultiple(<?php echo "document.".$nomformulario."['".$nombrelista."izq" ?>[]'],<?php echo "document.".$nomformulario."['".$nombrelista."der" ?>[]'],true)"><img src="images/ver.jpg" border="0" alt="der" ></a>
+			<br>
+			<a href="JavaScript:PasarItemListaMultiple(<?php echo "document.".$nomformulario."['".$nombrelista."der" ?>[]'],<?php echo "document.".$nomformulario."['".$nombrelista."izq" ?>[]'],true)" ><img src="images/izq.jpg" border="0" alt="izq" ></a>
+		</td>
+		<td align="center">
+<?php 
+		$texto="PasarItemListaMultiple(document.".$nomformulario."[\"".$nombrelista."der[]\"],document.".$nomformulario."[\"".$nombrelista."izq[]\"],true)";
+?>
+			<select name="<?php echo $nombrelista.'der' ?>[]" size="<?php echo $filas ?>" style="<?php echo $style ?>" ondblclick='<?php echo $texto?>' multiple <?php if ($disabled) echo "disabled"?>></select>
+<?php
+		if($subebaja)
+		{
+?>			
+			<input type="button" name="<?php echo $nombrelista."botonsubir" ?>" value="Subir" class="botones" onClick="MoverItemLista(formulario['<?php echo $nombrelista."der[]" ?>'],'subir')" >&nbsp;&nbsp;
+			<input type="button" name="<?php echo $nombrelista."botonbajar" ?>" value="Bajar" class="botones" onClick="MoverItemLista(formulario['<?php echo $nombrelista."der[]" ?>'],'bajar')">
+<?php
+		}
+?>			
+
+		</td>
+	</tr>
+</table>
+
+<?php
+		return true;
+	}
+
+
+
+//----------------------------------------------------------------------------------------- 
+// Arma los 2 listbox para pasar de uno al otro (de arriba a abajo )
+
+// Parametros:
+// 		->sp_nombre y sp_param es el SP con el que se genera la lista de la izquierda
+// 		->clavecombo y desccombo son campos del array con los que arma el combo
+// 		->nomformulario es el nombre del formulario sobre el que está el combo
+//		->nombrelista es el nombre que van a recibir las listas, botones, etc
+//		->textoarriba y textoabajo es el texto que aparecerá arriba de cada lista
+//		->style es el estilo que se aplicará a las listas
+//		->filas es la cantidad de filas en la lista
+//		->subebaja si se quiere que en la lista de la derecha aparezcan los botones para subir y bajar elementos
+	
+	static function ArmarListasAB($conexion,$sp_nombre,$sp_param,$clavecombo,$desccombo,$nomformulario,$nombrelista,$textoarriba,$textoabajo,$style,$filas,$subebaja)
+	{
+?>
+
+<table width="100%" class="textoTablaDato">
+	<tr align="center">
+		<td><strong><?php echo htmlspecialchars($textoarriba,ENT_QUOTES) ?></strong></td>
+	</tr>
+	<tr>
+		<td>&nbsp;</td>
+	</tr>
+	<tr>
+		<td align="center">
+<?php 
+		FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$sp_nombre,$sp_param,$nomformulario,$nombrelista."arriba",$clavecombo,$desccombo,"","",$regnousar,$validonousar,$filas,"",$style)
+?>		
+		</td>
+	</tr>
+	<tr>
+		<td align="center">
+			<a href="JavaScript:PasarItemLista(<?php echo "document.".$nomformulario.".".$nombrelista."arriba" ?>,<?php echo "document.".$nomformulario."['".$nombrelista."abajo" ?>[]'],true)"><img src="images/bajar.jpg" border="0" alt="bajar"></a>
+			<a href="JavaScript:PasarItemLista(<?php echo "document.".$nomformulario."['".$nombrelista."abajo" ?>[]'],<?php echo "document.".$nomformulario.".".$nombrelista."arriba" ?>,true)"><img src="images/subir.jpg" border="0" alt="subir"></a>
+		</td>
+	
+	</tr>
+	<tr align="center">
+		<td><strong><?php echo htmlspecialchars($textoabajo,ENT_QUOTES) ?></strong></td>
+	</tr>
+	<tr>
+		<td align="center">
+			<select name="<?php echo $nombrelista.'abajo' ?>[]" size="<?php echo $filas ?>" style="<?php echo $style ?>" multiple></select>
+<?php
+		if($subebaja)
+		{
+?>			
+			<input type="button" name="<?php echo $nombrelista."botonsubir" ?>" value="Subir" onClick="MoverItemLista(formulario['<?php echo $nombrelista."abajo[]" ?>'],'subir')">&nbsp;&nbsp;
+			<input type="button" name="<?php echo $nombrelista."botonbajar" ?>" value="Bajar" onClick="MoverItemLista(formulario['<?php echo $nombrelista."abajo[]" ?>'],'bajar')">
+<?php
+		}
+?>			
+
+		</td>
+	</tr>
+</table>
+
+<?php
+		return true;
+	}
+
+
+
+
+//----------------------------------------------------------------------------------------- 
+// cambia algunos caracteres para que no de error el JS
+
+	static function ReemplazarComillas($texto)
+	{
+		if($texto!="")
+			return str_replace(array("'","\r","\n","</"),array("\'","\\r","\\n","<\/"),$texto);
+		else
+			return $texto;
+	}
+//----------------------------------------------------------------------------------------- 	
+// Convierte la fecha de un formato a otro
+
+	static function ConvertirFecha($fecha,$formatoinput,$formatooutput) {
+			
+		if($fecha=='') return "";
+
+		if($formatoinput=='dd/mm/aaaa' && $formatooutput=='aaaa/mm/dd')
+			return substr($fecha,6,4)."/".substr($fecha,3,2)."/".substr($fecha,0,2);
+		elseif($formatoinput=='aaaa-mm-dd' && $formatooutput=='dd/mm/aaaa')
+			return substr($fecha,8,2)."/".substr($fecha,5,2)."/".substr($fecha,0,4);
+		elseif($formatoinput=='timestamp' && $formatooutput=='dd/mm/aaaa')
+			return substr($fecha,6,2)."/".substr($fecha,4,2)."/".substr($fecha,0,4);
+		elseif($formatoinput=='dd/mm/aaaa' && $formatooutput=='aaaa-mm-dd') // nuevo
+			return substr($fecha,6,4)."-".substr($fecha,3,2)."-".substr($fecha,0,2);
+	}
+
+/*
+//----------------------------------------------------------------------------------------- 
+// Genera una tabla, cuya celda inferior se puede cerrar y abrir
+
+	static function GenerarTablaDesplegable($nombrecelda,$textotitulo,$textoinferior)
+	{
+?>
+	<table border="0" cellpadding="0" cellspacing="0" width="100%" style="border:1px solid #A0C6E5" class="textoTablaDato">
+		<tr onclick="EC('<? echo $nombrecelda ?>');" style="cursor:pointer" class='colorFondoSeleccion'> 
+			<td style="padding-left:10px"><? echo $textotitulo ?></td>
+			<td align="right" style="padding-right:7px"><img id="<? echo $nombrecelda ?>img" src="images/i.p.arr.down.jpg" border=0 align="middle" hspace="1" alt="flecha"></td>
+		</tr>
+		<tr> 
+			<td colspan="2" style="padding:0 0 0 0">
+				<div id="<? echo $nombrecelda ?>" style="display:block; visibility:hidden; position:absolute"><? echo $textoinferior ?></div>
+			</td>
+		</tr>
+	</table>
+<?	
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Arma el link para enlances abajo de los combos
+
+// Parametros:
+// 		->archivonom es a donde va a apuntar el link
+//		->querystring es el texto despues del archivonom
+//		->nomnivelactualiz y codnivelactualiz es el nuevo codigo que se agrega al get
+//		->separador es el texto antes del link
+//		->texto que va en el link
+
+	static function ArmarLinkEstrucVertical($conexion,$archivonom,$querystring,$nomnivelactualiz,$codnivelactualiz,$separador,$texto)
+	{
+		echo "<span class='textoAclaraciones'>".htmlspecialchars($separador,ENT_QUOTES);
+		if($nomnivelactualiz!="")
+			$querystring.="&".$nomnivelactualiz."=".$codnivelactualiz;
+		if($querystring!="")
+			$querystring="?".$querystring;
+			
+		echo "<a href='".htmlspecialchars($archivonom,ENT_QUOTES).htmlspecialchars($querystring,ENT_QUOTES)."' class='linkFondoBlanco'>";
+		echo htmlspecialchars($texto,ENT_QUOTES);
+		echo "</a></span>";
+	} // fin ArmarLinkEstrucVertical
+
+//----------------------------------------------------------------------------------------- 
+// Retorna un nombre de archivo que no se repita con uno existente
+
+// Parametros:
+// 		->spnombre y spparam para la tabla donde estan los nombres de archivos existentes
+//		->nombrecampo es el campo donde buscar el nombre de archivo
+//		->archivo es el nombre original de archivo
+//		->nuevonombre es el nombre que no se repite
+
+	static function NombreArchivoValido($conexion,$spnombre,$spparam,$nombrecampo,$archivo,&$nuevonombre) 
+	{
+		$encontrado=false;
+		$nuevonombre=$archivo;
+		$n=1;
+		while(!$encontrado)
+		{
+			$arraybusq=array($nombrecampo=>$nuevonombre);
+			if(!$conexion->BuscarRegistroxClave($spnombre,$spparam,$arraybusq,$query,$filaret,$numfilasmatcheo,$errno))
+			{
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Se produjo un error al obtener la imagen. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+	
+			if($numfilasmatcheo==0)
+				$encontrado=true;
+			else
+			{
+				$nuevonombre=substr($nuevonombre,0,strrpos($nuevonombre,"."))."_".$n.".".substr(strrchr($nuevonombre,"."),1);
+				$n++;
+			}
+		}
+		
+		return true;
+	}
+*/
+//----------------------------------------------------------------------------------------- 
+// Genera una password aleatoria del largo ingresado
+
+	static function GenerarPassword($largo) {
+		$nuevapwd="";
+		
+		for($i=1;$i<=$largo;$i++)
+			$nuevapwd.=chr(rand(65,90));
+			
+		return $nuevapwd;
+		
+	}
+//----------------------------------------------------------------------------------------- 
+// Verifica que la Fecha Actual sea mayor a FechaInferior y menor/igual a FechaSuperior
+// Formatos Fecha: dd/mm/aaaa
+static function FechasOrdenadas($FechaInferior,$FechaActual,$FechaSuperior) {
+	
+	$FIDia=substr($FechaInferior,0,2);
+	$FIMes=substr($FechaInferior,3,2);
+	$FIAnio=substr($FechaInferior,6,4);
+
+	$FADia=substr($FechaActual,0,2);
+	$FAMes=substr($FechaActual,3,2);
+	$FAAnio=substr($FechaActual,6,4);
+
+	$FSDia=substr($FechaSuperior,0,2);
+	$FSMes=substr($FechaSuperior,3,2);
+	$FSAnio=substr($FechaSuperior,6,4);
+
+	if($FAAnio<$FIAnio)
+		return false;
+	else if($FAAnio==$FIAnio && $FAMes<$FIMes)
+		return false;
+	else if($FAAnio==$FIAnio && $FAMes==$FIMes && $FADia<$FIDia)
+		return false;
+	else if($FAAnio>$FSAnio)
+		return false;
+	else if($FAAnio==$FSAnio && $FAMes>$FSMes)
+		return false;
+	else if($FAAnio==$FSAnio && $FAMes==$FSMes && $FADia>$FSDia)
+		return false;
+	else
+		return true;
+}
+//----------------------------------------------------------------------------------------- 
+// Formatos Hora: HH:MM
+static function HorasOrdenadas($hora1,$hora2) {
+
+	$H1=substr($hora1,0,2);
+	$M1=substr($hora1,3,2);
+	$H2=substr($hora2,0,2);
+	$M2=substr($hora2,3,2);
+	
+	if($H2<$H1)
+		return false;
+	else if($H1==$H2 && $M2<$M1)
+		return false;
+	else
+		return true;
+}
+//----------------------------------------------------------------------------------------- 
+	static function ObtenerTituloModulo($conexion,$string,$separador)	{
+
+		if($string=="")
+			$string=$_SERVER['PHP_SELF'];
+			
+		// se busca el último separador en la cadena		
+		$posicion=strrpos($string,$separador);
+		
+		if($posicion === false)
+			return "";
+			
+		$archivonom=substr($string,$posicion+1);
+		
+		// se busca el codigo del archivo que se está ejecutando
+		// sólo si existe un único código
+		$spnombre="sel_archivos_xcampovariable";
+		$spparam=array("pnombrecampo"=>"archivonom");			
+		$spparam+=array("pvalorcampo"=>$archivonom);
+		if(!$conexion->ejecutarStoredProcedure($spnombre,$spparam,$queryarchivo,$numfilas,$errorcod))
+		{			
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error en selección archivos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return "";
+		}	
+			
+		if($numfilas!=1)
+			return "";
+		
+		$filaarchivo = mysqli_fetch_assoc($queryarchivo);
+		
+		// se busca la descripción del módulo que comienza
+		// ejecutando ese archivo, sólo si existe un único módulo
+		
+		$spnombre="sel_modulos_xcampovariable";
+		$spparam =array("pnombrecampo"=>"archivocod");			
+		$spparam+=array("pvalorcampo"=>$filaarchivo['archivocod']);
+		if(!$conexion->ejecutarStoredProcedure($spnombre,$spparam,$querymodulo,$numfilas,$errorcod))
+		{
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error en selección módulos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return "";
+		}	
+			
+		if($numfilas!=1)
+			return "";
+		
+		$filamodulo = mysqli_fetch_assoc($querymodulo);
+		
+		return $filamodulo['modulodesc'];
+			
+	}
+//------------------------------------------------------------------------------------------------
+// FUNCIONES PARA EL MANEJO DE GRUPOS
+//---------------------------------------------------------------------------
+ static function Incluir_grupos() { ?>
+	<script type="text/javascript" src="<?php echo DIR_JSComunes ?>grupos.js"></script>
+
+ <?php } 
+//---------------------------------------------------------------------------
+ static function Fila_inicial_grupo($idFila,$textoFila,$imagenFila,$abierto) { ?>
+	<!-- Fila que permite la ampliacion para ver el contenido -->
+	<?php	if ($abierto=="FIJO")  { // Es un grupo fijo 
+			$grupo_fijo=true;
+			$funcion="1==1";
+		} else {
+			 $grupo_fijo=false;
+			 $funcion='javascript:'."Grupo_InvertirEstado('".$idFila."','".$idFila."');";
+		}
+	?>
+	  <tr class="colorTitulosGrupo textoTituloGrupo" onclick="<?php echo $funcion ?>" style="cursor:pointer">
+		<td style="padding-left:10px">
+			<input type="hidden" name="hid_<?php echo $idFila ?>" value="<?php echo $abierto ?>" id="hid_<?php echo $idFila ?>"> 
+		<?php	if($imagenFila!="") { ?>
+			<img src="<?php echo $imagenFila ?>" border=0 style="width:15px" hspace="1" alt="">
+		<?php	} 
+		echo $textoFila 
+		?>
+		</td>
+	<?php	if ($grupo_fijo)  { // Es un grupo fijo ?>
+			<td align=right style="padding-right:7px"></td> 
+	<?php  } else { ?>
+			<td align=right style="padding-right:7px">
+			<?php	if ($abierto=="SI") { ;?>
+					<img id="img_<?php echo $idFila ?>_estado" name="img_<?php echo $idFila ?>_estado" src="images/boton_grupo_open.gif" style="width:15px" border=0 hspace="1" alt=""><br>
+			<?php	} else { ?>
+					<img id="img_<?php echo $idFila ?>_estado" name="img_<?php echo $idFila ?>_estado" src="images/boton_grupo_close.gif" style="width:15px" border=0 hspace="1" alt=""><br>
+			<?php } ?>				
+			</td> 
+	<?php }  // grupo fijo - no se abre y cierra ?>				
+	  </tr>
+<?php }  // Fila_inicial_grupo
+//------------------------------------------------------------------------------------------------
+static function Fila_inicial_subgrupo($idFila,$textoFila,$imagenFila,$subgrupos,$abierto) { ?>
+  <!-- Fila que permite la ampliacion para ver el contenido -->
+  <tr class="colorTitulosGrupo textoTituloGrupo" onclick="javascript:SubGrupo_InvertirEstado('<?php echo $idFila ?>','<?php echo $subgrupos ?>','<?php echo $idFila ?>');">
+    <td style="padding-left:10px">
+		<img src="<?php echo $imagenFila ?>" border=0 hspace="1" style="width:15px"><?php echo $textoFila ?>
+		<input type="hidden" name="hid_<?php echo $idFila ?>" value="<?php echo $abierto ?>" id="hid_<?php echo $idFila ?>"> 
+	</td>
+	<td align=right style="padding-right:7px">
+		<?php	if ($abierto=="SI") { ;?>
+				<img name="img_<?php echo $idFila?>_estado" src="images/boton_grupo_open.gif" border=0 hspace="1" style="width:15px" alt=""><br>
+		<?php	} else { ;?>
+				<img name="img_<?php echo $idFila?>_estado" src="images/boton_grupo_close.gif" border=0 hspace="1" style="width:15px" alt=""><br>
+		<?php } ?>				
+	</td> 
+ </tr>
+<?php } 
+//-----------------------------------------------------------------------------
+static function Fila_contenido_grupo_final_php() {
+
+	FuncionesPHPLocal::ObtenerBrowser($browser);
+	if ($browser['browser']=="MSIE") {
+	   echo "</td>";
+	   echo "</tr>";
+	} else {
+	   echo "</div>";
+	   echo "</td>";
+	   echo "</tr>";
+	}
+}
+//-----------------------------------------------------------------------------
+static function Fila_contenido_grupo_inicio_php($idFila,$visible) {
+
+	echo "<!-- Fila con datos contenido -->";
+	FuncionesPHPLocal::ObtenerBrowser($browser);
+	if ($browser['browser']=="MSIE") {
+		  if ($visible=="SI")
+			  echo "<tr id='".$idFila."' style='display:block';>";
+		  else	
+			  echo "<tr id='".$idFila."' style='display:none';>";	  
+	
+		  echo "<td colspan=2>";
+
+	} else {
+
+	    echo "<tr>";
+
+		if ($visible=="SI")
+		   echo "<td colspan=2><div id='".$idFila."' style=''>";
+		else   
+	       echo "<td colspan=2><div id='".$idFila."' style='visibility:hidden;position:absolute'>";
+	}	
+}	   
+//-----------------------------------------------------------------------------
+static function ObtenerBrowser(&$info) {
+
+	$browser = array (
+	   "MSIE",            // parent
+	   "OPERA",
+	   "MOZILLA",        // parent
+	   "NETSCAPE",
+	   "FIREFOX",
+	   "SAFARI"
+	);
+
+	$info['browser'] = "OTHER";
+	foreach ($browser as $parent) {
+	   $s = strpos(strtoupper($_SERVER['HTTP_USER_AGENT']), $parent);
+	   $f = $s + strlen($parent);
+	   $version = substr($_SERVER['HTTP_USER_AGENT'], $f, 5);
+	   $version = preg_replace('/[^0-9,.]/','',$version);
+	   
+	   if (strpos(strtoupper($_SERVER['HTTP_USER_AGENT']), $parent)) {
+		   $info['browser'] = $parent;
+		   $info['version'] = $version;
+	   }
+	}
+}
+//----------------------------------------------------------------------------------------- 
+static function ArrayToArray_Delimitado($ArrayValores,$TextoComienzo,$Separador,$TextoFinal){
+
+	$ArrayFinal=array();
+	$ArrayFinal[]=$TextoComienzo;
+	if (count($ArrayValores)>0) {
+		foreach($ArrayValores as $valor) {
+			$ArrayFinal[]=$valor;
+			$ArrayFinal[]=$Separador;
+		} // fin - foreach
+	} // fin - if	
+	$ArrayFinal[count($ArrayFinal)-1]=$TextoFinal;
+	return $ArrayFinal;
+}
+//----------------------------------------------------------------------------------------- 
+static function Array_column_sort()   {
+
+	$args = func_get_args();
+	$array = array_shift($args);
+	$sort_array=array();
+   
+	// make a temporary copy of array for which will fix the
+	// keys to be strings, so that array_multisort() doesn't
+	// destroy them
+	$array_mod = array();
+	foreach ($array as $key => $value)
+		$array_mod['_' . $key] = $value;
+   
+	$i = 0;
+	$multi_sort_line = "return array_multisort( ";
+	foreach ($args as $arg)
+	{
+		$i++;
+		if ( is_string($arg) )
+		{
+			foreach ($array_mod as $row_key => $row)
+			{
+				$sort_array[$i][$row_key] = $row[$arg];
+			}
+		}
+		else
+		{
+			$sort_array[$i] = $arg;
+		}
+		$multi_sort_line .= "\$sort_array[" . $i . "], ";
+	}
+	$multi_sort_line .= "SORT_ASC,\$array_mod );";
+
+	if (count($sort_array)==0) {
+		return array();
+	}
+
+	eval($multi_sort_line);
+
+	// now copy $array_mod back into $array, stripping off the "_"
+	// that we added earlier.
+	$array = array();
+	
+	foreach ($array_mod as $key => $value)
+		$array[ substr($key, 1) ] = $value;
+
+	return $array;
+}
+static function ConvertiraUtf8($arreglo)
+{
+      $arregloenviar=array();
+      foreach($arreglo as $clave=>$valor)
+            $arregloenviar[$clave]=utf8_decode($valor);
+
+      return $arregloenviar;
+}
+
+
+//----------------------------------------------------------------------------------------- 
+// Retorna el querystring y el md5 correspondiente
+/*
+	static function ArmarLinkMD5($pagina,$parametros,&$get,&$md5)
+	{
+		
+		$codigospagina["usuario_alta.dhtml"]="COD4098";
+		$codigospagina["usuario_alta_upd.dhtml"]="COD4558";
+		
+		$codigospagina["usuario_baja.dhtml"]="COD2569";
+		$codigospagina["usuario_baja_upd.dhtml"]="COD2692";
+
+		$codigospagina["usuario_modificar.dhtml"]="COD7521";
+		$codigospagina["usuario_modificar_upd.dhtml"]="COD96877";
+
+		$codigospagina["usuario_rehabilitar.dhtml"]="COD1974";
+		$codigospagina["usuario_rehabilitar_upd.dhtml"]="COD2020";
+
+		$codigospagina["usuario_actualizar_roles.dhtml"]="COD7125";
+		$codigospagina["usuario_actualizar_roles_upd.dhtml"]="COD8977";
+	
+		$get_array=array();
+		$get="";
+		$codigo="";
+		$md5="";
+		
+		if(!isset($codigospagina[$pagina]) || count($parametros)<1)
+			return false;
+		
+		foreach($parametros as $nombparam => $valparam)
+		{
+			$get_array[]=$nombparam."=".$valparam;
+			$codigo.=$valparam;
+		}
+		
+		$codigo.=$codigospagina[$pagina];
+		$codigo.=$_SESSION["usuariocod"];
+		
+		$md5=md5($codigo);
+	
+		$get=implode("&amp;",$get_array);
+		$get.="&amp;md5=".$md5;
+		
+		return true;
+	}	
+*/
+	
+/*	
+//----------------------------------------------------------------------------------------- 
+
+	static function EstilosTextAreaHTML($textarea)
+	{
+?>
+	<div style='font-size: 3px;'>&nbsp;</div>
+	<input type="button" name="URL" value="URL" class="botones" onClick="AgregarTagLink(<? echo $textarea ?>)">
+	<input type="button" name="Bold" value="B" class="botones" onClick="AgregarEstilo(<? echo $textarea ?>,'B',true)">
+	<input type="button" name="BoldFin" value="/B" class="botones" onClick="AgregarEstilo(<? echo $textarea ?>,'B',false)">
+	<input type="button" name="Italic" value="I" class="botones" onClick="AgregarEstilo(<? echo $textarea ?>,'I',true)">
+	<input type="button" name="ItalicFin" value="/I" class="botones" onClick="AgregarEstilo(<? echo $textarea ?>,'I',false)">
+	<input type="button" name="Underline" value="U" class="botones" onClick="AgregarEstilo(<? echo $textarea ?>,'U',true)">
+	<input type="button" name="UnderlineFin" value="/U" class="botones" onClick="AgregarEstilo(<? echo $textarea ?>,'U',false)">
+	<input type="button" name="Bullet" value="&#8226;" class="botones" onClick="AgregarEstilo(<? echo $textarea ?>,'V',true)">
+	<div style='font-size: 3px;'>&nbsp;</div>
+<?	
+	
+	}
+*/
+//----------------------------------------------------------------------------------------- 
+/**
+* array_column_sort 
+* 
+* function to sort an "arrow of rows" by its columns
+* exracts the columns to be sorted and then
+* uses eval to flexibly apply the standard
+* array_multisort function
+*
+* uses a temporary copy of the array whith "_" prefixed to  the keys
+* this makes sure that array_multisort is working with an associative
+* array with string type keys, which in turn ensures that the keys 
+* will be preserved.
+*
+* TODO: find a way of modifying the keys of $array directly, without using
+* a copy of the array. 
+* 
+* flexible syntax:
+* $new_array = array_column_sort($array [, 'col1' [, SORT_FLAG [, SORT_FLAG]]]...);
+* 
+* original code credited to Ichier (www.ichier.de) here:
+* http://uk.dhtml.net/manual/en/function.array-multisort.dhtml
+*
+* prefixing array indeces with "_" idea credit to steve at mg-rover dot org, also here:
+* http://uk.dhtml.net/manual/en/function.array-multisort.dhtml
+* 
+*/
+/*
+	static function array_column_sort() 
+	{ 
+		$args = func_get_args();
+		$array = array_shift($args);
+		$sort_array=array();
+		
+		if(count($array)==0)
+			return $array;
+		
+		// make a temporary copy of array for which will fix the 
+		// keys to be strings, so that array_multisort() doesn't
+		// destroy them
+		$array_mod = array();
+		foreach ($array as $key => $value)
+			$array_mod['_' . $key] = $value;
+		
+		$i = 0;
+		$multi_sort_line = "return array_multisort( ";
+		foreach ($args as $arg) 
+		{
+			$i++;
+			if ( is_string($arg) ) 
+			{
+				foreach ($array_mod as $row_key => $row) 
+				{
+					$sort_array[$i][$row_key] = $row[$arg];
+				}
+			} 
+			else 
+			{
+				$sort_array[$i] = $arg;
+			}
+			$multi_sort_line .= "\$sort_array[" . $i . "], ";
+		}
+		$multi_sort_line .= "SORT_ASC,\$array_mod );";
+	
+		eval($multi_sort_line);
+	
+		// now copy $array_mod back into $array, stripping off the "_"
+		// that we added earlier.
+		$array = array();
+		foreach ($array_mod as $key => $value)
+			$array[ substr($key, 1) ] = $value;
+	
+		return $array;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Separa el codigo post de una imagen para obtener el codigo
+	
+	static function DesglosarBt ($cadenapost,$cadenainicio,&$codigo)
+	{
+		$codigo=strstr ($cadenapost, $cadenainicio );  // string empezando por Borrar
+ 		$pos1=0;
+		$pos2=0;
+		$pos3=0;		
+		$pos1 = strpos($codigo, '_'); 
+		if (!$pos1===false)
+			$possig1 = strpos(substr($codigo,$pos1+1), '_');
+		if (!$possig1===false) 
+		{
+			$pos2= $pos1+$possig1+1;
+		}
+		
+		if ($pos1>0 && $pos2>0) 
+		{
+			$codigolength=$pos2-$pos1-1;
+			$codigo=substr($codigo,$pos1+1,$codigolength);
+		}
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Hace la inversa a htmlspecialchars
+
+	static function htmldecode($encoded) 
+	{
+		return strtr($encoded,array_flip(get_html_translation_table(HTML_ENTITIES)));
+	}
+*/
+
+} // Fin clase FuncionesPHPLocal
+?>

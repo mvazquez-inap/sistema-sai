@@ -1,0 +1,310 @@
+<?php
+//----------------------------------------------------------------------------------------- 
+class cConstantesGrales
+{
+	var $conexion;
+
+	public function __construct($conexion)
+	{
+		$this->conexion = &$conexion;
+	}
+//-----------------------------------------------------------------------------------------
+//							 PUBLICAS	
+//----------------------------------------------------------------------------------------- 
+// Tabla constantes_grales (sistemanom,constantetipo,constantecod, 
+//                          constantenom,constantedesc,ultmodusuario,ultmodfecha)
+//----------------------------------------------------------------------------------------- 
+// Retorna una consulta con todos los usuarios que cumplan con las condiciones
+
+// Parámetros de Entrada:
+//		ArregloDatos: array asociativo con los filtros. Claves: usuarionombre, usuarioapellido, usuariocuit, usuarioemail
+
+// Retorna:
+//		numfilas,resultado: cantidad de filas y query de resultado
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+
+
+
+	function BuscarDatos ($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)
+	{
+		
+		$spnombre="sel_constantes_grales";
+		$sparam=array(
+			'pestadocod'=> 0,
+			'pconstantecod'=> "",
+			'pestadotipo'=> 0,
+			'pconstantetipo'=> "",
+			'pestadonom'=> 0,
+			'pconstantenom'=> "",
+			'pestadosis'=> 0,
+			'psistemanom'=> "",
+			'pestadodesc'=> 0,
+			'pconstantedesc'=> "",
+			'porderby'=> "constantetipo"
+			);
+
+		if (isset ($ArregloDatos['constantecod']))
+		{
+			if ($ArregloDatos['constantecod']!="")
+			{	
+				$sparam['pconstantecod']= $ArregloDatos['constantecod'];
+				$sparam['pestadocod']= 1;
+			}
+		}
+		
+		if (isset ($ArregloDatos['constantetipo']))
+		{
+			if ($ArregloDatos['constantetipo']!="")
+			{	
+				$sparam['pconstantetipo']= $ArregloDatos['constantetipo'];
+				$sparam['pestadotipo']= 1;
+			}
+		}	
+		if (isset ($ArregloDatos['constantenom']))
+		{
+			if ($ArregloDatos['constantenom']!="")
+			{	
+				$sparam['pconstantenom']= $ArregloDatos['constantenom'];
+				$sparam['pestadonom']= 1;
+			}
+		}	
+		
+		if (isset ($ArregloDatos['sistemanom']))
+		{
+			if ($ArregloDatos['sistemanom']!="")
+			{	
+				$sparam['psistemanom']= $ArregloDatos['sistemanom'];
+				$sparam['pestadosis']= 1;
+			}
+		}	
+		
+		if (isset ($ArregloDatos['constantedesc']))
+		{
+			if ($ArregloDatos['constantedesc']!="")
+			{	
+				$sparam['pconstantedesc']= $ArregloDatos['constantedesc'];
+				$sparam['pestadodesc']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+				$sparam['porderby']= $ArregloDatos['orderby'];
+		}	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar Constante Generales.";
+			$errormail="Error al buscar Constante Generales ".$errno;
+			return false;
+		}
+
+		return true;
+	}
+
+
+
+	function Insertar ($ArregloDatos, &$error, &$errormail, &$codigoinsertado)
+	{
+		if (!$this->BuscarDatos ($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+			return false;
+		
+		if ($numfilas==1)
+		{
+			$error="Error, la Constante ya se encuentra en la tabla de Constantes Generales. ";
+			$errormail="Error, la Constante ya se encuentra en la tabla de Constantes Generales. ";
+			return false;
+		}
+		
+		$spnombre="ins_constantes_grales";
+		$sparam=array(
+			'psistemanom'=> $ArregloDatos['sistemanom'],
+			'pconstantetipo'=> $ArregloDatos['constantetipo'],
+			'pconstantecod'=> $ArregloDatos['constantecod'],
+			'pconstantenom'=> $ArregloDatos['constantenom'],
+			'pconstantedesc'=> $ArregloDatos['constantedesc'],
+			'pultmodusuario'=> $_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+			);
+	
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al insertar la Constante General.";
+			$errormail="Error al insertar la Constante General ".$errno;
+			return false;
+		}
+		$codigoinsertado=$this->conexion->UltimoCodigoInsertado();
+		return true;
+	}
+
+
+	function Modificar ($ArregloDatos, &$error, &$errormail)
+	{
+		$spnombre="upd_constantes_grales_xconstantetipo_constantecod";
+		$sparam=array(
+			'psistemanom'=> $ArregloDatos['sistemanom'],
+			'pconstantenom'=> $ArregloDatos['constantenom'],
+			'pconstantedesc'=> $ArregloDatos['constantedesc'],
+			'pultmodusuario'=> $_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s"),
+			'pconstantetipomod'=> $ArregloDatos['constantetipomod'],
+			'pconstantecodmod'=> $ArregloDatos['constantecodmod'],
+			'pconstantetipo'=> $ArregloDatos['constantetipo'],
+			'pconstantecod'=> $ArregloDatos['constantecod']
+			);	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al modificar la Constante General.";
+			$errormail="Error al modificar la Constante General ".$errno;
+			return false;
+		}
+		return true;
+	}
+
+	function Eliminar ($ArregloDatos, &$error, &$errormail)
+	{
+		if (!isset ($ArregloDatos['constantetipo']) || ($ArregloDatos['constantetipo']==""))
+		{
+			$error="Error Tipo de Constante Inexistente.";
+			$errormail="Error Tipo de Constante Inexistente.";
+			return false;
+		}
+		if (!isset ($ArregloDatos['constantecod']) || ($ArregloDatos['constantecod']==""))
+		{
+			$error="Error Código de Constante Inexistente.";
+			$errormail="Error Código de Constante Inexistente.";
+			return false;
+		}
+		if (!$this->BuscarDatos ($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+			return false;
+		
+		if ($numfilas!=1)
+		{
+			$error="Error Código de Constante General.";
+			$errormail="Error Código de Constante General. ";
+			return false;
+		}
+		$spnombre="del_constantes_grales_xconstantetipo_constantecod";
+		$sparam=array(
+			'pconstantetipo'=> $ArregloDatos['constantetipo'] ,
+			'pconstantecod'=> $ArregloDatos['constantecod'] 
+			);
+		
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al Eliminar la Constante General.";
+			$errormail="Error al Eliminar la Constante General".$errno;
+			return false;
+		}
+		return true;
+	}
+
+
+
+
+	function VerificarExistencia ($palabrabuscar,$textoprincipal,$carpetas,&$error,&$errormail,&$encontrado,&$texto)
+		{			
+			$encontrado=false;
+			$texto="";
+			if ($textoprincipal!="")
+				$texto.="<span class='textoTablaDato'>".$textoprincipal."</span><br>";
+			foreach ($carpetas as $datos)
+			{
+				if (is_dir($datos))
+				{
+					$primeroencontradocarpeta=0;
+					$archivosdir=array();
+					chdir ($datos);
+					
+					if ($dh = opendir($datos)) 
+					{
+						while (($file = readdir($dh)) !== false) 
+						{
+							if($file!='.' && $file!='..' && array_pop(explode('.', $file))=="dhtml")
+								$archivosdir[]=$file;
+						} // fin while
+						closedir($dh);
+					}
+					natcasesort($archivosdir);
+					foreach ($archivosdir as $file)
+					{
+						$Textoarchivofile=file_get_contents($file,0);
+						$poslines = strpos($Textoarchivofile,$palabrabuscar);
+						
+						if ($poslines!="")
+						{	
+							$lineacodigo=file($file);
+							for($i=1;$i<count($lineacodigo);$i++){
+								
+								if (strpos($lineacodigo[$i],$palabrabuscar))
+								{
+									$i++;
+									if(!$primeroencontradocarpeta)
+									{
+										$texto.="<br><span class='negrita'>".$datos."</span><br><br>";
+										$primeroencontradocarpeta=1;
+									}	
+									$texto.="<span class='textoEtiquetaClave'>'".$file."'</span> en la linea: <span class='textoEtiquetaClave'>".$i."</span>&nbsp;&nbsp;";
+									$encontrado=true;
+										$cantidadletrasantpos=4;
+										$comillasanteriores=$poslines-$cantidadletrasantpos;
+										while ($comillasanteriores<$poslines)
+										{
+											$texto.=$Textoarchivofile[$comillasanteriores];
+											$comillasanteriores++;
+										}
+										$texto.="<span class='textoEtiquetaClave'>".$palabrabuscar."</span>";
+										$cantidadletras=strlen($palabrabuscar);
+										$comillasposteriores=$poslines + $cantidadletras + $cantidadletrasantpos;
+										$lineas=$poslines + $cantidadletras;
+										while ($lineas<$comillasposteriores)
+										{
+											$texto.=$Textoarchivofile[$lineas];
+											$lineas++;
+										}
+										$texto.="<br>";
+								}
+														
+							}
+						}
+					}
+					$texto.="<br>";	
+				}	
+			}	
+			return true;
+
+		}
+		
+		
+	function TraerTablas($bd,&$error,&$resultado) 
+	{
+		$sparam =array("pbd"=>$bd);
+		$spnombre="show_tables";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al Buscar Todas las Tablas.";
+			$errormail="Error al Buscar Todas las Tablas ".$errno;
+			return false;
+		}
+		return true;
+	}	
+	
+	
+	function TraerCampos($tabla,&$error,&$resultado) 
+	{
+		$sparam =array("tabla"=>$tabla);
+		$spnombre="buscar_campos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al Buscar Todos los campos de la Tabla '".$tabla."'";
+			return false;
+		}
+		return true;
+	}	
+		
+		
+}//FIN CLASE
+
+?>

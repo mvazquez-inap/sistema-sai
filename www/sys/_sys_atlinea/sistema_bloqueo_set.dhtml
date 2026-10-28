@@ -1,0 +1,147 @@
+<?php
+//--------------------------------------------------------------------------
+// Para el manejo del BLOQUEO DEL SISTEMA.
+//--------------------------------------------------------------------------
+class SistemaBloqueo
+{
+	var $MostrarMSGBloqueo;
+	var $MostrarAvisoBloqueo;
+
+//----------------------------------------------------------------------------------------- 
+// Inicializa el objeto. Si no existe la variable de sesion, inicializa en SI
+
+	function SistemaBloqueo()
+	{ 
+		if(isset($_SESSION['mostrarmsgbloqueo']))
+			$this->MostrarMSGBloqueo=$_SESSION['mostrarmsgbloqueo'];
+		else
+			$this->MostrarMSGBloqueo="SI";
+	
+		if(isset($_SESSION['mostraravisobloqueo']))
+			$this->MostrarAvisoBloqueo=$_SESSION['mostraravisobloqueo'];
+		else
+			$this->MostrarAvisoBloqueo=$this->MostrarMSGBloqueo;
+	}
+//----------------------------------------------------------------------------------------- 
+// Setea la variable de mostraravisobloqueo
+
+	function setMostrarAvisoBloqueo($texto)
+	{
+		$MostrarAvisoBloqueo=$texto;
+		$_SESSION['mostraravisobloqueo']=$texto;
+	}
+	
+//----------------------------------------------------------------------------------------- 
+// Setea la variable de mostrarmsgbloqueo
+
+	function setMostrarMSGBloqueo($texto)
+	{
+		$MostrarMSGBloqueo=$texto;
+		$_SESSION['mostrarmsgbloqueo']=$texto;
+	}
+	
+//----------------------------------------------------------------------------------------- 
+// Muestra el mensaje de Bloqueo
+
+	function MostrarAviso($avisobloqueo,$fecha)
+	{
+		?>
+		<!-- Para el mensaje de aviso que el sistema se bloqueará -->
+		<style type="text/css">
+		.avisobloqueo {
+			font-family: Arial, Helvetica, sans-serif;
+			font-size: 18px;
+			font-weight: bold;
+			color: #FFFFFF;
+			background-color: #FF0000;
+			background-position: center;
+		}
+		</style>
+		<?php
+		echo "<table width='750' border='0' cellspacing='0' cellpadding='0' >
+			 <tr> <td class='avisobloqueo'>";
+			  echo 'El sistema se bloqueará el '  .substr($fecha,8,2)."/".substr($fecha,5,2)."/".substr($fecha,0,4).' a las '.substr($fecha,10,6).' hs. <BR>';				
+			  echo $avisobloqueo."<br>";  		  
+		echo "</td></tr></table>";
+	}
+
+//--------------------------------------------------------------------------
+//  Verifica si la base esta activa (tabla:sistema) 
+
+// 1) En caso de NO estar activa verifica si
+//    *) Si esta fuera de linea : Termina con la session y muestra mensaje
+//    *) Si todavia en linea: Muestra aviso de próximamente será sacado de linea.
+
+	function VerificarActivo($conexion,&$sistemaactivo,&$mensajebloqueo,$muestroavisobloqueo) 
+	{
+		$spnombresist="sel_sistema_xsistemanom";
+		$spparamsist =array("psistemanom"=>SISTEMA);
+		if(!$conexion->ejecutarStoredProcedure($spnombresist,$spparamsist,$querysist,$numfilas,$errno))
+		{
+			$arraymensajepantalla =array("formato" => GENERAL_FMT_TEXTO);	
+			$arraymensajepantalla+=array("texto" => "Se produjo un error al acceder al sistema. ");
+			$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$arraymensajemail+=array("texto" => $arraymensajepantalla["texto"]." - numfilas='".$numfilas."' - errno='".$errno."' ");
+			FuncionesPHPAtlinea::MostrarMensaje($conexion,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+			die();
+		}	
+			
+		if($numfilas!=1) 
+		{
+			$arraymensajepantalla =array("formato" => GENERAL_FMT_TEXTO);	
+			$arraymensajepantalla+=array("texto" => "Error en la tabla sistema. ");
+			$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$arraymensajemail+=array("texto" => $arraymensajepantalla["texto"]." - numfilas='".$numfilas."' ");
+			FuncionesPHPAtlinea::MostrarMensaje($conexion,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+			$sistemaactivo = "SI";
+		}	
+		else 
+		{
+			$filasist = mysqli_fetch_assoc($querysist);
+			if ($filasist['sis_activo'] == "SI") 
+				$sistemaactivo = "SI";
+			else 
+			{		
+				$ahora = strtotime(date("Y-m-d H:i:s"));
+				$inicio = strtotime($filasist['sis_fechainicio']);
+				
+				if ($ahora >= $inicio) 
+				{
+					$sistemaactivo  = "NO";
+					$mensajebloqueo = $filasist['sis_mensaje'];
+// OJO - ver si es necesario inicializar el objeto de sesion					
+					$_SESSION=array();
+					session_destroy();
+				}
+				else 
+				{
+					$sistemaactivo = "SI";
+					if ($muestroavisobloqueo)
+						$this->MostrarAviso($filasist['sis_aviso'],$filasist['sis_fechainicio']);
+				}				
+			} // if activo		
+		} // if cant de filas de sistema
+	} // fin funcion
+	
+//--------------------------------------------------------------------------
+// Verifico si esta bloqueado. Si es asi, finaliza el script.
+
+	function VerificarBloqueo($conexion)
+	{
+		if($this->MostrarMSGBloqueo == "SI")
+		{
+			if($this->MostrarAvisoBloqueo == "SI")
+				$this->VerificarActivo ($conexion,$sistemaactivo,$mensajebloqueo,true);
+			else
+				$this->VerificarActivo ($conexion,$sistemaactivo,$mensajebloqueo,false);
+
+			if ($sistemaactivo == "NO") 
+			{
+				echo $mensajebloqueo;
+				die;
+			}
+		}
+	}
+	
+} // fin clase
+?>

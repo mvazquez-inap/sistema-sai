@@ -1,0 +1,176 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Nombre de la ventana</title>
+<link rel="stylesheet" type="text/css" href="estilos.css" />
+</head>
+<body>
+<script language="javascript" src="funcionesjs.js" type="text/javascript"></script>
+<?php 
+	// tiene que estar rpt_botones.tpl.dhtml
+	// tiene que estar grilla.tpl.dhtml		- 	que usa rpt_botones
+
+	require('./include.dhtml'); // incluye SysONTIGrilla.dhtml
+							
+	$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+	$conexion->SeleccionBD(BASEDATOS);
+	
+	FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+	$conexion->SetearAdmiGeneral(ADMIONTI);
+	
+	// A fin de tener los resultados en un query  
+	$oArchivos=new cArchivosUpd($conexion);
+	$ArregloDatos=array();
+	if (!$oArchivos->BuscarArchivos ($ArregloDatos,$numfilas,$resultado,$error,$errormail))	{	
+		FuncionesPHPLocal::MostrarMensaje($conexion,GENERAL_MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>GENERAL_FMT_TEXTO));
+		$result=false;
+	}
+
+	// A fin de tener los resultados en un array
+	$mi_array_datos = 	array (
+			array('c1'=>'valor11','c2'=>'valor12','c3'=>'valor13'),
+			array('c1'=>'valor21','c2'=>'valor22','c3'=>'valor23')
+	);
+
+	$querystring=$_SERVER['QUERY_STRING'];
+	$opciones=array(
+		"numPagina"=>isset($_GET['paginaG2'])?$_GET['paginaG2']:1,
+		"FilasPagina"=>5,
+		"NombrePaginaQuery"=>"paginaG2"
+		//,	"TituloListado"=>"Grilla 2"
+	);
+	
+	if (isset($_GET['paginaG2']))	{
+		$querystring=FuncionesPHPLocal::ArmarQueryString("paginaG2","",false);
+		$opciones['QueryString']=$querystring;
+	}
+	
+	$oGrilla2 = new cGrilla($opciones);
+	$oGrilla2->SetearTituloGrilla('Este es el título de mi grilla 2');
+	
+	$miColumna1 = $oGrilla2->AddColumna('txt');
+	$oGrilla2->Setear('titulo_columna',$miColumna1,'Código');
+	$oGrilla2->Setear('campo_grilla',$miColumna1,'archivocod');
+	
+	$miColumna2 = $oGrilla2->AddColumna('txt');
+	$oGrilla2->Setear('titulo_columna',$miColumna2,'Nombre');
+	$oGrilla2->Setear('campo_grilla',$miColumna2,'archivonom');
+
+
+	$opciones=array(
+		"numPagina"=>isset($_GET['paginaG1'])?$_GET['paginaG1']:1,
+		"FilasPagina"=>1,
+		"NombrePaginaQuery"=>"paginaG1",
+		"FormularioBotonera"=>"formulario_boton"		
+	);
+
+	if (isset($_GET['paginaG1']))	{
+		$querystring=FuncionesPHPLocal::ArmarQueryString("paginaG1","",false);
+		$opciones['QueryString']=$querystring;
+	}
+
+	$oGrilla = new cGrilla($opciones);
+	$oGrilla->SetearTituloGrilla('Este es el título de mi grilla 1');
+
+	$miColumna1 = $oGrilla->AddColumna('txt');
+	$oGrilla->Setear('titulo_columna',$miColumna1,'Leyenda 1');
+	$oGrilla->Setear('campo_grilla',$miColumna1,'c1');
+
+	$miColumna2 = $oGrilla->AddColumna('txt');
+	$oGrilla->Setear('titulo_columna',$miColumna2,'Leyenda 2');
+	$oGrilla->Setear('campo_grilla',$miColumna2,'c2');
+	
+	$miColumna3 = $oGrilla->AddColumna('link');
+	$oGrilla->Setear('titulo_columna',$miColumna3,'Enlace 2');
+	$oGrilla->Setear('url',$miColumna3,'enlace.dhtml');
+	$oGrilla->AddParametrosURL($miColumna3,"id","c3");
+	$oGrilla->AddParametrosURL($miColumna3,"cod2","c2");
+	$oGrilla->SetearLeyendaLink($miColumna3,"cte","ir a....");
+
+	$miColumna4 = $oGrilla->AddColumna('linkimg');
+	$oGrilla->Setear('titulo_columna',$miColumna4,'Imagen ');
+	$oGrilla->Setear('url',$miColumna4,'enlace.dhtml');
+	$oGrilla->Setear('imagen',$miColumna4,'images/insertar.jpg');
+	$oGrilla->AddParametrosURL($miColumna4,"id2","c3");
+	$oGrilla->AddParametrosURL($miColumna4,"id","c2");
+
+	$miColumna5 = $oGrilla->AddColumna('popup');
+	$oGrilla->Setear('titulo_columna',$miColumna5,'PopUp');
+	$oGrilla->Setear('url',$miColumna5,'ventanatexto.dhtml');
+	$oGrilla->AddParametrosURL($miColumna5,"textopopup","c1");
+	$oGrilla->SetearLeyendaLink($miColumna5,"cte","popup cte.");
+
+// Nueva funcionalidad 
+
+/*  Ej_1
+	$miColumna3 = $oGrilla->AddColumna('linkimg');
+	$oGrilla->Setear('titulo_columna',$miColumna3,'Editar');
+
+// 	Muestro el link en la columna si hay datos a editar.
+//	Nota: si la funcion esta en una clase se nombre de la funcion debe ser array('nombre de la clase','nombre de la funcion')	
+//	$oGrilla->Setear('condicion_visualizar_columna',$miColumna3,array('cTablaSysDesc','hayDatosEditar'));
+
+	$oGrilla->Setear('condicion_visualizar_columna',$miColumna3,'hayDatosEditar');
+
+	$oGrilla->Setear('url',$miColumna3,'usuario_actualizar_roles.dhtml');
+	$oGrilla->Setear('imagen',$miColumna3,'images/editar.jpg');
+	$oGrilla->Setear('altImagen',$miColumna3,'Editar');						
+	$oGrilla->AddParametrosURL($miColumna3,"usuariocod","usuariocod");
+	$oGrilla->AddParametrosURL($miColumna3,"rolcod","rolcod");
+	$oGrilla->AddParametrosURL($miColumna3,"jurisdid_inap","jurisdid_inap");
+	$oGrilla->AddParametrosURL($miColumna3,"operacion","M","cte");
+
+	Ej_2
+	$miColumna4 = $oGrilla->AddColumna('addValor');
+	$oGrilla->Setear('titulo_columna',$miColumna4,'Seleccionar');
+	$oGrilla->Setear('imagen',$miColumna4,'images/editar.jpg');
+	$oGrilla->Setear('altImagen',$miColumna4,'Seleccionar');
+	$oGrilla->Setear('idtextboxAddValor',$miColumna4,'usuarioCUIT');
+	$oGrilla->Setear('submitAddValor',$miColumna4,'si');
+	$oGrilla->Setear('nombreFormularioSubmitAddValor',$miColumna4,'formulario_cuit');
+	$oGrilla->AddParametrosAddValor($miColumna4,'usuarioCUIT');
+	
+	// Optativos valores por defecto
+	//$oGrilla->Setear('documentAddValor',$miColumna4,'window.opener.document');
+	//$oGrilla->Setear('nombreContenidoAddValor',$miColumna4,'');
+	//$oGrilla->Setear('idtextoContenidoAddValor',$miColumna4,'');
+	//$oGrilla->Setear('submitAddValor',$miColumna4,'no');
+	// Si es SUBMIT $oGrilla->Setear('nombreFormularioSubmitAddValor',$miColumna4,'formulario_cuit');
+
+*/
+
+
+
+
+?>
+<table width="100%">
+	<tr>
+		<td> Este es todo el html </td>
+	</tr>	
+	<tr> 
+		<td> <?php
+			$oGrilla->CargarGrilla($mi_array_datos,"templates\grilla.dhtml");
+			$oGrilla->MostrarGrilla();
+			?>		
+		</td>
+	</tr>	
+	<tr> 
+		<td> <?php
+			$oGrilla2->CargarGrilla($resultado);
+			$oGrilla2->MostrarGrilla();
+			?>		
+		</td>
+	</tr>	
+
+	
+	<tr>
+		<td>&nbsp; 	</td>
+	</tr>	
+	
+	<tr>
+		<td> fin de mi html </td>
+	</tr>	
+</table>
+</body>
+</html>

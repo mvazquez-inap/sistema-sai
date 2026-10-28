@@ -1,0 +1,237 @@
+<?php
+//----------------------------------------------------------------------------------------- 
+class cActividadCursoPrestadorDocente
+{
+	var $conexion;
+
+	public function __construct($conexion) {
+		$this->conexion = &$conexion;
+	}
+//-----------------------------------------------------------------------------------------
+	function TraerDatosActividadCursoPrestadorDocente($act_codigo,$presdoc_codigo,&$datosresult,&$es_modif){
+	
+		$datosresult=array();
+		$es_modif = false;		
+		$sparam=array( 'pact_codigo'=>$act_codigo,
+					   'ppresdoc_codigo'=>$presdoc_codigo);
+					   
+		$spnombre="sel_actividad_curso_prestador_docente_xact_codigo_presdoc_codigo";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar el prestadores docentes de la actividad.";
+			$errormail="\nact_codigo=".$act_codigo."\npresdoc_codigo=".$presdoc_codigo."Error. ".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		if ($numfilas == 1)	{
+			$datosresult = mysqli_fetch_assoc($resultado);
+			$es_modif = true;
+		}
+		return true;
+	}
+	
+//-----------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------
+	function TraerDatosActividadCursoPrestadorDocentexpresdoc_codigo($presdoc_codigo,&$datosresult,&$es_modif){
+	
+		$datosresult=array();
+		$es_modif = false;		
+		$sparam=array( 'ppresdoc_codigo'=>$presdoc_codigo);
+					   
+		$spnombre="sel_actividad_curso_prestador_docente_xpresdoc_codigo";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar el prestadores docentes de la actividad.";
+			$errormail="\nact_codigo=".$act_codigo."\npresdoc_codigo=".$presdoc_codigo."Error. ".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		if ($numfilas == 1)	{
+			$datosresult = mysqli_fetch_assoc($resultado);
+			$es_modif = true;
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------
+
+
+	function EliminarDatosActividadCursoPrestadorDocenteTodos($act_codigo) {
+		
+		// Se deben eliminar los docentes asignados como posibles para la actividad			
+		$spnombre="del_actividad_curso_prestador_docente_xact_codigo";
+		$spparam=array(
+			'pact_codigo'=> $act_codigo
+		);
+			
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod)) 
+			return false;					  	 	
+	
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function EliminarDatosActividadesCursoPrestadorDocenteTodas($presdoc_codigo)	{
+ 
+		 // Selecciono todas las actividades, en las cuales el presador es parte del equipo.
+		$spnombre="sel_actividad_curso_prestador_docente_xpresdoc_codigo_actpres_estado";
+		$spparam=array('ppresdoc_codigo'=> $presdoc_codigo, 'pactpres_estado'=>ACTPRESDOCACTIVO);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod)) 
+			return false;					  	 	
+		
+		// Elimino el docente de la actividad
+		while ($fila_actividad_prestador=mysqli_fetch_assoc($query)) {
+			if( !$this->EliminarDatosActividadCursoPrestadorDocente($fila_actividad_prestador['act_codigo'],$presdoc_codigo) ) {
+				$txt_sys_mail="\nact_codigo=".$fila_actividad['act_codigo'].'\npresdoc_codigo='.$presdoc_codigo;
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error desasignando el Prestador Docente de la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			}
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ValidarFormAltaActividadPrestadorDocenteCurso() {	
+?>		
+	function ValidarFormAltaActividadPrestadorDocenteCurso(formulario,operacion) {
+		if ((trim(formulario.presdoc_codigo.value)=="")) {
+			alert("Debe ingresar el prestador docente");
+			formulario.presdoc_codigo.focus();
+			return false;
+		}	
+		return true;
+	}
+<?php } 
+//-----------------------------------------------------------------------------------------------------	
+	function AltaDatosActividadCursoPrestadorDocente($datos) {
+
+		if(!$this->_DatosValidoAltaDatosActividadCursoPrestadorDocente($datos,$datosvalidados))
+			return false;
+
+		if ($datosvalidados['es_modif']) { // estaba asigando pero estaba dado de baja
+			$spnombre="upd_actividad_curso_prestador_docente_cambio_estado_xact_codigo_presdoc_codigo";
+			$spparam=array(
+				'pact_codigo'=>$datosvalidados['act_codigo'],
+				'ppresdoc_codigo'=>$datosvalidados['presdoc_codigo'],
+				'pactpres_estado'=>ACTPRESDOCACTIVO,
+				'pultmodusuario'=>$_SESSION['usuariocod'],
+				'pultmodfecha'=> date("Y/m/d H:i:s")
+			);
+		} else {						 // no estaba el prestador asignado a la actividad
+			$spnombre="ins_actividad_curso_prestador_docente";
+			$spparam=array(
+				'pact_codigo'=>$datosvalidados['act_codigo'],
+				'ppresdoc_codigo'=>$datosvalidados['presdoc_codigo'],
+				'pactpres_estado'=>ACTPRESDOCACTIVO,
+				'pultmodusuario'=>$_SESSION['usuariocod'],
+				'pultmodfecha'=> date("Y/m/d H:i:s")
+			);
+		}
+			
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se pudo asignar el Prestador Docente a la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}		
+		
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function EliminarDatosActividadCursoPrestadorDocente($act_codigo,$presdoc_codigo) {
+
+		if(!$this->_DatosValidosEliminarActividadCursoPrestadorDocente($act_codigo,$presdoc_codigo,$datosvalidados))
+			return false;
+
+		// Si el docente esta asignado a alguna comisión de la actividad, la baja será lógica. 
+		$oComisionPrestadorDocente=new cComisionPrestadorDocente($this->conexion);
+		$ArregloDatos=array();
+		$ArregloDatos['act_codigo']=$act_codigo;
+		$ArregloDatos['presdoc_codigo']=$presdoc_codigo;
+
+		if (!$oComisionPrestadorDocente->BuscarComisionPrestadorDocente($ArregloDatos,$numfilas,$resultado,$error,$errormail)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+
+		// Determinar si es baja física o logica
+		if ($numfilas>=1) {
+			$spnombre="upd_actividad_curso_prestador_docente_cambio_estado_xact_codigo_presdoc_codigo";
+			$spparam=array(
+				'pact_codigo'=>$datosvalidados['act_codigo'],
+				'ppresdoc_codigo'=>$datosvalidados['presdoc_codigo'],
+				'pactpres_estado'=>ACTPRESDOCBAJA,
+				'pultmodusuario'=>$_SESSION['usuariocod'],
+				'pultmodfecha'=> date("Y/m/d H:i:s")
+			);
+		} else {
+			$spnombre="del_actividad_curso_prestador_docente";
+			$spparam=array('pact_codigo'=>$datosvalidados['act_codigo'],
+						   'ppresdoc_codigo'=>$datosvalidados['presdoc_codigo']);
+		}
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1 )	{
+			$txt_sys_mail="\nact_codigo=".$datosvalidados['act_codigo']."\npresdoc_codigo=".$datosvalidados['presdoc_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al desasignar el Prestador Docente de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+			return false;
+		}
+		
+		return true;
+	}
+	//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidoAltaDatosActividadCursoPrestadorDocente($datos,&$datosvalidados)	{
+
+		$datosvalidados=array();
+
+		// El prestador docente tiene que estar activo
+		$oPrestadorDocente= new cPrestadorDocente($this->conexion);
+		if(!$oPrestadorDocente->TraerDatosPrestadorDocente($datos['presdoc_codigo'],$fila_prestador_docente,$es_modif))
+		   return false; 
+
+		if(!$es_modif) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El Prestador Docente no se encuentra.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		
+		if ($fila_prestador_docente['presdoc_estado']!=PRESDOCACTIVO) {
+			$txt_sys_mail="\nact_codigo=".$datos['act_codigo'].'\npresdoc_codigo='.$datos['presdoc_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El Prestador Docente no se encuentra activo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+		
+		if(!$this->TraerDatosActividadCursoPrestadorDocente($datos['act_codigo'],$datos['presdoc_codigo'],$fila_actividad_prestador,$es_modif))
+			return false;
+		
+		// El prestador docente no tiene que estar asignado a la actividad
+		if ($es_modif)	{	
+			if ($fila_actividad_prestador['actpres_estado']==ACTPRESDOCACTIVO) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"El Prestador Docente ya esta asignado a la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+		}
+											
+		$datosvalidados=$datos;
+		$datosvalidados['es_modif']=$es_modif;
+		
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosEliminarActividadCursoPrestadorDocente($act_codigo,$presdoc_codigo,&$datosvalidados)	{
+
+		$datosvalidados=array();		
+
+		// Verificar si esta asignado
+		if(!$this->TraerDatosActividadCursoPrestadorDocente($act_codigo,$presdoc_codigo,$fila_actividad_prestador,$es_modif))
+			return false;
+		
+		// El prestador docente tiene que estar asignado a la actividad
+		if ($es_modif)	{	
+			if ( ($es_modif && $fila_actividad_prestador['actpres_estado']!=ACTPRESDOCACTIVO) || !$es_modif) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El Prestador Docente no esta asignado a la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+		}
+
+		$datosvalidados['act_codigo']=$act_codigo;	
+		$datosvalidados['presdoc_codigo']=$presdoc_codigo;	
+		
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+} // class
+?>

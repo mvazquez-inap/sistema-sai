@@ -1,0 +1,392 @@
+<?php
+
+require_once('minixml-1.3.0/minixml.inc.php');
+require_once('SOAP/Client.php');
+require_once('SOAP/Type/dateTime.php');
+
+class AccesoWS_AFIP 
+{
+	var $_directorio=""; // en caso que los archivos no se guarden en el mismo directorio donde se está ejecutando la aplicación 
+	
+	var $_wsdl_ta="wsaa.wsdl";  // The WSDL corresponding to WSAA
+	var $_wsdl_nivel10="wspn10.wsdl"; // The WSDL
+
+	var $_service="padron-puc-ws-consulta-nivel10"; // SERVICE: The WS service name you are asking a TA for
+	var $_ta="ta.xml";     // TA.XML as provided by WSAA
+
+	// DESTINATIONDN must contain the WSAA dn, it must be exactly as follows, you
+	// should only change the "cn" portion, it should be "wsaahomo" for the testing
+	// WSAA or "wsaa" for the production WSAA.
+	var $_destinationdn="cn=wsaahomo,o=afip,c=ar,serialNumber=CUIT 33693450239"; //
+
+	var $_cert="onti.crt"; // The X.509 obtained from Seg. Inf.
+	var $_privatekey="privada.txt";  // The private key correspoding to CERT
+	var $_passphrase=getenv("SAI_AFIP_PASSPHRASE") ?: ""; // The passphrase (if any) to sign
+	
+	var $_proxy=array('proxy_host'  => "proxy.sgp.gov.ar",'proxy_port'  => 8080);
+
+	var $_error_msg="";
+
+
+	function AccesoWS_AFIP($directorio="") 
+	{
+		$this->_directorio=$directorio;
+	}
+
+	// --------------------------------------- // ---------------------------------------
+	// Función que verifica si los archivos necesarios existen. Se debe llamar antes de usar cualquier función de la clase.
+	
+	function Inicializar()
+	{
+		if(!file_exists($this->_directorio.$this->_cert))
+		{
+			$this->_error_msg=__LINE__." - Error al abrir para lectura del archivo ".$this->_cert;
+			return false;
+		}
+		if(!file_exists($this->_directorio.$this->_privatekey))
+		{
+			$this->_error_msg=__LINE__." - Error al abrir para lectura del archivo ".$this->_privatekey;
+			return false;
+		}
+		if(!file_exists($this->_directorio.$this->_wsdl_ta))
+		{
+			$this->_error_msg=__LINE__." - Error al abrir para lectura del archivo ".$this->_wsdl_ta;
+			return false;
+		}
+		if(!file_exists($this->_directorio.$this->_wsdl_nivel10))
+		{
+			$this->_error_msg=__LINE__." - Error al abrir para lectura del archivo ".$this->_wsdl_nivel10;
+			return false;
+		}
+	
+		return true;
+	}
+	
+
+	// --------------------------------------- // ---------------------------------------
+	// En base al cuit provisto, retorna si es válido o no. 
+	// En caso de se válido, en $xml devuelve la respuesta del WS
+	
+	// INPUT:
+	//		$cuit: string, conteniendo el CUIT a buscar
+	// OUTPUT:
+	//		$valido: booleana, indicando si el CUIT existe o no
+	//		$xml: objeto minixml, con la respuesta del WS en caso que exista.
+	function VerificarCUIT($cuit,&$valido,&$xml)
+	{
+		$valido=false;
+		$xml=NULL;
+		
+		if(!$this->_ObtenerInfoTA($token,$sign))
+			return false;
+
+		$client = new SOAP_Client($this->_directorio.$this->_wsdl_nivel10,true,false,$this->_proxy);
+		$client->setOpt('curl', CURLOPT_SSL_VERIFYPEER, 0);
+		$client->setOpt('curl', CURLOPT_HEADER, 0);
+		$client->setOpt('curl', CURLOPT_TIMEOUT, 30);
+		//$client->setOpt('trace', true);
+		
+		$params=array('pContribuyentePK'=>$this->_CreateContribuyente($cuit),
+						'pToken'=>$this->_CreateToken($token),
+						'pSign'=>$this->_CreateSign($sign));
+		$results=$client->call('get',$params);
+		//echo htmlspecialchars($client->getWire(),ENT_QUOTES);
+		
+		
+		if(is_a($results,"SOAP_Fault"))
+		{
+			$error=$results->getFault();
+			$this->_error_msg=__LINE__." - SOAP Fault: ".$error->faultcode." - Error: ".$error->faultstring ;
+			return false;			
+		}
+		
+		if($results!="")
+		{
+			$xml = new MiniXMLDoc();
+			$xml->fromString($results);
+			$valido=true;
+		}
+
+		return true;
+	}
+
+	// --------------------------------------- // ---------------------------------------
+	// En caso que se haya producido algún error, retorna el mensaje de error
+	function ObtenerError()
+	{
+		return $this->_error_msg;
+	}
+
+	// --------------------------------------- // ---------------------------------------
+	// Verifica que el TA exista o siga siendo válido. Si no es así, se conecta para obtener uno nuevo.
+	
+	// OUTPUT
+	//		$token, $sign: string, información provista por el TA
+	
+	function _ObtenerInfoTA(&$token,&$sign)
+	{
+		if (!file_exists($this->_directorio.$this->_ta) || !$this->_CheckTA($xml,$generar_nuevo_ta) || $generar_nuevo_ta)
+			if(!$this->_ObtenerTA_AFIP($xml))
+				return false;
+
+		$nodo=$xml->getElementByPath('/credentials/token');
+		$token=$nodo->getValue();
+		
+		$nodo=$xml->getElementByPath('/credentials/sign');
+		$sign=$nodo->getValue();
+
+		return true;
+	}
+
+	// --------------------------------------- // ---------------------------------------
+	// Obtiene un TA nuevo desde la AFIP
+	
+	// OUTPUT:
+	//		$xml: objeto minixml, con la información obtenida del TA
+
+	function _ObtenerTA_AFIP(&$xml)
+	{
+		if(!$this->_CreateTRA($archivo_tra_xml))
+			return false;
+
+		if(!$this->_SignTRA($archivo_tra_xml,$CMS))
+			return false;
+
+		if(!$this->_CallWSAA($CMS,$resultado_soap))
+			return false;
+
+		if(!$this->_GrabarArchivo($this->_directorio.$this->_ta,$resultado_soap))
+			return false;
+
+		$xml = new MiniXMLDoc();
+		$xml->fromString($resultado_soap);
+
+		return true;
+	}
+
+	// --------------------------------------- // ---------------------------------------
+	// Crea un archivo TRA para solicitar un nuevo TA
+	
+	// OUTPUT
+	//		$archivo_tra_xml: es el nombre del archivo temporal generado para solicitar el TA
+	
+	function _CreateTRA(&$archivo_tra_xml)
+	{
+		$TRA = new MiniXMLDoc();
+		
+		$xmlRoot =& $TRA->getRoot();
+		$xmlRoot->attribute('encoding', 'UTF-8');
+		
+		$nodo =& $xmlRoot->createChild('loginTicketRequest');
+		$nodo->attribute('version', '1.0');
+		
+		$header =& $nodo->createChild('header');
+		
+		# Now we extract the distinguished name from the CERT and we re-order it 
+		# according to RFC 2253, that is what WSAA expects to receive.
+		$certdata=openssl_x509_parse(file_get_contents($this->_directorio.$this->_cert));
+		$DN="";
+		foreach ($certdata['subject'] as $key => $value)
+		{
+			if ($DN != "") $DN=",".$DN;
+			$DN=$key."=".$value.$DN;
+		}
+		$header->createChild('source',$DN);
+		$header->createChild('destination',$this->_destinationdn);
+		$header->createChild('uniqueId',date('U'));
+//		$header->createChild('generationTime',date('Y-m-d\TH:i:s',date('U')-600)."-03:00");
+//		$header->createChild('expirationTime',date('Y-m-d\TH:i:s',date('U')+600)."-03:00");
+		$header->createChild('generationTime',SOAP_Type_dateTime::toString(mktime()-600));
+		$header->createChild('expirationTime',SOAP_Type_dateTime::toString(mktime()+600));
+		$nodo->createChild('service',$this->_service);
+
+		if(($archivo_tra_xml=tempnam(dirname($_SERVER['SCRIPT_FILENAME']),""))===false)
+		{
+			$this->_error_msg=__LINE__." - Error al generar el archivo temporal";
+			return false;			
+		}
+
+		if(!$this->_GrabarArchivo($archivo_tra_xml,$TRA->toString(MINIXML_NOWHITESPACES)))
+			return false;
+
+		return true;
+	}
+	
+	// --------------------------------------- // ---------------------------------------
+	// Firma el archivo temporal
+	
+	// INPUT
+	// 		$archivo_tra_xml: es el nombre del archivo temporal generado para solicitar el TA
+	// OUTPUT
+	//		$CMS: string, el contenido de archivo_tra_xml firmado
+	
+	function _SignTRA($archivo_tra_xml,&$CMS)
+	{
+		if(($archivo_tra_tmp=tempnam(dirname($_SERVER['SCRIPT_FILENAME']),""))===false)
+		{
+			$this->_error_msg=__LINE__." - Error al generar el archivo temporal";
+			return false;			
+		}
+
+		$result=openssl_pkcs7_sign($archivo_tra_xml, $archivo_tra_tmp, "file://".$this->_directorio.$this->_cert,
+										array("file://".$this->_directorio.$this->_privatekey, $this->_passphrase),
+										array(),!PKCS7_DETACHED);
+										
+		if (!$result)
+		{
+			$this->_error_msg=__LINE__." - Error al generar firma PKCS#7";
+			return false;			
+		}
+		
+		$inf=fopen($archivo_tra_tmp, "r");
+		$i=0;
+		$CMS="";
+		while (!feof($inf)) 
+		{ 
+			$buffer=fgets($inf);
+			if ( $i++ >= 4 ) {$CMS.=$buffer;}
+		}
+		fclose($inf);
+		@unlink($archivo_tra_xml);
+		@unlink($archivo_tra_tmp);
+		
+		return true;
+	}
+	
+	// --------------------------------------- // ---------------------------------------
+	// Llamada al WS para obtener un nuevo TA
+	
+	// INPUT
+	//		$CMS: string, TRA firmado
+	// OUTPUT
+	//		$results: string, respuesta del WS
+
+	function _CallWSAA($CMS,&$results)
+	{
+		$client = new SOAP_Client($this->_directorio.$this->_wsdl_ta,true,false,$this->_proxy);
+		$client->setOpt('curl', CURLOPT_SSL_VERIFYPEER, 0);
+		$client->setOpt('curl', CURLOPT_HEADER, 0);
+		$client->setOpt('curl', CURLOPT_TIMEOUT, 30);
+		//	$client->setOpt('trace', true);
+		
+		$params=array('in0'=>$CMS);
+		$results=$client->call('loginCms',$params);
+		// echo htmlspecialchars($client->getWire(),ENT_QUOTES);
+		
+		if(is_a($results,"SOAP_Fault"))
+		{
+			$error=$results->getFault();
+			$this->_error_msg=__LINE__." - SOAP Fault: ".$error->faultcode." - Error: ".$error->faultstring ;
+			return false;			
+		}
+		
+		return true;
+	}
+
+	// --------------------------------------- // ---------------------------------------
+	// Verifica si el TA es aún válido por tiempo.
+	
+	// OUTPUT
+	//		$xml: objeto minixml, con el contenido del archivo TA
+	//		$generar_nuevo_ta: booleana, indica si es necesario generar un nuevo TA, en caso que haya expirado el TA actual
+
+	function _CheckTA(&$xml,&$generar_nuevo_ta)
+	{
+		$DateTimeSOAP=new SOAP_Type_dateTime();
+		$generar_nuevo_ta=false;
+		$xml=NULL;
+		
+		if(($xml_string=@file_get_contents($this->_directorio.$this->_ta))===false)
+		{
+			$this->_error_msg=__LINE__." - Error al abrir para lectura del archivo ".$this->_ta;
+			return false;			
+		}
+
+		$xml = new MiniXMLDoc();
+		$xml->fromString($xml_string);
+
+		$nodo=$xml->getElementByPath('/header/generationTime');
+//		$FROM=strtotime(substr($nodo->getValue(),0,10)." ".substr($nodo->getValue(),11,8)); // PHP4 no soporta microsegundos, ni la T
+		$FROM=$DateTimeSOAP->toUnixtime($nodo->getValue());
+		$nodo=$xml->getElementByPath('/header/expirationTime');
+//		$TO=strtotime(substr($nodo->getValue(),0,10)." ".substr($nodo->getValue(),11,8)); // PHP4 no soporta microsegundos, ni la T
+		$TO=$DateTimeSOAP->toUnixtime($nodo->getValue());
+		$NOW=date('U')+60;
+	
+		if ($FROM > $NOW || $TO < $NOW) 
+			$generar_nuevo_ta=true;
+		
+		return true;
+	}
+	
+	// --------------------------------------- // ---------------------------------------
+	// Retorna un string formateada para enviar al WS
+	
+	// INPUT
+	//		$cuit: string, cuit a buscar
+
+	function _CreateContribuyente($cuit)
+	{
+		$xml = new MiniXMLDoc();
+		
+		$xmlRoot =& $xml->getRoot();
+		$xmlRoot->attribute('encoding', 'UTF-8');
+		
+		$nodo =& $xmlRoot->createChild('contribuyentePK');
+		$nodo->createChild('id',$cuit);
+		
+		return $xml->toString(MINIXML_NOWHITESPACES);
+	
+	}
+
+	// --------------------------------------- // ---------------------------------------
+	// Retorna un string formateada para enviar al WS
+	
+	// INPUT
+	//		$token: string
+
+	function _CreateToken($token)
+	{
+		$token="-----BEGIN SSOTOKENBASE64-----\n" .$token . "\n-----END SSOTOKENBASE64-----\n";
+		return $token;
+	}
+
+	// --------------------------------------- // ---------------------------------------
+	// Retorna un string formateada para enviar al WS
+	
+	// INPUT
+	//		$sign: string
+
+	function _CreateSign($sign)
+	{
+		$sign= "-----BEGIN SSOSIGNBASE64-----\n" .$sign . "\n-----END SSOSIGNBASE64-----\n";
+		return $sign;
+	}
+
+	// --------------------------------------- // ---------------------------------------
+	// Graba el texto en el archivo indicado
+	
+	// INPUT
+	//		$nombre: nombre del archivo a generar
+	//		$texto: contenido a guardar en el archivo
+	
+	function _GrabarArchivo($nombre,$texto)
+	{
+		if(($fh=@fopen($nombre,"w"))===false)
+		{
+			$this->_error_msg=__LINE__." - Error al abrir para escritura del archivo ".$nombre;
+			return false;			
+		}
+		if(fputs($fh,$texto)===false)
+		{
+			$this->_error_msg=__LINE__." - Error al escribir el archivo ".$nombre;
+			return false;			
+		}
+		fclose($fh);
+	
+		return true;
+	}
+}
+
+
+?>

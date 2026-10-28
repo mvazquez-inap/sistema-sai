@@ -1,0 +1,175 @@
+<?php
+//----------------------------------------------------------------------------------------- 
+class cPocPocObjetivoPocArea 
+{
+	var $conexion;
+
+	public function __construct($conexion) {
+		$this->conexion = &$conexion;
+	}
+//-----------------------------------------------------------------------------------------
+	function Insertar ($ArregloDatos, &$error, &$errormail)
+	{
+		if (!$this->BuscarPocPocObjetivoPocArea ($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+			return false;
+		if ($numfilas==1)
+		{
+			$error="Error, el Poc-Objetivo-Área ya se encuentra en la tabla de Poc_Poc_Objetivo_Poc_Area. ";
+			$errormail="Error, el Poc-Objetivo-Área ya se encuentra en la tabla de Poc_Poc_Objetivo_Poc_Area. ";
+			return false;
+		}
+		$sparam =array("ppoc_codigo"=>$ArregloDatos['poc_codigo']);
+		$sparam+=array("ppocobj_codigo"=>$ArregloDatos['pocobj_codigo']);
+		$sparam+=array("ppocarea_codigo"=>$ArregloDatos['pocarea_codigo']);
+		$sparam+=array("pultmodusuario"=>$_SESSION['usuariocod']);
+		$sparam+=array("pultmodfecha"=>date("Y/m/d H:i:s"));
+		
+		$spnombre="ins_poc_objetivo_area";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al insertar el Poc-Objetivo-Área.";
+			$errormail="Error al insertar el Poc-Objetivo-Área".$errno;
+			return false;
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------
+	function EliminarDatosPocPocObjetivoPocAreaTodas($poc_codigo) {
+
+			$spnombre="del_poc_poc_objetivo_poc_area_xpoc_codigo";
+			$spparam=array('ppoc_codigo'=> $poc_codigo);
+
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod)) 
+				return false;					  	 	
+	
+			FuncionesPHPLocal::RegistrarAcceso($this->conexion,"37802","Global / poc_codigo=".$poc_codigo,$_SESSION['usuariocod']);
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------
+	function EliminarDatosPocPocObjetivoPocAreaXPocXObj($poc_codigo,$pocobj_codigo) {
+
+			$spnombre="del_poc_poc_objetivo_poc_area_xpoc_codigo_xpocobj_codigo";
+			$spparam=array('ppoc_codigo'=> $poc_codigo,'ppocobj_codigo'=> $pocobj_codigo);
+
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod)) 
+				return false;					  	 	
+	
+			FuncionesPHPLocal::RegistrarAcceso($this->conexion,"37802","Global / poc_codigo=".$poc_codigo."- pocobj_codigo=".$poc_codigo,$_SESSION['usuariocod']);
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function BuscarPocPocObjetivoPocArea($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		$sparam=array('pxpoc_codigo'=>0);
+		$sparam+=array('pxpocobj_codigo'=>0);
+		$sparam+=array('pxpocarea_codigo'=>0);
+		
+		$sparam+=array('ppoc_codigo' =>"");
+		$sparam+=array('ppocobj_codigo' =>"");
+		$sparam+=array('ppocarea_codigo' =>"");
+		$sparam+=array('porderby' =>"poc_codigo");
+
+		if (isset ($ArregloDatos['poc_codigo']))
+		{
+			if ($ArregloDatos['poc_codigo']!="")
+			{	
+				$sparam['ppoc_codigo']= $ArregloDatos['poc_codigo'];
+				$sparam['pxpoc_codigo']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['pocobj_codigo']))
+		{
+			if ($ArregloDatos['pocobj_codigo']!="")
+			{	
+				$sparam['ppocobj_codigo']= $ArregloDatos['pocobj_codigo'];
+				$sparam['pxpocobj_codigo']= 1;
+			}
+		}	
+		if (isset ($ArregloDatos['pocarea_codigo']))
+		{
+			if ($ArregloDatos['pocarea_codigo']!="")
+			{	
+				$sparam['ppocarea_codigo']= $ArregloDatos['pocarea_codigo'];
+				$sparam['pxpocarea_codigo']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+			{	
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}	
+		
+		$spnombre="sel_poc_poc_objetivo_poc_area_xdatos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			
+			$error="Error al buscar la relación Objetivo-Área del Poc.";
+			$errormail="Error al buscar la relación Objetivo-Área del Poc.".$errno;
+			return false;
+		}
+
+		return true;
+	}
+	
+//-----------------------------------------------------------------------------------------------------	
+	function Eliminar($datos, &$error, &$errormail) {
+	
+		$oPoc = new cPoc($this->conexion);
+		$pocrol=$_SESSION['rolcod'];
+		$pocjuris=$_SESSION['jurisdid_inap'];
+		//Valido q sea el rol, la jurisdiccion y el estado del poc correcto
+		$oPoc->PocSP($pocrol,$pocjuris,$spnombre,$spparam);
+		
+		$spnombre="del_poc_poc_objetivo_poc_area_xpoc_codigo_xpocobj_codigo_xpocarea_codigo";
+		$spparam=array(
+			'ppoc_codigo'=>$datos['poc_codigo'],
+			'ppocobj_codigo'=>$datos['pocobj_codigo'],
+			'ppocarea_codigo'=>$datos['pocarea_codigo'],
+		);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al eliminar el Poc-Objetivo-Área.";
+			$errormail="Error al eliminar el Poc-Objetivo-Área".$errno;
+			return false;
+		}
+
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function TraerDatosxpoc_codigo($poc_codigo,&$resultado,$orden=""){
+		
+		if ($orden=="")
+			$orden="pocobj_descripcion";
+		else
+			$orden.=",pocobj_descripcion";
+			
+		$spparam=array('ppoc_codigo'=>$poc_codigo,'porderby'=>$orden);
+		if(!$this->conexion->ejecutarStoredProcedure("sel_poc_poc_objetivo_poc_area_xpoc_codigo",$spparam,$resultado,$numfilas,$errno))
+		{
+			MostrarMensaje($this->conexion,MSG_INF,"Error al buscar los objetivos que están relacionados con el Poc.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),$this->formato,2);
+			return false;
+		}
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function BuscarRelacionxpoc_codigoxpocobj_codigo($poc_codigo,$pocobj_codigo,&$resultado){
+			
+		$spparam=array('ppoc_codigo'=>$poc_codigo,'ppocobj_codigo'=>$pocobj_codigo);
+		if(!$this->conexion->ejecutarStoredProcedure("sel_poc_poc_objetivo_poc_area_xpoc_codigo_xpocobj_codigo",$spparam,$resultado,$numfilas,$errno))
+		{
+			MostrarMensaje($this->conexion,MSG_INF,"Error al buscar la relación entre el objetivo y el Poc.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),$this->formato,2);
+			return false;
+		}
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+		
+} // class
+?>

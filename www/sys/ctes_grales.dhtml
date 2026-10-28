@@ -1,0 +1,31 @@
+<?php
+
+// constantes ROL de USUARIOS
+
+
+// $sql="select * from roles";
+// $query=mysql_query($sql,$idconexion) or die("Problema de acceso a roles - Avise a su administrador");
+
+$spparam=array('porderby'=>"rolcod" );
+$query=ejecutarStoredProcedure($idconexion,"sel_roles_orden",$spparam);
+while ($fila = mysqli_fetch_assoc($query)) 
+{
+	if($fila['rolcod']!=0)
+	{	
+		define ($fila['rolnom'],$fila['rolcod']);
+	}
+}	
+
+// constantes Generales 
+// $sql="select * from constantes_grales where sistemanom='".$base_datos."'";
+// $query=mysql_query($sql,$idconexion) or die("Problema de acceso a constantes_grales - Avise a su administrador");
+
+$spparam=array('psistemanom'=>SISTEMA);
+$query=ejecutarStoredProcedure($idconexion,"sel_constantes_grales_xsistemanom",$spparam);
+while ($fila = mysqli_fetch_assoc($query)) 
+{
+	define ($fila['constantenom'],$fila['constantecod']);
+}
+
+
+?>

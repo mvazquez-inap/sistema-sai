@@ -1,0 +1,53 @@
+<?php class cTablaAreaGeneral extends cTablaSysDesc {
+
+	public function __construct($conexion) {
+		
+		$array_campos=array('clave'=> 'areagen_codigo',
+							'descripcion'=>array('nombre_campo'=>'areagen_descripcion', 'long_campo'=>100 ,'titulo_campo'=>'Area General'),
+							'fecha_alta'=>'areagen_falta');
+							
+		parent::__construct($conexion,"area_general",$array_campos);
+		$this->SetearTituloTabla('Area General de Prestadores Docentes');
+	
+		// Array con los cógigos de operaciones a ser registradas
+		$array_log=array('ins'=>'35801', 'upd'=>'35803', 'del'=>'35802');
+		$this->SetearLogs($array_log);
+	}		
+//-------------------------------------------------------------------------------------------------
+	function __PosibleBaja($valor_campo,&$error,&$errormail) {
+		
+		$oPrestadorDocenteArea= new cPrestadorDocenteArea($this->conexion);
+		$ArregloDatos= array();
+		$ArregloDatos['areagen_codigo']=$valor_campo;
+		
+		if(!$oPrestadorDocenteArea->BuscarPrestadorDocentexArea($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+			return false;	
+		elseif ($numfilas>0)  {
+			$error="Existen Prestadores docentes asociados al área general <br> que esta intentando eliminar, Deber&aacute; reasignarlos o eliminarlos previamente.";
+			$errormail="";
+			return false;	
+	    } else
+			return true;	
+	}
+//-------------------------------------------------------------------------------------------------
+	function __BajaCascada($valor_campo) {
+	
+		$oTablaAreaEspecifica = new cTablaAreaEspecifica($this->conexion);
+	
+		if (!$oTablaAreaEspecifica->BorrarEspecificaxAreaGeneral($valor_campo))
+			return false;
+		
+		return true;
+	}
+//-------------------------------------------------------------------------------------------------
+	function AreaGeneralAsignableSP(&$spnombre, &$spparam) {
+		$spnombre="sel_area_general_orden";
+		$spparam=array('porderby'=>'areagen_descripcion');
+	}
+//---------------------------------------------------------------	
+	function AreaGeneralSP($areacon, &$spnombre, &$spparam) {
+		$spnombre="sel_area_general_validas";
+		$spparam=array('pareacon_codigo'=>$areacon,'porderby'=>'areagen_descripcion');
+	}
+//-------------------------------------------------------------------------------------------------
+} ?>

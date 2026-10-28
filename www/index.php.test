@@ -1,0 +1,29 @@
+<?php
+
+phpinfo();
+
+// ini_set('display_errors',1);
+// error_reporting(E_ALL);
+
+$servidor = "host.docker.internal:5506";
+$usuariodb = "root";
+$clave = "secret";
+$base = "sai";
+
+$bd = mysql_connect($servidor, $usuariodb, $clave, true) or die("No es posible establecer conexion con MySQL Server");
+
+
+// $dsn = "mysql:dbname=$base; host=$servidor";
+
+// try {
+//     $conn = new PDO($dsn, $usuariodb, $clave);
+// }
+// catch (PDOException $e) {
+//     echo 'Connection failed: ' . $e->getMessage();
+// }
+
+
+
+
+
+?>

@@ -1,0 +1,1788 @@
+<?php
+//----------------------------------------------------------------------------------------- 
+class cActividadExterna extends cActividad {
+
+	public function __construct($conexion) {
+		parent::__construct($conexion);
+	}
+//-----------------------------------------------------------------------------------------
+	function TieneTipo($act_codigo,$tipoact_codigo,&$tiene_tipo)	{
+
+		$tiene_tipo=$this->EsActividadExternaTipo($act_codigo,$tipoact_codigo,$error,$errormsg);
+		if ($error) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$errormsg,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		    return false;
+		}
+		return true;
+	}
+	//-----------------------------------------------------------------------------------------------------	
+	 function ObtenerTipos($act_codigo,&$array_tipos)	{
+	 
+			$ArregloDatos = array();
+			$ArregloDatos['act_codigo'] = $act_codigo;
+		
+			if(!$this->BuscarActividadExterna($ArregloDatos,$numfilas,$resultActExterna,$error,$errormail)){
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando datos a mostrar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;			
+			}
+	 		
+			while ($fila_resultExterna = mysqli_fetch_assoc($resultActExterna)) {
+				$array_tipos[]+= $fila_resultExterna['tipoact_codigo'];
+			}
+			return true	; 
+	}
+	
+//-----------------------------------------------------------------------------------------
+	function EsActividadExternaTipo($act_codigo,$tipoact_codigo,&$error,&$errormsg)	{
+	
+		// La actividad debe existir y ser formato externa
+		$error=false;
+		$errormsg="";
+		if (!$this->TraerDatosActividadExterna($act_codigo,$result_actividad,$es_modif_act_ext) ) {
+			$errormsg="Error al buscar la Actividad Externa.";
+			$error=true;
+			return false;
+		} 		
+		
+		if (!$es_modif_act_ext) {
+			$errormsg="Error al buscar la Actividad Externa.";
+			$error=true;
+			return false;		
+		}
+		
+		return ($result_actividad['actividad_externa']['tipoact_codigo'] == $tipoact_codigo);
+	}		
+
+//-----------------------------------------------------------------------------------------
+	function TraerDatosActividadDetalles($act_codigo,$tipoact_codigo,&$datosresult,&$es_modif) {
+
+		if (!$this->TraerDatosActividadExterna($act_codigo,$datosresult_detalle,$es_modif)) {
+			return false;
+		} else {
+			$datosresult['act_codigo']=$datosresult_detalle['actividad']['act_codigo'];
+			$datosresult['act_formato']=FORMATOEXT;
+			$datosresult['tipoact_codigo']=TIPOACTEXTASIS;			
+			$datosresult['act_nombre']=$datosresult_detalle['actividad']['act_nombre'];
+			$datosresult['act_codinap']=$datosresult_detalle['actividad']['act_codinap'];
+			$datosresult['act_duracionhs']=$datosresult_detalle['actividad_externa']['actext_duracionhs'];
+			$datosresult['act_estado']=$datosresult_detalle['actividad_externa']['actext_estado'];
+			$datosresult['act_creditos']=$datosresult_detalle['actividad_externa']['actext_creditos'];
+			$datosresult['jurisdid_inap']=0;
+			return true;
+		}
+	}	
+//-----------------------------------------------------------------------------------------
+	function TraerDatosActividadExterna($act_codigo,&$datosresult,&$es_modif) {
+		
+		// Si se hay error al ejecutar algún SQL retorna error, sino si no encuentra
+		// la actividad o la actividad no es Externa, retorna que es_modif=false
+		// pues no se encontro una actividad externa con el codigo enviado
+
+		$datosresult=array();
+		$es_modif = false;		
+
+		if (!$this->TraerDatosActividad($act_codigo,$result_actividad,$es_modif_act)) 
+			return false;
+
+		$datosresult['actividad'] = $result_actividad;
+
+		if ($es_modif_act) {
+		
+			$ArregloDatos = array();
+			$ArregloDatos['act_codigo'] = $act_codigo;
+		
+			if(!$this->BuscarActividadExterna($ArregloDatos,$numfilas,$resultActExterna,$error,$errormail)){
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando datos a mostrar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+
+			if ($numfilas == 1)	{
+				$datosresult['actividad_externa']= mysqli_fetch_assoc($resultActExterna);
+				$es_modif = true;
+			}
+			
+		} // $es_modif_act
+
+		return true;
+	}
+//----------------------------------------------------------------------------------------- 
+	function AltaDatosActividadExterna($datos,&$act_codigo_nuevo,&$act_codinap) {
+
+		$datosvalidados=array();		
+		$this->_AguparDatosPost($datos,$datos_agrup,false);	
+		
+		$datos_actividad['actividad']=$datos_agrup['actividad'];
+		$datos_actividad['actividad_externa']=$datos_agrup['actividad_externa'];		
+	
+		if(!$this->AltaDatosActividad($datos_actividad['actividad'],$act_codigo_nuevo,true,"EX",$act_codinap))
+			return false;
+		FuncionesPHPLocal::RegistrarAcceso($this->conexion,"38001","act_codigo=".$act_codigo_nuevo,$_SESSION['usuariocod']);
+
+		if(!$this->_DatosValidosAltaActividadExterna($datos_actividad['actividad_externa'],$datosvalidados))
+			return false;
+
+		$spnombre="ins_actividad_externa";
+		$spparam=array('pact_codigo'=>$act_codigo_nuevo,
+					  'ptipoact_codigo'=>$datosvalidados['tipoact_codigo'],
+					  'pactext_duracionhs'=>$datosvalidados['actext_duracionhs'],
+					  'pactext_duraciondetalle'=>$datosvalidados['actext_duraciondetalle'],
+					  'pactext_creditos'=>0,
+					  'ppais_codigo'=>$datosvalidados['pais_codigo'],
+					  'pprov_codigo'=>$datosvalidados['prov_codigo'],
+					  'pactext_direccion'=>$datosvalidados['actext_direccion'],
+			  		  'porgapri_codigo'=>$datosvalidados['orgapri_codigo'],
+			  		  'pjurisdid_apn'=>$datosvalidados['jurisdid_apn'],
+  					  'porgapub_codigo'=>$datosvalidados['orgapub_codigo'],
+					  'ptipocert_codigo'=>$datosvalidados['tipocert_codigo'],	
+			  		  'pactext_obs'=>$datosvalidados['actext_obs'],
+			  		  'pactext_estado'=>ACTEXTERNAACTIVO,
+		  			  'pultmodusuario'=>$_SESSION['usuariocod'],
+  			          'pultmodfecha'=> date("Y/m/d H:i:s")
+		);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al insertar la Actividad Externa.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function EliminarDatosActividadExterna($act_codigo) {
+
+		if(!$this->_DatosValidosEliminarActividadExterna($act_codigo,$datosvalidados))
+			return false;
+
+		$spnombre="del_actividad_externa";
+		$spparam=array('pact_codigo'=>$act_codigo);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			$txt_sys_mail="\nact_codigo=".$act_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al eliminar la Actividad Externa.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		if(!$this->EliminarDatosActividad($act_codigo,FORMATOEXT)) 
+			return false;
+
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function ModifDatosActividadExterna($datos)	{
+
+		$this->_AguparDatosPost($datos,$datos_agrup,true);	
+
+		$datos_actividad['actividad']=$datos_agrup['actividad'];
+		$datos_actividad['actividad_externa']=$datos_agrup['actividad_externa'];		
+		
+		if(!$this->ModifDatosActividad($datos_actividad['actividad']))
+			return false;
+		FuncionesPHPLocal::RegistrarAcceso($this->conexion,"38003","act_codigo=".$datos_actividad['actividad']['act_codigo'],$_SESSION['usuariocod']);
+
+		if(!$this->_DatosValidosModifActividadExterna($datos_agrup['actividad_externa'],$datosvalidados))
+			return false;
+			
+		$spnombre="upd_actividad_externa";
+		$spparam=array('pact_codigo'=>$datosvalidados['act_codigo'], 
+					  'pactext_duracionhs'=>$datosvalidados['actext_duracionhs'],
+					  'pactext_duraciondetalle'=>$datosvalidados['actext_duraciondetalle'],
+					  'ppais_codigo'=>$datosvalidados['pais_codigo'],
+					  'pprov_codigo'=>$datosvalidados['prov_codigo'],
+					  'pactext_direccion'=>$datosvalidados['actext_direccion'],
+			  		  'porgapri_codigo'=>$datosvalidados['orgapri_codigo'],
+			  		  'pjurisdid_apn'=>$datosvalidados['jurisdid_apn'],
+			  		  'pactext_obs'=>$datosvalidados['actext_obs'],
+					  'porgapub_codigo'=>$datosvalidados['orgapub_codigo'],
+					  'ptipocert_codigo'=>$datosvalidados['tipocert_codigo'],					  
+			  		  'pactext_estado'=>ACTEXTERNAACTIVO,
+		  			  'pultmodusuario'=>$_SESSION['usuariocod'],
+  			          'pultmodfecha'=> date("Y/m/d H:i:s")
+		);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			$txt_sys_mail='\nact_codigo='.$datosvalidados['act_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al modificar la Actividad Externa.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function ActualizarCreditos($act_codigo,$act_creditos) {
+	
+		$spnombre="upd_actividad_externa_asigno_creditos_xact_codigo";
+		$spparam=array(
+			'pact_codigo'=> $act_codigo,
+			'pactext_creditos'=> $act_creditos,
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+			);
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al actualizar los créditos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			if ($numfilas != 1) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al actualizar los créditos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ValidarFormAltaActividadExterna() {	
+
+	$this->ValidarFormAltaActividad(); 
+?>		
+	function ValidarFormAltaActividadExterna(formulario,operacion) {
+
+			// Duración	en hs. - [actext_duracionhs] 	- [OBLIG]
+			if (!ValidarContenido(formulario.actext_duracionhs.value,'NumericoEntero') ) {
+				alert("La duración en hs. debe ser un número entero");
+				formulario.actext_duracionhs.focus();
+				return false;
+			}	
+			if (formulario.actext_duracionhs.value <= 0) {
+				alert("La duración en hs. debe ser mayor que cero");
+				formulario.actext_duracionhs.focus();
+				return false;
+			}	
+
+			if ((trim(formulario.tipocert_codigo.value)=="")) {
+				alert("Debe ingresar un tipo de certificación");
+				formulario.tipocert_codigo.focus();
+				return false;
+			}	
+
+			// Detalle sobre la duración	 	- [actext_duraciondetalle] 	- [OPCIONAL]
+			
+			// Pais								- [pais_codigo] 	- [OBLIG]
+			if ((trim(formulario.pais_codigo.value)=="")) {
+				alert("Debe ingresar un pais");
+				formulario.pais_codigo.focus();
+				return false;
+			}	
+
+			// Provincia						- [prov_codigo] 	- [OBLIG] / Si es Argentina
+			if ((trim(formulario.pais_codigo.value)== <?php echo ARGENTINA?>)){
+				if ((trim(formulario.prov_codigo.value)=="")){
+					alert("Debe ingresar una provincia");
+					formulario.prov_codigo.focus();
+					return false;
+				}					
+			}
+			
+			// Direccion 							- [actext_direccion] [OPCIONAL]
+
+			// Sector del Organismo
+			if (!formulario.tipo_institucion[0].checked   && !formulario.tipo_institucion[1].checked) {
+				alert("Debe seleccionar el sector del organismo");
+				formulario.tipo_institucion[0].focus();
+				return false;
+			}
+			
+
+			// Organismo 											[OBLIG]
+			if (formulario.tipo_institucion[0].checked ) {			// Organismo Público
+				if (trim(formulario.jurisdid.value)=="") {
+					alert("Debe seleccionar el organismo público");
+					formulario.jurisdid.focus();
+					return false;
+				}
+			}  
+			if (formulario.tipo_institucion[1].checked ) {			// Organismo Privado
+				if (trim(formulario.orgapri_codigo.value)=="") {
+					alert("Debe seleccionar el organismo privado");
+					formulario.orgapri_codigo.focus();
+					return false;
+				}
+			}  			
+			
+			return true;
+		}				
+//-----------------------------------------------------------------------------------------------------	
+	function SeleccionPais(formulario) {
+		var elSelect = document.getElementById('datos_provincia');
+		if (formulario.pais_codigo.value == <?php echo ARGENTINA ?>) {
+			elSelect.style.display ="block";
+		} else {
+			elSelect.style.display ="none";
+		}
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function SeleccionTipoInstitucion(valorlogico,seccion_mostrar,seccion_ocultar ){
+
+		var elSelectMostrar = document.getElementById(seccion_mostrar);
+		var elSelectOcultar = document.getElementById(seccion_ocultar);
+
+			if (valorlogico) {
+				elSelectMostrar.style.display ="block";
+				elSelectOcultar.style.display ="none";			
+			} else {
+				elSelectMostrar.style.display ="none";
+				elSelectOcultar.style.display ="block";			
+			}				
+	}
+
+<?php } 
+//-----------------------------------------------------------------------------------------------------	
+	function PedirActividad($codinap,$formularioName,$inputName,$accion,$submit=true) { 
+?>	<table width="100%" class="textoTablaDato" align="center">
+		<tr>
+			<td valign="middle" width="15%" class='textoEtiqueta'>Código INAP</td>
+			<td class="textoEtiquetaDato" valign="middle" align="left" width="50">
+				<input type="text" size="21" maxlength="20" name="<?php echo $inputName ?>" id="<?php echo $inputName ?>"  onblur="PasarAMayusculas('<?php echo $inputName ?>')" value="<?php echo trim($codinap) ;?>">
+			</td>			
+			<td class="textoEtiquetaDato" align="center" width="7%">
+				<a href='javascript:void(0)' onClick="Popup('actividad_selector.dhtml?formulario=<?php echo $formularioName ?>&amp;destino=<?php echo $inputName."&amp;submit=".$submit."&amp;tipoact_codigo=".TIPOACTEXTASIS."&amp;accion=".$accion ?>&amp;volver=1','ventana_descripciones',630,360,screen.availWidth-650,screen.availHeight-420,'yes');"><img src="images/searchsai.jpg" alt="Buscar" border="0" style="vertical-align:-5px"></a> 
+			</td>			
+			<td class="textoEtiquetaDato"  valign="middle" align="left">
+				<input type="submit" name="Confirma" value="Confirma" class="botones" />
+			</td>			
+			
+		</tr>
+	</table>
+<?php	unset($_SESSION['array_busqueda_basica_actividad']);	
+	unset($_SESSION['filtro_busqueda']);
+	} 
+//-----------------------------------------------------------------------------------------------------	
+	function PidoActividadAsignable($formularioName,$inputNameAct,$inputNameFormato,$inputNameTipo,$inputNameSec,$accion,$submit=true) { 
+?>		<table width="100%" class="textoTablaDato" align="center" cellpadding="0" cellspacing="0" border="0" >
+			<tr>
+				<td class="textoEtiquetaClave" align="left">
+					Seleccione Actividad  &nbsp;&nbsp;&nbsp;
+					<a href='javascript:void(0)' onClick="Popup('actividad_asignable_selector.dhtml?formulario=<?php echo $formularioName."&amp;submit=".$submit."&amp;accion=".$accion."&amp;act_codigo_seleccion=".$inputNameAct."&amp;formact_codigo_seleccion=".$inputNameFormato."&amp;tipoact_codigo_seleccion=".$inputNameTipo."&amp;actprog_sec_seleccion=".$inputNameSec ?>&amp;volver=1','ventana_descripciones',700,500,screen.availWidth-710,screen.availHeight-550,'yes');"><img src="images/searchsai.jpg" alt="Buscar" border="0" style="vertical-align:-5px"></a>
+					<input type="hidden" name="<?php echo $inputNameAct?>" id="<?php echo $inputNameAct?>" value="" />		
+					<input type="hidden" name="<?php echo $inputNameFormato?>" id="<?php echo $inputNameFormato?>" value="" />		
+					<input type="hidden" name="<?php echo $inputNameTipo?>" id="<?php echo $inputNameTipo?>" value="" />		
+					<input type="hidden" name="<?php echo $inputNameSec?>" id="<?php echo $inputNameSec?>" value="" />		
+				</td>			
+			</tr>
+		</table>
+<?php		unset($_SESSION['array_busqueda_basica_actividad']);	
+		unset($_SESSION['filtro_busqueda']);
+?>
+<?php	} 
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoModificar($act_codigo,$rolcod,$jurisdid) {
+	
+		if (!$this->TraerDatosActividadExterna($act_codigo,$fila_actividad,$es_modif)) 
+			return false;
+
+		$txt_sys_mail="\nact_codigo=".$act_codigo;		
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe la Actividad Externa a modificar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+		
+		if 	($rolcod == USUACTEXT)  {
+			if ($fila_actividad['actividad_externa']['actext_estado'] == ACTEXTERNAACTIVO) 
+				return true;		
+			else {
+				$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","ACTEXTERNAESTADO","' and constantecod='",$fila_actividad['actext_estado'],"'"),$descri,$numfilas,$errorcod);
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado de la Actividad Externa (".$descri."), no le permite modificarla.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;		
+			}
+		}
+
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para modificar la Actividad Externa.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoBaja($act_codigo,$rolcod,$jurisdid) {
+
+		if (!$this->TraerDatosActividadExterna($act_codigo,$fila_actividad,$es_modif)) 
+			return false;
+
+		$txt_sys_mail="\nact_codigo=".$act_codigo;		
+		if (!$es_modif)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe la Actividad Externa a eliminar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+		
+		if 	($rolcod == USUACTEXT)  {
+			if ($fila_actividad['actividad_externa']['actext_estado'] == ACTEXTERNAACTIVO) 
+				return true;		
+			else {
+				$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","ACTEXTERNAESTADO","' and constantecod='",$fila_actividad['actext_estado'],"'"),$descri,$numfilas,$errorcod);
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado de la Actividad Externa (".$descri."), no le permite modificarla.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;		
+			}
+		}
+
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para modificar la Actividad Externa.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function BuscarActividadExterna($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		$sparam=array('pxact_codigo'=>0);
+		$sparam+=array('pxact_nombre'=>0);
+		$sparam+=array('pxact_codinap'=>0);
+		$sparam+=array('pxact_codinap_exacto'=>0);
+
+		$sparam+=array('pxactext_estado'=>0);
+		$sparam+=array('pxtipoact_codigo'=>0);
+		
+		$sparam+=array('pact_codigo'=>"");
+		$sparam+=array('pact_nombre'=>"");
+		$sparam+=array('pact_codinap'=>"");
+		$sparam+=array('pact_codinap_exacto'=>"");
+		$sparam+=array('pactext_estado'=>"-1");
+		$sparam+=array('ptipoact_codigo'=>"-1");
+
+		$sparam+=array('porderby'=>"act_nombre");
+				
+			
+		if (isset ($ArregloDatos['act_codigo']))
+		{
+			if ($ArregloDatos['act_codigo']!="")
+			{	
+				$sparam['pact_codigo']= $ArregloDatos['act_codigo'];
+				$sparam['pxact_codigo']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['act_nombre']))
+		{
+			if ($ArregloDatos['act_nombre']!="")
+			{	
+				$sparam['pact_nombre']= $ArregloDatos['act_nombre'];
+				$sparam['pxact_nombre']= 1;
+			}
+		}	
+	
+		if (isset ($ArregloDatos['act_codinap']))
+		{
+			if ($ArregloDatos['act_codinap']!="")
+			{	
+				$sparam['pact_codinap']= $ArregloDatos['act_codinap'];
+				$sparam['pxact_codinap']= 1;
+			}
+		}	
+
+		if (isset($ArregloDatos['act_codinap_exacto']))
+		{
+			if ($ArregloDatos['act_codinap_exacto']!="")
+			{	
+				$sparam['pact_codinap_exacto']= $ArregloDatos['act_codinap_exacto'];
+				$sparam['pxact_codinap_exacto']= 1;
+			}
+		}	
+	
+		if (isset($ArregloDatos['actext_estado']))
+		{
+			if ($ArregloDatos['actext_estado']!="")
+			{	
+				$sparam['pactext_estado']= $ArregloDatos['actext_estado'];
+				$sparam['pxactext_estado']= 1;
+			}
+		}	
+			
+		if (isset($ArregloDatos['tipoact_codigo']))
+		{
+			if ($ArregloDatos['tipoact_codigo']!="")
+			{	
+				$sparam['ptipoact_codigo']= $ArregloDatos['tipoact_codigo'];
+				$sparam['pxtipoact_codigo']= 1;
+			}
+		}				
+		
+		if (isset ($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+			{	
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+
+		$spnombre="sel_actividad_externa_xdatos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar en Actividad Externa.";
+			$errormail="Error al buscar en Actividad Externa.".$errno;
+			return false;
+		}
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function BuscarActividadExternaSinDictamen($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		$sparam=array('pxact_codigo'=>0);
+		$sparam+=array('pxact_nombre'=>0);
+		$sparam+=array('pxact_codinap'=>0);
+		$sparam+=array('pxact_codinap_exacto'=>0);
+
+		$sparam+=array('pxactext_estado'=>0);
+		$sparam+=array('pxtipoact_codigo'=>0);
+		
+		$sparam+=array('pact_codigo'=>"");
+		$sparam+=array('pact_nombre'=>"");
+		$sparam+=array('pact_codinap'=>"");
+		$sparam+=array('pact_codinap_exacto'=>"");
+		$sparam+=array('pactext_estado'=>"-1");
+		$sparam+=array('ptipoact_codigo'=>"-1");
+
+		$sparam+=array('porderby'=>"act_nombre");
+				
+			
+		if (isset ($ArregloDatos['act_codigo']))
+		{
+			if ($ArregloDatos['act_codigo']!="")
+			{	
+				$sparam['pact_codigo']= $ArregloDatos['act_codigo'];
+				$sparam['pxact_codigo']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['act_nombre']))
+		{
+			if ($ArregloDatos['act_nombre']!="")
+			{	
+				$sparam['pact_nombre']= $ArregloDatos['act_nombre'];
+				$sparam['pxact_nombre']= 1;
+			}
+		}	
+	
+		if (isset ($ArregloDatos['act_codinap']))
+		{
+			if ($ArregloDatos['act_codinap']!="")
+			{	
+				$sparam['pact_codinap']= $ArregloDatos['act_codinap'];
+				$sparam['pxact_codinap']= 1;
+			}
+		}	
+
+		if (isset($ArregloDatos['act_codinap_exacto']))
+		{
+			if ($ArregloDatos['act_codinap_exacto']!="")
+			{	
+				$sparam['pact_codinap_exacto']= $ArregloDatos['act_codinap_exacto'];
+				$sparam['pxact_codinap_exacto']= 1;
+			}
+		}	
+	
+		if (isset($ArregloDatos['actext_estado']))
+		{
+			if ($ArregloDatos['actext_estado']!="")
+			{	
+				$sparam['pactext_estado']= $ArregloDatos['actext_estado'];
+				$sparam['pxactext_estado']= 1;
+			}
+		}	
+			
+		if (isset($ArregloDatos['tipoact_codigo']))
+		{
+			if ($ArregloDatos['tipoact_codigo']!="")
+			{	
+				$sparam['ptipoact_codigo']= $ArregloDatos['tipoact_codigo'];
+				$sparam['pxtipoact_codigo']= 1;
+			}
+		}				
+		
+		if (isset ($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+			{	
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+
+		$spnombre="sel_actividad_externa_sin_dictamen_xdatos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar en Actividad Externa.";
+			$errormail="Error al buscar en Actividad Externa.".$errno;
+			return false;
+		}
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function BuscarActividadDictaminada($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		// Retorna también datos de la programacion, dictamen, expediente y disposición
+		$sparam=array('pxact_codigo'=>0);
+		$sparam+=array('pxtipoact_codigo'=>0);
+		$sparam+=array('pxactext_estado'=>0);
+		$sparam+=array('pxexp_codigo'=>0);
+		$sparam+=array('pxdis_codigo'=>0);
+		$sparam+=array('pxdic_codigo'=>0);
+		$sparam+=array('pxdic_estado'=>0);
+
+		$sparam+=array('pact_codigo'=>"");
+		$sparam+=array('ptipoact_codigo'=>"-1");
+		$sparam+=array('pactext_estado'=>"-1");
+		$sparam+=array('pexp_codigo'=>"");		
+		$sparam+=array('pdis_codigo'=>"");
+		$sparam+=array('pdic_codigo'=>"");
+		$sparam+=array('pdic_estado'=>"-1");
+		
+		$sparam+=array('porderby'=>"act_codigo");
+			
+		if (isset ($ArregloDatos['act_codigo']))
+		{
+			if ($ArregloDatos['act_codigo']!="")
+			{	
+				$sparam['pact_codigo']= $ArregloDatos['act_codigo'];
+				$sparam['pxact_codigo']= 1;
+			}
+		}	
+
+		if (isset($ArregloDatos['actext_estado']))
+		{
+			if ($ArregloDatos['actext_estado']!="")
+			{	
+				$sparam['pactext_estado']= $ArregloDatos['actext_estado'];
+				$sparam['pxactext_estado']= 1;
+			}
+		}	
+		
+		if (isset($ArregloDatos['tipoact_codigo']))
+		{
+			if ($ArregloDatos['tipoact_codigo']!="")
+			{	
+				$sparam['ptipoact_codigo']= $ArregloDatos['tipoact_codigo'];
+				$sparam['pxtipoact_codigo']= 1;
+			}
+		}				
+
+		if (isset ($ArregloDatos['exp_codigo']))
+		{
+			if ($ArregloDatos['exp_codigo']!="")
+			{	
+				$sparam['pexp_codigo']= $ArregloDatos['exp_codigo'];
+				$sparam['pxexp_codigo']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['dis_codigo']))
+		{
+			if ($ArregloDatos['dis_codigo']!="")
+			{	
+				$sparam['pdis_codigo']= $ArregloDatos['dis_codigo'];
+				$sparam['pxdis_codigo']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['dic_codigo']))
+		{
+			if ($ArregloDatos['dic_codigo']!="")
+			{	
+				$sparam['pdic_codigo']= $ArregloDatos['dic_codigo'];
+				$sparam['pxdic_codigo']= 1;
+			}
+		}	
+
+		if (isset($ArregloDatos['dic_estado']))
+		{
+			if ($ArregloDatos['dic_estado']!="")
+			{	
+				$sparam['pdic_estado']= $ArregloDatos['dic_estado'];
+				$sparam['pxdic_estado']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+			{	
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+		
+		$spnombre="sel_actividad_externa_dictaminada_xdatos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar actividades dictaminadas.";
+			$errormail="Error al buscar actividades dictaminadas.".$errno;
+			return false;
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function BuscarActividadDictaminadaAvanzada($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+	
+		// Retorna también datos de la programacion, dictamen, expediente y disposición
+		$sparam=array('pxact_nombre'=>0);
+		$sparam+=array('pxact_codigo'=>0);
+		$sparam+=array('pxact_codinap'=>0);
+		$sparam+=array('pxtipoact_codigo'=>0);		
+		$sparam+=array('pxactext_estado'=>0);
+		$sparam+=array('pxexp_numero'=>0);
+		$sparam+=array('pxdis_numero'=>0);
+		$sparam+=array('pxdic_estado'=>0);
+		$sparam+=array('pxdic_codigo'=>0);
+		$sparam+=array('pxdis_codigo'=>0);
+		$sparam+=array('pxcon_dispo'=>0);
+		$sparam+=array('pxsin_dispo'=>0);
+		$sparam+=array('pxactprog_sec'=>0);
+		$sparam+=array('pxactprog_fecha_inicio'=>0);
+		$sparam+=array('pxactprog_fecha_fin'=>0);
+		$sparam+=array('pxdic_esta_visado_no'=>0);
+		$sparam+=array('pxdic_esta_visado_si'=>0);
+
+		$sparam+=array('pact_nombre'=>"");
+		$sparam+=array('pact_codigo'=>"");
+		$sparam+=array('pact_codinap'=>"");
+		$sparam+=array('ptipoact_codigo'=>"-1");
+		$sparam+=array('pactext_estado'=>"-1");
+		$sparam+=array('pexp_numero'=>"");
+		$sparam+=array('pdis_numero'=>"");
+		$sparam+=array('pdic_estado'=>"-1");
+		$sparam+=array('pdic_codigo'=>"-1");
+		$sparam+=array('pdis_codigo'=>"-1");
+		$sparam+=array('pactprog_sec'=>"");
+		$sparam+=array('pactprog_fecha_inicio'=>"");
+		$sparam+=array('pactprog_fecha_fin'=>"");
+
+		$sparam+=array('porderby'=>"act_nombre");		
+		
+		if (isset($ArregloDatos['act_codigo'])) {
+			if ($ArregloDatos['act_codigo']!="") {	
+				$sparam['pact_codigo']= $ArregloDatos['act_codigo'];
+				$sparam['pxact_codigo']= 1;
+			}
+		}	
+		if (isset ($ArregloDatos['act_nombre']))	{
+			if ($ArregloDatos['act_nombre']!="")
+			{	
+				$sparam['pact_nombre']= $ArregloDatos['act_nombre'];
+				$sparam['pxact_nombre']= 1;
+			}
+		}	
+		if (isset ($ArregloDatos['act_codinap']))	{
+			if ($ArregloDatos['act_codinap']!="")
+			{	
+				$sparam['pact_codinap']= $ArregloDatos['act_codinap'];
+				$sparam['pxact_codinap']= 1;
+			}
+		}	
+		if (isset($ArregloDatos['tipoact_codigo']))		{
+			if ($ArregloDatos['tipoact_codigo']!="")
+			{	
+				$sparam['ptipoact_codigo']= $ArregloDatos['tipoact_codigo'];
+				$sparam['pxtipoact_codigo']= 1;
+			}
+		}				
+		if (isset($ArregloDatos['dic_estado']))		{
+			if ($ArregloDatos['dic_estado']!="")
+			{	
+				$sparam['pdic_estado']= $ArregloDatos['dic_estado'];
+				$sparam['pxdic_estado']= 1;
+			}
+		}	
+		if (isset($ArregloDatos['actext_estado']))		{
+			if ($ArregloDatos['actext_estado']!="")
+			{	
+				$sparam['pactext_estado']= $ArregloDatos['actext_estado'];
+				$sparam['pxactext_estado']= 1;
+			}
+		}	
+		if (isset ($ArregloDatos['exp_numero']))	{
+			if ($ArregloDatos['exp_numero']!="")
+			{	
+				$sparam['pexp_numero']= $ArregloDatos['exp_numero'];
+				$sparam['pxexp_numero']= 1;
+			}
+		}		
+		if (isset ($ArregloDatos['dis_numero']))	{
+			if ($ArregloDatos['dis_numero']!="")
+			{	
+				$sparam['pdis_numero']= $ArregloDatos['dis_numero'];
+				$sparam['pxdis_numero']= 1;
+			}
+		}	
+		if (isset ($ArregloDatos['dis_codigo']))	{
+			if ($ArregloDatos['dis_codigo']!="")
+			{	
+				$sparam['pdis_codigo']= $ArregloDatos['dis_codigo'];
+				$sparam['pxdis_codigo']= 1;
+			}
+		}	
+		if (isset ($ArregloDatos['dic_codigo']))	{
+			if ($ArregloDatos['dic_codigo']!="")
+			{	
+				$sparam['pdic_codigo']= $ArregloDatos['dic_codigo'];
+				$sparam['pxdic_codigo']= 1;
+			}
+		}	
+		// Mandar 	1 x con disposición  
+		// 			0 x sin disposición  
+		if (isset ($ArregloDatos['con_disposicion'])) {
+			if ($ArregloDatos['con_disposicion']!="")  {	
+				$sparam['pxcon_dispo']=($ArregloDatos['con_disposicion'])?"1":"0";				
+			}
+		}	
+		if (isset ($ArregloDatos['sin_disposicion'])) {
+			if ($ArregloDatos['sin_disposicion']!="")  {	
+				$sparam['pxsin_dispo']= ($ArregloDatos['sin_disposicion'])?"1":"0";				
+			}
+		}		
+		if (isset ($ArregloDatos['actprog_sec'])) {
+			if ($ArregloDatos['actprog_sec']!="") {	
+				$sparam['pactprog_sec']= $ArregloDatos['actprog_sec'];
+				$sparam['pxactprog_sec']= 1;
+			}
+		}	
+		if (isset($ArregloDatos['actprog_fecha_inicio']))	{
+			if ($ArregloDatos['actprog_fecha_inicio']!="")
+			{	
+				$sparam['pactprog_fecha_inicio']= $ArregloDatos['actprog_fecha_inicio'];
+				$sparam['pxactprog_fecha_inicio']= 1;
+			}
+		}	
+		if (isset($ArregloDatos['actprog_fecha_fin']))	{
+			if ($ArregloDatos['actprog_fecha_fin']!="")
+			{	
+				$sparam['pactprog_fecha_fin']= $ArregloDatos['actprog_fecha_fin'];
+				$sparam['pxactprog_fecha_fin']= 1;
+			}
+		}	
+		if (isset ($ArregloDatos['orderby']))	{
+			if ($ArregloDatos['orderby']!="")
+			{	
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+
+		if (isset($ArregloDatos['dic_esta_visado']) && $ArregloDatos['dic_esta_visado']!="")	{
+				$sparam['pxdic_esta_visado_si']= $ArregloDatos['dic_esta_visado'];
+				$sparam['pxdic_esta_visado_no']= $ArregloDatos['dic_esta_visado'];
+		}
+
+
+		if (isset ($ArregloDatos['orderby']))	{
+			if ($ArregloDatos['orderby']!="")
+			{	
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+		$spnombre="sel_actividad_externa_dictaminada_avanzada_xdatos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar actividades dictaminadas.";
+			$errormail="Error al ejecutar una búsqueda avanzada de actividades dictaminadas.".$errno;
+			return false;
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ListarDisenoActividadPDF($act_codigo) {
+
+		function GenerarActividadDiseno(&$pdf,$filaexterna) {
+	
+			$pdf->AddAcividadDiseno();
+			$pdf->Set('datos_actividad',$filaexterna);		
+			$pdf->Set('formact_codigo',FORMATOEXT);
+			$pdf->Set('tipoact_codigo',$filaexterna['actividad_externa']['tipoact_codigo']);
+		
+		} // GenerarActa
+	
+		if (!$this->TraerDatosActividadExterna($act_codigo,$filaexterna,$es_modif))  {
+			$txt_sys_mail="\nact_codigo=".$act_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error, buscando la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;		
+		} elseif (!$es_modif) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha encontrado la Actividad con el formato buscado.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;		
+		}
+	
+		$descri="";
+		if( $this->conexion->TraerCampo("tipo_certificacion","tipocert_descripcion",array("tipocert_codigo='",$filaexterna['actividad_externa']['tipocert_codigo'],"'"),$descri,$numfilas,$errorcod)) 
+			$filaexterna['actividad_externa'] += array('tipocert_descripcion'=>$descri);
+	
+		$descri="";
+		if(isset($filaexterna['actividad_externa']['jurisdid_apn'])) { 
+			$jurisdicciones	 = new jurisdicciones;					
+			if ($jurisdicciones->SelectJurisdxID($filaexterna['actividad_externa']['jurisdid_apn'],array(),TABGRALES_TS_ARRAY,$fila_jurisd,array(),$NumFilas,$CodError))  						
+				$filaexterna['actividad_externa'] += array('jurisdid_apn_nombre'=>$fila_jurisd[$filaexterna['actividad_externa']['jurisdid_apn']]['jurisdnom']);					
+		}
+		
+		$descri="";
+		if( isset($filaexterna['actividad_externa']['orgapub_codigo'] ) && $this->conexion->TraerCampo("organismo_publico","orgapub_nombre",array("orgapub_codigo='",$filaexterna['actividad_externa']['orgapub_codigo'],"'"),$descri,$numfilas,$errorcod)) 
+			$filaexterna['actividad_externa'] += array('orgapub_nombre'=>$descri);
+	
+		$descri="";
+		if( isset($filaexterna['actividad_externa']['orgapri_codigo'] ) && $this->conexion->TraerCampo("organismo_privado","orgapri_nombre",array("orgapri_codigo='",$filaexterna['actividad_externa']['orgapri_codigo'],"'"),$descri,$numfilas,$errorcod)) 
+			$filaexterna['actividad_externa'] += array('orgapri_nombre'=>$descri);
+	
+		$descri	= "";	
+		if($this->conexion->TraerCampo("paises","paisnom",array("paiscod='",$filaexterna['actividad_externa']['pais_codigo'],"'"),$descri,$numfilas,$errorcod))
+			$filaexterna['actividad_externa'] += array('paisnom'=>$descri);
+	
+		if ($filaexterna['actividad_externa']['pais_codigo'] == ARGENTINA) { 
+			$descri	= "";	
+			if ($this->conexion->TraerCampo("provincias","provincianom",array("provinciacod='",$filaexterna['actividad_externa']['prov_codigo'],"'"),$descri,$numfilas,$errorcod))
+				$filaexterna['actividad_externa'] += array('provincianom'=>$descri);		
+		}
+		
+	 	$descri="";
+	 	if ($this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","ACTCURSOESTADO","' and constantecod='",$filaexterna['actividad_externa']['actext_estado'],"'"),$descri,$numfilas,$errorcod)) 
+	 		$filaexterna['actividad_externa'] += array('actext_estado_desc'=>$descri);
+	 
+		$pdf = new cActividadDisenoPDF();
+		GenerarActividadDiseno($pdf,$filaexterna); 
+		$pdf->MostrarActividadDiseno($this->conexion);
+		$pdf->Output("disenoActividad.pdf","I");
+	
+		return true;
+	}		
+//-----------------------------------------------------------------------------------------------------	
+	function ListarDisenoActividad($act_codigo) {
+	// Se define en las subclases 
+	$ok=true;
+ 	if (!$this->TraerDatosActividadExterna($act_codigo,$filaexterna,$es_modif))
+   		$ok=false;		
+	
+	if (!$es_modif) {
+		$txt_sys_mail="\nact_codigo=".$act_codigo;
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No se ha encontrado la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		$ok=false;		
+	}
+?>	
+	<br><div class="textoTitulo" align="left">Detalle de la Actividad Externa</div><br>
+<?php
+	if ($ok) {	
+?>		<table width="100%" class="textoTablaDatoBorde" align="center" border="1" cellpadding="4" cellspacing="0">
+			<tr>
+				<td  class="textoTablaDato">Nombre</td>
+				<td class='textoEtiquetaDatoResaltado'>
+					<?php echo htmlspecialchars($filaexterna['actividad']['act_nombre'],ENT_QUOTES); ?>
+				</td>
+			</tr>
+			<tr>
+				<td class='textoTablaDato'>Código INAP</td>
+				<td class='textoEtiquetaDatoResaltado'>
+					<?php echo htmlspecialchars($filaexterna['actividad']['act_codinap'],ENT_QUOTES); ?>
+				</td>
+			</tr>
+<?php			if (isset($filaexterna['actividad_externa']['actext_duracionhs'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Duración (Hs.)</td>
+				<td class='textoEtiquetaDatoResaltado'>
+					<?php echo  nl2br(htmlspecialchars($filaexterna['actividad_externa']['actext_duracionhs'],ENT_QUOTES)); ?>
+				</td>
+			</tr>		
+<?php			} ?>		
+			<tr>
+				<td class='textoTablaDato'>Duración (detalle)</td>
+				<td class='textoEtiquetaDatoResaltado'>
+					<?php echo  nl2br(htmlspecialchars($filaexterna['actividad_externa']['actext_duraciondetalle'],ENT_QUOTES)); ?>
+				</td>
+			</tr>		
+			<tr>
+				<td class='textoTablaDato'>Tipo Certificación</td>
+				<td class='textoEtiquetaDatoResaltado'>	<?php 
+					$this->conexion->TraerCampo("tipo_certificacion","tipocert_descripcion",array("tipocert_codigo='",$filaexterna['actividad_externa']['tipocert_codigo'],"'"),$descri,$numfilas,$errorcod); 
+					echo  nl2br(htmlspecialchars($descri,ENT_QUOTES)); 
+					?>
+				</td>
+			</tr>		
+			<tr>
+				<td class='textoTablaDato'>Pais</td>
+				<td class='textoEtiquetaDatoResaltado'>
+					<?php 	
+					$this->conexion->TraerCampo("paises","paisnom",array("paiscod='",$filaexterna['actividad_externa']['pais_codigo'],"'"),$descri,$numfilas,$errorcod); 
+					echo  nl2br(htmlspecialchars($descri,ENT_QUOTES)); 
+					?>
+				</td>
+			</tr>		
+<?php			if (isset($filaexterna['actividad_externa']['prov_codigo'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Provincia</td>
+				<td class='textoEtiquetaDatoResaltado'>	<?php 
+					$this->conexion->TraerCampo("provincias","provincianom",array("provinciacod='",$filaexterna['actividad_externa']['prov_codigo'],"'"),$descri,$numfilas,$errorcod); 
+					echo  nl2br(htmlspecialchars($descri,ENT_QUOTES)); 
+					?>
+				</td>
+			</tr>		
+<?php			} ?>
+			<tr>
+				<td class='textoTablaDato'>Dirección</td>
+				<td class='textoEtiquetaDatoResaltado'>
+					<?php echo  nl2br(htmlspecialchars($filaexterna['actividad_externa']['actext_direccion'],ENT_QUOTES)); ?>
+				</td>
+			</tr>		
+<?php			if (isset($filaexterna['actividad_externa']['orgapri_codigo'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Organismo</td>
+				<td class='textoEtiquetaDatoResaltado'>
+					<?php 
+					$this->conexion->TraerCampo("organismo_privado","orgapri_nombre",array("orgapri_codigo='",$filaexterna['actividad_externa']['orgapri_codigo'],"'"),$descri,$numfilas,$errorcod); 
+					echo  nl2br(htmlspecialchars($descri,ENT_QUOTES)); 
+					?>
+				</td>
+			</tr>		
+<?php			} 
+			if (isset($filaexterna['actividad_externa']['jurisdid_apn'])) { ?>
+				<tr>
+					<td class='textoTablaDato'>Organismo</td>
+					<td class='textoEtiquetaDatoResaltado'>
+					<?php 
+					$jurisdicciones	 = new jurisdicciones;					
+					if ($jurisdicciones->SelectJurisdxID($filaexterna['actividad_externa']['jurisdid_apn'],array(),TABGRALES_TS_ARRAY,$fila_jurisd,array(),$NumFilas,$CodError))  
+						echo nl2br(htmlspecialchars($fila_jurisd[$filaexterna['actividad_externa']['jurisdid_apn']]['jurisdnom'],ENT_QUOTES)); 				
+					?>
+					</td>
+				</tr>		
+<?php			} 
+			if (isset($filaexterna['actividad_externa']['orgapub_codigo'])) { ?>
+				<tr>
+					<td class='textoTablaDato'>Organismo</td>
+					<td class='textoEtiquetaDatoResaltado'>
+					<?php 	$this->conexion->TraerCampo("organismo_publico","orgapub_nombre",array("orgapub_codigo='",$filaexterna['actividad_externa']['orgapub_codigo'],"'"),$descri,$numfilas,$errorcod); 
+						echo  nl2br(htmlspecialchars($descri,ENT_QUOTES)); 
+					?>
+					</td>
+				</tr>		
+<?php			} ?>
+			<tr>
+				<td class='textoTablaDato'>Observaciones</td>
+				<td class='textoEtiquetaDatoResaltado'>
+				<?php echo  nl2br(htmlspecialchars($filaexterna['actividad_externa']['actext_obs'],ENT_QUOTES)); 	?>
+				</td>
+			</tr>		
+		</table>	
+<?php	
+		}	// ok
+
+		return $ok;	
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ListarDetalleActividad($act_codigo) {
+	// Se define en las subclases 
+	$ok=true;
+ 	if (!$this->TraerDatosActividadExterna($act_codigo,$filaexterna,$es_modif))  {
+		$txt_sys_mail="\nact_codigo=".$act_codigo;
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error, buscando la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		$ok=false;		
+	} elseif (!$es_modif) {
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha encontrado la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		$ok=false;		
+	}
+	
+	if ($ok) {	
+?>		
+		<table width="90%" class="textoTablaDato" align="center" cellpadding="2" cellspacing="10">
+			<tr >
+				<td colspan="2" class="textoTitulo">Detalle de la Actividad</td>
+			</tr>	
+			<tr>
+				<td colspan="2" class='textoEtiquetaListado'>Nombre</td>
+			</tr>
+			<tr>
+				<td width="5%">&nbsp;</td>
+				<td class='textoDatoListado'>
+					<?php echo htmlspecialchars($filaexterna['actividad']['act_nombre'],ENT_QUOTES); ?>
+				</td>
+			</tr>
+			
+			<tr>
+				<td colspan="2" class='textoEtiquetaListado'>Código INAP</td>
+			</tr>
+			<tr>
+				<td>&nbsp;</td>
+				<td class='textoDatoListado'>
+					<?php echo htmlspecialchars($filaexterna['actividad']['act_codinap'],ENT_QUOTES); ?>
+				</td>
+			</tr> 
+			
+
+<?php			if (isset($filaexterna['actividad_externa']['actext_duracionhs'])) { ?>
+			<tr>
+				<td colspan="2" class='textoEtiquetaListado'>Duración (Hs.)</td>
+			</tr>		
+			<tr>
+				<td>&nbsp;</td>
+				<td class='textoDatoListado'>
+					<?php echo  nl2br(htmlspecialchars($filaexterna['actividad_externa']['actext_duracionhs'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?php			} 
+?>		
+
+			<tr>
+				<td colspan="2" class='textoEtiquetaListado'>Duración (detalle)</td>
+			</tr>		
+			<tr>
+				<td>&nbsp;</td>
+				<td class='textoDatoListado'>
+					<?php echo  nl2br(htmlspecialchars($filaexterna['actividad_externa']['actext_duraciondetalle'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+
+			<tr>
+				<td colspan="2" class='textoEtiquetaListado'>Tipo de Certificación</td>
+			</tr>		
+			<tr>
+				<td>&nbsp;</td>
+				<td class='textoDatoListado'>
+					<?php 	$this->conexion->TraerCampo("tipo_certificacion","tipocert_descripcion",array("tipocert_codigo='",$filaexterna['actividad_externa']['tipocert_codigo'],"'"),$descri,$numfilas,$errorcod); 
+						echo  htmlspecialchars($descri,ENT_QUOTES); 
+					?>
+				</td>
+			</tr>
+
+			<tr>
+				<td colspan="2" class='textoEtiquetaListado'>Pais</td>
+			</tr>		
+			<tr>
+				<td>&nbsp;</td>
+				<td class='textoDatoListado'>
+					<?php 
+					$this->conexion->TraerCampo("paises","paisnom",array("paiscod='",$filaexterna['actividad_externa']['pais_codigo'],"'"),$descri,$numfilas,$errorcod); 
+					echo  nl2br(htmlspecialchars($descri,ENT_QUOTES)); 
+					?>
+				</td>
+			</tr>
+
+<?php			if (isset($filaexterna['actividad_externa']['prov_codigo'])) { ?>
+			<tr>
+				<td colspan="2" class='textoEtiquetaListado'>Provincia</td>
+			</tr>		
+			<tr>
+				<td>&nbsp;</td>
+				<td class='textoDatoListado'>
+					<?php 
+					$this->conexion->TraerCampo("provincias","provincianom",array("provinciacod='",$filaexterna['actividad_externa']['prov_codigo'],"'"),$descri,$numfilas,$errorcod); 
+					echo  nl2br(htmlspecialchars($descri,ENT_QUOTES)); 
+					?>
+				</td>
+			</tr>
+<?php			} ?>
+			
+			<tr>
+				<td colspan="2" class='textoEtiquetaListado'>Dirección</td>
+			</tr>		
+			<tr>
+				<td>&nbsp;</td>
+				<td class='textoDatoListado'>
+					<?php echo  nl2br(htmlspecialchars($filaexterna['actividad_externa']['actext_direccion'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+
+<?php			 if (isset($filaexterna['actividad_externa']['orgapri_codigo'])) { ?>
+			<tr>
+				<td colspan="2" class='textoEtiquetaListado'>Organismo</td>
+			</tr>		
+			<tr>
+				<td>&nbsp;</td>
+				<td class='textoDatoListado'>
+					<?php 
+					$this->conexion->TraerCampo("organismo_privado","orgapri_nombre",array("orgapri_codigo='",$filaexterna['actividad_externa']['orgapri_codigo'],"'"),$descri,$numfilas,$errorcod); 
+					echo  nl2br(htmlspecialchars($descri,ENT_QUOTES)); 
+					?>
+				</td>
+			</tr>
+<?php			} ?>
+
+<?php			 if (isset($filaexterna['actividad_externa']['jurisdid_apn'])) { ?>
+			<tr>
+				<td colspan="2" class='textoEtiquetaListado'>Organismo</td>
+			</tr>		
+			<tr>
+				<td>&nbsp;</td>
+				<td class='textoDatoListado'>
+					<?php 
+				$jurisdicciones	 = new jurisdicciones;
+					
+				if ($jurisdicciones->SelectJurisdxID($filaexterna['actividad_externa']['jurisdid_apn'],array(),TABGRALES_TS_ARRAY,$fila_jurisd,array(),$NumFilas,$CodError))  {
+					echo  nl2br(htmlspecialchars($fila_jurisd[$filaexterna['actividad_externa']['jurisdid_apn']]['jurisdnom'],ENT_QUOTES)); 
+				}					
+					?>
+				</td>
+			</tr>
+<?php			} ?>
+
+<?php			 if (isset($filaexterna['actividad_externa']['orgapub_codigo'])) { ?>
+			<tr>
+				<td colspan="2" class='textoEtiquetaListado'>Organismo</td>
+			</tr>		
+			<tr>
+				<td>&nbsp;</td>
+				<td class='textoDatoListado'>
+					<?php 
+					$this->conexion->TraerCampo("organismo_publico","orgapub_nombre",array("orgapub_codigo='",$filaexterna['actividad_externa']['orgapub_codigo'],"'"),$descri,$numfilas,$errorcod); 
+					echo  nl2br(htmlspecialchars($descri,ENT_QUOTES)); 
+					?>
+				</td>
+			</tr>
+<?php			} ?>
+
+			<tr>
+				<td colspan="2" class='textoEtiquetaListado'>Observaciones</td>
+			</tr>		
+			<tr>
+				<td>&nbsp;</td>
+				<td class='textoDatoListado'>
+					<?php 
+					echo  nl2br(htmlspecialchars($filaexterna['actividad_externa']['actext_obs'],ENT_QUOTES)); 
+					?>
+				</td>
+			</tr>
+				
+		</table>	
+	<?php	
+		}	// ok
+
+		return $ok;	
+		}
+
+
+//------------------------------------------------------------------------------------------------------------------
+	function MostrarDatoActividadExterna($conexion,$operacion,$fila_actividad=array()) {
+
+	$result=true;
+		
+	// si queda esta opcion no mandar la conexion
+	if ($operacion=="A") {
+	   $es_modif = false;
+	} elseif ($operacion=="M" || $operacion=="V") {   
+	   	$es_modif = true;
+	   } else {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error en la llamada, operación inválida.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+	   }
+
+	$jurisdicciones	= new jurisdicciones;
+	if(!$jurisdicciones->BuscarRaizTipoOrg(TABGRALES_TIPOORG_NAC_EJ,array(),TABGRALES_TS_ARRAY,$nodo_jurisd,array(),$CodError)) {
+		$txt_sys_mail="Error buscando la raiz del árbol de jurisdicciones.";
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar el organismo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+	}
+
+	$ok = true;
+ 	if ($es_modif) {
+		$ok=$this->ObtenerOrganismoInstitucion($fila_actividad['actividad_externa']['orgapri_codigo'],
+										    $fila_actividad['actividad_externa']['jurisdid_apn'],
+										    $fila_actividad['actividad_externa']['orgapub_codigo'],				
+										    $jurisdnom,$sector_org,$tipoorg_codigo,$jurisdid);
+	} else {
+
+		$jurisdnom="";
+		$jurisdid="jurisdid_apn";
+		$tipoorg_codigo = ORGANISMO_APN;
+		$sector_org = ORGANISMO_PUBLICO;
+	}
+
+	if ($ok) {	
+
+		// El codigo va el generado en caso de mofificacion, visualización en otro caso se ignora porque
+		// se va a generar automáticamente
+?>		
+	<!-- Datos comunes de actividad -->
+	<table width="100%" class="textoTablaDato" align="center" cellpadding="2">
+		<tr>
+			<td colspan="2" >
+				<fieldset class="bordeDetalleRegistro">
+				<legend class="textoLeyendaDetalleRegistro">Datos Actividad </legend>
+				<table width="100%" class="textoTablaDato" align="center">
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Nombre</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="2" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?>  onblur="PasarAMayusculas('act_nombre')" id="act_nombre"  name="act_nombre" style="width:400px" ><?php echo ($es_modif)?htmlspecialchars($fila_actividad['actividad']['act_nombre'],ENT_QUOTES):""; ?></textarea>
+					<?php  if (!$es_modif) { ?>
+					 		<input type="hidden" name="act_codinap" id="act_codinap" size="21" maxlength="20" value="<?php echo ($es_modif)?htmlspecialchars($fila_actividad['actividad']['act_codinap'],ENT_QUOTES):"##"; ?>"> 
+					<?php  } ?>					
+					</td>
+				</tr>				
+				<?php  if ($es_modif) { ?>
+					<tr>
+						<td valign="top" width="15%" class='textoEtiqueta'>Código INAP</td>
+						<td class="textoEtiquetaDatoResaltado">
+							<input type="text" name="act_codinap" id="act_codinap" class="inputReadonly" readonly="readonly" size="21" maxlength="20" value="<?=htmlspecialchars($fila_actividad['actividad']['act_codinap'],ENT_QUOTES)?>">
+						</td>
+					</tr>
+				<?php  } ?>					
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Observación</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="5" name="act_obs"  id="act_obs" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?>  style="width:400px" ><?php echo ($es_modif)?htmlspecialchars($fila_actividad['actividad']['act_obs'],ENT_QUOTES):"" ?></textarea>
+					</td>
+				</tr>
+				</table>
+				</fieldset> 
+			</td>
+		</tr>
+	</table>
+	
+	<!-- Varia según el formato (Externa)-->
+	<table width="100%" class="textoTablaDato" align="center" cellpadding="2">
+		<tr>
+			<td colspan="2" >
+				<fieldset class="bordeDetalleRegistro">
+				<legend class="textoLeyendaDetalleRegistro">Datos Actividad Externa </legend>
+				<table width="100%" class="textoTablaDato" align="center">
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Observación</td>
+					<td class="textoEtiquetaDatoResaltado">
+						<textarea  rows="5" cols="100" name="actext_obs" id="actext_obs" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php echo ($es_modif)?htmlspecialchars($fila_actividad['actividad_externa']['actext_obs'],ENT_QUOTES):"" ?></textarea>
+					</td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Duración</td>
+					<td class="textoEtiquetaDatoResaltado"><input type="text" name="actext_duracionhs" id="actext_duracionhs" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> size="5" maxlength="5" value="<?php echo ($es_modif)?htmlspecialchars($fila_actividad['actividad_externa']['actext_duracionhs'],ENT_QUOTES):""; ?>">&nbsp;&nbsp;hora/s</td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Detalle sobre la duración</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="5" name="actext_duraciondetalle"  id="actext_duraciondetalle" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px" ><?php echo ($es_modif)?htmlspecialchars($fila_actividad['actividad_externa']['actext_duraciondetalle'],ENT_QUOTES):"" ?></textarea>
+					</td>
+				</tr>
+
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Tipo de Certificaci&oacute;n</td>
+					<td class="textoEtiquetaDatoResaltado">
+<?php					if ($operacion=="V") {
+						if ($conexion->TraerCampo("tipo_certificacion","tipocert_descripcion",array("tipocert_codigo='",$fila_actividad['actividad_externa']['tipocert_codigo'],"'"),$descri,$numfilas,$errorcod)) 
+				?>			<input name="tipocert_codigo" id="tipocert_codigo" class='inputReadonly' readonly='readonly' style="width:400px" value="<?php echo htmlspecialchars($descri,ENT_QUOTES)?>" />
+				<?php	} else {				
+						$spnombre = "sel_tipo_certificacion_xestado_orden";
+						$spparam = array("ptipocert_estado"=>ESTADOACTIVO, "porderby"=>"tipocert_descripcion");
+						FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","tipocert_codigo","tipocert_codigo","tipocert_descripcion",($es_modif)?$fila_actividad['actividad_externa']['tipocert_codigo']:"","-- Seleccione un Tipo de Certificación",$filatipocert,$seletipocert,1,"");
+					}	
+					?>
+					</td>
+				</tr>
+
+				
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Pais</td>
+					<td class="textoEtiquetaDatoResaltado">
+				<?php	if ($operacion=="V") {
+						if ($conexion->TraerCampo("paises","paisnom",array("paiscod='",$fila_actividad['actividad_externa']['pais_codigo'],"'"),$descri,$numfilas,$errorcod)) 
+			?>				<input name="pais_codigo" id="pais_codigo" class='inputReadonly' readonly='readonly' style="width:400px" value="<?php echo htmlspecialchars($descri,ENT_QUOTES)?>" />
+				<?php	} else {				
+						$spnombre = "sel_paises_xestado";
+						$spparam = array("ppaisestado"=>ESTADOACTIVO, "porderby"=>"paisnom");
+						FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","pais_codigo","paiscod","paisnom",($es_modif)?$fila_actividad['actividad_externa']['pais_codigo']:ARGENTINA,"-- Seleccione un País",$filaprespais,$selepais,1,"SeleccionPais(formulario)");
+					}
+						?>
+					</td>
+				</tr>
+	
+				<tr>
+					<td colspan="2">
+					 	<div id="datos_provincia" style="display: <?php echo (!$es_modif || ($es_modif && $fila_actividad['actividad_externa']['pais_codigo'] == ARGENTINA))?'':'none'; ?>">
+						<table width="100%" align="center" class="textoTablaDato"cellpadding="1" cellspacing="0">
+							<tr>
+								<td valign="top" width="25%" class="textoEtiqueta">Provincia</td>
+								<td class="textoEtiquetaDatoResaltado">	
+								<?php	if ($operacion=="V") {
+										if ($conexion->TraerCampo("provincias","provincianom",array("provinciacod='",$fila_actividad['actividad_externa']['prov_codigo'],"'"),$descri,$numfilas,$errorcod)) 
+					?>						<input name="prov_codigo" id="prov_codigo" class='inputReadonly' readonly='readonly' style="width:400px" value="<?php echo htmlspecialchars($descri,ENT_QUOTES)?>" />
+								<?php	} else {				
+										$oprovincia = new cProvincias($conexion);
+										$oprovincia->ProvinciasSP($spnombre,$spparam);
+										FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","prov_codigo","provinciacod","provincianom",($es_modif && $fila_actividad['actividad_externa']['pais_codigo'] == ARGENTINA)?$fila_actividad['actividad_externa']['prov_codigo']:PARTIDO_CAPITAL,"-- Seleccione una Provincia",$filaprov,$seleprov);
+									}										
+								?>
+								</td>
+							</tr> 
+						</table>
+						</div>		
+					</td>
+				</tr>
+				
+				<tr>
+					<td valign="top"  width="25%"  class="textoEtiqueta">Ciudad / Dirección</td>
+					<td class="textoEtiquetaDatoResaltado">	
+						<input type="text" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> name="actext_direccion" id="actext_direccion" style="width:400px" size="50" maxlength="100"  value="<?php echo ($es_modif) ? htmlspecialchars($fila_actividad['actividad_externa']['actext_direccion'],ENT_QUOTES):""; ?>" />						
+					</td>
+				</tr>
+				
+<?php 				if ($operacion!="V") {?>
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Organismo Sector </td>
+						<td class="textoEtiquetaDatoResaltado">
+						<input name="tipo_institucion" type="radio" value="<?php echo ORGANISMO_PUBLICO ?>" onclick="SeleccionTipoInstitucion(formulario.tipo_institucion[0].checked,'datos_institucion_pub','datos_institucion_pri')" <?php echo ($es_modif && $sector_org == ORGANISMO_PUBLICO)?"checked='checked'":"" ?>/>Público
+						<input name="tipo_institucion" type="radio" value="<?php echo ORGANISMO_PRIVADO ?>" onclick="SeleccionTipoInstitucion(formulario.tipo_institucion[1].checked,'datos_institucion_pri','datos_institucion_pub')" <?php echo ($es_modif && $sector_org == ORGANISMO_PRIVADO)?"checked='checked'":"" ?>/>Privado
+					</td>
+<?php 				} ?>			
+				<tr>
+					<td colspan= "2">
+					<div id="datos_institucion_pub" style="display:<?php echo ($es_modif && $sector_org==ORGANISMO_PUBLICO)?"":"none"; ?>">
+						<table width="100%" class="textoTablaDato" align="center" cellpadding="0" cellspacing="0" >
+							<tr>
+								<td valign="top" class="textoEtiqueta" width="25%">Organismo Público</td>
+								<td class="textoEtiquetaDatoResaltado">
+									<table cellpadding="1" cellspacing="0" width="100%">
+										<tr>
+											<td> 
+											<?php 	if ($operacion!="V") {?>
+													<input type="button" name="botonJurisd" 
+													value="Elegir" style="vertical-align:-2px" class="botones" 
+													onClick="Popup('organismo_selector_sincombo.dhtml?tipoorg_codigo='+formulario.tipoorg_codigo.value+'&amp;tipo_seleccionado=0&amp;tipo_organismo=T&amp;destino=<?php echo "jurisdid&amp;texto=jurisdnom&amp;&amp;inicio="?>'+formulario.jurisdid.value,'ventana_organismos',630,360,screen.availWidth-650,screen.availHeight-420,'yes');">                    
+											<?php 	}  else {
+													echo "&nbsp;";
+												}?>	
+											</td>
+											<td>
+											<?php if ($operacion!="V") {?>
+													<input type="text" name="jurisdid" id="jurisdid" size="6" class="textoinput" readonly="readonly" value="<?php echo ($es_modif && $sector_org==ORGANISMO_PUBLICO)?$fila_actividad['actividad_externa'][$jurisdid]:"" ?>">
+													<input type="hidden" name="tipoorg_codigo" id="tipoorg_codigo" value="<?php echo ($es_modif && $sector_org==ORGANISMO_PUBLICO)?$tipoorg_codigo:"" ?>">                    
+											<?php 	}  else {
+													echo "&nbsp;";
+												}?>	
+											</td>
+
+											<td width="100%">
+												<span id="jurisdnom"><?php echo ($es_modif)?$jurisdnom:""?></span>                    
+											</td>
+										</tr>
+									</table>        
+								</td>
+							</tr>					
+						</table>
+					</div>
+					</td>
+				</tr>
+				<tr>
+					<td colspan= "2">
+						<div id="datos_institucion_pri" style="display:<?php echo ($es_modif && $sector_org==ORGANISMO_PRIVADO)?"":"none"; ?>">
+						<table width="100%" class="textoTablaDato" align="center" cellpadding="1" cellspacing="0">
+							<tr>
+								<td valign="top" class="textoEtiqueta" width="25%">Organismo Privado</td>
+								<td class="textoEtiquetaDatoResaltado">	
+								<?php 	if ($operacion=="V") { 
+										if ($conexion->TraerCampo("organismo_privado","orgapri_nombre",array("orgapri_codigo='",$fila_actividad['actividad_externa']['orgapri_codigo'],"'"),$descri,$numfilas,$errorcod)) ?>
+											<input name="orgapri_codigo" id="orgapri_codigo" class='inputReadonly' readonly='readonly' style="width:400px" value="<?php echo htmlspecialchars($descri,ENT_QUOTES)?>" />
+<?php 									} else {
+										$oTablaOrganismoPrivado= new cTablaOrganismoPrivado($this->conexion);		
+										$oTablaOrganismoPrivado -> TablaDescriptoresSP($spnombre,$spparam);
+										FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","orgapri_codigo","orgapri_codigo","orgapri_nombre",($es_modif)?$fila_actividad['actividad_externa']['orgapri_codigo']:"","-- Organismo Privado ",$filaorganismopri,$seleorganismopri);
+									}
+?>								</td>								
+							</tr>	
+						</table>
+						</div>
+					</td>
+				</tr>	
+			
+				</table>
+				</fieldset> 
+			</td>
+		</tr>
+	</table>
+
+<?php	} // $ok	
+	return true; 
+ }
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosModifActividadExterna($datos,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		if (!$this->TienePermisoModificar($datos['act_codigo'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap'])) {
+			return false; 
+		}
+
+		if (!$this->_DatosValidosComunesActividadExterna($datos,$datosvalidados))
+		   return false; 
+
+		$error=false;
+		$tiene_formato_tipo=false;
+		
+		if (!$this->TieneFormatoTipo($datos['act_codigo'],FORMATOEXT,TIPOACTEXTASIS,$tiene_formato_tipo)) {
+			$errormail="\nact_codigo=".$datos['act_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		} 
+		
+		if(!$tiene_formato_tipo) {
+			$errormail="\nact_codigo=".$datos['act_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se ha encontrado la Actividad con el formato buscado.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+
+		$datosvalidados+=array('act_codigo'=>$datos['act_codigo']);
+		
+		// Verificar que la actividad no tenga dictamen.
+		$oDictamen = new cDictamen($this->conexion);
+		$ArregloDatos=array();
+		$ArregloDatos=array('act_codigo'=>$datos['act_codigo']);
+		$oDictamen->BuscarDictamen($ArregloDatos,$numfilas,$array_resultado,$error,$errormail);
+		if ($error)  {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		} elseif ($numfilas>0) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La actividad no puede ser modificada, pues tiene dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;			
+		}
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosComunesActividadExterna($datos,&$datosvalidados)	{
+
+
+		$datosvalidados=array();
+
+		// Duración	en horas 					- [actext_duracionhs] 	- [OBLIG]
+		if (!FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['actext_duracionhs'],'NumericoEntero') || $datos['actext_duracionhs'] <=0 ) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La duración en hs. de la Actividad debe ser un número entero mayor que cero.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["actext_duracionhs"]=$datos["actext_duracionhs"];
+
+		// Detalle sobre la duración	 		- [actext_duraciondetalle] 	- [OPCIONAL]
+		$datosvalidados["actext_duraciondetalle"]=$datos["actext_duraciondetalle"];
+
+		// Dirección 							- [actext_direccion] 	- [OPCIONAL]
+		$datosvalidados["actext_direccion"]=$datos["actext_direccion"];
+
+		// Pais									- [pais_codigo] - [OBLIG]
+		$spnombre = "sel_paises_xestado";
+		$spparam = array("ppaisestado"=>ESTADOACTIVO, "porderby"=>"paisnom");
+		if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("paiscod"=>$datos['pais_codigo']),$resultado,$filapais,$numfilas,$errno) || $numfilas!=1)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar el pais.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["pais_codigo"]=$datos['pais_codigo'];
+
+		// Tipo de Certificación (para FIRST/TOEFL)
+		$spnombre = "sel_tipo_certificacion_xestado_orden";
+		$spparam = array("ptipocert_estado"=>ESTADOACTIVO, "porderby"=>"tipocert_descripcion");
+
+		if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("tipocert_codigo"=>$datos['tipocert_codigo']),$resultado,$filapais,$numfilas,$errno) || $numfilas!=1)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar el tipo de certificación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["tipocert_codigo"]=$datos['tipocert_codigo'];
+		
+		// Provincia							- [prov_codigo] - [OBLIG] / Si es Argentina
+		if ($datosvalidados["pais_codigo"]==ARGENTINA) {
+			$oprovincia = new cProvincias($this->conexion);
+			$oprovincia->ProvinciasSP($spnombre,$spparam);
+			if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("provinciacod"=>$datos['prov_codigo']),$resultado,$filaprov,$numfilas,$errno) || $numfilas!=1)	{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar la provincia. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["prov_codigo"]=$datos['prov_codigo'];
+		} else	
+			$datosvalidados["prov_codigo"]="NULL";
+
+		$datosvalidados["tipo_institucion"]=$datos['tipo_institucion'];
+
+		// Organismo							- [jurisdid_apn/orgapub_codigo/orgapri_codigo] [OBLIG]
+		if($datos["tipo_institucion"]==ORGANISMO_PUBLICO) {
+
+			if ($datos["tipoorg_codigo"]==ORGANISMO_APN) {	
+				$jurisdicciones	= new jurisdicciones;	
+				
+				if(!$jurisdicciones->BuscarRaizTipoOrg(TABGRALES_TIPOORG_NAC_EJ,array(),TABGRALES_TS_ARRAY,$nodo_jurisd,array(),$CodError)) {
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"No se pudo obtener la raiz de jurisdicciones. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}	
+
+				$nodo_raiz = current($nodo_jurisd);
+//				if ($datos['jurisdid'] == $nodo_raiz['jurisdid']) {
+				if ($datos['jurisdid_apn'] == $nodo_raiz['jurisdid']) {
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Error en la selección del Organismo Público.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+					
+				if (!$jurisdicciones->SelectJurisdxID($datos['jurisdid_apn'],array(),TABGRALES_TS_ARRAY,$fila_jurisd,array(),$NumFilas,$CodError)) {
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en la selección del Organismo Público.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+				$datosvalidados["jurisdid_apn"]=$datos['jurisdid_apn'];
+				$datosvalidados["orgapub_codigo"]="NULL";
+				$datosvalidados["orgapri_codigo"]="NULL";
+					
+			}
+			if ($datos["tipoorg_codigo"]==ORGANISMO_NO_APN) {
+				$oTablaOrganismoPublico = new cTablaOrganismoPublico($this->conexion);		
+				$oTablaOrganismoPublico -> TablaDescriptoresSP($spnombre,$spparam);
+				$arraybusq=array("orgapub_codigo"=>$datos["orgapub_codigo"]);
+				if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,$arraybusq,$query,$filaret,$numfilas,$errorcod) || $numfilas!=1)	{
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en la selección del Organismo Público.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+				$datosvalidados["orgapub_codigo"]=$datos['orgapub_codigo'];
+				$datosvalidados["jurisdid_apn"]="NULL";
+				$datosvalidados["orgapri_codigo"]="NULL";				
+			}
+		}
+			
+		if ($datos["tipo_institucion"]==ORGANISMO_PRIVADO) {
+			$oTablaOrganismoPrivado = new cTablaOrganismoPrivado($this->conexion);		
+			$oTablaOrganismoPrivado -> TablaDescriptoresSP($spnombre,$spparam);
+			$arraybusq=array("orgapri_codigo"=>$datos["orgapri_codigo"]);
+			if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,$arraybusq,$query,$filaret,$numfilasmatcheo,$errorcod) || $numfilasmatcheo!=1)	{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en la selección del Organismo Privado.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["orgapri_codigo"]=$datos['orgapri_codigo'];
+			$datosvalidados["jurisdid_apn"]="NULL";
+			$datosvalidados["orgapub_codigo"]="NULL";
+		}
+
+		$datosvalidados["actext_obs"]=$datos['actext_obs'];
+		$datosvalidados["tipoact_codigo"]=$datos['tipoact_codigo'];
+		
+		return true;
+	}	
+
+//-----------------------------------------------------------------------------------------------------	
+	function _AguparDatosPost($datos,&$datos_agrup,$es_modif)	{
+
+		//-----------------------------------------------------------
+		$datos_agrup['actividad']=array('act_codinap'=>isset($datos['act_codinap'])?$datos['act_codinap']:"",
+										'act_nombre'=>$datos['act_nombre'],
+										'act_obs'=>$datos['act_obs']);
+		if ($es_modif)
+			$datos_agrup['actividad']+=array('act_codigo'=>$datos['act_codigo']);
+		else 
+			$datos_agrup['actividad']+=array('formact_codigo'=>FORMATOEXT);	
+		//--------------------------------------------------------------
+		$datos_agrup['actividad_externa']=array(
+  						  'tipoact_codigo'=>TIPOACTEXTASIS,
+  						  'actext_duracionhs'=>$datos['actext_duracionhs'],
+						  'actext_duraciondetalle'=>$datos['actext_duraciondetalle'],
+	  					  'actext_creditos'=>0,
+						  'pais_codigo'=>$datos['pais_codigo'],
+						  'prov_codigo'=>$datos['prov_codigo'],						  
+						  'actext_direccion'=>$datos['actext_direccion'],
+						  'tipo_institucion'=>$datos['tipo_institucion'], 
+						  'tipocert_codigo'=>$datos['tipocert_codigo'], 						  
+				  		  'actext_obs'=>$datos['actext_obs'],
+  						  'tipoorg_codigo'=>$datos['tipoorg_codigo'],
+						  'orgapri_codigo'=>($datos['tipo_institucion'] == ORGANISMO_PRIVADO)?$datos['orgapri_codigo']:"NULL",
+						  'jurisdid_apn'=>  (($datos['tipo_institucion'] == ORGANISMO_PUBLICO) && ($datos['tipoorg_codigo']==ORGANISMO_APN))?$datos['jurisdid']:"NULL",
+						  'orgapub_codigo'=>(($datos['tipo_institucion'] == ORGANISMO_PUBLICO) && ($datos['tipoorg_codigo']==ORGANISMO_NO_APN))?$datos['jurisdid']:"NULL"
+		);		
+
+		if ($es_modif)
+			$datos_agrup['actividad_externa']+=array('act_codigo'=>$datos['act_codigo']);
+		else {
+		 	$datos_agrup['actividad_externa']+=array('actext_duracionhs'=>0);
+		}
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosAltaActividadExterna($datos,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		
+		if (!$this->_DatosValidosComunesActividadExterna($datos,$datosvalidados))
+		   return false; 
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosEliminarActividadExterna($act_codigo,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		if (!$this->TienePermisoBaja($act_codigo,$_SESSION['rolcod'],$_SESSION['jurisdid_inap'])) {
+			return false; 
+		}
+	
+		// VER ,$error,$errormsg
+		$errormsg="";		
+		$error=false;
+		$tiene_formato_tipo=false;
+		
+		if (!$this->TieneFormatoTipo($act_codigo,FORMATOEXT,TIPOACTEXTASIS,$tiene_formato_tipo)) {
+			$errormail="\nact_codigo=".$act_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		} 
+		
+		if(!$tiene_formato_tipo) {
+			$errormail="\nact_codigo=".$act_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se ha encontrado la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+
+		$datosvalidados['act_codigo'] = $act_codigo;
+
+		// Verificar que la actividad no tenga dictamen.
+		$oDictamen = new cDictamen($this->conexion);
+		$ArregloDatos=array();
+		$ArregloDatos=array('act_codigo'=>$act_codigo);
+		$oDictamen->BuscarDictamen($ArregloDatos,$numfilas,$array_resultado,$error,$errormail);
+		if ($error)  {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		} elseif ($numfilas>0) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La actividad no puede ser modificada, pues tiene dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;			
+		}
+		
+		return true;
+	}
+//------------------------------------------------------------------------------------------------------------------
+	function MostrarDatosActividadAsignable($conexion,$act_codigo,$formact_codigo,$tipoact_codigo,$actprog_sec) {
+
+		$oDictamen = new cDictamen($conexion);
+		$ok = true;
+		
+		$ArregloDatos['act_codigo'] = $act_codigo;
+		$ArregloDatos['formact_codigo'] = $formact_codigo;
+		$ArregloDatos['dic_estado'] = DICTAMENACTIVO;		
+		$ArregloDatos['tipoact_codigo'] = $tipoact_codigo;		
+		$ArregloDatos['actprog_sec'] =$actprog_sec;
+		$ArregloDatos['con_disposicion'] = true;								
+
+
+		if(!$this->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas,$result,$error,$errormail)) {
+			$txt_sys_mail="\nact_codigo=".$ArregloDatos['act_codigo']."\nformact_codigo=".$ArregloDatos['formact_codigo']."\ntipoact_codigo=".$ArregloDatos['tipoact_codigo']."\nactprog_sec=".(isset($ArregloDatos['actprog_sec'])?$ArregloDatos['actprog_sec']:"")."\nerror=".$errormail;
+			$txt_sys_mail.= "\n error en BuscarActividadDictaminadaAvanzada";
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"No se ha encontrado el dictamen de la actividad seleccionada.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			$ok = false;	
+		} 		
+
+		if ($numfilas != 1) {
+			$txt_sys_mail="\nact_codigo=".$ArregloDatos['act_codigo']."\nformact_codigo=".$ArregloDatos['formact_codigo']."\ntipoact_codigo=".$ArregloDatos['tipoact_codigo']."\nactprog_sec=".(isset($ArregloDatos['actprog_sec'])?$ArregloDatos['actprog_sec']:"")."\nerror=".$errormail;
+			$txt_sys_mail.="\nnumfilas=".$numfilas;
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando datos a mostrar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			$ok = false;	
+		}
+	
+		if ($ok) {	
+		
+			$filaexterna = mysqli_fetch_assoc($result);
+
+?>			<fieldset class="bordeDetalleRegistro">
+			<legend class="textoLeyendaDetalleRegistro">Datos Actividad </legend>
+			<table width="100%" class="textoTablaDato" align="center" cellpadding="2" cellspacing="0" border="0">
+				<tr>
+					<td >
+						<table width="100%" class="textoTablaDato" align="center" border="0" cellpadding="2" cellspacing="2">
+						<tr>
+							<td valign="top" width="25%" class='textoEtiqueta'>Nombre</td>
+							<td class="textoEtiquetaDatoResaltado">
+							<textarea cols="100" rows="2" class="inputReadonly" readonly="readonly" name="act_nombre"  id="act_nombre"  style="width:400px" ><?php echo htmlspecialchars($filaexterna['act_nombre'],ENT_QUOTES); ?></textarea>
+							</td>
+						</tr>				
+						<tr>
+							<td valign="top" width="15%" class='textoEtiqueta'>Código INAP</td>
+							<td class="textoEtiquetaDatoResaltado"><input type="text" name="act_codinap" id="act_codinap"  class="inputReadonly" readonly="readonly" size="21" maxlength="20" value="<?php echo htmlspecialchars($filaexterna['act_codinap'],ENT_QUOTES) ?>">
+							</td>
+						</tr>
+						<tr>
+							<td valign="top" width="25%" class='textoEtiqueta'>Tipo de Actividad</td>
+							<td class="textoEtiquetaDatoResaltado">	<?php 
+								$conexion->TraerCampo("tipo_actividad","tipoact_descripcion",array("tipoact_codigo='",$filaexterna['tipoact_codigo'],"'"),$tipoact_descripcion,$numfilas,$errno);
+								echo $tipoact_descripcion;	?>
+							</td>
+						</tr>
+						<tr> 
+							<td colspan="2">
+								<table width="100%" class="textoTablaDato" align="center" cellpadding="2" cellspacing="0" border="0">
+									<tr>
+										<td valign="middle" width="25%" class='textoEtiqueta'>Fecha de Inicio </td>
+										<td class="textoEtiquetaDatoResaltado"><input type="text" name="actprog_fecha_inicio" id="actprog_fecha_inicio"  class="inputReadonly" readonly="readonly" size="11"  value="<?php echo FuncionesPHPLocal::ConvertirFecha($filaexterna['actprog_fecha_inicio'],'aaaa-mm-dd','dd/mm/aaaa'); ?>"></td>
+										<td valign="middle" width="25%" class='textoEtiqueta'>Fecha de Finalización</td>
+										<td class="textoEtiquetaDatoResaltado"><input type="text" name="actprog_fecha_fin" id="actprog_fecha_fin"  class="inputReadonly" readonly="readonly" size="11"  value="<?php echo FuncionesPHPLocal::ConvertirFecha($filaexterna['actprog_fecha_fin'],'aaaa-mm-dd','dd/mm/aaaa'); ?>"></td>
+									</tr>				
+								</table>	
+							</td>
+						</tr>
+						</table>
+					</td>
+					</tr>
+				</table>
+			</fieldset>
+		<?php }  // if ok 
+		return $ok;
+ 	}
+} // class
+?>

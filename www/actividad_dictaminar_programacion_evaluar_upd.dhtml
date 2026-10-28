@@ -1,0 +1,90 @@
+<?php require('./include.dhtml');
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+$oDictamen = new cDictamen($conexion);
+//----------------------------------------------------------------------------------------- 	
+$conexion->ManejoTransacciones("B");
+$result=true;
+
+if (isset($_POST['boton_aprobado'])) 
+	$operacion = "A";
+elseif (isset($_POST['boton_rechazado']))  
+	$operacion = "R";
+
+if(!$oDictamen->EvaluarDictamen($_POST,$operacion))
+	$result=false;
+
+if($result) {	
+
+	if (isset($_POST['boton_aprobado'])) {
+		$operacion_mensaje = " APROBADO ";
+		FuncionesPHPLocal::RegistrarAcceso($conexion,"49004","act_codigo=".$_POST["act_codigo"]."- dic_codigo=".$_POST["dic_codigo"] ,$_SESSION['usuariocod']);
+	} elseif (isset($_POST['boton_rechazado']))  {
+		$operacion_mensaje = "RECHAZADO";			
+		FuncionesPHPLocal::RegistrarAcceso($conexion,"49005","act_codigo=".$_POST["act_codigo"]."- dic_codigo=".$_POST["dic_codigo"] ,$_SESSION['usuariocod']);
+	}
+
+	$oDictamen->ArmarMensajeEvaluar($_POST,$operacion_mensaje,$mensaje);	
+	$asunto = SISTEMA." -  Evaluación de Dictamen";
+
+	switch ($_POST['tipoact_codigo']) {
+		case TIPOACTCURSOINAP:
+			$formact_codigo=FORMATOCURSO;		
+			$rol_destino = USUCURSOINAP;
+			break;
+		case TIPOACTCURSOINST:
+			$formact_codigo=FORMATOCURSO;
+			$rol_destino = USUACTINS;
+			break;
+		case TIPOACTCURSOJURISD:
+			$formact_codigo=FORMATOCURSO;
+			$rol_destino = USUACTJUR;
+			break;
+		case TIPOACTEXTASIS:
+			$formact_codigo=FORMATOEXT;
+			$rol_destino=USUACTEXT;
+			break;	
+			
+		case TIPOACTAUTODOCENTE:
+		case TIPOACTAUTOPUBLI:
+		case TIPOACTAUTOASISTEC:
+		case TIPOACTAUTOAAUTOFORM:
+		case TIPOACTAUTOEVASIS:		
+		case TIPOACTAUTOEVACT:						
+			$formact_codigo=FORMATOAUTO;
+			$rol_destino=USUAUTODESARROLLO;
+			break;	
+	}
+
+	// $_POST['jurisdid_inap'] viene la jurisdiccion de la actividad que corresponde al dictamen
+	$conexion->TraerCampo("roles","roldesc",array("rolcod='",$rol_destino,"'"),$descri_rol,$numfilas,$errorcod);
+	if (FuncionesPHPLocal::MandarMail($conexion,$rol_destino,(isset($_POST['jurisdid_inap']))?$_POST['jurisdid_inap']:"",$asunto,$mensaje)) {
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"En unos momentos el/los ".$descri_rol." <BR> recibirá un correo electrónico con el resultado de la evaluación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+	} else {
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"El correo electrónico con la evaluación no fue enviado, <BR>notifique al ".$descri_rol." por otra via.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+	}
+
+	FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se ha efectuado la evaluación del dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+	$conexion->ManejoTransacciones("C");
+
+} else	
+	$conexion->ManejoTransacciones("R");
+
+?>		
+<br><br><div align="center"><a href="actividad_dictaminar_programacion_evaluar.dhtml" class="linkFondoBlanco">Volver</a></div>
+<?php $oEncabezados->PieMenuEmergente(); ?>

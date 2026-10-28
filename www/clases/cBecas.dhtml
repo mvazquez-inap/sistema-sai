@@ -1,0 +1,20 @@
+<?php
+class cBecas {
+
+	var $conexion;
+		
+	public function __construct($conexion)
+	{
+		$this->conexion = &$conexion;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function CarrerasSP(&$spnombre,&$spparam, $puniv_codigo, $porderby)
+	{
+		$spnombre="sel_carreras_xuniv_orden";
+		$spparam =array('porderby'=>$porderby,'puniv_codigo'=>$puniv_codigo,'pcarr_estado'=>ESTADOACTIVO,'puniv_estado'=>ESTADOACTIVO);
+	}
+
+
+}// FIN CLASE	
+
+?>

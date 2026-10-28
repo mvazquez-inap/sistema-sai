@@ -1,0 +1,12 @@
+<?php
+
+define("SISTEMA",'PORTAL');
+
+define("BASEDATOS", getenv("SAI_PORTAL_DB") ?: "");
+define("SERVIDORBD", getenv("SAI_PORTAL_HOST") ?: "");
+define("USUARIOBD", getenv("SAI_PORTAL_USER") ?: "");
+define("CLAVEBD", getenv("SAI_PORTAL_PASSWORD") ?: "");
+
+define("TIEMPOSESION",1800); // cantidad de segundos que dura la sesion
+
+?>

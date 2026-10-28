@@ -1,0 +1,383 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Ws SAI- Cliente en PHP</title>
+<style type="text/css">
+.botones {
+ 
+    margin:0 7px 0 0;
+    border:1px solid #dedede;
+    border-top:1px solid #eee;
+    border-left:1px solid #eee;
+    font-family:"Lucida Grande", Tahoma, Arial, Verdana, sans-serif;
+    font-size:12px;
+    line-height:90%;
+    text-decoration:none;
+    font-weight:bold;
+    cursor:pointer;
+	background-color:#f5f5f5;
+	color:#565656;
+    width:auto;
+    overflow:visible;
+    padding:4px 10px 3px 7px; /* IE6 */
+}
+
+.botones[type]{
+    padding:5px 10px 5px 7px; /* Firefox */
+    line-height:17px; /* Safari */
+}
+*:first-child+html botones[type]{
+    padding:4px 10px 3px 7px; /* IE7 */
+}
+.botones:hover, .botones a:hover{
+    background-color:#E6EFC2;
+    border:1px solid #C6D880;
+    color:#529214;
+}
+.botones a:active{
+    background-color:#6299c5;
+    border:1px solid #6299c5;
+    color:#fff;
+}
+
+</style>
+</head>
+<body>
+<div>
+<?php
+require_once("clases/funcionesphp.dhtml");
+require_once('./wsSai/cInterfaceWsCreditosPersonales.dhtml');
+require_once('./wsSai/cInterfaceWsTablasBasicas.dhtml');
+
+ini_set("memory_limit","64M");
+
+?>
+<script type="text/javascript" src="calendar/calendar.js"></script>
+<script type="text/javascript" src="calendar/calendar-setup.js"></script>
+<script type="text/javascript" src="calendar/calendar-es.js"></script>
+<div>
+	<div style="text-align:center">
+		<h1>Cliente WebService en PHP</h1>
+        <h1>SAI-Creditos por Persona y Tablas del Sistema</h1>
+	</div>
+	<form action="prueba_ws.dhtml" method="post" name="formulario">
+	<div style="text-align:left">
+		<h2>Funciones</h2>
+		<ul>
+			<li>creditosTotal<span style="font-size:11px; font-weight:bold;">  param=(cuit, fecha_desde, fecha_hasta)</span></li>
+			<li>detalleCreditosTotal<span style="font-size:11px; font-weight:bold;">  param=(cuit, fecha_desde, fecha_hasta)</span></li>
+			<li>creditosPorFormato<span style="font-size:11px; font-weight:bold;">  param=(formato, cuit, fecha_desde, fecha_hasta>)</span></li>
+			<li>detalleCreditosPorFormato<span style="font-size:11px; font-weight:bold;">  param=(formato, cuit, fecha_desde, fecha_hasta)</span></li>
+			<li>Tabla Formato&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="font-size:11px; font-weight:bold;line-height:50px; vertical-align:middle"> <input type="submit" name="sysTabFormatos" value="sysTabFormatos"  class="botones" />
+            	</span>
+            </li>
+			<li>Tabla Tipo Actividad&nbsp;<span style="font-size:11px; font-weight:bold; line-height:50px; vertical-align:middle"> <input type="submit" name="sysTabTipoActividad" value="sysTabTipoActividad"  class="botones" />
+            	</span>
+            </li>
+			<li>Tabla Resolución &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span style="font-size:11px; line-height:50px; vertical-align:middlefont-weight:bold;"> <input type="submit" name="sysTabResolucion" value="sysTabResolucion"  class="botones" />
+            	</span>
+            </li>
+		</ul>
+	</div>
+
+    <span style="font-weight:bold; font-size:14px">
+        Nota: Los créditos INAP informados corresponden a actividades INAP realizadas desde 01/01/2006, actividades Jurisdiccionales e Institucionales desde el 01/01/2010 y
+        	  actividades de autodesarrollo y externas desde el 01/01/2008 a la fecha. No se informan los créditos obtenidos por actividades formales. 
+    </span>
+
+	<h2>Ejemplo:</h2>
+        <div style="text-align:left">
+			<span style="font-weight:bold">CUIT:</span>
+			<input type="text" name="pers_cuit" size="11" maxlength="11" value="<?php echo (isset($_POST['pers_cuit']))?$_POST['pers_cuit']:""; ?>" />
+            &nbsp;
+			<span style="font-weight:bold;">Fecha desde:</span>
+            <input type="text" name="fdesde" id="fdesde"  maxlength="10" size="11" value="<?php echo (isset($_POST['fdesde']))?$_POST['fdesde']:""; ?>"> 
+            <img src="./images/calendario.gif" id="cal-button-1" name="cal-button-1" style="vertical-align:-4px; cursor:pointer" border="0" alt="Calendario">
+            <script type="text/javascript">
+                Calendar.setup({
+                range		  : [ 2007, <?php echo date("Y") ?>],
+                inputField    : "fdesde",
+                button        : "cal-button-1",
+                ifFormat	: "%d/%m/%Y"
+                });
+            </script>
+            &nbsp;
+   			<span style="font-weight:bold">Fecha hasta:</span>
+        	<input type="text" name="fhasta" id="fhasta"  maxlength="10" size="11" value="<?php echo (isset($_POST['fhasta']))?$_POST['fhasta']:""; ?>"> 
+            <img src="./images/calendario.gif" id="cal-button-2" name="cal-button-2" style="vertical-align:-4px; cursor:pointer" border="0" alt="Calendario">
+            <script type="text/javascript">
+                Calendar.setup({
+                range		  : [ 2007, <?php echo date("Y") ?>],
+                inputField    : "fhasta",
+                button        : "cal-button-2",
+                ifFormat	: "%d/%m/%Y"
+                });
+            </script>
+            <br>
+            <br>
+            <span style="font-weight:bold">Formato:</span>
+			<input type="text" name="formact_codigo" size="11" maxlength="11" value="<?php echo (isset($_POST['formact_codigo']))?$_POST['formact_codigo']:""; ?>" />
+			(0:Todos,1:curso,2:autodesarrollo,3:externa) 
+        	&nbsp; 
+		</div>
+		<div style="margin-top:15px;">
+		<input type="submit" name="creditosTotal" value="creditosTotal"  class="botones" />
+		&nbsp;&nbsp;&nbsp;
+		<input type="submit" name="detalleCreditosTotal" value="detalleCreditosTotal"  class="botones" />
+		&nbsp;&nbsp;&nbsp;
+     	<input type="submit" name="creditosPorFormato" value="creditosPorFormato"  class="botones" />
+		&nbsp;&nbsp;&nbsp;
+		<input type="submit" name="detalleCreditosPorFormato" value="detalleCreditosPorFormato"  class="botones" />
+		</div>	
+	</form>
+
+</div>
+<?php 
+// ----------------------------------------------------------------------------------------------------------------
+// Creo los clientes
+// ----------------------------------------------------------------------------------------------------------------
+
+// Cambiar IP, local
+$servidor="10.1.10.173"; 
+// $servidor="127.0.0.1"; 
+// $servidor="http://sai-testing.sgp.gov.ar"; 
+
+// $wsdl_credPersonal = $servidor."sai/wsSai/wsCreditosPersonales.php?wsdl";	
+// $cliente_credPersonal = new nusoap_client($wsdl_credPersonal, 'wsdl');
+
+// $wsdl_tablas = $servidor."sai/wsSai/wsTablasBasicas.php?wsdl";	
+// $cliente_tablas = new nusoap_client($wsdl_tablas, 'wsdl');
+
+// ----------------------------------------------------------------------------------------------------------------
+if ($servidor=="10.1.10.173") { 	
+	$WSDL_creditosPersonales = "http://10.1.10.173/sai/wsSai/wsCreditosPersonales.php?wsdl";	
+	$WSDL_TablasBasicas = "http://10.1.10.173/sai/wsSai/wsTablasBasicas.php?wsdl";		
+} else 	{
+	$WSDL_creditosPersonales = $servidor."/wsSai/wsCreditosPersonales.php?wsdl";	
+	$WSDL_TablasBasicas = $servidor."/wsSai/wsTablasBasicas.php?wsdl";		
+}
+
+$oWsCreditosPersonales = new cCreditosPersonalesINAP($WSDL_creditosPersonales,true);
+$oWsTablasBasicas= new cTablasBasicasINAP($WSDL_TablasBasicas,true);
+// ----------------------------------------------------------------------------------------------------------------
+// Créditos totales
+// ----------------------------------------------------------------------------------------------------------------
+if (isset($_POST['creditosTotal']))
+	$result = $oWsCreditosPersonales->getCreditosTotal($_POST['pers_cuit'],$_POST['fdesde'],$_POST['fhasta']);
+// ----------------------------------------------------------------------------------------------------------------
+if (isset($_POST['detalleCreditosTotal']))
+	$result = $oWsCreditosPersonales->getDetalleCreditosTotal($_POST['pers_cuit'],$_POST['fdesde'],$_POST['fhasta']);
+
+// ----------------------------------------------------------------------------------------------------------------
+// Créditos por Formato
+// ----------------------------------------------------------------------------------------------------------------
+if (isset($_POST['creditosPorFormato']))
+	$result = $oWsCreditosPersonales->getCreditosPorFormato($_POST['formact_codigo'],$_POST['pers_cuit'],$_POST['fdesde'],$_POST['fhasta']);
+// ----------------------------------------------------------------------------------------------------------------
+if (isset($_POST['detalleCreditosPorFormato']))
+	$result = $oWsCreditosPersonales->getDetalleCreditosPorFormato($_POST['formact_codigo'],$_POST['pers_cuit'],$_POST['fdesde'],$_POST['fhasta']);
+
+// ----------------------------------------------------------------------------------------------------------------
+// Tablas del sistema
+// ----------------------------------------------------------------------------------------------------------------
+if (isset($_POST['sysTabFormatos']))
+	$result = $oWsTablasBasicas->getTableFormatoActividad();
+
+if (isset($_POST['sysTabTipoActividad']))
+	$result = $oWsTablasBasicas->getTableTipoActividad();	
+
+if (isset($_POST['sysTabResolucion']))
+	$result = $oWsTablasBasicas->getTableResolucion();
+
+// ----------------------------------------------------------------------------------------------------------------
+if (isset($_POST['creditosTotal']) || isset($_POST['creditosPorFormato']))  { 
+	
+	// Capturo el error
+	$error=$oWsCreditosPersonales->fault;
+	$error_description=$oWsCreditosPersonales->getError();
+
+	if ($error){
+		echo '<br><strong>Error: </strong>';
+		echo "(".$error_description['faultcode'].",'".$error_description['faultstring']."','".$error_description['detail']. "')";
+		echo '<br>';
+		die();
+	} else {
+		echo '<br>';
+		echo '<h2>Resultado:</h2>';
+		
+?>		
+		<table border="1" style="width:10%">
+        <tr style="background-color:#999999; color:#FFFFFF; font-weight:bold; text-align:center;">
+            <th style="width:10%">Créditos</th>          
+        </tr>	
+		<tr>
+			<td style="text-align:center">
+				<?php  echo utf8_decode($result['creditos']); ?>
+			</td>
+		</tr>		
+		</table>	
+<?php		
+	}
+
+}
+// ----------------------------------------------------------------------------------------------------------------
+if (isset($_POST['detalleCreditosTotal']) || isset($_POST['detalleCreditosPorFormato']) )  { 
+
+	// Capturo el error
+	$error=$oWsCreditosPersonales->fault;
+	$error_description=$oWsCreditosPersonales->getError();
+	
+	if ($error) {
+		echo '<br><strong>Error: </strong>';
+		echo "(".$error_description['faultcode'].",'".$error_description['faultstring']."','".$error_description['detail']. "')";
+		echo '<br>';
+		die();
+	} else {
+		echo '<br>';		
+		echo '<h2>Resultado:</h2>';
+		$xml = iconv("ISO-8859-1","UTF-8//IGNORE",$result['resultado']);
+		$xml2 = @simplexml_load_string($xml);
+
+		// echo "<BR>CLIENTE:<BR>";
+		// print_r($oWsCreditosPersonales);
+		// echo "<br><br> XML: ".$xml ;
+
+		if (is_object($xml2))
+		{
+			$cant_act_certificadas = count($xml2->actividades_certificadas->children());
+			if ($cant_act_certificadas==0)	 	 { 
+				echo '<span style="font-weight:bold">No se encontraron créditos de actividades del formato solicitado.</span>';
+			} else	{
+?>		
+	        <table border="1" style="width:100%; font-family:Arial, Helvetica, sans-serif;   font-size:11px;" >
+	        <tr style="background-color:#999999; color:#FFFFFF;text-align:center;font-weight:bold;">
+	            <th style="width:5%">C&oacute;digo INAP</th>
+	            <th style="width:40%">Actividad Nombre</th>
+                <!--           <th style="width:5%">Tipo de Actividad</th> -->
+	            <th style="width:5%">C&eacute;ditos</th>
+	            <th style="width:8%">Realizada desde</th>
+	            <th style="width:8%">Realizada hasta</th>                
+	            <th style="width:9%">Expediente</th>
+	            <th style="width:10%">N&uacute;mero de disposici&oacute;n</th>
+	            <th style="width:10%">Fecha disposici&oacute;n</th>
+	        </tr>	
+	<?php
+				foreach ($xml2->actividades_certificadas as $actividad) {
+					foreach ($actividad as $datosactividad) {
+	?>
+					<tr>
+						<td style="text-align:left">
+							<?php  echo utf8_decode($datosactividad->act_codinap); ?>
+						</td>
+						<td style="text-align:left">
+							<?php  echo utf8_decode($datosactividad->act_nombre); ?>
+						</td>
+                        <!-- 
+						<td style="text-align:center">
+							<?php  // echo utf8_decode($datosactividad->tipoact_codigo); ?>
+						</td>
+                        -->
+						<td style="text-align:center">
+							<?php  echo utf8_decode($datosactividad->total_creditos); ?>
+						</td>
+                        <td style="text-align:center">
+							<?php echo FuncionesPHPLocal::ConvertirFecha(utf8_decode($datosactividad->fecha_inicio),'aaaa-mm-dd','dd/mm/aaaa'); ?>
+						</td>
+                        <td style="text-align:center">
+							<?php echo FuncionesPHPLocal::ConvertirFecha(utf8_decode($datosactividad->fecha_fin),'aaaa-mm-dd','dd/mm/aaaa'); ?>
+						</td>
+						<td style="text-align:left">
+							<?php  echo utf8_decode($datosactividad->exp_numero); ?>
+						</td>
+						<td style="text-align:center">
+							<?php  echo utf8_decode($datosactividad->dis_numero); ?>
+						</td>
+                  		<td style="text-align:center">
+							<?php  echo FuncionesPHPLocal::ConvertirFecha(utf8_decode($datosactividad->dis_fecha),'aaaa-mm-dd','dd/mm/aaaa'); ?>
+						</td>
+
+                        
+	                  </tr>	 
+	<?php				}
+				}
+			}
+?>
+	</table>
+<?php			
+		}		
+	}
+}
+
+if ( isset($_POST['sysTabFormatos']) || isset($_POST['sysTabTipoActividad'])||isset($_POST['sysTabResolucion'])  )  { 	
+
+	// Capturo el error
+	$error=$oWsTablasBasicas->fault;
+	$error_description=$oWsTablasBasicas->getError();
+
+	if ($error) {
+		echo '<br><strong>Error: </strong>';		
+		echo "(".$error_description['faultcode'].",'".$error_description['faultstring']."','".$error_description['detail']. "')";
+		echo '<br>';
+		die();		
+	} else {
+
+		echo '<br>';		
+		echo '<h2>Resultado:</h2>';
+		$xml = iconv("ISO-8859-1","UTF-8//IGNORE",$result['resultado']);
+		$xml2 = @simplexml_load_string($xml);
+		
+		// echo "<br><br> XML: ".$xml ;
+		
+		// echo "<BR>CLIENTE:<BR>";
+		// print_r($oWsCreditosPersonales);
+
+		if (is_object($xml2))
+		{
+			$cant_filas = count($xml2->tabla_elementos->children());
+	
+			if ($cant_filas==0)	 	 { 
+				echo '<span style="font-weight:bold">No se encontraron elementos en la tabla.</span>';
+			} else	{
+?>		
+	        <table border="1" style="width:40%">
+	        <tr style="background-color:#999999; color:#FFFFFF; font-weight:bold; text-align:center;">
+	            <th style="width:5%">C&oacute;digo</th>
+	            <th style="">Descripci&oacute;n</th>	       
+                
+<?php 				if( isset($_POST['sysTabTipoActividad'])||isset($_POST['sysTabResolucion']) ) { ?>                     
+					<th style="width:5%">C&oacute;digo Formato</th>
+<?php 				} ?>
+	        </tr>	
+	<?php
+				foreach ($xml2->tabla_elementos as $elemento) {
+					foreach ($elemento as $elemento) {
+	?>				<tr>
+						<td style="text-align:left">
+							<?php  echo utf8_decode($elemento->codigo); ?>
+						</td>
+						<td style="text-align:left">
+							<?php  echo utf8_decode($elemento->descripcion); ?>
+						</td>                        
+<?php 				if( isset($_POST['sysTabTipoActividad'])||isset($_POST['sysTabResolucion']) ) { ?>                     
+                        
+                        <td style="text-align:left">
+							<?php  echo utf8_decode($elemento->codigo_formato); ?>
+						</td>
+<?php 				} ?>
+                        
+                    </tr>	 
+<?php					}
+				}
+			}
+?>
+	</table>
+<?php			
+		}		
+	}
+}	
+?>
+	</div>
+</div>
+</body>
+</html>

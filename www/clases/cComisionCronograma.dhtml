@@ -1,0 +1,428 @@
+<?php
+class cComisionCronograma extends cComision {	
+//----------------------------------------------------------------------------------------
+	function TraerDatosCronograma($comifec_codigo,&$datosresult,&$es_modif){
+	
+		$datosresult=array();
+		$es_modif = false;		
+		$sparam=array('pcomifec_codigo'=>$comifec_codigo);
+		$spnombre="sel_comision_fecha";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))	{
+			$errormail="\ncomifec_codigo=".$comifec_codigo."\nerror=".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar la fecha del cronograma.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato),$errormail);
+			return false;
+		}
+		if ($numfilas == 1)	{
+			$datosresult = mysqli_fetch_assoc($resultado);
+			$datosresult["hora_inicio"]=substr($datosresult["comifec_hora_inicio"],0,2).":".substr($datosresult["comifec_hora_inicio"],2,2);
+			$datosresult["hora_fin"]=substr($datosresult["comifec_hora_fin"],0,2).":".substr($datosresult["comifec_hora_fin"],2,2);
+			$es_modif = true;
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ValidarFormAltaCronograma()	{ 	?>		
+
+		function ValidarFormAltaCronograma(formulario,operacion,actprog_fecha_inicio,actprog_fecha_fin) {
+
+			// Si la operacion = "B" no hay que hacer ninguna validación
+			if (operacion=="B") {
+				return true;
+			}		 
+
+			// Fecha
+			if (formulario.comifec_fecha.value=="" || !ValidarFecha(formulario.comifec_fecha.value))
+			{
+				alert("La fecha no es válida");
+				formulario.comifec_fecha.focus();
+				return false;
+			}
+			
+			if(!FechasOrdenadas(actprog_fecha_inicio,formulario.comifec_fecha.value,actprog_fecha_fin))
+			{
+				alert("La fecha debe estar comprendida entre el " + actprog_fecha_inicio + " y " + actprog_fecha_fin);
+				formulario.comifec_fecha.focus();
+				return false;
+			}
+			
+			if(!ValidarContenido(formulario.comifec_hora_inicio.value,"Hora24"))
+			{
+				alert("La hora de inicio no es válida");
+				formulario.comifec_hora_inicio.focus();
+				return false;
+			}
+
+			if(!ValidarContenido(formulario.comifec_hora_fin.value,"Hora24"))
+			{
+				alert("La hora de finalización no es válida");
+				formulario.comifec_hora_fin.focus();
+				return false;
+			}
+			
+			if(formulario.comifec_hora_inicio.value==formulario.comifec_hora_fin.value || !HorasOrdenadas(formulario.comifec_hora_inicio.value,formulario.comifec_hora_fin.value))	{
+				alert("La hora de finalización debe ser posterior a la hora de inicio");
+				formulario.comifec_hora_inicio.focus();
+				return false;
+			}
+
+			return true;
+		}			
+<?php }
+//-----------------------------------------------------------------------------------------------------	
+	function EliminarCronogramaComision($comi_codigo){
+
+		$spnombre="del_comision_fecha_xcomi_codigo";
+		$spparam=array('pcomi_codigo'=>$comi_codigo);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			$txt_sys_mail="Error al eliminar el cronograma de la comisión\ncomi_codigo=".$comi_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al eliminar la fecha/hora del cronograma la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+		
+		return true;			
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function AltaDatosComisionCronograma($datos,&$comifec_codigo_nuevo) {
+		
+		$datosvalidados=array();		
+		if(!$this->_DatosValidosAltaComisionCronograma($datos,$datosvalidados))
+			return false;
+	
+		$spnombre="ins_comision_fecha";
+		$spparam=array(
+				'pcomi_codigo'=>$datosvalidados['comi_codigo'],
+				'pcomifec_fecha'=>$datosvalidados['comifec_fecha'] ,
+				'pcomifec_hora_inicio'=> $datosvalidados['comifec_hora_inicio'],
+				'pcomifec_hora_fin'=> $datosvalidados['comifec_hora_fin'],
+			  	'pultmodusuario'=>$_SESSION['usuariocod'],
+	            'pultmodfecha'=> date("Y/m/d H:i:s") 
+		);
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			$txt_sys_mail="Error al eliminar el cronograma de la comisión\ncomi_codigo=".$datosvalidados['comi_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al insertar la fecha/hora en el cronograma de la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		} 
+		$comifec_codigo_nuevo = $this->conexion->ultimocodigoinsertado();
+
+		if (!$this->ActualizarFechaLimite($datosvalidados['comi_codigo'])) 
+			return false;
+		
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function ActualizarFechaLimite($comi_codigo)	{
+	
+		if(!$this->_ObtenerMaxFecha($comi_codigo,$fecha_max)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al obtener la fecha superior de la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		} 
+		
+		if(!$this->_ObtenerMinFecha($comi_codigo,$fecha_min)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al obtener la fecha inferior de la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		} 
+
+		$spnombre="upd_comision_limites_fecha_xcomi_codigo";
+		$spparam=array(
+				'pcomi_codigo'=>$comi_codigo,
+				'pcomi_fecha_inicio'=>$fecha_min,
+				'pcomi_fecha_fin'=> $fecha_max,
+			  	'pultmodusuario'=>$_SESSION['usuariocod'],
+	            'pultmodfecha'=> date("Y/m/d H:i:s") 
+		);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al actualizar la fecha/hora de la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		} 
+		FuncionesPHPLocal::RegistrarAcceso($this->conexion,"50103","comi_codigo=".$comi_codigo." - comi_fecha_inicio=".$fecha_min."comi_fecha_fin = ".$fecha_max,$_SESSION['usuariocod']);
+		return true;		
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function ModifDatosComisionCronograma($datos)	{
+
+		if(!$this->_DatosValidosModifComisionCronograma($datos,$datosvalidados))
+			return false;
+
+		$spnombre="upd_comision_fecha";
+		$spparam=array(
+				'pcomifec_codigo'=> $datosvalidados['comifec_codigo'],
+				'pcomifec_fecha'=>$datosvalidados['comifec_fecha'] ,
+				'pcomifec_hora_inicio'=> $datosvalidados['comifec_hora_inicio'],
+				'pcomifec_hora_fin'=> $datosvalidados['comifec_hora_fin'],
+			  	'pultmodusuario'=>$_SESSION['usuariocod'],
+	          	'pultmodfecha'=> date("Y/m/d H:i:s") 
+		);
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)	{
+			$txt_sys_mail="Error al modificar la comisión - cronograma \ncomifec_codigo=".$datosvalidados['comifec_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al modificar la fecha/hora en el cronograma de la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} 
+
+		if (!$this->ActualizarFechaLimite($datosvalidados['comi_codigo'])) 
+			return false;
+
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function EliminarDatosComisionCronograma($comifec_codigo) {
+
+		if(!$this->_DatosValidosEliminarComisionCronograma($comifec_codigo,$datosvalidados))
+			return false;
+		
+		$spnombre="del_comision_fecha";
+		$spparam=array('pcomifec_codigo'=>$comifec_codigo);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			$txt_sys_mail="Error al eliminar fechas del cronograma de la comisión\ncomifec_codigo=".$comifec_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al eliminar la fecha/hora del cronograma de la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		
+		if (!$this->ActualizarFechaLimite($datosvalidados['comi_codigo'])) 
+			return false;
+		
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function BuscarComiCronograma($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		// Solo busca x comision (ordenado o no )
+	
+		$spparam = array('pcomi_codigo'=>$ArregloDatos['comi_codigo']);
+		$spparam['porderby']="comifec_fecha, comifec_hora_inicio, comifec_hora_fin";
+		
+		if (isset ($ArregloDatos['porderby'])) {
+			if ($ArregloDatos['porderby']!="") {	
+				$spparam['porderby']= $ArregloDatos['porderby'];
+			}
+		}	
+		$spnombre="sel_comision_fecha_xcomi_codigo";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno)) {
+			$error="Error al buscar el cronograma.";
+			$errormail="Error al buscar el Cronograma \nerror=.".$errno;
+			return false;
+		}
+
+
+		setlocale(LC_ALL, 'es_AR');
+
+		$resultado=array();
+		while($fila=mysqli_fetch_assoc($query)) 	{
+			$dia=substr($fila["comifec_fecha"],8,2);
+			$mes=substr($fila["comifec_fecha"],5,2);
+			$anio=substr($fila["comifec_fecha"],0,4);
+			$fila["hora_inicio"]=substr($fila["comifec_hora_inicio"],0,2).":".substr($fila["comifec_hora_inicio"],2,2);
+			$fila["hora_fin"]=substr($fila["comifec_hora_fin"],0,2).":".substr($fila["comifec_hora_fin"],2,2);
+			$fila["horario"]="";
+			$fila["horario"].=ucfirst(strftime("%a", mktime(0, 0, 0, $mes,$dia,$anio)));
+			$fila["horario"].=" ".$dia."/".$mes."/".$anio;
+			$fila["horario"].=" de ".$fila["hora_inicio"];
+			$fila["horario"].=" a ".$fila["hora_fin"];
+			
+			$resultado[]=$fila;
+		}
+
+		return true;
+	}	
+	
+
+//-----------------------------------------------------------------------------------------------------	
+	function MostrarDatosComisionCronograma($comi_codigo)	{
+
+		$ArregloDatos= array();
+		$ArregloDatos['porderby'] = "comifec_fecha, comifec_hora_inicio, comifec_hora_fin";
+		$ArregloDatos['comi_codigo'] = $comi_codigo;
+
+		if (!$this->BuscarComiCronograma($ArregloDatos,$numfilas,$result,$error,$errormail)) {
+			$txt_sys_mail="\ncomi_codigo=".$comi_codigo."\nerror=".$errormail;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando datos del cronograma de la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;			
+		}			
+		$opciones=array(
+			"numPagina"=>isset($_GET['pagina'])?$_GET['pagina']:1,
+			"NombrePaginaQuery"=>"pagina",
+			"FilasPagina"=>10
+		);
+		
+		if (isset($_GET['pagina']))	{
+			$querystring=FuncionesPHPLocal::ArmarQueryString("pagina","",false);	
+			$opciones['QueryString']=$querystring;
+		}
+		
+		$oGrilla = new cGrilla($opciones);
+		$oGrilla->SetearTituloGrilla('Cronograma');	
+		$oGrilla->SetearAnchoGrilla('90%');
+		
+		$miColumna1 = $oGrilla->AddColumna('txt');
+		$oGrilla->Setear('titulo_columna',$miColumna1,'Horario');
+		$oGrilla->Setear('campo_grilla',$miColumna1,'horario');
+		$oGrilla->Setear('align_columna',$miColumna1,'left');
+
+
+		if (!$oGrilla->CargarGrilla($result))
+			return false;
+			
+		$oGrilla->MostrarGrilla();
+		return true;
+	}
+	
+		
+			
+//-----------------------------------------------------------------------------------------------------	
+	function _ObtenerMaxFecha($comi_codigo,&$fecha)	{
+
+		$spnombre="sel_comision_fecha_max_fecha";
+		$spparam=array('pcomi_codigo'=>$comi_codigo);
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar la fecha superior de la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		} 
+		// Retorna siempre una fila
+		$fila_fecha = mysqli_fetch_assoc($resultado);
+		$fecha = isset($fila_fecha['comifec_fecha'])?$fila_fecha['comifec_fecha']:"NULL";
+
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function _ObtenerMinFecha($comi_codigo,&$fecha)	{
+	
+		$spnombre="sel_comision_fecha_min_fecha";
+		$spparam=array('pcomi_codigo'=>$comi_codigo);
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar la fecha inferior de la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		} 
+		// Retorna siempre una fila
+		$fila_fecha = mysqli_fetch_assoc($resultado);
+		$fecha = isset($fila_fecha['comifec_fecha'])?$fila_fecha['comifec_fecha']:"NULL";
+		
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	// Dada una fecha y comisión determina si la la hora esta incuida en alguno de los registros
+	// de fecha del cronograma.
+	function _FechaHoraIncluida($comi_codigo,$fecha,$hora_ini,$hora_fin,$comifec_codigo="")	{
+	
+		$spnombre="sel_comision_fecha_xcomi_codigo_comifec_fecha_comifec";
+		$spparam=array('pcomi_codigo'=>$comi_codigo,'pcomifec_fecha'=>$fecha);
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar el cronograma de la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		} 
+		
+		$ok = true;
+		while ( ($fila_fecha = mysqli_fetch_assoc($resultado) ) && $ok) {
+			 if (($comifec_codigo!="" && $comifec_codigo!=$fila_fecha['comifec_codigo']) || ($comifec_codigo=="")) { 
+				if (!($hora_fin<$fila_fecha['comifec_hora_inicio'] || $hora_ini>$fila_fecha['comifec_hora_fin']))
+					$ok = false;		
+			 }	
+		}
+
+		if (!$ok) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha completado la operaci&oacute;n ya que se superponen horas <br>dentro de la misma fecha en el cronograma.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		} 
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosModifComisionCronograma($datos,&$datosvalidados)	{
+
+		if (!$this->_DatosValidosComunesComisionCronograma($datos,$datosvalidados))
+		   return false; 
+
+		$datosvalidados+=array('comifec_codigo'=>$datos['comifec_codigo']);
+
+		if (!$this->_FechaHoraIncluida($datosvalidados['comi_codigo'],$datosvalidados['comifec_fecha'],$datosvalidados['comifec_hora_inicio'],$datosvalidados['comifec_hora_fin'],$datos['comifec_codigo'])) 
+			return false;
+		
+		return true;
+	}
+//-----------------------------------------------------------------------------------------
+	function _DatosValidosEliminarComisionCronograma($comifec_codigo,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		$datosvalidados['comifec_codigo']=$comifec_codigo;
+
+		if (!$this->TraerDatosCronograma($comifec_codigo,$fila_cronograma,$es_modif) || !$es_modif) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no se encontró la la fecha/hora a eliminar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}		
+		$datosvalidados['comi_codigo']=$fila_cronograma['comi_codigo'];
+		
+		// 	El usuario tiene permiso de modificar la comisión => puede BAJA en  cronograma
+		if (!$this->TienePermisoModificar($datosvalidados['comi_codigo'],$_SESSION['rolcod'], $_SESSION['jurisdid_inap'])) {
+			return false; 
+		}
+		
+		return true;
+	}
+//-----------------------------------------------------------------------------------------
+	function _DatosValidosAltaComisionCronograma($datos,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		if (!$this->_DatosValidosComunesComisionCronograma($datos,$datosvalidados))
+		   return false; 
+	
+		if (!$this->_FechaHoraIncluida($datosvalidados['comi_codigo'],$datosvalidados['comifec_fecha'],$datosvalidados['comifec_hora_inicio'],$datosvalidados['comifec_hora_fin'])) 
+			return false;
+
+		
+		return true;
+	}
+//-----------------------------------------------------------------------------------------
+	function _DatosValidosComunesComisionCronograma($datos,&$datosvalidados)	{
+
+		$datosvalidados=array();
+
+		// 	El usuario tiene permiso de modificar la comisión => puede ALTA / MODIF en  cronograma
+		//  Comision Nueva y de su jurisdiccion
+		if (!$this->TienePermisoModificar($datos['comi_codigo'],$_SESSION['rolcod'], $_SESSION['jurisdid_inap'])) {
+			return false; 
+		}
+		$datosvalidados['comi_codigo']=$datos['comi_codigo'];
+		
+		// Fecha valida
+		if (trim($datos['comifec_fecha'])=="" || !FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['comifec_fecha'],"FechaDDMMAAAA"))	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La fecha no es vádida.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		// Fecha comprendida en la programación
+		if(!FuncionesPHPLocal::FechasOrdenadas($datos['actprog_fecha_inicio_act'],$datos['comifec_fecha'],$datos['actprog_fecha_fin_act']))	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La fecha debe estar comprendida en el período de la programación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados['comifec_fecha']=FuncionesPHPLocal::ConvertirFecha($datos['comifec_fecha'],'dd/mm/aaaa','aaaa-mm-dd');
+
+		// Hora de inicio valida
+		if(!FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['comifec_hora_inicio'],"Hora24"))	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La hora de inicio no es vádida.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados['comifec_hora_inicio']=substr($datos['comifec_hora_inicio'],0,2).substr($datos['comifec_hora_inicio'],3,2);
+
+		// Hora de fin valida
+		if(!FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['comifec_hora_fin'],"Hora24")) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La hora de fin no es vádida.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}		
+		$datosvalidados['comifec_hora_fin']=substr($datos['comifec_hora_fin'],0,2).substr($datos['comifec_hora_fin'],3,2);
+
+		// Si la hora es la misma entonces tiene que estar ordenadas (es de la misma fecha)
+		if($datos['comifec_hora_inicio']==$datos['comifec_hora_fin'] || !FuncionesPHPLocal::HorasOrdenadas($datos['comifec_hora_inicio'],$datos['comifec_hora_fin']))	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La hora de finalización debe ser posterior a la hora de inicio.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------
+}
+?>

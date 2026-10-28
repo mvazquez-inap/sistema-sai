@@ -1,0 +1,118 @@
+<?php 
+require_once('nusoap/lib/nusoap.php');
+ini_set("memory_limit","64M");
+
+//-----------------------------------------------------------------------------------------
+//							 WS Tablas Basicas	
+//----------------------------------------------------------------------------------------- 
+// Ejemplo utilizando la clase nusoap para la conexión al WS.
+//----------------------------------------------------------------------------------------- 
+class cTablasBasicasINAP{
+
+	// Cambiar IP - Dirección donde se encuentra el Ws.
+	// "http://10.1.10.173"; 
+	// "http://127.0.0.1"; 
+	// "http://sai-testing.sgp.gov.ar"; 
+
+	// const WSDL = "http://10.1.10.173/sai/wsSai/wsTablasBasicas.php?wsdl";	
+	
+	// variable privada para el manejo del cliente del WS.
+	private $cliente;
+
+	// variable privada para el manejo de errores.
+	private $error;
+
+	function __construct( $wsl,$credenciales=false){
+
+		$this->cliente = new nusoap_client($wsl, 'wsdl');
+
+// 		Ver si se utilizan credenciales 
+		if ($credenciales)
+			$this->cliente->setCredentials(getenv("SAI_WS_USER") ?: "", getenv("SAI_WS_PASSWORD") ?: "", "basic");
+	}
+	
+	// Destructor de la clase
+	function __destruct() {	    } 	
+//-----------------------------------------------------------------------------------------
+//							 PUBLICAS	
+//-----------------------------------------------------------------------------------------
+// getTableFormatoActividad
+//----------------------------------------------------------------------------------------- 
+// Entrada: -
+// Retorna: xml => tabla de formatos (codigo, descripcion).
+//----------------------------------------------------------------------------------------- 
+	public function getTableFormatoActividad()
+	{
+		$this->fault=false;
+		
+		$params = array ();
+		$result=$this->cliente->call('sysTableFormatoActividad',$params);	
+
+		if ($this->cliente->fault!="") 				
+			$this->setError($result);
+
+		return $result;
+	} 
+//-----------------------------------------------------------------------------------------
+// getTableTipoActividad
+//----------------------------------------------------------------------------------------- 
+// Entrada: -
+// Retorna: xml => tabla de tipos de actividad (codigo, descripcion, act_codigo).
+//----------------------------------------------------------------------------------------- 
+	public function getTableTipoActividad()
+	{
+	
+		$this->fault=false;
+		
+		$params = array ();
+		$result=$this->cliente->call('sysTableTipoActividad',$params);
+	
+		if ($this->cliente->fault!="") 				
+			$this->setError($result);
+
+		return $result;
+	} 
+//-----------------------------------------------------------------------------------------
+// sysTableResolucion
+//----------------------------------------------------------------------------------------- 
+// Entrada: -
+// Retorna: xml => tabla de tipos de actividad (codigo, descripcion, act_codigo).
+//----------------------------------------------------------------------------------------- 
+	public function getTableResolucion()
+	{
+		$this->fault=false;
+		
+		$params = array ();
+		$result=$this->cliente->call('sysTableResolucion',$params);
+		
+		if ($this->cliente->fault!="") 				
+			$this->setError($result);
+
+		return $result;
+	} 	
+//-----------------------------------------------------------------------------------------
+// getError
+//----------------------------------------------------------------------------------------- 
+// Entrada: -
+// Retorna: El error ocurrido.
+//----------------------------------------------------------------------------------------- 
+	public function getError()
+	{
+		return $this->error;
+	}
+//-----------------------------------------------------------------------------------------
+//							 PRIVADAS	
+//----------------------------------------------------------------------------------------- 
+// setError
+//----------------------------------------------------------------------------------------- 
+// Entrada: El error a setear en la variable privada de la clase.
+// Retorna: No retorna datos.
+//-----------------------------------------------------------------------------------------
+	private function setError($error)
+	{
+		$this->error=$error;
+		$this->fault=true;
+	}
+//-----------------------------------------------------------------------------------------
+}
+?>

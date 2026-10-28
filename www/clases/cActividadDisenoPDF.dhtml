@@ -1,0 +1,449 @@
+<?php 
+require_once('SysONTIPdf.dhtml');
+
+class cActividadDisenoPDF extends cPDF {
+
+	// Datos de la Notificacion
+	var $array_datos = array();
+
+	// Ctes para la impresion de la Notificacion
+	var $ver_borde=0;	
+	var $xContenido = 5;
+	var $imagenLogo = 'images/escudo_secretaria.jpg';
+	
+	var $orientacionPagina = 'portrait';
+	var $topMargen = 30;
+	var $leftMargen = 5;
+	var $rightMargen = 5;
+	var $footerMargen = 15;
+	var $anchoMaxTexto = 200;	
+	var $altoMaxPag = 250;
+				
+	public function __construct () {	    
+		 $format = "A4";
+		parent::__construct($this->orientacionPagina,'mm',$format);
+	}	
+	
+	//------------------------------------------------------------------------
+	function AddAcividadDiseno() {
+
+		// Inicializa formato de la pagina 
+		$this->AddPage($this->orientacionPagina);
+		$this->AliasNbPages(); 
+		$this->SetMargins($this->leftMargen,$this->topMargen,$this->rightMargen);
+
+		// Para que el pie tenga 0.5 por defecto son 2cm
+		$this->SetAutoPageBreak(true,$this->footerMargen);
+
+		// Inicializa datos 
+		$this->array_datos = array( 
+									'formact_codigo'=>0,
+									'tipoact_codigo'=>0,
+									'datos_actividad' => array(),
+									'datos_actividad_prestador' => array()
+								   );
+								   
+	}	
+	//------------------------------------------------------------------------
+	function Set($campo,$valor) {
+		$this->array_datos[$campo]=$valor;
+	}
+	//------------------------------------------------------------------------
+	function Get($campo) {
+		return ($this->array_datos[$campo]);
+	}
+	//------------------------------------------------------------------------
+	function Header() {
+
+	   	$this->SetY(15);				
+		$this->Image($this->imagenLogo,$this->lMargin+$this->xContenido,0,190,0);
+		$this->SetXY($this->leftMargen,$this->tMargin+15);				
+ 		$this->SetFont('Arial','I',10);	               	
+ 	}	
+	//----------------------------------------------------------------------------------------
+ 	function CargarEstilos() {
+
+		$style_Titulo="style_Titulo";
+		$arreglostyle_Titulo=array(  'BackgroundColor'=>"#FFFFFF",
+								  		 'TextColor'=>"#000000",
+								  		 'Font'=>array('family'=>"Arial",'weigth'=>'BI',"size"=>12)
+							    );
+
+		$style_Subtitulo="style_Subtitulo";
+		$arreglostyle_Subtitulo=array(  'BackgroundColor'=>"#FFFFFF",
+								  		 'TextColor'=>"#000000",
+								  		 'Font'=>array('family'=>"Arial",'weigth'=>'UBI',"size"=>12)
+							    );
+		
+		$style_TextoComun="style_TextoComun";
+		$arreglostyle_TextoComun=array(  'BackgroundColor'=>"#FFFFFF",
+								  		 'TextColor'=>"#000000",
+								  		 'Font'=>array('family'=>"Arial",'weigth'=>'',"size"=>10)
+							    );
+		
+		$this->AddEstilo($style_Titulo,$arreglostyle_Titulo);
+		$this->AddEstilo($style_Subtitulo,$arreglostyle_Subtitulo);
+		$this->AddEstilo($style_TextoComun,$arreglostyle_TextoComun);
+		
+	}	
+	//----------------------------------------------------------------------------------------
+	function MostrarActividadDiseno($conexion) {
+	
+		$ancho_fila_dato = $this->anchoMaxTexto;
+		$alto_fila_dato =  6;		
+		$dato_mostrar = array();
+				 
+		$this->CargarEstilos();
+	
+		if ($this->array_datos['formact_codigo']==FORMATOCURSO) {
+
+			$this->MultiCellEstilo("style_Titulo",$ancho_fila_dato,$alto_fila_dato,"SISTEMA NACIONAL DE CAPACITACION \n DISEÑO DE LA ACTIVIDAD",$this->ver_borde,'C',0,2);
+			$this->Ln(4);		                                                                                                                                                  
+
+			$dato['rotulo']="Nombre";
+			$dato['valor']=$this->array_datos['datos_actividad']['actividad']['act_nombre'];
+			$this->MultiCellEstilo("style_Subtitulo",$ancho_fila_dato,$alto_fila_dato+5,$dato['rotulo'],$this->ver_borde,'L',0,0);
+			$this->SetX($this->GetX()+5);
+			$this->MultiCellEstilo("style_TextoComun",$ancho_fila_dato-5,$alto_fila_dato,$dato['valor'],$this->ver_borde,'L',0,0);
+
+			$dato['rotulo']="Código INAP";
+			$dato['valor']=$this->array_datos['datos_actividad']['actividad']['act_codinap'];
+			$this->CellEstilo("style_Subtitulo",30,$alto_fila_dato+5,$dato['rotulo'],$this->ver_borde,0,'L');
+			$this->CellEstilo("style_TextoComun",30,$alto_fila_dato+5,$dato['valor'],$this->ver_borde,0,'L');
+			$this->SetX($this->GetX()+5);
+
+			$dato['rotulo']="Estado";
+			$dato['valor']=$this->array_datos['datos_actividad']['actividad_curso']['actcur_estado_desc'];
+			$this->CellEstilo("style_Subtitulo",20,$alto_fila_dato+5,$dato['rotulo'],$this->ver_borde,0,'L');
+			$this->MultiCellEstilo("style_TextoComun",$ancho_fila_dato-85,$alto_fila_dato+5,$dato['valor'],$this->ver_borde,'L',0,1);
+			
+			switch ($this->array_datos['tipoact_codigo']) {
+				
+				case TIPOACTCURSOINAP:
+				
+					$dato['rotulo']="Programa";
+					$dato['valor']=$this->array_datos['datos_actividad']['actividad_curso_inap']['progcur_descripcion'];
+					$this->CellEstilo("style_Subtitulo",30,$alto_fila_dato+5,$dato['rotulo'],$this->ver_borde,0,'L');
+					$this->CellEstilo("style_TextoComun",75,$alto_fila_dato+5,$dato['valor'],$this->ver_borde,0,'L');
+					$this->SetX($this->GetX()+5);
+
+					$dato['rotulo']="Área";
+					$dato['valor']=$this->array_datos['datos_actividad']['actividad_curso_inap']['areacur_descripcion'];
+					$this->CellEstilo("style_Subtitulo",20,$alto_fila_dato+5,$dato['rotulo'],$this->ver_borde,0,'L');
+					$this->MultiCellEstilo("style_TextoComun",$ancho_fila_dato-130,$alto_fila_dato+5,$dato['valor'],$this->ver_borde,'L',0,1);
+
+					$dato_mostrar[]	 = array ('rotulo' => "Fundamentación", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_inap']['actdisinap_fundamentacion']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Contribución esperada", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_inap']['actdisinap_contribucion']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Perfil del participante", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_inap']['actdisinap_perfil'] );			
+					$dato_mostrar[]	 = array ('rotulo' => "Objetivos", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_inap']['actdisinap_objetivos']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Contenido", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_inap']['actdisinap_contenido']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Estrategias metodológicas y recursos didácticos", 'valor' =>$this->array_datos['datos_actividad']['actividad_curso_inap']['actdisinap_metodologia']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Descripción de la modalidad", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_inap']['actdisinap_modaldesc']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Bibliografía", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_inap']['actdisinap_bibliografia']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Evaluación de los aprendizajes", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_inap']['actdisinap_eval']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Instrumentos para la evaluación", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_inap']['actdisinap_evalinstru']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Requisitos de Asistencia y aprobación", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_inap']['actdisinap_requiaprobacion']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Duración (Hs.)", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_inap']['actdisinap_duracionhs']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Detalle sobre la duración", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_inap']['actdisinap_duraciondetalle']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Lugar", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_inap']['actdisinap_lugar']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Perfil Instructor", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_inap']['actdisinap_perfil_instructor']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Origen de la demanda", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_inap']['actdisinap_origen']);			
+
+					break;
+				
+				case TIPOACTCURSOJURISD:		
+					
+					$dato_mostrar[]	 = array ('rotulo' => "Organismo", 'valor' => $this->array_datos['datos_actividad']['actividad_curso']['jurisdnom']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Fundamentación", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_jurisdiccional']['actdisjurisd_fundamentacion']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Contribución esperada", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_jurisdiccional']['actdisjurisd_contribucion']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Perfil del participante", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_jurisdiccional']['actdisjurisd_perfil']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Objetivos", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_jurisdiccional']['actdisjurisd_objetivos']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Contenido", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_jurisdiccional']['actdisjurisd_contenido']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Estrategias metodológicas y recursos didácticos", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_jurisdiccional']['actdisjurisd_metodologia']);	
+					$dato_mostrar[]	 = array ('rotulo' => "Descripción de la modalidad", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_jurisdiccional']['actdisjurisd_modaldesc']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Bibliografía", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_jurisdiccional']['actdisjurisd_bibliografia']);	
+					$dato_mostrar[]	 = array ('rotulo' => "Evaluación de los aprendizajes", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_jurisdiccional']['actdisjurisd_eval']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Instrumentos para la evaluación", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_jurisdiccional']['actdisjurisd_evalinstru']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Requisitos de Asistencia y aprobación", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_jurisdiccional']['actdisjurisd_requiaprobacion']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Duración (Hs.)", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_jurisdiccional']['actdisjurisd_duracionhs']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Detalle sobre la duración", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_jurisdiccional']['actdisjurisd_duraciondetalle']);	
+					$dato_mostrar[]	 = array ('rotulo' => "Lugar", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_jurisdiccional']['actdisjurisd_lugar']);	
+					$dato_mostrar[]	 = array ('rotulo' => "Cronograma tentativo", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_jurisdiccional']['actdisjurisd_cronogramatentativo']);	
+					$dato_mostrar[]	 = array ('rotulo' => "Perfil Instructor", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_jurisdiccional']['actdisjurisd_perfil_instructor']);	
+					$dato_mostrar[]	 = array ('rotulo' => "Origen de la demanda", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_jurisdiccional']['actdisjurisd_origen']);					
+		
+					break;
+				
+				case TIPOACTCURSOINST:		
+				
+					$dato_mostrar[]	 = array ('rotulo' => "Fundamentación", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_institucional']['actdisinst_fundamentacion']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Perfil del participante", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_institucional']['actdisinst_perfil']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Objetivos", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_institucional']['actdisinst_objetivos']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Contenido", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_institucional']['actdisinst_contenido']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Estrategias metodológicas y recursos didácticos", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_institucional']['actdisinst_metodologia']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Evaluación de los aprendizajes", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_institucional']['actdisinst_eval']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Requisitos de Asistencia y aprobación", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_institucional']['actdisinst_requiaprobacion'] );			
+					$dato_mostrar[]	 = array ('rotulo' => "Fecha", 'valor' => FuncionesPHPLocal::ConvertirFecha($this->array_datos['datos_actividad']['actividad_curso_institucional']['actdisinst_fecha'],'aaaa-mm-dd','dd/mm/aaaa'));			
+					$dato_mostrar[]	 = array ('rotulo' => "Duración (Hs.)", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_institucional']['actdisinst_duracionhs']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Detalle sobre la duración", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_institucional']['actdisinst_duraciondetalle']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Dirección", 'valor' =>$this->array_datos['datos_actividad']['actividad_curso_institucional']['actdisinst_direccion']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Pais", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_institucional']['paisnom']);			
+
+					if (isset($this->array_datos['datos_actividad']['actividad_curso_institucional']['provincianom']))
+						$dato_mostrar[]	 = array ('rotulo' => "Provincia", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_institucional']['provincianom']);			
+
+					if (isset($this->array_datos['datos_actividad']['actividad_curso_institucional']['org_publico_nom'])) 
+						$dato_mostrar[]	 = array ('rotulo' => "Organismo Público", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_institucional']['org_publico_nom']);			
+						
+					if (isset($this->array_datos['datos_actividad']['actividad_curso_institucional']['org_privado_nom'])) 
+						$dato_mostrar[]	 = array ('rotulo' => "Organismo Privado", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_institucional']['org_privado_nom']);			
+					
+					$dato_mostrar[]	 = array ('rotulo' => "Bibliografía", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_institucional']['actdisinst_bibliografia']);			
+					$dato_mostrar[]	 = array ('rotulo' => "Perfil Instructor", 'valor' => $this->array_datos['datos_actividad']['actividad_curso_institucional']['actdisinst_perfil_instructor']);			
+
+					break;
+			}
+		} // if formato curso
+		
+		if ($this->array_datos['formact_codigo']==FORMATOEXT) {
+
+			$this->MultiCellEstilo("style_Titulo",$ancho_fila_dato,$alto_fila_dato,"SISTEMA NACIONAL DE CAPACITACION \n DETALLE DE LA ACTIVIDAD",$this->ver_borde,'C',0,2);
+			$this->Ln(4);		                                                                                                                                                  
+
+			$dato['rotulo']="Nombre";
+			$dato['valor']=$this->array_datos['datos_actividad']['actividad']['act_nombre'];
+			$this->MultiCellEstilo("style_Subtitulo",$ancho_fila_dato,$alto_fila_dato+5,$dato['rotulo'],$this->ver_borde,'L',0,0);
+			$this->SetX($this->GetX()+5);
+			$this->MultiCellEstilo("style_TextoComun",$ancho_fila_dato-5,$alto_fila_dato,$dato['valor'],$this->ver_borde,'L',0,0);
+
+			$dato['rotulo']="Código INAP";
+			$dato['valor']=$this->array_datos['datos_actividad']['actividad']['act_codinap'];
+			$this->CellEstilo("style_Subtitulo",30,$alto_fila_dato+5,$dato['rotulo'],$this->ver_borde,0,'L');
+			$this->CellEstilo("style_TextoComun",30,$alto_fila_dato+5,$dato['valor'],$this->ver_borde,0,'L');
+			$this->SetX($this->GetX()+5);
+
+			$dato['rotulo']="Estado";
+			$dato['valor']= $this->array_datos['datos_actividad']['actividad_externa']['actext_estado_desc'];
+			$this->CellEstilo("style_Subtitulo",20,$alto_fila_dato+5,$dato['rotulo'],$this->ver_borde,0,'L');
+			$this->MultiCellEstilo("style_TextoComun",$ancho_fila_dato-85,$alto_fila_dato+5,$dato['valor'],$this->ver_borde,'L',0,1);
+
+			$dato_mostrar[]	 = array ('rotulo' => "Duración (Hs.)", 'valor' => $this->array_datos['datos_actividad']['actividad_externa']['actext_duracionhs'] );			
+			$dato_mostrar[]	 = array ('rotulo' => "Detalle sobre la duración", 'valor' => $this->array_datos['datos_actividad']['actividad_externa']['actext_duraciondetalle']);			
+			$dato_mostrar[]	 = array ('rotulo' => "Tipo de Certificación", 'valor' => $this->array_datos['datos_actividad']['actividad_externa']['tipocert_descripcion']);			
+			$dato_mostrar[]	 = array ('rotulo' => "Dirección", 'valor' => $this->array_datos['datos_actividad']['actividad_externa']['actext_direccion']);			
+			$dato_mostrar[]	 = array ('rotulo' => "Pais", 'valor' => $this->array_datos['datos_actividad']['actividad_externa']['paisnom']);	
+
+			if (isset($this->array_datos['datos_actividad']['actividad_externa']['provincianom']))					
+				$dato_mostrar[]	 = array ('rotulo' => "Provincia", 'valor' => $this->array_datos['datos_actividad']['actividad_externa']['provincianom']);			
+
+			if (isset($this->array_datos['datos_actividad']['actividad_externa']['orgapub_codigo'])) 	
+				$organismo=$this->array_datos['datos_actividad']['actividad_externa']['orgapub_nombre'];
+			elseif (isset($this->array_datos['datos_actividad']['actividad_externa']['orgapri_codigo']))
+				$organismo=$this->array_datos['datos_actividad']['actividad_externa']['orgapri_nombre'];
+			else 
+				$organismo=$this->array_datos['datos_actividad']['actividad_externa']['jurisdid_apn_nombre'];
+
+			$dato_mostrar[]	 = array ('rotulo' => "Organismo", 'valor' => $organismo);			
+			$dato_mostrar[]	 = array ('rotulo' => "Observaciones", 'valor' => $this->array_datos['datos_actividad']['actividad_externa']['actext_obs']);			
+
+		} // formato actividad externa
+		
+		
+		
+		if ($this->array_datos['formact_codigo']==FORMATOEFORMAL) {
+
+			$this->MultiCellEstilo("style_Titulo",$ancho_fila_dato,$alto_fila_dato,"SISTEMA NACIONAL DE CAPACITACION \n DETALLE DE LA ACTIVIDAD",$this->ver_borde,'C',0,2);
+			$this->Ln(4);		                                                                                                                                                  
+
+			$dato['rotulo']="Nombre";
+			$dato['valor']=$this->array_datos['datos_actividad']['actividad']['act_nombre'];
+			$this->MultiCellEstilo("style_Subtitulo",$ancho_fila_dato,$alto_fila_dato+5,$dato['rotulo'],$this->ver_borde,'L',0,0);
+			$this->SetX($this->GetX()+5);
+			$this->MultiCellEstilo("style_TextoComun",$ancho_fila_dato-5,$alto_fila_dato,$dato['valor'],$this->ver_borde,'L',0,0);
+
+			$dato['rotulo']="Código INAP";
+			$dato['valor']=$this->array_datos['datos_actividad']['actividad']['act_codinap'];
+			$this->CellEstilo("style_Subtitulo",30,$alto_fila_dato+5,$dato['rotulo'],$this->ver_borde,0,'L');
+			$this->CellEstilo("style_TextoComun",30,$alto_fila_dato+5,$dato['valor'],$this->ver_borde,0,'L');
+			$this->SetX($this->GetX()+5);
+
+			$dato['rotulo']="Tipo de Actividad";
+			$dato['valor']= $this->array_datos['datos_actividad']['actividad_eformal']['actform_tipoact_desc'];
+			$this->CellEstilo("style_Subtitulo",40,$alto_fila_dato+5,$dato['rotulo'],$this->ver_borde,0,'L');
+			$this->MultiCellEstilo("style_TextoComun",$ancho_fila_dato-85,$alto_fila_dato+5,$dato['valor'],$this->ver_borde,'L',0,1);
+
+			$dato['rotulo']="Observación";
+			$dato['valor']= $this->array_datos['datos_actividad']['actividad']['act_obs'];
+			$this->CellEstilo("style_Subtitulo",40,$alto_fila_dato+5,$dato['rotulo'],$this->ver_borde,0,'L');
+			$this->MultiCellEstilo("style_TextoComun",$ancho_fila_dato-85,$alto_fila_dato+5,$dato['valor'],$this->ver_borde,'L',0,1);
+
+		} // formato actividad educacion formal
+		
+		if ($this->array_datos['formact_codigo']==FORMATOAUTO) {
+
+			$this->MultiCellEstilo("style_Titulo",$ancho_fila_dato,$alto_fila_dato,"SISTEMA NACIONAL DE CAPACITACION \n DETALLE DE LA ACTIVIDAD",$this->ver_borde,'C',0,2);
+			$this->Ln(4);		                                                                                                                                                  
+
+			$dato['rotulo']="Nombre";
+			$dato['valor']=$this->array_datos['datos_actividad']['actividad']['act_nombre'];
+			$this->MultiCellEstilo("style_Subtitulo",$ancho_fila_dato,$alto_fila_dato+5,$dato['rotulo'],$this->ver_borde,'L',0,0);
+			$this->SetX($this->GetX()+5);
+			$this->MultiCellEstilo("style_TextoComun",$ancho_fila_dato-5,$alto_fila_dato,$dato['valor'],$this->ver_borde,'L',0,0);
+
+			$dato['rotulo']="Código INAP";
+			$dato['valor']=$this->array_datos['datos_actividad']['actividad']['act_codinap'];
+			$this->CellEstilo("style_Subtitulo",30,$alto_fila_dato+5,$dato['rotulo'],$this->ver_borde,0,'L');
+			$this->CellEstilo("style_TextoComun",30,$alto_fila_dato+5,$dato['valor'],$this->ver_borde,0,'L');
+			$this->SetX($this->GetX()+5);
+
+			$dato['rotulo']="Estado";
+			$dato['valor']= $this->array_datos['datos_actividad']['actividad_autodesarrollo']['actauto_estado_desc'];
+			$this->CellEstilo("style_Subtitulo",20,$alto_fila_dato+5,$dato['rotulo'],$this->ver_borde,0,'L');
+			$this->MultiCellEstilo("style_TextoComun",$ancho_fila_dato-85,$alto_fila_dato+5,$dato['valor'],$this->ver_borde,'L',0,1);
+
+			$dato_mostrar[]	 = array ('rotulo' => "Tipo de Actividad", 'valor' => $this->array_datos['datos_actividad']['actividad_autodesarrollo']['tipoact_descripcion']);			
+			$dato_mostrar[]	 = array ('rotulo' => "Duración (Hs.)", 'valor' => $this->array_datos['datos_actividad']['actividad_autodesarrollo']['actauto_duracionhs']);			
+
+			if ($this->array_datos['datos_actividad']['actividad_autodesarrollo']['es_evento']) {
+			
+				$dato_mostrar[]	 = array ('rotulo' => "Detalle sobre la duración", 'valor' => $this->array_datos['datos_actividad']['actividad_autodesarrollo_evento']['actautoeven_duraciondetalle']);			
+				$dato_mostrar[]	 = array ('rotulo' => "Dirección", 'valor' => $this->array_datos['datos_actividad']['actividad_autodesarrollo_evento']['actautoeven_direccion']);			
+				$dato_mostrar[]	 = array ('rotulo' => "Pais", 'valor' => $this->array_datos['datos_actividad']['actividad_autodesarrollo_evento']['paisnom']);			
+
+				if (isset($this->array_datos['datos_actividad']['actividad_autodesarrollo_evento']['provincianom']))
+					$dato_mostrar[]	 = array ('rotulo' => "Provincia", 'valor' => $this->array_datos['datos_actividad']['actividad_autodesarrollo_evento']['provincianom']);			
+
+				if (isset($this->array_datos['datos_actividad']['actividad_autodesarrollo_evento']['orgapub_codigo'])) 	
+					$organismo=$this->array_datos['datos_actividad']['actividad_autodesarrollo_evento']['orgapub_nombre'];
+				elseif (isset($this->array_datos['datos_actividad']['actividad_autodesarrollo_evento']['orgapri_codigo']))
+					$organismo=$this->array_datos['datos_actividad']['actividad_autodesarrollo_evento']['orgapri_nombre'];
+				else 
+					$organismo=$this->array_datos['datos_actividad']['actividad_autodesarrollo_evento']['jurisd_apn_nombre'];
+
+				$dato_mostrar[]	 = array ('rotulo' => "Organismo", 'valor' => $organismo);		
+				$dato_mostrar[]	 = array ('rotulo' => "Observaciones", 'valor' =>$this->array_datos['datos_actividad']['actividad_autodesarrollo_evento']['actautoeven_obs']);							
+
+			} // evento
+
+		} // formato actividad autodesarrollo
+
+		// Se muestra cada item definido
+		foreach ($dato_mostrar as $i => $dato) {	
+			$this->MultiCellEstilo("style_Subtitulo",$ancho_fila_dato,$alto_fila_dato+5,$dato['rotulo'],$this->ver_borde,'L',0,0);
+			$this->SetX($this->GetX()+5);
+			$this->MultiCellEstilo("style_TextoComun",$ancho_fila_dato-5,$alto_fila_dato,$dato['valor'],$this->ver_borde,'L',0,0);
+		}
+
+		if ($this->array_datos['tipoact_codigo']==TIPOACTCURSOINAP  || $this->array_datos['tipoact_codigo']==TIPOACTCURSOJURISD)
+			$this->_MostrarPrestadores();		
+
+	}
+	//----------------------------------------------------------------------------------------
+	function _MostrarPrestadores()
+	{
+
+		$ancho_fila_dato = $this->anchoMaxTexto;
+		$alto_fila_dato =  6;
+
+		$this->MultiCellEstilo("style_Subtitulo",$ancho_fila_dato,$alto_fila_dato+5,"Prestadores Docentes",$this->ver_borde,'L',0,0);
+		$this->SetX($this->GetX()+5);
+
+		$header_type=array();
+		$header_subtype = $this->GetEstiloTablaDefault("table_default_header_type");
+	
+		$i=0;			
+		$ancho=20;
+		$header_type[$i] = $this->GetEstiloTablaDefault("table_default_header_type");
+		$this->SetEstiloDatoTabla($header_type[$i],"TEXT","CUIT/CUIL");
+		$this->SetEstiloDatoTabla($header_type[$i],"WIDTH",$ancho);
+		$color=$this->_ConvertirHexaRGB("#DFDFDF",$arreglocolores);
+		$this->SetEstiloDatoTabla($header_type[$i],"BG_COLOR",$arreglocolores);
+					
+		$i=1;			
+		$ancho=70;
+		$header_type[$i] = $this->GetEstiloTablaDefault("table_default_header_type");
+		$this->SetEstiloDatoTabla($header_type[$i],"TEXT","APELLIDO Y NOMBRE");
+		$this->SetEstiloDatoTabla($header_type[$i],"WIDTH",$ancho);
+		$color=$this->_ConvertirHexaRGB("#DFDFDF",$arreglocolores);
+		$this->SetEstiloDatoTabla($header_type[$i],"BG_COLOR",$arreglocolores);
+			
+		$ancho=floor(($this->anchoMaxTexto-20)/2);
+		$this->Table_Init(2, true, true);	
+
+		$table_subtype = $this->GetEstiloTablaDefault("table_default_table_type");
+		
+		$this->SetEstiloDatoTabla($table_subtype,"L_MARGIN",10);
+		$this->Set_Table_Type($table_subtype);
+		
+		for ($i=0; $i<2; $i++) 
+			$this->SetEstiloDatoTabla($header_type[$i],"WIDTH",$ancho);
+		
+		$this->Set_Header_Type($header_type);
+	
+		$j=0;
+		$data_subtype = $this->GetEstiloTablaDefault("table_default_data_type");
+		
+		$data_type = array();
+		for ($i=0; $i<2; $i++) 
+		{	
+			$data_type[$i] = $data_subtype;
+			$this->SetEstiloDatoTabla($data_type[$i],"WIDTH",25);
+		}
+		$this->Set_Data_Type($data_type);
+		
+		// $arreglotitulos=array();
+		$fila_tabla_data=array();
+		$this->InicializarColumnasConDatosVacios($fila_tabla_data,2);
+
+		$tienedatos=false;
+		while ($fila_prestador=mysqli_fetch_assoc($this->array_datos['datos_actividad_prestador'])) {
+		 	$tienedatos=true;		 	
+		 	
+		 	$fila_tabla_data[0]['TEXT'] = $fila_prestador['presdoc_cuilt'];
+			$fila_tabla_data[1]['TEXT'] = $fila_prestador['presdoc_apellido'].",".$fila_prestador['presdoc_nombre']; 
+		 	
+		 	$tabla_data[]=$fila_tabla_data;
+		}
+		
+		if ($tienedatos)
+		{		
+			$this->Draw_Header();
+			// $this->Draw_Data($arreglotitulos);
+			
+			foreach($tabla_data as $fila_data) {
+				$this->Draw_Data($fila_data);
+			}
+			
+			$this->Draw_Table_Border();
+			
+		}
+		
+	}
+	//----------------------------------------------------------------------------------------	
+	function InicializarColumnasConDatosVacios(&$data,$columnas)
+	{
+		for ($i=0; $i<$columnas; $i++) 
+		{	
+			$data[$i]['TEXT'] = "";
+		}
+	}
+	//----------------------------------------------------------------------------------------
+	function Footer() { 
+
+		$ancho_fila_dato = $this->anchoMaxTexto;
+		$alto_fila_dato =  6;          
+		$this->SetY(-15); 
+		$this->SetFont('Arial','I',8);
+		$arreglocolores=$this->_ConvertirHexaRGB("#3D005F",$arreglocolores);
+		$this->SetTextColor($arreglocolores['r'],$arreglocolores['g'],$arreglocolores['b']);	     
+		$this->CellEstilo("",$ancho_fila_dato,$alto_fila_dato,"SAI - Sistema de Acreditación",$this->ver_borde,0,'L');
+		$this->SetY(-15); 
+		$this->CellEstilo("",$ancho_fila_dato,$alto_fila_dato,"Pág.".$this->PageNo()."/{nb}",$this->ver_borde,0,'R');
+		$this->SetY(-15); 
+		$this->Ln(4);
+		$this->CellEstilo("",$ancho_fila_dato,$alto_fila_dato,"Fecha Impresión:".date("d/m/Y H:i:s")." Hs.",$this->ver_borde,0,'L');
+
+	}		
+	
+} // fin clase	
+?>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<dwsync>
+<file name="Compiler.php" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="Error.php" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="Filter.php" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="PHPCodeAnalyzer.php" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="Plugin.php" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="Savant2_Compiler_basic.php" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="Savant2_Error_exception.php" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="Savant2_Error_pear.php" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="Savant2_Error_stack.php" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="Savant2_Filter_colorizeCode.php" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="Savant2_Filter_trimwhitespace.php" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="Savant2_Plugin_ahref.php" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="Savant2_Plugin_checkbox.php" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="Savant2_Plugin_cycle.php" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="Savant2_Plugin_dateformat.php" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="Savant2_Plugin_form.php" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="Savant2_Plugin_image.php" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="Savant2_Plugin_input.php" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="Savant2_Plugin_javascript.php" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="Savant2_Plugin_modify.php" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="Savant2_Plugin_options.php" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="Savant2_Plugin_radios.php" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="Savant2_Plugin_stylesheet.php" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+<file name="Savant2_Plugin_textarea.php" server="10.1.10.173/desarrollo/SysONTIIncludes/" local="128679711000000000" remote="128679711000000000" />
+</dwsync>

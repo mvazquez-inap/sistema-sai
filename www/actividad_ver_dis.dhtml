@@ -1,0 +1,129 @@
+<?php require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oActividadCurso= new cActividadCurso($conexion);
+$oActividadAutodesarrollo = new cActividadAutodesarrollo($conexion);
+//----------------------------------------------------------------------------------------- 
+?>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 TRANSITIONAL//EN"> 
+<html>
+<head>
+<title>Detalle del Diseño&nbsp;</title>
+<link rel="stylesheet" type="text/css" href="estilos.css?v=27042024">
+<link href="imprimir.css" rel="stylesheet" type="text/css" media="print" >
+
+<!-- Clear CACHE -->
+<META HTTP-EQUIV="CACHE-CONTROL" CONTENT="NO-CACHE">
+<META HTTP-EQUIV="EXPIRES" CONTENT="Mon, 22 Jul 2002 11:12:01 GMT">
+
+</head>
+<body>
+<script language="javascript" src="<?php echo DIR_JSComunes ?>funcionesjs.js" type="text/javascript"></script>
+
+<?php  require ('templates/rpt_imprimir.tpl.dhtml');  ?>
+<?php 
+	$act_codigo=$_GET['act_codigo'];
+	
+	if ( ($_GET['tipoact_codigo'] == TIPOACTCURSOINAP)
+		|| ($_GET['tipoact_codigo'] == TIPOACTCURSOJURISD)
+		|| ($_GET['tipoact_codigo'] == TIPOACTCURSOINST)) {
+		
+			?>
+			<table width="95%" class="textoTablaDato" align="center">
+				<tr>
+					<td align="left" width="100%">
+					<div class="imprimir" align="right">
+						<a class="linkListadoMenu" href="download_tablas_excel.dhtml?tabla=actividad_diseno&amp;act_codigo=<?php echo $act_codigo ?>"><img alt="Bajar en Formato .xls" width="16" title="Bajar en Formato .xls" src="./images/iconoexcel.jpg" border="0"></a>
+						&nbsp;&nbsp;&nbsp;&nbsp;
+            			<a class="linkListadoMenu" href="download_pdf.dhtml?contenido=diseno&amp;formact_codigo=<?php echo FORMATOCURSO; ?>&amp;act_codigo=<?php  echo $act_codigo;  ?>&amp;tipoact_codigo=<?php echo $_GET['tipoact_codigo']; ?>"><img alt="Bajar en Formato .pdf" width="16" title="Bajar en Formato .pdf" src="./images/pdf.gif" border="0"></a>
+					</div>
+    				</td>
+				</tr>
+			</table>		
+		<?php
+	}
+	if ( $_GET['tipoact_codigo'] == TIPOACTEXTASIS ) 	{
+?>		
+		<table width="95%" class="textoTablaDato" align="center">
+			<tr>
+				<td align="left" width="100%">
+				<div class="imprimir" align="right">
+					<a class="linkListadoMenu" href="download_pdf.dhtml?contenido=diseno&amp;formact_codigo=<?php echo FORMATOEXT; ?>&amp;act_codigo=<?php  echo $act_codigo;  ?>"><img alt="Bajar en Formato .pdf" width="16" title="Bajar en Formato .pdf" src="./images/pdf.gif" border="0"></a>		
+				</div>
+				</td>
+			</tr>
+		</table>
+<?php }					
+
+	if ( in_array( $_GET['tipoact_codigo'], array( TIPOACTAUTODOCENTE, TIPOACTAUTOEVASIS, TIPOACTAUTOEVACT, TIPOACTAUTOPUBLI, TIPOACTAUTOASISTEC, TIPOACTAUTOAAUTOFORM)))
+ 	{
+?>		
+		<table width="95%" class="textoTablaDato" align="center">
+			<tr>
+				<td align="left" width="100%">
+				<div class="imprimir" align="right">
+					<a class="linkListadoMenu" href="download_pdf.dhtml?contenido=diseno&amp;formact_codigo=<?php echo FORMATOAUTO; ?>&amp;act_codigo=<?php  echo $act_codigo;  ?>&amp;tipoact_codigo=<?php echo $_GET['tipoact_codigo'];  ?>"><img alt="Bajar en Formato .pdf" width="16" title="Bajar en Formato .pdf" src="./images/pdf.gif" border="0"></a>		
+				</div>
+				</td>
+			</tr>
+		</table>
+<?php }					
+
+
+
+	switch ($_GET['tipoact_codigo'])  {
+
+		 case TIPOACTCURSOINAP:
+			$oActividad = new cActividadCursoInap($conexion);
+			$oActividad->ListarDisenoActividad($_GET['act_codigo']);
+			break;
+		 case TIPOACTCURSOJURISD:
+			$oActividad = new cActividadCursoJurisdiccional($conexion);
+			$oActividad->ListarDisenoActividad($_GET['act_codigo']);
+			break;
+		 case TIPOACTCURSOINST:
+			$oActividad = new cActividadCursoInstitucional($conexion);
+			$oActividad->ListarDisenoActividad($_GET['act_codigo']);
+			break;
+		 case TIPOACTAUTODOCENTE:
+		 case TIPOACTAUTOEVASIS:
+		 case TIPOACTAUTOEVACT:
+		 case TIPOACTAUTOPUBLI:
+		 case TIPOACTAUTOASISTEC:	 
+		 case TIPOACTAUTOAAUTOFORM:	 	
+			 $oActividad = new cActividadAutodesarrollo($conexion);
+			 $oActividad->ListarDisenoActividad($_GET['act_codigo'],$_GET['tipoact_codigo']);
+			break;
+		 case TIPOACTEXTASIS:	 	 
+			 $oActividad = new cActividadExterna($conexion);
+			 $oActividad->ListarDisenoActividad($_GET['act_codigo'],$_GET['tipoact_codigo']);
+			break;
+			
+		case TIPOACTSECUNDARIO:
+		case TIPOACTSUPNOUNIV:
+		case TIPOACTSUPUNIV:
+		case TIPOACTPOSGRADO:
+		case TIPOACTOBLIG:
+		
+			 $oActividad = new cActividadEducacionFormal($conexion);
+			 $oActividad->ListarDisenoActividad($_GET['act_codigo'],$_GET['tipoact_codigo']);
+			break;	
+			
+	}		
+?>
+</body>
+</html>

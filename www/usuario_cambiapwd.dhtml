@@ -1,0 +1,126 @@
+<?php
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+
+$usuarios=new cUsuarios($conexion);
+
+if(!$usuarios->BuscarUsuariosXUsuariocod($_SESSION['usuariocod'],$numfilasusuarios,$resultadousuarios) || $numfilasusuarios!=1)
+{
+	FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando usuarios. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+	die();
+}
+$filausuario=mysqli_fetch_assoc($resultadousuarios);
+$usuariocuit=$filausuario["usuarioCUIT"];
+
+	//----------------------------------------------------------------------------------------- 
+if (!isset($_POST['botonchgpwd']))
+{
+?>
+<SCRIPT LANGUAGE="JavaScript" type="text/javascript">
+<!--
+function Validarjs(formulario) 
+{
+	if (formulario.clave2.value=="")
+	{
+		alert("Debe ingresar una contraseña");
+		formulario.clave2.focus();
+		return false;
+	}
+	if (!ValidarPassword(formulario.clave2.value,formulario.clave1.value,'<?php echo $usuariocuit ?>',6))
+	{
+		alert("La contraseña no cumple los requerimientos");
+		formulario.clave2.focus();
+		return false;
+	}
+	if (formulario.clave2.value!=formulario.clave3.value)
+	{
+		alert("Las contraseña de confirmación no coincide");
+		formulario.clave3.focus();
+		return false;
+	}		
+
+	return true;
+}
+//-->
+</script>
+<br><div align="center">
+<form method="POST" action="<?php echo $_SERVER['PHP_SELF'] ?>" name="formulario">
+<table width="70%" class="textoTablaDato">
+    <tr> 
+      <td width="50%" class="textoEtiqueta">Contraseña Actual</td>
+      <td width="50%" class="colorFondoSeleccion"><input type="password" name="clave1" size="13" class='textoInput' maxlength = "12"><div style='font-size: 3px;'>&nbsp;</div></td>
+    </tr>
+    <tr> 
+      <td class="textoEtiqueta">Nueva Contraseña</td>
+      <td class="colorFondoSeleccion"><input type="password" name="clave2" size="13"  class='textoInput' maxlength = "12"><div style='font-size: 3px;'>&nbsp;</div></td>
+    </tr>
+    <tr> 
+      <td class="textoEtiqueta">Confirmar Contraseña</td>
+      <td class="colorFondoSeleccion"><input type="password" name="clave3" size="13" class='textoInput' maxlength = "12"><div style='font-size: 3px;'>&nbsp;</div></td>
+    </tr>
+    <tr>
+      <td colspan="2">&nbsp;</td>
+    </tr>
+    <tr> 
+      <td colspan="2" align="center">
+	  	<input name="botonchgpwd" type="submit" class="botones" value="Cambiar Contrase&ntilde;a"  onClick="return Validarjs(formulario)"> 
+		&nbsp;&nbsp;&nbsp;<input type="reset" class="botones" value="Limpiar formulario" name="B2">
+	  </td>
+    </tr>
+  </table>
+  <p>&nbsp; </p>
+  <p>&nbsp;</p>  
+  </form></div>
+  <blockquote>
+  <span class="textoAclaraciones">La contrase&ntilde;a nueva debe cumplir los siguientes requerimientos:<br>
+- Debe contener sólo letras (mayúsculas y/o minúsculas) y números.<br>
+- Como mínimo debe tener un largo de 6 carácteres.<br>
+- No puede tener el mismo carácter consecutivo mas de 4 veces.<br>
+- No puede ser parecida a la contraseña anterior.<br></span></blockquote>
+  <p>&nbsp;</p>  
+
+<?php
+} // if botonchgpwd
+//----------------------------------------------------------------------------------------- 		
+else
+{ //if se completo el formulario
+
+	$conexion->ManejoTransacciones("B");
+	
+	if($usuarios->CambiarPwd($_SESSION["usuariocod"],$_POST['clave1'],$_POST['clave2'],$_POST['clave3'])) 
+	{		
+		FuncionesPHPLocal::RegistrarAcceso($conexion,'023804',"usuariocod=".$_SESSION['usuariocod']." - usuariocuit=".$usuariocuit,$_SESSION['usuariocod']);	
+		$conexion->ManejoTransacciones("C");
+		echo"<p>&nbsp;</p>";
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se actualizó la nueva contraseña",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+	} // si realizó el cambio
+	else 
+	{  // si se produjo un error en los datos
+		$conexion->ManejoTransacciones("R");
+		echo"<p>&nbsp;</p>";
+		echo"<div align='center'><a href='usuario_cambiapwd.dhtml' class='linkFondoBlanco textoAclaraciones'>Ingrese nuevamente</a></div>";
+	} // commit
+
+} // else botonchgpwd
+
+$oEncabezados->PieMenuEmergente();
+?>
+
+

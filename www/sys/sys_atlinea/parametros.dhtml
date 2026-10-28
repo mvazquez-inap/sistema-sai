@@ -1,0 +1,13 @@
+<?php
+
+define("SISTEMA",'Atlinea');
+define("SISTEMAMOSTRAR",'Atención en Línea');
+
+define("BASEDATOS", getenv("SAI_ATLINEA_DB") ?: "");
+define("SERVIDORBD", getenv("SAI_ATLINEA_HOST") ?: "");
+define("USUARIOBD", getenv("SAI_ATLINEA_USER") ?: "");
+define("CLAVEBD", getenv("SAI_ATLINEA_PASSWORD") ?: "");
+
+define("TIEMPOSESION",1800); // cantidad de segundos que dura la sesion
+
+?>

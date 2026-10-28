@@ -1,0 +1,450 @@
+<?php 
+/* La clase requiere que esten definidos:
+
+	Stored Básicos: 	sel_menusuperior (cambie el nombre)
+						sel_menuizquierdo (cambie el nombre)
+
+	Registros de Acceso: 
+*/
+class cEncabezados
+{
+	var $conexionencab;
+	
+	function cEncabezados($conexion)
+	{
+		$this->conexionencab = &$conexion;
+	}
+
+//-----------------------------------------------------------------------------------------
+//							 PUBLICAS	
+//----------------------------------------------------------------------------------------- 
+
+//----------------------------------------------------------------------------------------- 
+// 
+
+/*	function Archivo_Ayuda ($archivonom,$rolcod,&$archivosalida)
+	{
+		
+		$archivo=substr($archivonom,1);
+		switch ($archivo)
+		{
+			case "usuario_valida.dhtml" :
+				$archivosalida="index.html?seleccionarrol.htm";
+				break;
+			
+			case "usuario_cambiarol.dhtml" :
+				$archivosalida="index.html?seleccionarrol.htm";
+				break;
+			
+			//USUARIOS
+			case "usuarios_buscar.dhtml" :
+				$archivosalida="index.html?administradordeusuarios.htm";
+				break;
+			case "usuarios_alta.dhtml" :
+				$archivosalida="index.html?altadeusuarios.htm";
+				break;
+			case "usuarios_ver.dhtml" :
+				$archivosalida="index.html?asignacionderoles.htm";
+				break;
+			case "usuarios_asignar_grupotrab.dhtml" :
+				$archivosalida="index.html?asignaciondegruposdetrabaj.htm";
+				break;
+			case "usuarios_modificar.dhtml" :
+				$archivosalida="index.html?modificardatos.htm";
+				break;
+			case "usuarios_lst.dhtml" :
+				//falta
+				$archivosalida="index.html?administradordeusuarios.htm";
+				break;
+
+			//PAGINAS
+			case "paginas_temas.dhtml" :
+				if ($rolcod==ADMIPAG)
+					$archivosalida="index.html?listadodetemaspaginasadm.htm";
+				elseif ($rolcod==USUACTPAG)
+					$archivosalida="index.html?listadodetemaspaginasact.htm";
+				break;
+			case "paginas_busqueda.dhtml" :
+				$archivosalida="index.html?busquedapaginas.htm";
+				break;
+			case "paginas_busqueda_lst.dhtml" :
+				$archivosalida="index.html?busquedapaginas.htm";
+				break;
+			case "paginas_lst.dhtml" :
+				if ($rolcod==ADMIPAG)
+				$archivosalida="index.html?listadodepaginasusadm.htm";
+				elseif ($rolcod==USUACTPAG)
+				$archivosalida="index.html?listadodepaginasusact.htm";
+				break;
+			case "paginas_observaciones.dhtml" :
+				$archivosalida="index.html?observaciones.htm";
+				break;
+			case "paginas_am.dhtml" :
+				$archivosalida="index.html?modificaciondepaginas.htm";
+				break;
+			case "paginas_objetos.dhtml" :
+				$archivosalida="index.html?paginasobjetos.htm";
+				break;
+			case "paginas_librerias.dhtml" :
+				$archivosalida="index.html?paginaslibrerias.htm";
+				break;
+			case "paginas_datos.dhtml" :
+				$archivosalida="index.html?datosdelibrerias.htm";
+				break;
+			case "paginas_datos_contenidos.dhtml" :
+				$archivosalida="index.html?datocontenidos.htm";
+				break;
+			case "paginas_datos_contenidos_am.dhtml" :
+				$archivosalida="index.html?datocontenidos.htm";
+				break;
+			case "paginas_datos_elegirtipo.dhtml" :
+				$archivosalida="index.html?datosdelibrerias.htm";
+				break;
+			case "paginas_datos_objetos.dhtml" :
+				$archivosalida="index.html?datoobjetos.htm";
+				break;
+			case "paginas_datos_objetos_am.dhtml" :
+				$archivosalida="index.html?datoobjetos.htm";
+				break;
+			case "rpt_paginas.dhtml" :
+				$archivosalida="index.html?reppaginas.htm";
+				break;
+			case "gruposdetrabajo_upd.dhtml" :
+				$archivosalida="index.html?introducciongrupotrab.htm";
+				break;
+			case "rpt_grupotrab_usuarios.dhtml" :
+				$archivosalida="index.html?usuarios_grupo.htm";
+				break;
+			case "grupos_alta_upd.dhtml" :
+				$archivosalida="index.html?modificaciongrupotrab.htm";
+				break;
+			case "grupos_asigtema_upd.dhtml" :
+				$archivosalida="index.html?asignartemasgrupotrab.htm";
+				break;
+			//Desde ACA CONTENIDOS.
+			case "contenidos_temas.dhtml" :
+				if ($rolcod==USUACTCONT)
+				$archivosalida="index.html?listusactcont.htm";
+				elseif ($rolcod==CORRECTOR)
+				$archivosalida="index.html?listadodetemas.htm";
+				elseif ($rolcod==ADMICONT)
+				$archivosalida="index.html?listadodetemas2.htm";
+				break;
+			case "contenidos_lst.dhtml" :
+				if ($rolcod==USUACTCONT)
+				$archivosalida="index.html?listadodecontenidos.htm";
+				elseif ($rolcod==CORRECTOR)
+				$archivosalida="index.html?listadodecontenidos2.htm";
+				elseif ($rolcod==ADMICONT)
+				$archivosalida="index.html?listadodecontenidos3.htm";
+				break;
+			case "contenidos_metadatos.dhtml" :
+				$archivosalida="index.html?metadatos.htm";
+				break;
+			case "contenidos_am.dhtml" :
+				$archivosalida="index.html?altacontenidos.htm";
+				break;
+			case "contenidos_link.dhtml" :
+				$archivosalida="index.html?links.htm";
+				break;
+			case "contenidos_observaciones.dhtml" :
+				$archivosalida="index.html?observaciones.htm";
+				break;
+			case "contenidos_busqueda.dhtml" :
+				$archivosalida="index.html?busquedacontenidos.htm";
+				break;
+			case "contenidos_busqueda_lst.dhtml" :
+				$archivosalida="index.html?busquedacontenidos.htm";
+				break;
+			case "rpt_contenidos.dhtml" :
+				$archivosalida="index.html?repcontenidos.htm";
+				break;
+			default:
+				$archivosalida="index.html?introduccionsistemaLocal.htm";
+		}
+	
+	return true;
+	}
+*/
+
+
+	function EncabezadoMenuEmergente($usuariocod,$rolcod,$jurisdid)
+	{
+?>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<title><?php echo SYS_VENTANA_NOMBRE ;?></title>
+<link rel="stylesheet" type="text/css" href="estilos.css">
+<link rel="stylesheet" type="text/css" href="calendar/calendar.css">
+<script language="javascript" src="<?php echo DIR_JSComunes ?>funcionesjs.js" type="text/javascript"></script>
+<script language="javascript" src="<?php echo DIR_JSComunes ?>menu.js" type="text/javascript"></script>
+<script language="javascript" src="<?php echo DIR_JSComunes ?>prototype.js" type="text/javascript"></script>
+<script language="JavaScript" type="text/JavaScript">
+	var Hoy = new Date("<?php echo date("d M Y G:i:s"); ?>");
+	var standardbrowser=!document.all&&!document.getElementById;
+	var alternate=0;
+	if (standardbrowser)
+	document.write('<form name="tick"><input type="text" name="tock" size="11"><\/form>');
+</script>
+
+</head>
+
+<body onload="Reloj()" style="background-color:#DCDCDC">
+ 
+<?php $this->_MenuEmergenteJS($usuariocod,$rolcod,$jurisdid) ?>
+<iframe id="DivShim" src="blank.dhtml"  scrolling="no" frameborder="0" style="position:absolute; top:0px; left:0px; display:none;"> </iframe>
+
+
+<div id="divContenido">
+		<div id="div_top">
+			<div id="logo">
+            	<span id="ambiente<?php echo RUN_ACTUAL ?>">
+		            <?php 
+					$where=array("constantetipo='MODORUN' and constantecod='",RUN_ACTUAL,"' ");   
+					$this->conexionencab->TraerCampo("constantes_grales","constantedesc",$where,$ambiente,$numfilas,$error);
+					if (RUN_ACTUAL == RUN_DESARROLLO && $_SERVER["HTTP_HOST"] == "sai.local" )
+						$ambiente .= " LOCAL"; 
+					echo $ambiente ?>
+                </span>
+			</div>
+		</div> 
+                
+                
+<table border="0" cellspacing="0" width="980" class="colorMenuPrincipal" cellpadding="2">
+    <tr class="colorTitulosGrupo">
+	  <td width="100%" colspan="2" align="left" style="height:10px" > 
+      </td>
+    </tr>
+    <tr>
+      <td width="18%">
+	  	<span id="Fecha_Reloj" class="styling"></span>
+	  </td>
+      <td width="78%">
+		<table width="100%" cellpadding="0" cellspacing="0">
+			<tr>
+				<td width="100%">
+		  		<?php
+/*				$archivosalida="index.html?introduccionsistemaLocal";
+				$this->Archivo_Ayuda ($_SERVER['PHP_SELF'],$rolcod,$archivosalida);*/
+				
+				if($usuariocod!=0) {
+					echo "<div align='right'><a href='javascript:void(0)' onClick=\"javascript:Popup('ventanatexto.dhtml?tipo=dto_usuario','ventanatexto',450,180,screen.availWidth-500,screen.availHeight-200,'yes')\" class='linkEncabezado'>Datos Operador</a></div>";
+					if($rolcod ==  USUACTJUR) {
+						$objJurisdicciones= new jurisdicciones;
+						if ($objJurisdicciones->SelectJurisdxID($_SESSION['jurisdid_inap'],array(),TABGRALES_TS_ARRAY,$fila_jurisd,array(),$NumFilas,$CodError)) 
+							$organismo=htmlspecialchars($fila_jurisd[$_SESSION['jurisdid_inap']]['jurisdnom'],ENT_QUOTES);
+							echo "<div align='right' class='linkEncabezado'>Organismo: ".$organismo."</div>";
+						
+					}
+				
+					echo "<div align='right'><a href='usuario_relogin.dhtml' class='linkEncabezado'>ReLogin</a></div>";                
+					if ((RUN_ACTUAL == RUN_DESARROLLO) || ($rolcod == ADMIONTI)) 
+						echo "<div align='right'><a href='mensajes_internos.dhtml' class='linkEncabezado'>Mensajes Internos</a></div>";
+				}	
+				$tituloOpcionMenu=FuncionesPHPLocal::ObtenerTituloModulo($this->conexionencab,$_SERVER['PHP_SELF'],"/");
+				
+								
+				if($tituloOpcionMenu!="") 
+					echo "<div align='left' class='textoTituloModulo'>".$tituloOpcionMenu."</div>"; 
+				?>
+				</td>
+				<td width="10%" align="right">
+<!--				<span class='textousuario'> 
+					<a href="javascript:void(0)" onClick="popup('ayuda/<?php // echo htmlspecialchars ($archivosalida,ENT_QUOTES)?>','ventana_help',930,650,screen.availWidth-950,screen.availHeight-700,'yes');" class="linkMenuEmergente"><img src="images/Help.gif"  border="0" alt="Ayuda" title="Ayuda"></a>
+				</span>
+ -->			</td>
+			</tr>
+		</table>	
+	  </td>
+	 </tr>
+    <tr>
+      <td valign="top">
+
+		<?php $this->_MenuEmergente($usuariocod,$rolcod,$jurisdid) ?>
+		&nbsp;
+
+      </td>
+      <td valign="top">
+        <div align="center">
+          <table border="0" cellpadding="2" cellspacing="2" width="100%" bgcolor="#FFFFFF" style="height:400px">
+            <tr valign="top">
+              <td width="100%" valign="top" id="CeldaCentral">
+
+<?php	
+	}
+
+
+	function PieMenuEmergente()
+	{
+?>
+              </td>
+            </tr>
+          </table>
+        </div>	  
+	  </td>
+    </tr>
+    <tr class="colorTitulosGrupo">
+      <td colspan="2" height="3">
+      </td>
+    </tr>	  
+    <tr>
+      <td colspan="2" align="right" class="colorMenuN1" >
+	    <font size="1" class="textoMenuInferior">
+	    <br>
+	    Jefatura de Gabinete de Ministros<br>
+        
+	  	<br></font>
+       </td>
+    </tr>
+  </table>
+</div>
+
+</body>
+
+</html>
+
+<?php	
+	}
+	
+	function EncabezadoConsulta()
+	{
+		?>
+		<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+		<html>
+		<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+		<title><?php echo SYS_VENTANA_NOMBRE ; ?></title>
+		<link rel="stylesheet" type="text/css" href="estilos.css">
+		<link href="imprimir.css" rel="stylesheet" type="text/css" media="print" >
+		<script language="javascript" src="<?php echo DIR_JSComunes ?>funcionesjs.js" type="text/javascript"></script>
+		</head>
+		<body >
+		<?php
+	
+	}
+
+	function PieConsulta()
+	{
+		?>
+		
+		</body>
+		
+		</html>
+		
+		<?php
+	}
+
+//-----------------------------------------------------------------------------------------
+//							 PRIVADAS
+//----------------------------------------------------------------------------------------- 
+
+//----------------------------------------------------------------------------------------- 
+// 
+	
+	function _MenuEmergenteJS($usuariocod,$rolcod,$jurisdid)
+	{
+
+		if($rolcod=='' || $rolcod==0)
+			return false;
+	
+		$param=array('pusuariocod'=>$usuariocod,'prolcod'=>$rolcod,'pjurisdid'=>($rolcod==USUACTJUR)?0:$jurisdid);
+		if(!$this->conexionencab->ejecutarStoredProcedure("sel_menusuperior",$param,$menuprinc,$numfilas,$errno))
+			return false;
+	
+		echo '<script language="javascript" type="text/javascript">'."\n";
+		echo "<!--\n";
+		echo 'function CargarMenues()'."\n";
+		echo '{'."\n";
+
+		while ($filaprinc = mysql_fetch_assoc($menuprinc)) 
+		{ 
+			echo 'window.mm_menu_'.$filaprinc['grupomodcod'];
+			echo ' = new Menu("root",250,17,"Verdana, Arial, Helvetica, sans-serif",10,"'.COLOR_TEXTO_MENU_N2.'","'.COLOR_TEXTO_MENU_N2_SELECTED.'","'.COLOR_MENU_N2.'","'.COLOR_MENU_N2_SELECTED.'","left","middle",3,0,1000,-5,7,true,true,true,0,true,true);'."\n";
+
+			$param=array('pusuariocod'=>$usuariocod,'prolcod'=>$rolcod,'pjurisdid'=>($rolcod==USUACTJUR)?0:$jurisdid,'pgrupomodcod'=>$filaprinc['grupomodcod']);
+			if(!$this->conexionencab->ejecutarStoredProcedure("sel_menuizquierdo",$param,$menusecund,$numfilas,$errno))
+				return false;
+
+			while ($filasecund = mysql_fetch_assoc($menusecund)) 
+			{ 
+				echo 'mm_menu_'.$filaprinc['grupomodcod'];
+				echo '.addMenuItem("'.htmlspecialchars($filasecund['modulotextomenu'],ENT_QUOTES).'", "location=\''.htmlspecialchars($filasecund['archivonom'],ENT_QUOTES).'\'");'."\n";
+			}
+			echo 'mm_menu_'.$filaprinc['grupomodcod'].'.hideOnMouseOut=true;'."\n";
+			$ultcod=$filaprinc['grupomodcod'];
+		}
+
+		echo 'mm_menu_'.$ultcod.'.writeMenus();'."\n";
+		echo '}'."\n";
+		echo 'CargarMenues();'."\n";
+		echo '//-->'."\n";
+		echo '</script>'."\n";
+	}
+
+	function _MenuEmergente($usuariocod,$rolcod,$jurisdid)
+	{
+		if($rolcod=='' || $rolcod==0)
+			return false;
+
+		// se piden todos los gruposmod que tengan 'S' o 'L' 
+		// en modulomostrar
+		$param=array('pusuariocod'=>$usuariocod,'prolcod'=>$rolcod,'pjurisdid'=>($rolcod==USUACTJUR)?0:$jurisdid);
+		if(!$this->conexionencab->ejecutarStoredProcedure("sel_menusuperior",$param,$menuprinc,$numfilas,$errno))
+			return false;
+?>	
+			<table width='100%' border='0' cellspacing='0' cellpadding='0'>
+				<tr>
+					<td class='colorLineaMenuIzq' colspan="2">&nbsp;</td>
+				</tr>
+<?php
+		
+	
+		if ($_SESSION['sistema_a_bloquear'] == "NO") 
+			$top=230;
+		else 
+			$top=207;		
+			
+		while ($filaprinc = mysql_fetch_assoc($menuprinc)) 
+		{ 
+			$param=array('pusuariocod'=>$usuariocod,'prolcod'=> $rolcod,'pjurisdid'=>($rolcod==USUACTJUR)?0:$jurisdid,'pgrupomodcod'=>$filaprinc['grupomodcod']);
+			if(!$this->conexionencab->ejecutarStoredProcedure("sel_menuizquierdo",$param,$menusecund,$numfilas,$errno))
+				return false;
+				
+			// si tiene una sola fila con 'L' en modulomostrar 
+			// es porque no tiene submenu
+			// pone link en el menú principal izquierdo	
+			$filasecund = mysql_fetch_assoc($menusecund); 
+
+			if($numfilas==1 && $filasecund['modulomostrar']=="L")
+			{
+?>
+				<tr>
+					<td class="textoMenuIzquierdo" height="20" colspan="2"> 
+						<a href="<?php echo htmlspecialchars($filasecund['archivonom'],ENT_QUOTES) ?>"  class="linkMenuEmergente"><?php echo htmlspecialchars($filaprinc['grupomodtextomenu'],ENT_QUOTES) ?></a>
+					</td>
+				</tr>
+<?php			
+			}
+			else
+			{
+?>				<tr id="ho_<?php echo $filaprinc['grupomodcod'] ?>" style="cursor:pointer;" onmouseover="window.MM_showMenu(window.mm_menu_<?php echo $filaprinc['grupomodcod'] ?>,document.getElementById('divContenido').offsetLeft+190,<?php echo $top ?>,'','','ho_<?php echo $filaprinc['grupomodcod'] ?>','#BB8BDF','#E0C2EF');" onmouseout="MM_startTimeout()" class="textoMenuIzquierdo">
+					<td width="85%"  align="left" height="20" style="padding-left:5px;"> 
+						<?php echo htmlspecialchars($filaprinc['grupomodtextomenu'],ENT_QUOTES) ?>
+					</td>
+					<td width="15%" align="right" >
+						<img src="images/flecha_nar.gif" width=13 height="13" hspace=3 align="middle" alt="flechita">
+					</td>
+				</tr>
+<?php			
+			}
+			$top+=20;
+		}
+?>
+			</table>
+<?php
+	}
+
+}//fin clase
+?>

@@ -1,0 +1,140 @@
+<?php 
+require('./include.dhtml');
+header('Content-Type: text/html; charset=utf-8');
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+echo "//tienepermisos\n";
+echo "error='";
+//----------------------------------------------------------------------------------------- 
+$tipo=0;
+$valor_buscado="";
+$valor_codigo_unico="";
+
+if (isset ($_GET['tipo']))
+	$tipo=$_GET['tipo'];
+if (isset ($_GET['valor_buscado']))
+	$valor_buscado=$_GET['valor_buscado'];
+if (isset ($_GET['valor_codigo_unico']))
+	$valor_codigo_unico=$_GET['valor_codigo_unico'];
+
+$ok=0;
+switch($tipo) {
+	case 'E':		// Expediente
+		$oExpediente = new cExpediente($conexion,"");
+		$ArregloDatos=array();
+		$ArregloDatos['exp_numero_exacto']=$valor_buscado;
+		if(!$oExpediente ->BuscarExpediente($ArregloDatos,$numfilas,$result,$error,$errormail)){
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error buscando el expediente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>""));
+		} elseif ($numfilas==0) 
+				$ok=1;
+			elseif ($numfilas==1) {
+					$fila=mysqli_fetch_assoc($result);
+					if($fila['exp_codigo']!=$valor_codigo_unico) 
+						FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"Ya existe el número de expediente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>""));
+					else
+						$ok=1;
+				} else 
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"Ya existe el número de expediente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>""));
+		break;
+
+	case 'D': // Disposición
+
+		$oDisposicion = new cDisposicion($conexion);
+		$ArregloDatos=array();
+		$ArregloDatos['dis_numero_exacto']=$valor_buscado;
+		if(!$oDisposicion->BuscarDisposicion($ArregloDatos,$numfilas,$result,$error,$errormail)){
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error buscando la disposición.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>""));
+		} elseif ($numfilas==0) 
+				$ok=1;
+			elseif ($numfilas==1) {
+					$fila=mysqli_fetch_assoc($result);
+					if($fila['dis_codigo']!=$valor_codigo_unico) 
+						FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"Ya existe el número de disposición.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>""));
+					else
+						$ok=1;
+				} else 
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"Ya existe el número de disposición.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>""));
+		break;
+
+	case 'A':	// Actividad
+
+		$oActividad= new cActividad($conexion,"");
+		$ArregloDatos=array();
+		$ArregloDatos['act_codinap_exacto']=$valor_buscado;
+		if(!$oActividad ->BuscarActividad($ArregloDatos,$numfilas,$result,$error,$errormail)){
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error buscando el Código Inap.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>""));
+		} elseif ($numfilas==0) 
+				$ok=1;
+			elseif ($numfilas==1) {
+					$fila=mysqli_fetch_assoc($result);
+					if($fila['act_codigo']!=$valor_codigo_unico) 
+						FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"Ya existe el Código Inap.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>""));
+					else
+						$ok=1;
+				} else 
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"Ya existe el Código Inap.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>""));
+		break;
+
+		break;	
+
+	case 'DO':	// Prestador Docente 
+
+		$oPrestadorDocente= new cPrestadorDocente($conexion,"");
+		$ArregloDatos=array();
+		$ArregloDatos['presdoc_cuilt_exacto']=$valor_buscado; 
+		if(!$oPrestadorDocente ->BuscarPrestadorDocente($ArregloDatos,$numfilas,$result,$error,$errormail)){
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error buscando el CUIT/CUIL.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>""));
+		} elseif ($numfilas==0) 
+				$ok=1;
+			elseif ($numfilas==1) {
+					$fila=mysqli_fetch_assoc($result);
+					if($fila['presdoc_cuilt']!=$valor_codigo_unico) 
+						FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"Ya existe un docente con el CUIT/CUIL ingresado.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>""));
+					else
+						$ok=1;
+				} else 
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"Ya existe un docente con el CUIT/CUIL ingresado",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>""));
+		break;
+
+		break;	
+
+	case 'C':	// Comision
+
+		$oComision= new cComision($conexion);
+		$ArregloDatos=array();
+		$ArregloDatos['comi_codinap_exacto']=$valor_buscado;
+		if(!$oComision->BuscarComision($ArregloDatos,$numfilas,$result,$error,$errormail)){
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error buscando el Código Inap.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>""));
+		} elseif ($numfilas==0) 
+				$ok=1;
+			elseif ($numfilas==1) {
+					$fila=mysqli_fetch_assoc($result);
+					if($fila['comi_codigo']!=$valor_codigo_unico) 
+						FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"Ya existe el Código Inap.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>""));
+					else
+						$ok=1;
+				} else 
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"Ya existe el Código Inap.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>""));
+		break;
+
+		break;	
+		
+	default:
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"Error falta definir el tipo de verificación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),"");
+	break;
+}
+echo "'\n";
+echo "ejecutook=".$ok;
+?>

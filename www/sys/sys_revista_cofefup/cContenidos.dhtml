@@ -1,0 +1,114 @@
+<?php 
+class cContenidos
+{
+	var $conexion;
+	var $error=0; 
+
+	//-----------------------------------------------------------------------------------------
+	function __construct($conexion)
+	{
+		$this->conexion = &$conexion;
+	}
+	
+	// Destructor de la clase
+	function __destruct() {	
+		
+    } 	
+	
+//----------------------------------------------------------------------------------------- 
+//                                       PUBLICAS   
+//----------------------------------------------------------------------------------------- 
+  	public function PuedeModificar($regdatocod)
+	{
+		// Busco el curso y me fijo si esta cerrado
+		if(!$this->RegistroXRegdatocod($regdatocod,$datos))
+			return false;
+
+		// PENDIENTE DE DEFINIR	
+		// if ($datos['cat_02']==ESTCURSOCERRADO) // Va a ser ESTARTICULOCERRADO, es lo que vos llamabas finalizado
+		//	return false;
+				
+		return true;		
+	}
+		
+	public function BusquedaAvanzada($datosbusqueda,&$tipo,&$resultado,&$numfilas)
+	{
+		$campo = " a.* ";  
+		if ($tipo==1)
+			$campo = " COUNT(idpub) as total ";
+
+		$spnombre="sel_contenidos_buscar";
+		$sparam=array(
+			'pcampo'=> $campo,
+			'pxidcont'=> 0,
+			'pidcont'=> "",
+			'pxidcontnom'=> 0,
+			'pidcontnom'=> "",
+			'porderby'=> "",
+			'plimit'=> ""
+			);	
+	
+		if (isset ($datosbusqueda['idcontnom']) && $datosbusqueda['idcontnom']!="")
+		{
+			$sparam['pidcontnom'] = $datosbusqueda['idcontnom'];
+			$sparam['pxidcontnom'] = 1;
+		}
+		if (isset ($datosbusqueda['idcont']) && $datosbusqueda['idcont']!="")
+		{
+			$sparam['pidcont'] = $datosbusqueda['idcont'];
+			$sparam['pxidcont'] = 1;
+		}		
+		if (isset ($datosbusqueda['limit']) && $datosbusqueda['limit']!="")
+		{
+			$sparam['plimit'] = $datosbusqueda['limit'];
+		}				
+		if (isset ($datosbusqueda['orderby']) && $datosbusqueda['orderby']!="")
+		{
+			$sparam['porderby'] = $datosbusqueda['orderby'];
+		}else {
+			$sparam['porderby'] = 'idcontnom asc';
+		}	
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			FuncionesPHPPortal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se han podido obtener los registros por búsqueda.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+	
+		return true;	
+	}
+
+	
+/* 	
+//-----------------------------------------------------------------------------------------
+//                                       PRIVADAS   
+//----------------------------------------------------------------------------------------- 
+
+
+//-----------------------------------------------------------------------------------------
+// getError
+//----------------------------------------------------------------------------------------- 
+// Entrada: -
+// Retorna: El error ocurrido.
+//----------------------------------------------------------------------------------------- 
+	public function getError()
+	{
+		return $this->error;
+	}
+//-----------------------------------------------------------------------------------------
+//							 PRIVADAS	
+//----------------------------------------------------------------------------------------- 
+// setError
+//----------------------------------------------------------------------------------------- 
+// Entrada: El error a setear en la variable privada de la clase.
+// Retorna: No retorna datos.
+//-----------------------------------------------------------------------------------------
+	private function setError($error)
+	{
+		$this->error=$error;
+		$this->fault=true;
+	}
+//-----------------------------------------------------------------------------------------
+*/	
+}// FIN CLASE
+?>

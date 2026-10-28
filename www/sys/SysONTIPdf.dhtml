@@ -1,0 +1,735 @@
+<?php 
+require_once('pdf/class.fpdf_table.php');
+
+class cPDF extends FPDF_TABLE {
+
+	var $array_estilos=array();
+	var $estilo_actual=array();
+	var $arreglo_tablas_default=array();
+
+	public function __construct()
+	{
+		$this->FPDF_TABLE();
+		$estilo="";
+		$arregloatributos=array(  'BackgroundColor'=>"#FFFFFF",
+								  'TextColor'=>"#000000",
+								  'Font'=>array('family'=>"Arial",'weigth'=>'B',"size"=>12)
+							    );
+		$this->AddEstilo($estilo,$arregloatributos);
+		
+		$arreglotablas=$this->CargarEstilosTablasDefault();
+		foreach ($arreglotablas as $clave=>$valor)
+			$this->SetEstiloTablaDefault($clave,$valor);
+		
+	}
+	
+	
+	
+	function VerificarAltoHoja($altoMaxPag)
+	{
+		if ($this->GetY()>$altoMaxPag)
+		{
+			$x=$this->GetX();
+			$this->AddPage();
+			$this->SetY($this->tMargin);
+			$this->SetX($x);
+		}
+	
+	}
+
+	
+	
+	
+	
+	
+	
+
+	//-----------------------------------------------------------------------------------------
+	function CellXY($x,$y,$w,$h,$texto,$border=0,$ln=0,$align='',$fill=0,$link='') {
+		//$this->CargarFormato();
+		$this->SetXY($x,$y);
+		//$this->Cell($w,$h,$texto,$this->Formato['Border'],$ln,$this->Formato['Align'],$this->Formato['Fill'],$this->Link);
+		$this->Cell($w,$h,$texto,$border,$ln,$align,$fill,$link);
+	}
+	//-----------------------------------------------------------------------------------------
+	
+	
+	
+
+
+
+
+
+//----------------------------------------------------------------------------------------//
+// FORMATO 
+//----------------------------------------------------------------------------------------//
+
+
+	//---------------------------------------//
+	// FORMATO TABLAS
+	//---------------------------------------//
+	
+	
+	function SetEstiloTablaDefault($estilo_tabla,$array_estilo_tabla)
+	{
+		$this->arreglo_tablas_default[$estilo_tabla]=$array_estilo_tabla;
+	}
+	
+	
+	function SetEstiloDatoTabla(&$estilo_columna,$atributo,$dato_atributo)
+	{
+		$estilo_columna[$atributo]=$dato_atributo;
+	}
+	
+	function GetEstiloTablaDefault($estilo_tabla)
+	{
+		return $this->arreglo_tablas_default[$estilo_tabla];
+	}
+	
+	
+	function CargarEstilosTablasDefault()
+	{
+	
+		 $table_default_header_type = array(
+						'WIDTH' => 6,
+						'T_COLOR' => array(10,10,10),
+						'T_SIZE' => 11,
+						'T_FONT' => 'Arial',
+						'T_ALIGN' => 'C',
+						'V_ALIGN' => 'T',
+						'T_TYPE' => 'B',
+						'LN_SIZE' => 7,
+						'BG_COLOR' => array(0,199,229),
+						'BRD_COLOR' => array(0,92,177),
+						'BRD_SIZE' => 0.2,
+						'BRD_TYPE' => '1',
+						'BRD_TYPE_NEW_PAGE' => '',
+						'TEXT' => '',
+						);
+		 $table_default_data_type = array(
+						'T_COLOR' => array(0,0,0),
+						'T_SIZE' => 10,
+						'T_FONT' => 'Arial',
+						'T_ALIGN' => 'C',
+						'V_ALIGN' => 'M',
+						'T_TYPE' => '',
+						'LN_SIZE' => 5,
+						'BG_COLOR' => array(255,255,255),
+						'BRD_COLOR' => array(0,0,0),
+						'BRD_SIZE' => 0.1,
+						'BRD_TYPE' => '1',
+						'BRD_TYPE_NEW_PAGE' => '',
+						);
+		 $table_default_table_type = array(
+						'TB_ALIGN' => 'L',
+						'L_MARGIN' => 25,
+						'BRD_COLOR' => array(0,0,0),
+						'BRD_SIZE' => '0.4',
+						);
+
+		return array("table_default_header_type"=>$table_default_header_type,"table_default_data_type"=>$table_default_data_type,"table_default_table_type"=>$table_default_table_type);
+	}
+	
+	//---------------------------------------//
+	//***************************************//
+	//---------------------------------------//
+	
+	
+	
+	
+	function AddEstilo($estilo,$arregloatributos)
+	{
+		$this->array_estilos[$estilo]=$arregloatributos;
+	}
+	
+	
+	function GetEstilo($estilo)
+	{
+		return $this->array_estilos[$estilo];
+	}
+	
+	
+	function SetearFormato($estilo)
+	{
+	
+		if ($estilo!=$this->estilo_actual)
+		{
+			$array_atributos=$this->GetEstilo($estilo);
+			$this->estilo_actual=$estilo;
+		}else
+			$array_atributos=$this->GetEstilo($this->estilo_actual);
+		
+		
+		$arreglocolores=$this->_ConvertirHexaRGB($array_atributos['BackgroundColor'],$arreglocolores);
+		$this->SetFillColor($arreglocolores['r'],$arreglocolores['g'],$arreglocolores['b']);
+		
+		$arreglocolores=$this->_ConvertirHexaRGB($array_atributos['TextColor'],$arreglocolores);
+		$this->SetTextColor($arreglocolores['r'],$arreglocolores['g'],$arreglocolores['b']);
+
+		if (array_key_exists('DrawColor',$array_atributos))
+		{
+			$arreglocolores=$this->_ConvertirHexaRGB($array_atributos['DrawColor'],$arreglocolores);
+			$this->SetDrawColor($arreglocolores['r'],$arreglocolores['g'],$arreglocolores['b']);
+		}
+		$this->SetFont($array_atributos['Font']['family'],$array_atributos['Font']['weigth'],$array_atributos['Font']['size']);
+	}
+	
+	
+	
+	function GetRGBColor($color,&$r,&$g,&$b)	{
+		switch ($color) {
+			case "gris" : 
+				$r=153;	$g=153;	$b=153;
+				break;
+			case "azul":
+				$r=0; $g=0;	$b=255;
+				break;
+			case "rojo":
+				$r=255;	$g=0; $b=0;
+				break;
+			case "magenta":
+				$r=255; $g=0; $b=255;
+				break;
+			case "negro":
+				$r=0; $g=0;	$b=0;
+				break;
+			case "blanco":
+				$r=255; $g=255;	$b=255;
+				break;
+			case "cyan":
+				$r=0; $g=255; $b=255;
+				break;
+			case "marron":
+				$r=153; $g=0; $b=0;
+				break;
+			case "amarillo":
+				$r=255; $g=0; $b=0;
+				break;			
+			case "aqua":
+				$r=0; $g=255;$b=255;
+				break;		
+			case "lima":
+				$r=0; $g=255; $b=255;
+				break;			
+			case "fuxia":
+				$r=255;	$g=51; $b=153;
+				break;
+			case "violetaoscuro":
+				$r=67; $g=0; $b=134;
+				break;
+			case "naranja":
+				$r=255; $g=153;	$b=51;
+				break;
+			case "violeta":
+				$r=204; $g=51; $b=255;
+				break;
+			case "plata":
+				$r=229; $g=229;	$b=229;
+				break;
+			default:
+				$r=0;$g=0;$b=0;
+		}
+	}
+	
+	
+	
+	
+	function _ConvertirHexaRGB($color,&$arreglodevuelto)
+	{
+		$arreglodevuelto=array();
+		if ($color[0] == '#')
+			$color = substr($color, 1);
+	
+		if (strlen($color) == 6)
+			list($r, $g, $b) = array($color[0].$color[1],
+									 $color[2].$color[3],
+									 $color[4].$color[5]);
+		elseif (strlen($color) == 3)
+			list($r, $g, $b) = array($color[0], $color[1], $color[2]);
+		else
+			return false;
+
+		$arreglodevuelto[]=hexdec($r);
+		$arreglodevuelto[]=hexdec($g);
+		$arreglodevuelto[]=hexdec($b);
+		
+		return array('r'=>hexdec($r),'g'=>hexdec($g),'b'=>hexdec($b));
+	}	
+	
+	
+	
+	
+	
+//----------------------------------------------------------------------------------------//
+//****************************************************************************************//
+//----------------------------------------------------------------------------------------//
+
+
+
+//----------------------------------------------------------------------------------------//
+// CELL 
+//----------------------------------------------------------------------------------------//
+
+	function CellEstilo($estilo,$w,$h=0,$txt='',$border=0,$ln=0,$align='',$fill=0,$link='')
+	{
+		
+		if ($estilo!="")
+			$this->SetearFormato($estilo);
+		$this->Cell($w,$h,$txt,$border,$ln,$align,$fill,$link);
+	}
+
+//----------------------------------------------------------------------------------------//
+//****************************************************************************************//
+//----------------------------------------------------------------------------------------//
+
+
+
+//----------------------------------------------------------------------------------------//
+// MULTICELL 
+//----------------------------------------------------------------------------------------//
+
+
+	//----------------------------------------------------------------------------------------//
+	// MULTICELL MAX LINE CON ESTILO
+	//----------------------------------------------------------------------------------------//
+	
+	function MultiCellEstilo($estilo,$w,$h=0,$txt='',$border=0,$align='',$fill=0,$maxline=0)
+	{
+		if ($estilo!="")
+			$this->SetearFormato($estilo);
+	
+		$this->MultiCellMaxLine($w,$h,$txt,$border,$align,$fill,$maxline);
+	}
+
+
+
+	//----------------------------------------------------------------------------------------//
+	// MULTICELL MAX LINE CON SALTO DE PAGINA
+	//----------------------------------------------------------------------------------------//
+
+	function MultiCellMaxLine($w,$h,$txt,$border=0,$align='J',$fill=0,$maxline=0)
+    {
+        //Output text with automatic or explicit line breaks, maximum of $maxlines
+        $cw=&$this->CurrentFont['cw'];
+        if($w==0)
+            $w=$this->w-$this->rMargin-$this->x-$this->rightMargen;
+        $wmax=($w-2*$this->cMargin)*1000/$this->FontSize;
+        $s=str_replace("\r",'',$txt);
+        $nb=strlen($s);
+        if($nb>0 and $s[$nb-1]=="\n")
+            $nb--;
+        $b=0;
+        if($border)
+        {
+            if($border==1)
+            {
+                $border='LTRB';
+                $b='LRT';
+                $b2='LR';
+            }
+            else
+            {
+                $b2='';
+                if(is_int(strpos($border,'L')))
+                    $b2.='L';
+                if(is_int(strpos($border,'R')))
+                    $b2.='R';
+                $b=is_int(strpos($border,'T')) ? $b2.'T' : $b2;
+            }
+        }
+        $sep=-1;
+        $i=0;
+        $j=0;
+        $l=0;
+        $ns=0;
+        $nl=1;
+        while($i<$nb)
+        {
+		    //Get next character
+            $c=$s[$i];
+            if($c=="\n")
+            {
+                //Explicit line break
+                if($this->ws>0)
+                {
+                    $this->ws=0;
+                    $this->_out('0 Tw');
+                }
+				$this->VerificarAltoHoja($this->altoMaxPag);
+                $this->Cell($w,$h,substr($s,$j,$i-$j),$b,2,$align,$fill);
+                $i++;
+                $sep=-1;
+                $j=$i;
+                $l=0;
+                $ns=0;
+                $nl++;
+                if($border and $nl==2)
+                    $b=$b2;
+                if ( $maxline  && $nl > $maxline ) 
+                    return substr($s,$i);
+                continue;
+            }
+            if($c==' ')
+            {
+                $sep=$i;
+                $ls=$l;
+                $ns++;
+            }
+            $l+=$cw[$c];
+            if($l>$wmax)
+            {
+                //Automatic line break
+                if($sep==-1)
+                {
+                    if($i==$j)
+                        $i++;
+                    if($this->ws>0)
+                    {
+                        $this->ws=0;
+                        $this->_out('0 Tw');
+                    }
+					$this->VerificarAltoHoja($this->altoMaxPag);
+                    $this->Cell($w,$h,substr($s,$j,$i-$j),$b,2,$align,$fill);
+                }
+                else
+                {
+                    if($align=='J')
+                    {
+                        $this->ws=($ns>1) ? ($wmax-$ls)/1000*$this->FontSize/($ns-1) : 0;
+                        $this->_out(sprintf('%.3f Tw',$this->ws*$this->k));
+                    }
+					$this->VerificarAltoHoja($this->altoMaxPag);
+                    $this->Cell($w,$h,substr($s,$j,$sep-$j),$b,2,$align,$fill);
+                    $i=$sep+1;
+                }
+                $sep=-1;
+                $j=$i;
+                $l=0;
+                $ns=0;
+                $nl++;
+                if($border and $nl==2)
+                    $b=$b2;
+                if ( $maxline  && $nl > $maxline ) 
+                    return substr($s,$i);
+            }
+            else
+                $i++;
+        }
+        //Last chunk
+		//$cantlineasescritas=$nl;
+        if($this->ws>0)
+        {
+            $this->ws=0;
+            $this->_out('0 Tw');
+        }
+
+        if($border and is_int(strpos($border,'B')))
+            $b.='B';
+		$this->VerificarAltoHoja($this->altoMaxPag);
+	    $this->Cell($w,$h,substr($s,$j,$i-$j),$b,2,$align,$fill);
+        $this->x=$this->lMargin;
+        return '';
+    }
+
+
+
+
+
+	// NO SE USA (ORIGINAL)
+	/*------------------------------------------------------------------------------*/
+	/*------------------------------------------------------------------------------*/
+	/*
+    function _MultiCellMaxLine($w,$h,$txt,$border=0,$align='J',$fill=0,$maxline=0)
+    {
+        //Output text with automatic or explicit line breaks, maximum of $maxlines
+        $cw=&$this->CurrentFont['cw'];
+        if($w==0)
+            $w=$this->w-$this->rMargin-$this->x;
+        $wmax=($w-2*$this->cMargin)*1000/$this->FontSize;
+        $s=str_replace("\r",'',$txt);
+        $nb=strlen($s);
+        if($nb>0 and $s[$nb-1]=="\n")
+            $nb--;
+        $b=0;
+        if($border)
+        {
+            if($border==1)
+            {
+                $border='LTRB';
+                $b='LRT';
+                $b2='LR';
+            }
+            else
+            {
+                $b2='';
+                if(is_int(strpos($border,'L')))
+                    $b2.='L';
+                if(is_int(strpos($border,'R')))
+                    $b2.='R';
+                $b=is_int(strpos($border,'T')) ? $b2.'T' : $b2;
+            }
+        }
+        $sep=-1;
+        $i=0;
+        $j=0;
+        $l=0;
+        $ns=0;
+        $nl=1;
+        while($i<$nb)
+        {
+            //Get next character
+            $c=$s[$i];
+            if($c=="\n")
+            {
+                //Explicit line break
+                if($this->ws>0)
+                {
+                    $this->ws=0;
+                    $this->_out('0 Tw');
+                }
+                $this->Cell($w,$h,substr($s,$j,$i-$j),$b,2,$align,$fill);
+                $i++;
+                $sep=-1;
+                $j=$i;
+                $l=0;
+                $ns=0;
+                $nl++;
+                if($border and $nl==2)
+                    $b=$b2;
+                if ( $maxline  && $nl > $maxline ) 
+                    return substr($s,$i);
+                continue;
+            }
+            if($c==' ')
+            {
+                $sep=$i;
+                $ls=$l;
+                $ns++;
+            }
+            $l+=$cw[$c];
+            if($l>$wmax)
+            {
+                //Automatic line break
+                if($sep==-1)
+                {
+                    if($i==$j)
+                        $i++;
+                    if($this->ws>0)
+                    {
+                        $this->ws=0;
+                        $this->_out('0 Tw');
+                    }
+                    $this->Cell($w,$h,substr($s,$j,$i-$j),$b,2,$align,$fill);
+                }
+                else
+                {
+                    if($align=='J')
+                    {
+                        $this->ws=($ns>1) ? ($wmax-$ls)/1000*$this->FontSize/($ns-1) : 0;
+                        $this->_out(sprintf('%.3f Tw',$this->ws*$this->k));
+                    }
+                    $this->Cell($w,$h,substr($s,$j,$sep-$j),$b,2,$align,$fill);
+                    $i=$sep+1;
+                }
+                $sep=-1;
+                $j=$i;
+                $l=0;
+                $ns=0;
+                $nl++;
+                if($border and $nl==2)
+                    $b=$b2;
+                if ( $maxline  && $nl > $maxline ) 
+                    return substr($s,$i);
+            }
+            else
+                $i++;
+        }
+        //Last chunk
+		$cantidadlineas=$nl;
+        if($this->ws>0)
+        {
+            $this->ws=0;
+            $this->_out('0 Tw');
+        }
+
+        if($border and is_int(strpos($border,'B')))
+            $b.='B';
+        $this->Cell($w,$h,substr($s,$j,$i-$j),$b,2,$align,$fill);
+        $this->x=$this->lMargin;
+        return '';
+    }
+	*/
+
+
+
+
+//----------------------------------------------------------------------------------------//
+//****************************************************************************************//
+//----------------------------------------------------------------------------------------//
+
+
+
+	function CellCompress($w,$h=0,$txt='',$border=0,$ln=0,$align='',$fill=0,$link='')
+	{
+		//Output a cell
+		$k=$this->k;
+		if($this->y+$h>$this->PageBreakTrigger and !$this->InFooter and $this->AcceptPageBreak())
+		{
+			$x=$this->x;
+			$ws=$this->ws;
+			if($ws>0)
+			{
+				$this->ws=0;
+				$this->_out('0 Tw');
+			}
+			$this->AddPage($this->CurOrientation);
+			$this->x=$x;
+			if($ws>0)
+			{
+				$this->ws=$ws;
+				$this->_out(sprintf('%.3f Tw',$ws*$k));
+			}
+		}
+		if($w==0)
+			$w=$this->w-$this->rMargin-$this->x;
+		$s='';
+	// begin change Cell function 12.08.2003 
+		if($fill==1 or $border>0)
+		{
+			if($fill==1)
+				$op=($border>0) ? 'B' : 'f';
+			else
+				$op='S';
+			if ($border>1) {
+				$s=sprintf(' q %.2f w %.2f %.2f %.2f %.2f re %s Q ',$border,
+					$this->x*$k,($this->h-$this->y)*$k,$w*$k,-$h*$k,$op);
+			}
+			else
+				$s=sprintf('%.2f %.2f %.2f %.2f re %s ',$this->x*$k,($this->h-$this->y)*$k,$w*$k,-$h*$k,$op);
+		}
+		if(is_string($border))
+		{
+			$x=$this->x;
+			$y=$this->y;
+			if(is_int(strpos($border,'L')))
+				$s.=sprintf('%.2f %.2f m %.2f %.2f l S ',$x*$k,($this->h-$y)*$k,$x*$k,($this->h-($y+$h))*$k);
+			else if(is_int(strpos($border,'l')))
+				$s.=sprintf('q 2 w %.2f %.2f m %.2f %.2f l S Q ',$x*$k,($this->h-$y)*$k,$x*$k,($this->h-($y+$h))*$k);
+				
+			if(is_int(strpos($border,'T')))
+				$s.=sprintf('%.2f %.2f m %.2f %.2f l S ',$x*$k,($this->h-$y)*$k,($x+$w)*$k,($this->h-$y)*$k);
+			else if(is_int(strpos($border,'t')))
+				$s.=sprintf('q 2 w %.2f %.2f m %.2f %.2f l S Q ',$x*$k,($this->h-$y)*$k,($x+$w)*$k,($this->h-$y)*$k);
+			
+			if(is_int(strpos($border,'R')))
+				$s.=sprintf('%.2f %.2f m %.2f %.2f l S ',($x+$w)*$k,($this->h-$y)*$k,($x+$w)*$k,($this->h-($y+$h))*$k);
+			else if(is_int(strpos($border,'r')))
+				$s.=sprintf('q 2 w %.2f %.2f m %.2f %.2f l S Q ',($x+$w)*$k,($this->h-$y)*$k,($x+$w)*$k,($this->h-($y+$h))*$k);
+			
+			if(is_int(strpos($border,'B')))
+				$s.=sprintf('%.2f %.2f m %.2f %.2f l S ',$x*$k,($this->h-($y+$h))*$k,($x+$w)*$k,($this->h-($y+$h))*$k);
+			else if(is_int(strpos($border,'b')))
+				$s.=sprintf('q 2 w %.2f %.2f m %.2f %.2f l S Q ',$x*$k,($this->h-($y+$h))*$k,($x+$w)*$k,($this->h-($y+$h))*$k);
+		}
+		if (trim($txt)!='') {
+			$cr=substr_count($txt,"\n");
+			if ($cr>0) { // Multi line
+				$txts = explode("\n", $txt);
+				$lines = count($txts);
+				//$dy=($h-2*$this->cMargin)/$lines;
+				for($l=0;$l<$lines;$l++) {
+					$txt=$txts[$l];
+					$w_txt=$this->GetStringWidth($txt);
+					if($align=='R')
+						$dx=$w-$w_txt-$this->cMargin;
+					elseif($align=='C')
+						$dx=($w-$w_txt)/2;
+					else
+						$dx=$this->cMargin;
+	
+					$txt=str_replace(')','\\)',str_replace('(','\\(',str_replace('\\','\\\\',$txt)));
+					if($this->ColorFlag)
+						$s.='q '.$this->TextColor.' ';
+					$s.=sprintf('BT %.2f %.2f Td (%s) Tj ET ',
+						($this->x+$dx)*$k,
+						($this->h-($this->y+.5*$h+(.7+$l-$lines/2)*$this->FontSize))*$k,
+						$txt);
+					if($this->underline)
+						$s.=' '.$this->_dounderline($this->x+$dx,$this->y+.5*$h+.3*$this->FontSize,$txt);
+					if($this->ColorFlag)
+						$s.=' Q ';
+					if($link)
+						$this->Link($this->x+$dx,$this->y+.5*$h-.5*$this->FontSize,$w_txt,$this->FontSize,$link);
+				}
+			}
+			else { // Single line
+				$w_txt=$this->GetStringWidth($txt);
+				$Tz=100;
+				if ($w_txt>$w-2*$this->cMargin) { // Need compression
+					$Tz=($w-2*$this->cMargin)/$w_txt*100;
+					$w_txt=$w-2*$this->cMargin;
+				}
+				if($align=='R')
+					$dx=$w-$w_txt-$this->cMargin;
+				elseif($align=='C')
+					$dx=($w-$w_txt)/2;
+				else
+					$dx=$this->cMargin;
+				$txt=str_replace(')','\\)',str_replace('(','\\(',str_replace('\\','\\\\',$txt)));
+				if($this->ColorFlag)
+					$s.='q '.$this->TextColor.' ';
+				$s.=sprintf('q BT %.2f %.2f Td %.2f Tz (%s) Tj ET Q ',
+							($this->x+$dx)*$k,
+							($this->h-($this->y+.5*$h+.3*$this->FontSize))*$k,
+							$Tz,$txt);
+				if($this->underline)
+					$s.=' '.$this->_dounderline($this->x+$dx,$this->y+.5*$h+.3*$this->FontSize,$txt);
+				if($this->ColorFlag)
+					$s.=' Q ';
+				if($link)
+					$this->Link($this->x+$dx,$this->y+.5*$h-.5*$this->FontSize,$w_txt,$this->FontSize,$link);
+			}
+		}
+	// end change Cell function 12.08.2003
+		if($s)
+			$this->_out($s);
+		$this->lasth=$h;
+		if($ln>0)
+		{
+			//Go to next line
+			$this->y+=$h;
+			if($ln==1)
+				$this->x=$this->lMargin;
+		}
+		else
+			$this->x+=$w;
+	}	
+
+
+
+
+// NO SE USA
+/*
+	function InicializarTabla($columnas,$tipotabla="")
+	{
+		$this->Table_Init($columnas, true, true);
+	
+		if ($tipotabla=="")
+		{
+			$table_subtype = $this->GetEstiloTablaDefault("table_default_table_type");
+			$this->Set_Table_Type($table_subtype);
+			
+			//TABLE HEADER SETTINGS
+			$header_subtype = $this->GetEstiloTablaDefault("table_default_header_type");
+			for($i=0; $i<$columnas; $i++) 
+				$header_type[$i] = $this->GetEstiloTablaDefault("table_default_header_type");
+		}
+	
+	}
+
+*/
+
+
+
+}
+?>

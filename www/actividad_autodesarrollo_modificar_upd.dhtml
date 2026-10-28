@@ -1,0 +1,42 @@
+<?php require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+
+$oActividadAutodesarrollo= new cActividadAutodesarrollo($conexion);
+//----------------------------------------------------------------------------------------- 
+
+$conexion->ManejoTransacciones("B");
+$result=true;
+
+if(!$oActividadAutodesarrollo->ModifDatosActividadAutodesarrollo($_POST))
+	$result=false;
+
+if($result) {
+	FuncionesPHPLocal::RegistrarAcceso($conexion,"38203","act_codigo=".$_POST["act_codigo"],$_SESSION['usuariocod']);
+	FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se modificó el diseño de la Actividad Autodesarrollo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+	$conexion->ManejoTransacciones("C");
+} else	
+	$conexion->ManejoTransacciones("R");
+?>
+<br />
+<br /><div align="center"><a href="actividad_autodesarrollo_modificar.dhtml" class="linkFondoBlanco">Volver</a></div>
+
+<?php
+$oEncabezados->PieMenuEmergente(); 
+?>

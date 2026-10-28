@@ -1,0 +1,664 @@
+<?php
+//----------------------------------------------------------------------------------------- 
+// Clase con la lógica para el manejo de Agentes
+class cAgentes extends cPersonas
+{
+
+	var $conexion;
+
+	public function __construct($conexion)
+	{
+		$this->conexion = &$conexion;
+	}
+//-----------------------------------------------------------------------------------------
+//							 PUBLICAS	
+//-----------------------------------------------------------------------------------------------------	
+	function FuncionSP(&$spnombre,&$spparam)
+	{
+		$spnombre="sel_agente_funcion_xestado_orden";
+		$spparam =array('porderby'=>"agfunc_descripcion",'pagfunc_estado'=>30);
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function Jurisdid_InapSP(&$spnombre,&$spparam)
+	{
+		$spnombre="sel_jurisdiccion_inap_xorderby";
+		$spparam =array('porderby'=>"jurisdnom");
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function Organismo_PublicoSP(&$spnombre,&$spparam)
+	{
+		$spnombre="sel_organismo_publico_xestado_orden";
+		$spparam =array('porgapub_estado'=>ESTADOACTIVO,'porderby'=>"orgapub_nombre");
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ActualizarOrganismoLaboralJS()	{	?>
+
+			function ActualizarComboTipoOrganismo(docu, idCombo, filtro_organismo){
+		
+				var elSelect = docu.getElementById(idCombo);
+				var opt;
+				opt = docu.createElement('OPTION');
+			
+				while(elSelect.length>0)
+					elSelect.remove(0);
+					
+				switch (filtro_organismo) {
+						case "A" :
+							opt.value = <?php echo ORGANISMO_APN ?>; 
+							opt.text = "Poder Ejecutivo Nacional";
+							elSelect.options.add(opt);
+							// Es opcion unica
+							// elSelect.disabled=true;
+							break;
+		
+						case "N" :
+							opt.value = <?php echo ORGANISMO_NO_APN ?>; 
+							opt.text = "Otro Organismo Público";
+							elSelect.options.add(opt);
+							// Es opcion unica
+							// elSelect.disabled=true;
+							break;
+		
+						case "T" :
+							opt.value = <?php echo ORGANISMO_APN ?>; 
+							opt.text = "Poder Ejecutivo Nacional";
+							elSelect.options.add(opt);
+		
+							opt = docu.createElement('OPTION');
+							opt.value = <?php echo ORGANISMO_NO_APN ?>; 
+							opt.text = "Otro Organismo Público";
+							elSelect.options.add(opt);
+		
+							// Es opcion seleccionable
+							// elSelect.disabled=false;
+							break;
+				} // switch
+		} // function		
+		
+		//----------------------------------------------------------------------------------
+		function LimpiarOrganismo(docu, jurisdid, jurisdnom) {
+			elValor=docu.getElementById(jurisdid);
+			SetearTexto(jurisdid,'',docu);
+			var elValor=docu.getElementById(jurisdnom);
+			SetearTexto(jurisdnom,'',docu);
+		}
+		//----------------------------------------------------------------------------------
+		function BuscarNombreOrganismo(formulario,obj_nom_destino,tipoorg_codigo,jurisdid) {
+
+			var ajax=nuevoAjax();
+			var variables="?tipoorg_codigo="+tipoorg_codigo+"&jurisdid="+jurisdid;
+			var direccion= "buscar_organismo_ajax.dhtml"+variables;
+			var ejecutook=false;
+
+			var obj_destino = EncontrarObjeto(obj_nom_destino);
+
+			if (jurisdid=='' || !ValidarContenido(jurisdid,'NumericoEntero')) {
+				alert("El código de Organismo no es válido, debe ser un númerico");
+				obj_destino.innerHTML='Organismo Inexistente';	
+				return false;				
+			}
+			
+			ajax.open("GET",direccion,true);
+			ajax.onreadystatechange=function() {
+				if (ajax.readyState==4) {	
+					if (ajax.responseText.substr(0,15)=="//tienepermisos") 	{				
+						eval (ajax.responseText);
+						if (!ejecutook){	
+							return false;
+						} else {
+							if (obj_destino != null)
+								obj_destino.innerHTML=jurisdnom_ajax;	
+							return true;
+						}
+					} else {	
+						return false;
+					}
+				}
+			}	
+			ajax.send(null);		
+			return false;
+		}
+<?php 
+	}
+//---------------------------------------------------------------------------------------------------------------------	
+	function PedirOrganismoLaboral ($es_modif, $filtro_organismo, $tipo_organismo, $jurisdid, &$jurisdid_campo) {
+	
+		$jurisdnom = "";
+		if ($es_modif) {
+			switch ($tipo_organismo) {
+				case ORGANISMO_APN :
+					$jurisdid_apn = $jurisdid;
+					$orgapub_codigo = NULL;
+					$orgapri_codigo = NULL;				
+					break;
+				case ORGANISMO_NO_APN :
+					$jurisdid_apn = NULL;
+					$orgapub_codigo = $jurisdid;
+					$orgapri_codigo = NULL;				
+					break;
+				case ORGANISMO_PRIVADO :
+					$jurisdid_apn = NULL;
+					$orgapub_codigo = NULL;
+					$orgapri_codigo = $jurisdid;
+					break;					
+			}
+			$oActividad = new cActividad($this->conexion);
+			$oActividad->ObtenerOrganismoInstitucion($orgapri_codigo, $jurisdid_apn, $orgapub_codigo, $jurisdnom,$sector_org,$tipoorg_codigo,$jurisdid_campo,true,false);
+		}
+				
+		$valores_combo = array();
+		switch ($filtro_organismo) {
+			case "A" :
+				$valores_combo[1]['tipoorg_codigo'] = ORGANISMO_APN;
+				$valores_combo[1]['tipoorg_nombre'] = "Poder Ejecutivo Nacional";
+				break;
+			case "N" :
+				$valores_combo[1]['tipoorg_codigo'] = ORGANISMO_NO_APN;
+				$valores_combo[1]['tipoorg_nombre'] = "Otro Organismo Público";
+				break;
+			case "T" :
+				$valores_combo[1]['tipoorg_codigo'] = ORGANISMO_APN;
+				$valores_combo[1]['tipoorg_nombre'] = "Poder Ejecutivo Nacional";
+				$valores_combo[2]['tipoorg_codigo'] = ORGANISMO_NO_APN;
+				$valores_combo[2]['tipoorg_nombre'] = "Otro Organismo Público";					
+				break;
+		}
+
+		$jurisdicciones	 = new jurisdicciones;
+		if(!$jurisdicciones->BuscarRaizTipoOrg(TABGRALES_TIPOORG_NAC_EJ,array(),TABGRALES_TS_ARRAY,$nodo_jurisd,array(),$CodError))
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se pudo obtener la raiz de jurisdicciones. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+?>
+		<div id="div_organismo">
+		<table width="90%" class="textoTablaDato" align="center" cellpadding="5" cellspacing="0" border="0">
+			  <tr>
+					<td valign="middle" class="textoEtiqueta" width="30%">Organismo donde trabaja</td>
+					<td class="textoEtiquetaDatoResaltado">
+						  <table cellpadding="0" cellspacing="0" width="100%" border="0" class="textoTablaDato"> 
+                          	<tr>
+								<td colspan="3" style="height:25px"><b><span id="jurisdnom"><?php echo $jurisdnom ?></span></b></td>
+							</tr>
+                     		<tr>
+								<td> Dep.
+								<?php 	$disabled=false;									
+									FuncionesPHPLocal::ArmarCombo_SinSalto_deArray($valores_combo,"form_combo","tipoorg_codigo","tipoorg_codigo",$tipo_organismo,"tipoorg_nombre","","-- Seleccione un tipo",$regactual,$seleccion_tipoorg,0,"LimpiarOrganismo(window.document,\"jurisdid\",\"jurisdnom\")","width:200px",$disabled);
+								?>
+								</td>
+								<td>Cód.</td>
+								<td><input type="text" name="jurisdid" id="jurisdid" size="6" class="textoinput" onblur="BuscarNombreOrganismo(formulario,'jurisdnom',formulario.tipoorg_codigo[formulario.tipoorg_codigo.selectedIndex].value,formulario.jurisdid.value);" value="<?php echo $jurisdid?>"></td>
+								<td>
+									<input type="button" name="botonJurisd" value="Elegir" style="vertical-align:-2px" class="botones" 
+										onClick="Popup('organismo_selector_sincombo.dhtml?tipoorg_codigo='+formulario.tipoorg_codigo[formulario.tipoorg_codigo.selectedIndex].value+'&amp;destino=<?php echo "jurisdid&amp;texto=jurisdnom&amp;inicio="?>'+formulario.jurisdid.value,'ventana_organismos',630,360,screen.availWidth-650,screen.availHeight-420,'yes');">                    
+								</td>
+							</tr>			
+						</table>     
+					</td>
+				</tr>
+		</table>
+		</div>	
+<?php	
+		return true;
+}	
+//-----------------------------------------------------------------------------------------------------	
+	function ValidarFormAltaAgenteJS()
+	{
+?>
+		function ValidarFormAltaAgenteJS(formulario) {
+		
+			if (!ValidarContenido(formulario.pers_cuilt.value,"CUIT")){
+				alert("El CUIT/CUIL/CDI no es válido");
+				formulario.pers_cuilt.focus();
+				return false;
+			}	
+
+			
+			if ((trim(formulario.esc_agrup_niv_grado.value)=="")){
+				alert("Debe ingresar una situación escalafonaria válida");
+				return false;
+			}	
+
+			if (trim(formulario.jurisdid_coordinacion.value)==""){
+				alert("Debe ingresar un Organismo del Coordinador T&eacute;cnico de Capacitaci&oacute;n válido");
+				formulario.jurisdid.focus();
+				return false;
+			}	
+			
+	
+			if (trim(formulario.jurisdid.value)==""){
+				alert("Debe ingresar un Organismo donde trabaja el agente válido");
+				formulario.jurisdid.focus();
+				return false;
+			}	
+
+			if (trim(formulario.jurisdid_coordinacion.value)=="0" && formulario.escalafon.value == "A" ){
+				return confirm("Ha seleccionado un agente SINEP y no le ha asignado un Organismo de Coordinación\n ¿Quiere asignar estos datos?");
+			}	
+
+			if (trim(formulario.nivest_codigo.value)==""){
+				alert("Debe ingresar el Último nivel de estudios alcanzado");
+				formulario.nivest_codigo.focus();
+				return false;
+			}	
+
+			if (trim(formulario.agentes_a_cargo.value)==""){
+				alert("Debe ingresar la Cantidad de agentes a cargo");
+				formulario.agentes_a_cargo.focus();
+				return false;
+			}	
+
+			if (trim(formulario.paiscod_revista.value)==""){
+				alert("Debe ingresar el País de revista");
+				formulario.paiscod_revista.focus();
+				return false;
+			}	
+
+			if (formulario.paiscod_revista.value == <?php echo ARGENTINA?> ) {
+				if (trim(formulario.provinciacod_revista.value)==""){
+					alert("Debe ingresar la provincia de revista");
+					formulario.provinciacod_revista.focus();
+					return false;
+				}
+			}				
+
+			if (formulario.escalafon.value == "A") {
+
+				if ((trim(formulario.agfunc_codigo.value)=="")){
+					alert("Debe ingresar una función válida");
+					formulario.agfunc_codigo.focus();
+					return false;
+				}	
+
+			}
+			
+			if(formulario.pers_fechanac.value=="" || !ValidarFecha(formulario.pers_fechanac.value))
+			{
+				alert("Debe ingresar la fecha de nacimiento válida");
+				formulario.pers_fechanac.focus();
+				return false;	
+			}			
+
+			return true;
+		}
+		
+//-----------------------------------------------------------------------------------------------------	
+	function SeleccionPais(formulario){
+		var elSelect = document.getElementById('datos_provincia');
+		if (formulario.paiscod_revista.value == <?php echo ARGENTINA ?>) {
+			elSelect.style.display ="block";
+		} else {
+			elSelect.style.display ="none";
+		}
+	}		
+<?php
+}
+//-----------------------------------------------------------------------------------------------------	
+	function TraerDatosAgente($pers_cuilt,&$datosresult, &$es_modif)
+	{
+		
+		$datospersona=array();
+		if(!$this->TraerDatosPersona($pers_cuilt,$datospersona,$es_modif_persona)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al buscar al datos de la persona.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		
+		if (!$es_modif_persona) {			
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se encuentra la persona seleccionada.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		} else { // Existe la persona
+			$es_modif = false;		
+			$sparam=array('ppers_codigo' =>$datospersona['pers_codigo']);
+			$spnombre="sel_agente_xpers_codigo";	
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+			{
+				$error="Error al buscar al agente.";
+				$errormail="Error al buscar al agente en la tabla agente. ".$errno;
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+				return false;
+			}
+			if ($numfilas == 1)	{
+				$datosresult = mysqli_fetch_assoc($resultado);
+				$datosresult['pers_estado'] = $datospersona['pers_estado'];
+				$es_modif = true;
+			}
+			
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function AltaDatosAgente($datos)
+	{
+	
+		if(!$this->_DatosValidosAltaAgente($datos,$datosvalidados))
+			return false;
+			
+		
+		$spnombre="ins_agente";
+		$spparam=array(
+			'ppers_codigo'=>$datosvalidados["pers_codigo"] ,
+			'pescalafcod'=>$datosvalidados["escalafcod"] ,			
+			'pagrupcod'=>$datosvalidados["agrupcod"] ,			
+			'pescalafnivcod'=>$datosvalidados["escalafnivcod"] ,
+			'pescalaftramocod'=>$datosvalidados["escalaftramocod"] ,
+			'pescalafgradocod'=>$datosvalidados["escalafgradocod"] ,
+			'pagfunc_codigo'=>$datosvalidados["agfunc_codigo"] ,			
+			'pjurisdid_inap'=>$datosvalidados["jurisdid_coordinacion"] ,			
+			'pjurisdid_apn'=>$datosvalidados["jurisdid_apn"] ,
+			'porgapub_codigo'=>$datosvalidados["orgapub_codigo"] ,	
+			'pnivest_codigo'=>$datosvalidados["nivest_codigo"] ,			
+			'pagentes_a_cargo'=>$datosvalidados["agentes_a_cargo"] ,			
+			'ppaiscod_revista'=>$datosvalidados["paiscod_revista"] ,			
+			'pprovinciacod_revista'=>$datosvalidados["provinciacod_revista"] ,			
+			'ppaiscod_revista'=>$datosvalidados["paiscod_revista"] ,			
+			'pprovinciacod_revista'=>$datosvalidados["provinciacod_revista"] ,			
+			'page_estado'=>PERSONAACTIVA,						
+			'pultmodusuario'=>$_SESSION['usuariocod'] ,
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+			);			
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al insertar los datos laborales.";
+			$errormail="Error al insertar en la tabla agente".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		return true;
+	}	
+	
+//-----------------------------------------------------------------------------------------------------	
+	function BorrarDatosAgente($pers_cuit)
+	{
+		if(!$this->_DatosValidosBorrarDatosAgente($pers_cuit,$datosvalidados))
+			return false;
+		//baja física
+		$spnombre="del_agente_xpers_codigo";
+		$spparam=array(
+			'ppers_codigo'=>$datosvalidados["pers_codigo"]
+		);			
+		
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al eliminar los datos laborales.";
+			$errormail="Error al eliminar en la tabla agente".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+
+		return true;
+	}	
+
+
+//-----------------------------------------------------------------------------------------------------	
+	function ModifDatosAgente($datos)
+	{
+		if(!$this->_DatosValidosModifAgente($datos,$datosvalidados))
+			return false;
+
+		$spnombre="upd_agente";
+		$spparam=array(
+			'ppers_codigo'=>$datosvalidados["pers_codigo"] ,
+			'pescalafcod'=>$datosvalidados["escalafcod"] ,			
+			'pagrupcod'=>$datosvalidados["agrupcod"] ,			
+			'pescalafnivcod'=>$datosvalidados["escalafnivcod"] ,
+			'pescalaftramocod'=>$datosvalidados["escalaftramocod"] ,
+			'pescalafgradocod'=>$datosvalidados["escalafgradocod"] ,
+			'pagfunc_codigo'=>$datosvalidados["agfunc_codigo"] ,			
+			'pjurisdid_inap'=>$datosvalidados["jurisdid_coordinacion"] ,			
+			'pjurisdid_apn'=>$datosvalidados["jurisdid_apn"] ,
+			'porgapub_codigo'=>$datosvalidados["orgapub_codigo"] ,			
+			'pnivest_codigo'=>$datosvalidados["nivest_codigo"] ,			
+			'pagentes_a_cargo'=>$datosvalidados["agentes_a_cargo"] ,			
+			'ppaiscod_revista'=>$datosvalidados["paiscod_revista"] ,			
+			'pprovinciacod_revista'=>$datosvalidados["provinciacod_revista"] ,			
+			'ppaiscod_revista'=>$datosvalidados["paiscod_revista"] ,			
+			'pprovinciacod_revista'=>$datosvalidados["provinciacod_revista"] ,			
+			'page_estado'=>PERSONAACTIVA,						
+			'pultmodusuario'=>$_SESSION['usuariocod'] ,
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+			);			
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al modificar los datos laborales.";
+			$errormail="Error al modificar en la tabla agente".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		return true;
+	}	
+
+	
+
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosAltaAgente($datos,&$datosvalidados)
+	{
+		$datosvalidados=array();
+
+		if (!FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['pers_cuilt'],"CUIT"))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El CUIT ingresado no es válido",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		
+		$datosvalidados["pers_cuilt"]=$datos["pers_cuilt"];
+		if (isset($datos["jurisdid_inap"]))
+			$datos["jurisdid_coordinacion"] = $datos["jurisdid_inap"];
+
+		if(!$this->_DatosValidosComunesDatosAgente($datos,$datosvalidados))
+			return false;
+
+		return true;
+	}
+
+
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosBorrarDatosAgente($pers_cuit,&$datosvalidados)
+	{
+
+		if(!$this->TraerDatosAgente($pers_cuit,$datosvalidados,$es_modif))
+			return false;
+			
+		return true;
+	}
+
+
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosModifAgente($datos,&$datosvalidados)
+	{
+		$datosvalidados=array();
+		if(!$this->TraerDatosAgente($datos['pers_cuilt'],$datosvalidados,$es_modif))
+			return false;
+			
+		if(!$this->_DatosValidosComunesDatosAgente($datos,$datosvalidados))
+			return false;
+
+		return true;
+	}
+
+
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosComunesDatosAgente($datos,&$datosvalidados) 	{
+
+			$datosvalidados=array();
+			
+			//-----------------------------------
+			// pers_codigo ----------------------
+			$param=array('ppers_cuilt' => $datos['pers_cuilt'], "ppers_estado"=>PERSONAACTIVA);
+			if(!$this->conexion->BuscarRegistroxClave("sel_persona_xperscuilt_pers_estado",$param,array("pers_cuilt" => $datos['pers_cuilt']),$resultado,$filaret,$numfilasmatcheo,$errno))
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar la persona. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			
+			if($numfilasmatcheo!=1)
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar la persona. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["pers_codigo"]=$filaret['pers_codigo'];
+
+			$jurisdicciones	 = new jurisdicciones;
+			//Valido el escalafon, agrupamiento, escalafon/nivel y escalafon/grado
+			$oEscalafon = new cEscalafones($this->conexion);	
+			if (!$oEscalafon->ValidarEscalafon($datos['esc_agrup_niv_grado'], $datosvalidados) ) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error seleccionando la persona a asignar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+		
+			//-----------------------------------
+			// jurisdid_inap ----------------------
+			$this->Jurisdid_InapSP($spnombre,$spparam);
+			if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("jurisdid"=>$datos["jurisdid_coordinacion"]),$resultado,$filaret,$numfilasmatcheo,$errno))
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar el organismo de coordinación 1. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			
+			if($numfilasmatcheo!=1)
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar el organismo de coordinación 2. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["jurisdid_coordinacion"]=$datos['jurisdid_coordinacion'];
+
+
+			switch ($datos['tipoorg_codigo']) {
+				
+				case ORGANISMO_APN :
+					//-----------------------------------
+					// jurisdid_inap ----------------------
+					if(!$jurisdicciones-> SelectJurisdxCampo("jurisdid",JURISD_BUSQCAMPOIGUAL,$datos['jurisdid'],"",TABGRALES_TS_ARRAY,$Destino,"",$numfilasmatcheo_jurisdid,$CodError)) {
+						FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Error al seleccionar el organismo donde trabaja. 1 ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+						return false;
+					} 
+					/*
+					if($numfilasmatcheo_jurisdid!=1)
+					{
+						FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Error al seleccionar el organismo donde trabaja. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+						return false;
+					}*/						
+
+					$datosvalidados["jurisdid_apn"]=$datos['jurisdid'];
+					$datosvalidados["orgapub_codigo"]="NULL";				
+					
+					break;
+
+				case ORGANISMO_NO_APN:
+					//-----------------------------------
+					// orgapub_codigo ----------------------
+					$this->Organismo_PublicoSP($spnombre,$spparam);
+					if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("orgapub_codigo"=>$datos["jurisdid"]),$resultado,$filaret,$numfilasmatcheo_orgapub,$errno)) {
+						FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Error al seleccionar el organismo donde trabaja. 2 ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+						return false;
+					}
+
+					if($numfilasmatcheo_orgapub!=1)
+					{
+						FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Error al seleccionar el organismo donde trabaja. 3 ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+						return false;
+					}						
+					
+					
+					$datosvalidados["jurisdid_apn"]="NULL";
+					$datosvalidados["orgapub_codigo"]=$datos['jurisdid'];				
+
+					break;
+
+				default :
+						FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en el tipo de Organismo Público donde trabaja.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+						return false;
+						break;
+			}
+			$datosvalidados["tipoorg_codigo"]=$datos['tipoorg_codigo'];	
+
+
+			if ($datosvalidados['escalafcod']==SINEP) {
+				//-----------------------------------
+				// agfunc_codigo ----------------------
+				$this->FuncionSP($spnombre,$spparam);
+				if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("agfunc_codigo"=>$datos["agfunc_codigo"]),$resultado,$filaret,$numfilasmatcheo,$errno))
+				{
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar la función del agente. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+				
+				if($numfilasmatcheo!=1)
+				{
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar la función del agente. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+				$datosvalidados["agfunc_codigo"]=$datos['agfunc_codigo'];
+				
+			} else 
+				$datosvalidados["agfunc_codigo"]="NULL";
+				
+				
+			// nivest_codigo
+			
+			$spnombre = "sel_nivel_estudios_xorden";
+			$spparam = array("porderby"=>"nivest_descricpcion");
+
+			if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("nivest_codigo"=>$datos["nivest_codigo"]),$resultado,$filapais,$numfilasmatcheo,$errno))
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar el nivel de estudios. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			
+			if($numfilasmatcheo!=1)
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar el nivel de estudios. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+
+			$datosvalidados["nivest_codigo"]=$datos["nivest_codigo"];
+
+
+			if (trim($datos['agentes_a_cargo']) == "") {
+				$arraymensajepantalla="La cantidad de agentes a cargo no es válida";
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["agentes_a_cargo"]=$datos["agentes_a_cargo"];
+
+
+		// paiscod_revista ----------------------
+		$spnombre = "sel_paises_xestado";
+		$spparam = array("ppaisestado"=>ESTADOACTIVO, "porderby"=>"paisnom");
+		if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("paiscod"=>$datos["paiscod_revista"]),$resultado,$filapais,$numfilasmatcheo,$errno))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar el pais de revista. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		
+		if($numfilasmatcheo!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar el pais de revista. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["paiscod_revista"]=$datos['paiscod_revista'];
+
+
+
+		// paiscod_revista ----------------------
+		if ($datos['paiscod_revista'] == ARGENTINA) { 
+			$oprovincia = new cProvincias($this->conexion);
+			$oprovincia->ProvinciasSP($spnombre,$spparam);
+			if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("provinciacod"=>$datos["provinciacod_revista"]),$resultado,$filapais,$numfilasmatcheo,$errno))
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar la provincia de revista. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			
+			if($numfilasmatcheo!=1)
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar la provincia de revista. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+		}
+		$datosvalidados["provinciacod_revista"]=$datos['provinciacod_revista'];
+
+
+							
+
+		return true;
+	}	
+} // class
+?>

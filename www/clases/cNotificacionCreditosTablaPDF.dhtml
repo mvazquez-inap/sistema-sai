@@ -1,0 +1,311 @@
+<?php 
+require_once('SysONTIPdf.dhtml');
+
+class cNotificacionCreditosTablaPDF extends cPDF {
+
+	// Datos de la Notificacion
+	var $array_datos = array();
+
+	// Ctes para la impresion de la Notificacion
+	var $ver_borde = 0;	
+	var $xContenido = 5;
+	var $imagenLogo = 'images/escudo_secretaria.jpg';
+	
+	var $orientacionPagina = 'portrait';
+	var $topMargen = 10;
+	var $leftMargen = 10;
+	var $rightMargen = 10;
+	var $footerMargen = 5;
+	var $anchoMaxTexto = 190;	
+	var $altoLineaDefault = 6;	
+	var $pag_x_inscripto= "N";			// Indica si se imprime un salto x cada inscripto
+	var $altoMaxPag = 270;
+				
+	public function __construct ($pag_x_inscripto="N") {	    
+		$this->pag_x_inscripto=$pag_x_inscripto;
+		$format = "A4";
+		parent::__construct($this->orientacionPagina,'mm',$format);
+	}	
+	//------------------------------------------------------------------------
+	function AddNotificacionCreditos() {
+
+		// Inicializa formato de la pagina 
+		$this->AddPage($this->orientacionPagina);
+		$this->AliasNbPages(); 
+
+		$this->SetMargins($this->leftMargen,$this->topMargen,$this->rightMargen);
+
+		// Para que el pie tenga 0.5 por defecto son 2cm
+		$this->SetAutoPageBreak(true,$this->footerMargen);
+
+		// Inicializa datos 
+		$this->array_datos = array('act_nombre'=>'',
+									'jurisdnom'=>'',
+									'programa'=>'',
+									'comi_codinap'=>'',
+									'comi_acta_numero'=>'',
+									'comi_fecha_inicio'=>'',
+									'comi_fecha_fin'=>'',
+									'sede'=>'',
+									'comi_domicilio'=>'',
+									'comi_detalle'=>'',
+									'actcur_creditos'=>'',
+									'dis_numero'=>'',
+									'linea_encabezado'=>'',
+									'linea_nota'=>'',
+									'firmante'=>'',
+									'imagen'=>'',
+									'titulo'=>''
+																		
+									);
+	}	
+	//------------------------------------------------------------------------
+	function Set($campo,$valor) {
+		$this->array_datos[$campo]=$valor;
+	}
+	//------------------------------------------------------------------------
+	function Get($campo) {
+		return ($this->array_datos[$campo]);
+	}
+	//------------------------------------------------------------------------
+	function Header() {
+	}
+	//------------------------------------------------------------------------
+	// Muestra la el logo + detalle de la actividad/comisión
+	function MostrarCabecera($jurisdid_inap_nombre) {
+
+		if ($this->Get('imagen') != "")
+			$this->Image($this->Get('imagen'),$this->lMargin+$this->xContenido,$this->tMargin+6,190,0);
+
+		$this->SetFont('Arial','BI',10);
+		if ($this->Get('linea_encabezado') != "")
+	    	$this->MultiCellMaxLine($this->anchoMaxTexto,$this->altoLineaDefault,'"'.trim($this->Get('linea_encabezado')).'"',$this->ver_borde,'R',0,1);
+
+		$this->SetFont('Arial','BI',12);
+		$this->Ln(24);	
+		$this->MultiCellMaxLine($this->anchoMaxTexto,$this->altoLineaDefault ,
+								"SISTEMA NACIONAL DE CAPACITACIÓN\n".$this->Get('titulo'),$this->ver_borde,'C',0,2);
+		$this->Ln(6);	
+
+		$this->SetFont('Arial','',10);
+		
+		if ($this->Get('programa') != "")
+			$this->MultiCellMaxLine($this->anchoMaxTexto ,$this->altoLineaDefault ,
+								'PROGRAMA: '.$this->Get('programa'),$this->ver_borde,'L',0,1);
+
+		$this->MultiCellMaxLine($this->anchoMaxTexto,$this->altoLineaDefault ,
+								'ORGANISMO: '.$this->Get('jurisdnom'),$this->ver_borde,'L',0,1);
+
+//		$this->MultiCellMaxLine($this->anchoMaxTexto ,$this->altoLineaDefault ,
+//								'ACTIVIDAD NOMBRE: ',$this->ver_borde,'L',0,2);
+
+//		$this->MultiCellMaxLine($this->anchoMaxTexto ,$this->altoLineaDefault ,
+// 								$this->Get('act_nombre'),$this->ver_borde,'L',0,2);
+
+		$this->CellEstilo("",40,$this->altoLineaDefault,'ACTIVIDAD NOMBRE: ',$this->ver_borde,0,'L');
+
+		$this->MultiCellMaxLine($this->anchoMaxTexto-40,$this->altoLineaDefault,$this->Get('act_nombre'),$this->ver_borde,'L',0,5);
+	
+
+		$this->MultiCellMaxLine($this->anchoMaxTexto,$this->altoLineaDefault,'DISPOSICIÓN: '.$this->Get('dis_numero'),$this->ver_borde,'L',0,1);
+
+		$this->MultiCellMaxLine($this->anchoMaxTexto,$this->altoLineaDefault ,
+								'DURACIÓN DE LA ACTIVIDAD: '.$this->Get('act_duracionhs')." hs.",$this->ver_borde,'L',0,1);
+
+		$this->MultiCellMaxLine($this->anchoMaxTexto,$this->altoLineaDefault ,
+								'VALORACIÓN DE LA ACTIVIDAD EN CASO DE CORRESPONDER: '.$this->Get('actcur_creditos')." CRÉDITOS"
+								,$this->ver_borde,'L',0,1);
+		$this->Ln(3);
+		
+		$this->MultiCellMaxLine($this->anchoMaxTexto,$this->altoLineaDefault ,
+								'COMISIÓN: '.$this->Get('comi_codinap').str_repeat(' ',5).
+								'N° ACTA: '.$this->Get('comi_acta_numero').str_repeat(' ',5).
+								'COMIENZO: '.$this->Get('comi_fecha_inicio').str_repeat(' ',5).
+								'FINALIZACIÓN: '.$this->Get('comi_fecha_fin'),$this->ver_borde,'L',0,1);
+
+		$this->MultiCellMaxLine($this->anchoMaxTexto,$this->altoLineaDefault ,
+								'LUGAR: '.'SEDE:'.$this->Get('sede').' '.$this->Get('comi_domicilio').' '.$this->Get('comi_detalle'),$this->ver_borde,'L',0,1);
+	
+		$this->MultiCellMaxLine($this->anchoMaxTexto,$this->altoLineaDefault ,
+								'ORGANISMO DE COORDINACIÓN: '.$jurisdid_inap_nombre,$this->ver_borde,'L',0,1);
+	
+		$this->SetFont('Arial','',10);
+		$this->Ln(6);
+	}
+	//------------------------------------------------------------------------
+	// Muestra una version reducida del detalle de la actividad/comisión
+	function MostrarCabeceraSimple() {
+
+		$this->SetFont('Arial','BI',10);
+		if ($this->Get('linea_encabezado') != "")
+	    	$this->MultiCellMaxLine($this->anchoMaxTexto,10,'"'.$this->Get('linea_encabezado').'"',$this->ver_borde,'R',0,1);
+
+		$this->SetFont('Arial','BI',12);
+		$datos_cabecera = $this->Get('datos_cabecera');
+
+		$y_inicial = $this->GetY();
+		if ($this->Get('comi_codinap') != "")
+	    	$this->MultiCellMaxLine($this->anchoMaxTexto,10,
+								'COMISION: '.$datos_cabecera['comi_codinap'].str_repeat(" ",15),$this->ver_borde,'L',0,1);
+
+		$this->SetFont('Arial','BI',10);	
+		if ($this->Get('comi_codinap') != "")
+	    	$this->MultiCellMaxLine($this->anchoMaxTexto,6,
+								'ACTIVIDAD: '.$datos_cabecera['act_codinap']." - ".$datos_cabecera['act_nombre'],$this->ver_borde,'L',0,2);
+
+		if ($this->pag_x_inscripto != "S") {		
+			$this->SetY($y_inicial);
+			$this->MultiCellMaxLine($this->anchoMaxTexto,10,
+									$this->PageNo()."/{nb}",$this->ver_borde,'R',0,1);
+		}
+		$this->Ln(12);			
+	}
+	
+	//------------------------------------------------------------------------
+	function MostrarInscriptos() {
+	
+			$datos_inscriptos = $this->Get('datos_inscriptos');
+
+			// Definicion de las columnas
+		    $titulo_columnas=array("N°","Apellido y Nombre","Organismo","CUIT/CUIL", "Escalafón", "Nivel", "Tramo", "Grado", "Evaluación"); 
+		    $ancho_columnas=array(10,35,35,20,30,12,15,12,25);
+
+			// $this->MostrarEncabezadoTabla($titulo_columnas,$ancho_columnas);
+			
+			// Datos
+			$n = 0; 	// Número n impreso
+			$i = 0;		// Indice del inscripto procesado
+
+			$this->SetFont('Arial','',8);
+			$jurisdnom_anterior="";
+			
+			foreach($datos_inscriptos as $indice=>$valor)	{
+
+				$n++;
+				$i++;
+
+				$nombre = $valor['pers_apellido']." ".$valor['pers_nombre'];
+				$lineas_nom = $this->WordWrap($nombre,29);				
+				$lineas_org = $this->WordWrap($valor['jurisdnom'],24);
+				$lineas_escalafon = $this->WordWrap($valor['escalafdesc'],20);
+				
+				$lineas = max($lineas_org, $lineas_nom, $lineas_escalafon);
+				
+				if ($i==1) {
+					$this->MostrarCabecera($valor['jurisd_inap_nombre']);
+					$this->MostrarEncabezadoTabla($titulo_columnas,$ancho_columnas);
+				}		
+				
+				if ($this->pag_x_inscripto != "S") {			//	Más de 1 persona por hoja								
+					if(($this->altoLineaDefault*$lineas)+10 > $this->altoMaxPag-$this->GetY()) { //  Si el alto para la siguente fila no es suficiente agrego una pagina
+						$this->AddPage($this->orientacionPagina);
+						$this->MostrarCabeceraSimple();
+						$this->MostrarEncabezadoTabla($titulo_columnas,$ancho_columnas);
+					} 
+					if ($valor['jurisd_inap_nombre']!=$jurisdnom_anterior && $i!=1) { //  Si cambia el organismo una nueva página						
+						$this->MostrarPie();
+						$this->AddPage($this->orientacionPagina);
+						$this->MostrarCabecera($valor['jurisd_inap_nombre']);
+						$this->MostrarEncabezadoTabla($titulo_columnas,$ancho_columnas);
+						$n=1; // ver
+					} 
+				} 			
+				
+				$this->CellCompress($ancho_columnas[0],$this->altoLineaDefault*$lineas,$n,1,0,'C');
+				$this->CellCompress($ancho_columnas[1],$this->altoLineaDefault*$lineas,$nombre,1,0,'LR');				
+				$this->CellCompress($ancho_columnas[2],$this->altoLineaDefault*$lineas,$valor['jurisdnom'],1,0,'LR');
+				$this->CellCompress($ancho_columnas[3],$this->altoLineaDefault*$lineas,$valor['pers_cuilt'],1,0,'C');
+				$this->CellCompress($ancho_columnas[4],$this->altoLineaDefault*$lineas,$valor['escalafdesc'],1,0,'LR');
+				$this->CellCompress($ancho_columnas[5],$this->altoLineaDefault*$lineas,$valor['escalafnivdesc'],1,0,'C');				
+				$this->CellCompress($ancho_columnas[6],$this->altoLineaDefault*$lineas,$valor['escalaftramodesc'],1,0,'C');				
+				$this->CellCompress($ancho_columnas[7],$this->altoLineaDefault*$lineas,$valor['escalafgradodesc'],1,0,'C');	
+				$this->CellCompress($ancho_columnas[8],$this->altoLineaDefault*$lineas,$valor['eval_descripcion'],1,0,'C');								
+				$this->Ln();				
+			    $this->CellCompress(array_sum($ancho_columnas),0,'','T');
+				$this->Ln();
+				
+				if ($this->pag_x_inscripto != "S" && $i==count($datos_inscriptos))
+					$this->MostrarPie(); 					
+				
+				if ($this->pag_x_inscripto == "S") {		// Si es una notificación por hoja
+					$this->MostrarPie(); 					// Van las firmas
+					if($i<count($datos_inscriptos)) {		// Si queda otro inscripto agrego una hoja con los encabezados para el proximo
+						$this->AddPage($this->orientacionPagina);
+						//$this->MostrarCabecera($valor['jurisd_inap_nombre']);
+						//$this->MostrarEncabezadoTabla($titulo_columnas,$ancho_columnas);					 
+						$n=0;
+						$i=0;
+						
+					}
+				} 	
+				
+				$jurisdnom_anterior=$valor['jurisd_inap_nombre'];
+								
+			}
+	}		
+	//------------------------------------------------------------------------
+	function MostrarEncabezadoTabla($titulo_columnas, $ancho_columnas) {
+		$this->SetFont('Arial','',10);
+		$this->SetTextColor(0);
+		for($i=0;$i<count($titulo_columnas);$i++)
+			$this->Cell($ancho_columnas[$i],12,$titulo_columnas[$i],1,0,'C',0);
+		$this->Ln();
+		$this->SetTextColor(0);
+		$this->SetFont('Arial','',8);
+	}
+	//------------------------------------------------------------------------
+	function MostrarPie() {
+
+		$alto_fima = 50; 							// Alto Máximo del Pie 
+		if($alto_fima >= $this->altoMaxPag-$this->GetY()) { 		
+			$this->AddPage($this->orientacionPagina);
+			$this->MostrarCabeceraSimple();
+		}
+		
+		$yFirma = $this->Gety()+20;						
+		$xFirma = $this->GetX()+30;
+		$this->Line($xFirma-15,$yFirma,$xFirma+50,$yFirma);
+		$this->SetFont('Arial','B',8);
+		$this->SetXY($xFirma-15,$yFirma);
+		$this->MultiCellMaxLine(65,$this->altoLineaDefault ,
+								'Firma',$this->ver_borde,'C',0,1);
+
+		$xFirma = $this->GetX()+100;						
+		$this->Line($xFirma+10,$yFirma,$xFirma+70,$yFirma);
+		$this->SetFont('Arial','B',8);
+		$this->SetXY($xFirma,$yFirma);
+		$this->MultiCellMaxLine(80,6,
+								'Firma '.chr(13).chr(10).$this->Get('firmante'),$this->ver_borde,'C',0,4);
+
+		$this->Ln(2);
+		if ($this->Get('linea_nota') != "")
+	    	$this->MultiCellMaxLine($this->anchoMaxTexto,$this->altoLineaDefault,'"'.$this->Get('linea_nota').'"',$this->ver_borde,'L',0,1);
+
+		$this->Ln(2);
+		$this->MultiCellMaxLine($this->anchoMaxTexto,$this->altoLineaDefault ,
+								'Buenos Aires, '.str_repeat(' ',10).' de ',$this->ver_borde,'L',0,1);
+		
+		$this->MultiCellMaxLine($this->anchoMaxTexto,$this->altoLineaDefault ,
+								'Recibido:',$this->ver_borde,'L',0,1);
+	
+		$xFirma = $this->GetX()+20;						
+		$yFirma = $this->Gety()+2;						
+		$this->Line($xFirma,$yFirma,$xFirma+45,$yFirma);
+
+	}
+	//------------------------------------------------------------------------
+	function MostrarNotifiacion($formato) {
+
+		// Muestra la cabecera completa  - Antes se mostraba una sóla cabecera por listado 
+		// $this->MostrarCabecera();		
+
+		// Inscriptos 
+		$this->MostrarInscriptos();
+
+		//if ($this->pag_x_inscripto!= "S") 			// Si van varios inscriptos por hoja las firmas van al final
+		//	$this->MostrarPie();				
+	}
+	//------------------------------------------------------------------------
+	function Footer() { }
+} // fin clase	
+?>

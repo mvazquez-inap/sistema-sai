@@ -1,0 +1,102 @@
+<?php 	
+//--------------------------------------------------------------------------
+// Para el manejo del BLOQUEO DEL SISTEMA.
+//--------------------------------------------------------------------------
+// Muestra el mensaje de Bloqueo
+require_once('sys_ddf/funciones_php.dhtml'); 
+
+function mostrar_aviso($aviso,$fecha) {	
+	echo "<table width='100%' border='0' cellspacing='0' cellpadding='0' >
+	      <tr> <td class='textoAvisoBloqueo'>";
+		  echo 'El sistema se bloqueará el '.ConvertirFecha($fecha,'aaaa-mm-dd','dd/mm/aaaa').' '. ' a las '.ObtenerHsMin($fecha).' hs. <BR>';				
+  	      echo $aviso."<br>";  		  
+	echo "</td></tr></table>";
+}
+//--------------------------------------------------------------------------
+function mostrar_aviso_off_line($mensaje) {	
+?> 
+	<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 TRANSITIONAL//EN"> 
+	<html>
+	<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>D.D.F. - Directorio de Funcionarios</title>
+		<link rel="stylesheet" type="text/css" href="css/ddf.css">
+	</head>
+		<body>	  
+			<div align='center' class='textoAvisoBloqueo'>
+				<BR>
+			<?php		echo $mensaje; ?>
+				<BR> &nbsp; <BR>	
+			</div>
+		</body>	
+	</html>
+  <?php
+}
+
+//--------------------------------------------------------------------------
+//  Verifica si la base esta activa (tabla:sistema) 
+
+// 1) En caso de NO estar activa verifica si
+//    *) Si esta fuera de linea : Termina con la session y muestra mensaje
+//    *) Si todavia en linea: Muestra aviso de próximamente será sacado de linea.
+function verificar_activo($idconexion,&$activo,&$mensaje) {
+	$param=array();
+	$query=ejecutarStoredProcedure($idconexion,'sel_sistema',$param);
+
+	if(mysqli_num_rows($query)!=1) { 
+		MostrarMensaje_viejo($idconexion,MSG_ERRGRAVE,"Error en la tabla sistema.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),FMT_TEXTO);
+		$activo = "si";
+	} else {
+		$fila = mysqli_fetch_assoc($query);
+		if ($fila['sis_activo'] == "si") {
+			$activo = "si";
+		} else {		
+			$ahora = strtotime(date("Y-m-d H:i:s"));
+			$inicio = strtotime($fila['sis_fechainicio']);
+
+			if ($ahora >= $inicio) {
+				$activo  = "no";
+				$mensaje = $fila['sis_mensaje'];
+
+				require_once('./inicia_sesion.dhtml'); 				
+				$_SESSION=array();
+				session_destroy();
+			} else {
+				$activo = "si";
+				mostrar_aviso ($fila['sis_aviso'],$fila['sis_fechainicio']);
+			}				
+		} // if activo		
+	} // if cant de filas de sistema
+} // fin funcion
+
+//--------------------------------------------------------------------------
+function verificar_activo_portal($idconexion,&$activo,&$mensaje,$muestromensaje) {
+
+	$activo = "no";
+	$param=array();
+	$query=ejecutarStoredProcedure($idconexion,'sel_sistema',$param);
+
+	if(mysqli_num_rows($query)!=1) { 
+		MostrarMensaje_viejo($idconexion,MSG_ERRGRAVE,"Error en la tabla sistema.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),FMT_TEXTO);
+		$activo = "si";
+	} else {
+		$fila = mysqli_fetch_assoc($query);
+		if ($fila['sis_activo'] == "si") {
+			$activo = "si";
+		} else {		
+			$ahora = strtotime(date("Y-m-d H:i:s"));
+			$inicio = strtotime($fila['sis_fechainicio']);
+
+			if ($ahora < $inicio) {
+				$activo  = "si";
+			} else {
+				$mensaje = $fila['sis_mensaje'];
+			}				
+		} // if activo		
+	} // if cant de filas de sistema
+} // fin funcion
+//--------------------------------------------------------------------------
+function mostrar_aviso_off_line_portal($mensaje) {	
+	echo "<table><tr class='textoAvisoBloqueo'><td>".$mensaje."</td></tr></table>"; 
+}
+?>

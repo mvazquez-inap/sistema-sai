@@ -1,0 +1,163 @@
+<?php
+class cComisionPrestadorDocente extends cComision {
+//-----------------------------------------------------------------------------------------
+	function AltaDatosComisionPrestadorDocente($datos) {
+
+		$datosvalidados=array();		
+
+		$spnombre="ins_comision_prestador_docente";
+		$spparam=array(	'pcomi_codigo'=>$datos['comi_codigo'],
+						'pact_codigo'=>$datos['act_codigo'],
+						'ppresdoc_codigo'=>$datos['presdoc_codigo'],
+			  			'pultmodusuario'=>$_SESSION['usuariocod'],
+		  			    'pultmodfecha'=> date("Y/m/d H:i:s") 
+		);
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			$txt_sys_mail="Error al insertar docente a la comisión\ncomi_codigo=".$datos['comi_codigo']."\npresdoc_codigo=".$datos['presdoc_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al insertar docente a la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		} 
+		return true;
+	}
+//-----------------------------------------------------------------------------------------
+	function EliminarDatosComisionPrestadorDocente($comi_codigo,$presdoc_codigo){
+
+		$spnombre="del_comision_prestador_docente";
+		$spparam=array('pcomi_codigo'=>$comi_codigo,'ppresdoc_codigo'=>$presdoc_codigo);
+
+		/*
+		echo "<br>elimino <br>";
+		echo "<br>stored_nombre ".$spnombre;
+		echo "<br>spparam ";		
+		print_r($spparam);
+		*/
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			$txt_sys_mail="Error al eliminar docente de la comisión\ncomi_codigo=".$comi_codigo."\npresdoc_codigo=".$presdoc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al eliminar docente de la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function EliminarComisionPrestadorDocenteTodos($comi_codigo){
+
+		$spnombre="del_comision_prestador_docente_xcomi_codigo";
+		$spparam=array('pcomi_codigo'=>$comi_codigo);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			$txt_sys_mail="Error al eliminar docente de la comisión\ncomi_codigo=".$comi_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al eliminar los docentes de la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function MostrarPrestadoresComision($conexion,$comi_codigo) {
+
+	$ArregloDatos = array();
+	$ArregloDatos['comi_codigo'] = $comi_codigo;
+	$ArregloDatos['porderby'] = "presdoc_apellido, presdoc_nombre";
+
+	if (!$this->BuscarComisionPrestadorDocente($ArregloDatos,$numfilas,$resultado,$error,$errormail)) {
+		$txt_sys_mail="Error al buscar docentes - \ncomi_codigo=".$comi_codigo;
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al buscar de docentes de la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	}	
+
+	if ($numfilas > 0)	{	?>		
+		<fieldset class="bordeDetalleRegistro">
+		<legend class="textoLeyendaDetalleRegistro"> Prestadores Docentes </legend>
+		<table width="100%" class="textoTablaDato" align="center" cellpadding="2">
+<?php		while ($fila_prestador_comision = mysqli_fetch_assoc($resultado)) {		?>	
+			<tr>
+				<td><?php echo htmlspecialchars($fila_prestador_comision['campo_mostrar'],ENT_QUOTES); ?></td>
+			</tr>
+<?php		} // while 
+?>		</table>	
+		</fieldset> 
+<?php	}  
+	return true;
+  } 
+
+//-----------------------------------------------------------------------------------------
+	function TraerDatosComisionPrestadorDocente($presdoc_codigo,&$resultado,&$es_modif,&$numfilas){
+	
+		$datosresult=array();
+		$es_modif = false;		
+		$sparam=array('ppresdoc_codigo'=>$presdoc_codigo);
+					   
+		$spnombre="sel_comision_prestador_docente_xpresdoc_codigo";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar el prestadores docentes de la comision.";
+			$errormail="\nact_codigo=".$act_codigo."\npresdoc_codigo=".$presdoc_codigo."Error. ".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+
+		return true;
+	}
+	
+//-----------------------------------------------------------------------------------------
+	function BuscarComisionPrestadorDocente($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		$sparam=array('pxact_codigo'=>0);
+		$sparam+=array('pxcomi_codigo'=>0);
+		$sparam+=array('pxpresdoc_codigo'=>0);
+		$sparam+=array('pxcomi_estado'=>0);
+	
+		$sparam+=array('pact_codigo'=>"");
+		$sparam+=array('pcomi_codigo'=>"");
+		$sparam+=array('ppresdoc_codigo'=>0);
+		$sparam+=array('pcomi_estado'=>0);
+		
+		$sparam+=array('porderby'=>"act_codigo");
+			
+		if (isset ($ArregloDatos['act_codigo'])) {
+			if ($ArregloDatos['act_codigo']!="") {	
+				$sparam['pact_codigo']= $ArregloDatos['act_codigo'];
+				$sparam['pxact_codigo']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['comi_codigo'])) {
+			if ($ArregloDatos['comi_codigo']!="") {	
+				$sparam['pcomi_codigo']= $ArregloDatos['comi_codigo'];
+				$sparam['pxcomi_codigo']= 1;
+			}
+		}	
+		
+		if (isset ($ArregloDatos['presdoc_codigo'])) {
+			if ($ArregloDatos['presdoc_codigo']!="") {	
+				$sparam['ppresdoc_codigo']= $ArregloDatos['presdoc_codigo'];
+				$sparam['pxpresdoc_codigo']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['comi_estado'])) {
+			if ($ArregloDatos['comi_estado']!="") {	
+				$sparam['pcomi_estado']= $ArregloDatos['comi_estado'];
+				$sparam['pxcomi_estado']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['orderby'])) 	{
+			if ($ArregloDatos['orderby']!="") {	
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+
+		$spnombre="sel_comision_prestador_docente_xdatos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar el prestadores docentes de la comisión.";
+			$errormail="Error al buscar en comision_prestador_docente.".$errno;
+			return false;
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+} // fin clase
+?>

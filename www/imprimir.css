@@ -1,0 +1,26 @@
+.imprimir {
+	display: none;
+}
+
+a {
+	display: none;
+}
+
+.textoEtiquetaDatoResaltado {
+	BACKGROUND-COLOR:#000000;
+}
+
+.inputReadonly {
+	BACKGROUND-COLOR:#FFFFFF;
+	border:none;
+}
+
+.textoInput {
+	BACKGROUND-COLOR:#FFFFFF;
+	border:none;
+}
+
+
+.textoTablaDatoBorde {
+	border:none;
+}

@@ -1,0 +1,390 @@
+<?php
+//----------------------------------------------------------------------------------------- 
+// Clase con la lógica para el manejo de grillas
+//----------------------------------------------------------------------------------------- 
+require_once("SysONTIListadosTemplate.dhtml");
+
+class cGrilla
+{
+
+	var $opciones=array();		// Array
+								//	"numPagina"=>isset($_GET['xpagina'])?$_GET['xpagina']:1,
+								//	"FilasPagina"=>5,
+								//	"NombrePaginaQuery"=>"xpagina",
+								//	"TituloListado"=>"Grilla A"
+	
+	var $formulario;			// Objeto que maneja el listado de la grilla
+								// de clase cListadosTemplate
+								
+	var $columnas = array();	// Columnas de la grilla.
+	
+								// Formato de cada columna de la grilla
+								// tipo: txt 	  Dato que simplemente se muestra
+								// tipo: link	  Enlace a un URL
+								// tipo: linkimg  Enlace a un URL a través de una imagen
+								// tipo: popup	  Popup a un URL	
+
+
+	var $error=false;			// Alguna operación produjo o no error 
+	var $errorMsg="";			// Descripcion del error que se produjo
+	
+	var $ancho="100%";			// Ancho de la tabla que contiene la grilla
+
+	var $param_url = array();	// Se usa para definir parametros url
+
+	// NUEVO
+	var $orden_grilla=false;	
+	var $orden_campo_grilla="";	
+	var $orden_sentido_grilla=0;
+	
+	public function __construct($opciones, $tpl_grilla="templates/grilla.tpl.dhtml" )
+	{
+		$this->opciones=$opciones;
+		$this->opciones['archivo_template']=$tpl_grilla;
+	}
+
+//-----------------------------------------------------------------------------------------
+//							 PUBLICAS	
+//----------------------------------------------------------------------------------------- 
+	function  SetearTituloGrilla($titulo) {
+		 $this->opciones['TituloListado']=$titulo;
+	}
+	
+	function SetearAnchoGrilla($dato){
+		$this->ancho=$dato;
+	}
+	
+	function AddColumna($tipo) {		
+		 $this->columnas[] = array('tipo'=>$tipo,'funcion_md5'=>NULL);
+		 return count($this->columnas)-1;
+	}
+	
+	function Setear($campo,$columna,$dato) {	
+			
+		 switch ($campo) {		 
+		 	case "campo_grilla":
+				$this->_SetearCampo($columna,'campo_grilla',$dato);
+				break;
+			case "titulo_columna":	
+				$this->_SetearCampo($columna,'titulo_columna',$dato);
+				break;
+			case "ancho_columna":
+				$this->_SetearCampo($columna,'ancho_columna',$dato);
+				break;
+			case "align_columna":
+				$this->_SetearCampo($columna,'align_columna',$dato);
+				break;
+		 	case "url":
+				$this->_SetearCampo($columna,'url',$dato);
+			$this->_SetearCampo($columna,'url_tipo','cte');
+				break;
+		 	case "url_ancla":
+				$this->_SetearCampo($columna,'url_ancla',$dato);
+				break;
+			case "imagen":
+				$this->_SetearCampo($columna,'imagen',$dato);
+				break;
+			case "altImagen":
+				$this->_SetearCampo($columna,'altImagen',$dato);
+				break;
+
+			//  Se le envia el nombre de la funcion a evaluar 
+			//	Dicha funcion debe retornar true o false y debe recibir un único parametro que
+			//  corresponde la fila de la grilla. 
+			//	Nota: si la funcion esta en una clase se nombre de la funcion debe ser array('nombre de la clase','nombre de la funcion')	
+			//  y recibir un único parametro que es la fila de la grilla.
+			case "condicion_visualizar_columna":
+				$this->_SetearCampo($columna,'condicion_visualizar_columna',$dato);
+				break;
+
+			//  Se le envia el nombre de la funcion que retornaría el md5 de un array para usar en el get
+			//	Dicha funcion tiene que tener 4 parámetros:
+			//		$pagina: el nombre del dhtml a donde va a apuntar el link
+			//		$parametros: un array asociativo con los datos cargados en orden que se van a pasar en el querystring
+			//		$get: salida. Es el querystring ya armado con todos los datos de parámestros mas el md5 al final
+			//		$md5: salida. Es el md5 generado
+			//	Nota: si la funcion esta en una clase se nombre de la funcion debe ser array('nombre de la clase','nombre de la funcion')	
+			case "funcion_md5":
+				$this->_SetearCampo($columna,'funcion_md5',$dato);
+				break;
+				
+			// Es para que desde la grilla se pueda seleccionar un valor y pegar a traves 
+			// del addvalor a algun elemento del formulario.
+			case "submitAddValor":
+				$this->_SetearCampo($columna,'submitAddValor',$dato);
+				break;
+			case "nombreFormularioSubmitAddValor":
+				$this->_SetearCampo($columna,'nombreFormularioSubmitAddValor',$dato);
+				break;
+			case "documentAddValor":
+				$this->_SetearCampo($columna,'documentAddValor',$dato);
+				break;
+			case "idtextboxAddValor":
+				$this->_SetearCampo($columna,'idtextboxAddValor',$dato);
+				break;
+			case "nombreContenidoAddValor":
+				$this->_SetearCampo($columna,'nombreContenidoAddValor',$dato);
+				break;
+			case "idtextoContenidoAddValor":
+				$this->_SetearCampo($columna,'idtextoContenidoAddValor',$dato);
+				break;
+
+             // Para poder dimensionar el Popup
+ 			case "ventanaNombre":
+				$this->_SetearCampo($columna,'ventanaNombre',$dato);
+				break;
+			case "ventanaAnchoPopup":
+				$this->_SetearCampo($columna,'ventanaAnchoPopup',$dato);
+				break;
+			case "ventanaAltoPopup":
+				$this->_SetearCampo($columna,'ventanaAltoPopup',$dato);
+				break;
+           case "ventanaVarxPopup":
+				$this->_SetearCampo($columna,'ventanaVarxPopup',$dato);
+				break;
+			case "ventanaVaryPopup":
+				$this->_SetearCampo($columna,'ventanaVaryPopup',$dato);
+				break;                  
+
+			case "onClick_function":
+				$this->_SetearCampo($columna,'onClick_function',$dato);
+				break;                  
+			case "target":
+				$this->_SetearCampo($columna,'target',$dato);
+				break;                  
+
+			//NUEVO
+			case "orden_columna":
+			
+				$this->_SetearCampo($columna,'orden_columna',$dato);				
+				if (!$this->orden_grilla)
+					$this->orden_grilla=true;
+				
+				break;                  
+			case "url_orden":
+				$this->_SetearCampo($columna,'url_orden',$dato);
+				break;                  
+	
+
+			default: echo "Error en la llamada!".$campo."<br>";
+		 }
+	}
+
+	// Nuevo 
+	function SetURL($columna,$valorcolumna,$tipo="cte") {
+		if ($tipo=="cte")
+			$this->columnas[$columna]['url'] = $dato;
+		else
+			$this->columnas[$columna]['url'] = $valorcolumna;
+
+		$this->columnas[$columna]['url_tipo']=$tipo;
+	}
+
+	function SetId($columna,$nombre_id,$codigo_id) {
+		
+		$this->columnas[$columna]['id_columna']=array ('nombre_id'=>$nombre_id,'codigo_id'=>$codigo_id);
+	}
+
+
+	function AddParametrosURL($columna,$nombrecolumna,$valorcolumna,$tipo="var") {
+		$this->columnas[$columna]['parametros'][]=array ('para_nombre'=>$nombrecolumna,'para_dato'=>$valorcolumna,'para_tipo'=>$tipo);
+	}
+
+	function AddParametrosOnClick($columna,$valorcolumna,$tipo="cte") {
+		if ($tipo=='url') 
+			$this->columnas[$columna]['parametros'][]=array ('para_dato'=>$this->param_url,'para_tipo'=>$tipo);
+		else
+			$this->columnas[$columna]['parametros'][]=array ('para_dato'=>$valorcolumna,'para_tipo'=>$tipo);
+	}
+
+	function NuevoParamUrl() {
+		 $this->param_url = array();
+	}
+
+	function AddParamUrl($nombrecolumna,$valorcolumna,$tipo="var") {
+		$this->param_url[]=array ('para_nombre'=>$nombrecolumna,'para_dato'=>$valorcolumna,'para_tipo'=>$tipo);
+    }
+	
+	function AddParametrosAddValor($columna,$valorcolumna,$tipo="var") {
+		$this->columnas[$columna]['parametros'][]=array ('para_dato'=>$valorcolumna,'para_tipo'=>$tipo);
+	}
+
+	function SetearLeyendaLink($columna,$tipo,$valor) {
+		$this->columnas[$columna]['leyenda_param']=array ('tipo_param'=>$tipo,'valor'=>$valor);
+	}
+
+	function SetearOrden($orden_campo,$orden_sentido) {				
+		$this->orden_campo_grilla=$orden_campo;
+		if ($orden_sentido=="D")
+			$this->orden_sentido_grilla=SORT_DESC;
+		elseif ($orden_sentido=="A")
+			$this->orden_sentido_grilla=SORT_ASC;
+			
+	}
+
+	function CargarGrilla($datos) {		
+
+		if (!$this->_ValidarDatos($this->columnas,$error)) {
+			// Mostrar ERROR
+			// echo $error;
+			$this->error=true;
+			$this->errorMsg=$error;
+			return false;
+		}	
+
+		if (is_array($datos)) {					 
+			
+			if ($this->orden_campo_grilla!="" && $this->ValidarOrdenGrilla() )
+				$datos=_array_column_sort($datos,$this->orden_campo_grilla,$this->orden_sentido_grilla);			 
+			$this->opciones['arreglo']=$datos;
+			
+		} else	{
+			
+			
+			if ($this->orden_grilla) {	
+				
+				$this->opciones['arreglo']=array();				
+				
+				
+					if (isset($datos))	
+					{	
+						while ( $fila=mysqli_fetch_assoc($datos) ) 
+							$this->opciones['arreglo'][]=$fila;
+						
+						if ($this->orden_campo_grilla!="" && $this->ValidarOrdenGrilla() ) {					
+							$this->opciones['arreglo'] =_array_column_sort( $this->opciones['arreglo'],$this->orden_campo_grilla,$this->orden_sentido_grilla);			 				
+					}
+				}
+				unset($this->opciones['query']);
+				
+			} else
+				$this->opciones['query']=$datos;			
+			
+		}
+		
+		
+		if(!$this->formulario=new cListadosTemplate($this->opciones))	{
+			$nrolinea=__LINE__;
+			return false;
+		}			
+
+
+		$this->formulario->AgregarDatoAdicional("columnas", array("Tipo"=>$this->formulario->Arreglo,"Arreglo"=>$this->columnas)); 
+		$this->formulario->AgregarDatoAdicional("ancho", $this->ancho); 
+		$this->formulario->AgregarDatoAdicional("orden_sentido_grilla", $this->orden_sentido_grilla); 
+		return true;
+	}
+
+	function MostrarGrilla() {	
+		if (!$this->error)
+			$this->formulario->MostrarListado();
+	}
+
+	function MostrarError() {		
+		echo "Se produjo el siguiente error:".$this->errorMsg;
+	}		
+
+	function GetError() {		
+		return $this->errorMsg;
+	}		
+		
+	function ValidarOrdenGrilla() {
+	
+		foreach ($this->columnas as $columna) {
+			if( isset($columna['campo_grilla']) && $columna['campo_grilla']==$this->orden_campo_grilla)	
+				return true;
+		}		
+		return false;			
+	}
+
+//-----------------------------------------------------------------------------------------
+//							 PUBLICAS	
+//----------------------------------------------------------------------------------------- 
+	function _SetearCampo($columna,$tipo,$dato) {
+		 $this->columnas[$columna][$tipo]=$dato;
+	}
+
+	function _ObtenerTipoColumna($columna) {
+		 return $this->columnas[$columna][$tipo];
+	}
+	
+	// FALTAN Validaciones
+	function _ValidarDatos($columnas,&$error) {
+	
+		foreach ($this->columnas as $row_columna) {
+			switch ($row_columna["tipo"]) {
+			case "txt" : 
+					if (!isset ($row_columna["campo_grilla"]))					{
+						$error='Falta el campo_grilla de la columna: '.$row_columna["titulo_columna"];
+						return false;
+					}
+					break;
+			case "link":
+					if (!isset ($row_columna["url"])) {
+						$error='Falta el url de la columna: '.$row_columna["titulo_columna"];
+						return false;
+					}					
+					break;
+			}	// fin switch		
+		} // fin foreach
+		return true;
+	}
+}
+// --------------------------------------------------------------------------------------------
+function _array_column_sort()   {
+	$args = func_get_args();
+	$array = array_shift($args);
+	
+	if (count ($array)==0)
+		return $array;
+	
+	$sort_array=array();
+   
+	// make a temporary copy of array for which will fix the
+	// keys to be strings, so that array_multisort() doesn't
+	// destroy them
+	$array_mod = array();
+	foreach ($array as $key => $value)
+		$array_mod['_' . $key] = $value;
+   
+	$i = 0;
+	$multi_sort_line = "return array_multisort( ";
+	foreach ($args as $arg)
+	{
+		$i++;
+	
+		if ($i < count($args )) {
+			if ( is_string($arg) )
+			{
+				foreach ($array_mod as $row_key => $row)
+				{
+					$sort_array[$i][$row_key] = strtoupper($row[$arg]);
+				}
+			}
+			else
+			{
+				$sort_array[$i] = $arg;
+			}
+			
+			$multi_sort_line .= "\$sort_array[" . $i . "], ";
+		
+		} else {
+			$sentido=$arg;	
+		}			
+	
+	}
+
+	$multi_sort_line .= $sentido.",\$array_mod );";
+
+	eval($multi_sort_line);
+
+	// now copy $array_mod back into $array, stripping off the "_"
+	// that we added earlier.
+	$array = array();
+	foreach ($array_mod as $key => $value)
+		$array[ substr($key, 1) ] = $value;
+
+	return $array;
+}
+// --------------------------------------------------------------------------------------------
+?>

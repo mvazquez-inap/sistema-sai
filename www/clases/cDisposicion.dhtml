@@ -1,0 +1,394 @@
+<?php
+//----------------------------------------------------------------------------------------- 
+class cDisposicion  {
+
+	var $conexion;
+	public function __construct($conexion,$formato=FMT_TEXTO) {
+		$this->conexion = &$conexion;
+		$this->formato = $formato;
+	}
+	//-----------------------------------------------------------------------------------------------------	
+	function TraerDatosDisposicion($dis_codigo,&$datosresult,&$es_modif){
+		
+		$datosresult=array();
+		$es_modif = false;		
+		$sparam=array('pdis_codigo'=>$dis_codigo);
+		$spnombre="sel_disposicion_xdis_codigo";	
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$errormail="\ndis_codigo=".$dis_codigo."\nerror=".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar la disposición.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato),$errormail);
+			return false;
+		}
+		if ($numfilas == 1)	{
+			$datosresult = mysqli_fetch_assoc($resultado);
+			$es_modif = true;
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ObtenerSPClave(&$spnombre,&$spparam,$codigo) {
+		$spnombre="sel_disposicion_xdis_codigo";
+		$spparam=array('dis_codigo'=>$codigo);
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function AltaDatosDisposicion($datos) {
+
+	if(!$this->_DatosValidosAltaDisposicion($datos,$datosvalidados))
+		return false;
+
+	$spnombre="ins_disposicion";
+	$spparam=array(
+		'pdis_numero'=>$datosvalidados['dis_numero'],
+		'pdis_fecha'=>FuncionesPHPLocal::ConvertirFecha($datosvalidados['dis_fecha'],'dd/mm/aaaa','aaaa-mm-dd'),
+		'pdis_obs'=>$datosvalidados['dis_obs'],
+		'pultmodusuario'=>$_SESSION['usuariocod'],
+		'pultmodfecha'=>date("Y/m/d H:i:s")
+	);
+	if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)
+	{
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se pudo dar de alta la disposición.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+		return false;
+	}
+
+	return true;
+}	
+//-----------------------------------------------------------------------------------------------------	
+	function PosibleBajaFisica($dis_codigo) {
+
+		// La disposición esta sólo asociada a los dictamenes
+		if(!$this->conexion->TraerCampo('dictamen','dis_codigo',array("dis_codigo='",$dis_codigo,"'"),$dato,$numfilas,$errno)) {
+			$error="Error al intentar eliminar la disposición.";
+			$errormail="Error al determinar si puede ser realizada la baja física de la disposición (dictamen). error=".$errno."dis_codigo='".$dis_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato),$errormail);
+			return false;	
+	    } elseif ($numfilas!=0) {
+			return false;	
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function EliminarDatosDisposicion($dis_codigo) {
+
+		if(!$this->_DatosValidosEliminarDisposicion($dis_codigo,$datosvalidados))
+			return false;
+
+		$spnombre="del_disposicion";
+		$spparam=array('pdis_codigo'=> $datosvalidados['dis_codigo']);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod)) 
+			return false;					  	 	
+		
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function ModifDatosDisposicion($datos)	{
+
+		if(!$this->_DatosValidosModifDisposicion($datos,$datosvalidados))
+			return false;
+
+		$spnombre="upd_disposicion";
+		$spparam=array(
+			'pdis_codigo'=> $datosvalidados['dis_codigo'], 
+			'pdis_numero'=> $datosvalidados['dis_numero'],
+			'pdis_fecha'=>FuncionesPHPLocal::ConvertirFecha($datosvalidados['dis_fecha'],'dd/mm/aaaa','aaaa-mm-dd'),
+			'pdis_obs'=> $datosvalidados['dis_obs'],
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+		);
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al actualizar la disposición.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+			return false;
+		}
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoModificar($dis_codigo,$rolcod,$jurisdid) {
+	
+		$es_modif=false;
+		// Trae los datos del disposicion a modificar 
+		if (!$this->TraerDatosDisposicion($dis_codigo,$fila_disposicion,$es_modif) || !$es_modif  ) {
+			$error="No se encontró la disposisción.";
+			$errormail="Error al buscar el disposisción \ndis_codigo=".$dis_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato),$errormail);
+			return false;
+		}
+				
+		if ($rolcod==USUCURSOINAP || $rolcod==USUACTINS || $rolcod==USUACTJUR  || $rolcod==USUAUTODESARROLLO  || $rolcod==USUACTEXT || $rolcod==USUDISJUR) {
+			return true;	  
+		}
+		
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para modificar la disposición.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+		return false;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoBaja($dis_codigo,$rolcod,$jurisdid) {
+			return $this->TienePermisoModificar($dis_codigo,$rolcod,$jurisdid);
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ValidarFormAltaDisposicion() 	{
+?>		
+	function VerificarExistenciaDisposicion(formulario,valor_buscado,codigo_buscado) {
+	
+		var ajax=nuevoAjax();
+		var variables="?tipo=D&valor_buscado="+valor_buscado+"&valor_codigo_unico="+codigo_buscado;
+		var direccion= "verifico_existencia_codigo_ajax.dhtml"+variables;
+		if (valor_buscado=='') {
+			alert('El número de disposición no puede quedar en blanco.');
+			return false;				
+		}
+		
+		ajax.open("GET",direccion,true);
+		ajax.onreadystatechange=function() {
+			if (ajax.readyState==4) {	
+				if (ajax.responseText.substr(0,15)=="//tienepermisos") 	{				
+					eval (ajax.responseText);
+					if (!ejecutook){	
+						alert('El número de disposición ingresado ya existe.');
+						formulario.dis_nuemro.value = "";
+						formulario.dis_numero.focus();
+						return false;
+					} else {
+						alert('El número de disposición ingresado no existe, puede continuar la carga.');
+						return true;
+					}
+				} else {	
+					alert (ajax.responseText);
+					return false;
+				}
+			}
+		}	
+		ajax.send(null);		
+		return false;
+	}
+	// -----------------------------------------------------------------------------
+	function ValidarFormAltaDisposicion(formulario,operacion) {
+
+			// Si es baja no valido nada			
+			if(operacion=='B') {
+			   return true;
+			}	
+
+			// Número de Disposicion
+			if ((trim(formulario.dis_numero.value)=="")){
+				alert("Debe ingresar el número de disposición");
+				formulario.dis_numero.focus();
+				return false;
+			}	
+
+			// Fecha de Inicio
+			if (formulario.dis_fecha.value=="" || !ValidarFecha(formulario.dis_fecha.value))
+			{
+				alert("La fecha no es válida");
+				formulario.dis_fecha.focus();
+				return false;
+			}
+
+			// Dia actual
+			var hoy = new Date();
+			var dia = hoy.getDate();
+			var mes = hoy.getMonth()+1;
+			var ano = hoy.getFullYear();			 
+
+			if (dia <= 9) dia = "0" + dia; 
+			if (mes <= 9) mes = "0" + mes; 
+					
+			var fecha_actual_AAAAMMDD = ano+""+mes+""+dia; 
+			var fecha_disposicion=ConvertirFecha(formulario.dis_fecha.value,'dd/mm/aaaa','aaaammdd');
+
+			if (fecha_disposicion > fecha_actual_AAAAMMDD || fecha_disposicion < '<?php echo ANOINICALINAP."0101" ?>') {
+				alert("La fecha de la disposición debe ser menor a la actual y mayor o igual a <?php echo "01/01/".ANOINICALINAP ?>");
+				formulario.dis_fecha.focus();
+				return false;
+			}
+
+			return true;
+		}			
+//-----------------------------------------------------------------------------------------------------	
+<?php }
+//-----------------------------------------------------------------------------------------------------	
+	function BuscarDisposicion($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		$sparam=array('pxdis_codigo'=>0);
+		$sparam+=array('pxdis_numero'=>0);
+		$sparam+=array('pxdis_numero_exacto'=>0);
+		
+		$sparam+=array('pdis_codigo'=>"");
+		$sparam+=array('pdis_numero'=>"");
+		$sparam+=array('pdis_numero_exacto'=>"");
+		$sparam+=array('porderby'=>"dis_numero");
+
+		if (isset ($ArregloDatos['dis_codigo']))
+		{
+			if ($ArregloDatos['dis_codigo']!="")
+			{	
+				$sparam['pdis_codigo']= $ArregloDatos['dis_codigo'];
+				$sparam['pxdis_codigo']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['dis_numero']))
+		{
+			if ($ArregloDatos['dis_numero']!="")
+			{	
+				$sparam['pdis_numero']= $ArregloDatos['dis_numero'];
+				$sparam['pxdis_numero']= 1;
+			}
+		}	
+		if (isset ($ArregloDatos['dis_numero_exacto']))
+		{
+			if ($ArregloDatos['dis_numero_exacto']!="")
+			{	
+				$sparam['pdis_numero_exacto']= $ArregloDatos['dis_numero_exacto'];
+				$sparam['pxdis_numero_exacto']= 1;
+			}
+		}	
+
+		if (isset($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+			{	
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+		
+		$spnombre="sel_disposicion_xdatos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar la Disposición.";
+			$errormail="Error al buscar la Disposición \nerror=.".$errno;
+			return false;
+		}
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function PedirDisposicion($valor_mostrar,$valor_codigo,$formularioName,$inputName,$accion,$submit=true) { 
+?>		<table width="280" class="textoTablaDato" align="center">
+			<tr>
+				<td valign="middle" class='textoEtiqueta'>Disposición</td>
+				<td class="textoEtiquetaDato" valign="middle" align="left">
+					<input type="text" size="21" maxlength="20"  class='inputReadonly' readonly name="<?php echo $inputName ?>" id="<?php echo $inputName ?>" value="<?php echo  trim($valor_mostrar) ;?>">
+					<input type="hidden" name="dis_codigo" id="dis_codigo" value="<?php echo $valor_codigo ;?>"/>				  
+				</td>			
+				<td class="textoEtiquetaDato" align="center" width="7%">
+					<a href='javascript:void(0)' onClick="Popup('disposicion_selector.dhtml?formulario=<?php echo $formularioName ?>&amp;destino=dis_codigo<?php echo "&amp;submit=".$submit."&amp;accion=".$accion ?>&amp;volver=1','ventana_descripciones_1',630,360,screen.availWidth-650,screen.availHeight-420,'yes');"><img src="images/searchsai.jpg" alt="Buscar" border="0" style="vertical-align:-5px"></a>
+				</td>		
+				<td class="textoEtiquetaDato" align="center" width="7%">
+					<input type="button"  name="boton_limpiar"   value="Limpiar" onClick="dis_codigo.value='';<?php echo $inputName ?>.value='';" class="botones"/>
+				</td>		
+			</tr>
+		</table>
+<?php		unset($_SESSION['array_busqueda_basica_disposicion']);	
+		unset($_SESSION['filtro_busqueda']);
+ } 
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosAltaDisposicion($datos,&$datosvalidados)	{
+		
+		$datosvalidados=array();
+
+		// Verifico que el número de disposicion no exista.
+		$ArregloDatos=array();
+		$ArregloDatos['dis_numero_exacto']=$datos["dis_numero"];
+
+		if(!$this->BuscarDisposicion($ArregloDatos,$numfilas,$result,$error,$errormail)){
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error buscando la disposición.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+			return false;			
+		}				
+		if ($numfilas>=1) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha completado la operación, pues ya existe el <br> número de disposición:".$datos["dis_numero"],array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+			return false;			
+		}		
+		$datosvalidados["dis_numero"]=$datos["dis_numero"];
+
+		// Valido que los datos comunes sean válidos
+		if (!$this->_DatosValidosComunesDisposicion($datos,$datosvalidados))
+		   return false; 
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosEliminarDisposicion($dis_codigo,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		if (!$this->TienePermisoBaja($dis_codigo,$_SESSION['rolcod'], $_SESSION['jurisdid_inap'])) {
+			return false; 
+		}
+		
+		// La baja es física o no se puede realizar la baja (el mensaje es informativo)
+		if (!$this->PosibleBajaFisica($dis_codigo))	{		
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha eliminado la disposición, pues existen dictámenes asociados a la misma.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+			return false;					  	 				
+		}	
+		$datosvalidados+=array('dis_codigo'=>$dis_codigo);
+		
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosModifDisposicion($datos,&$datosvalidados)	{
+
+		if (!$this->TienePermisoModificar($datos['dis_codigo'],$_SESSION['rolcod'], $_SESSION['jurisdid_inap'])) {
+			return false; 
+		}
+		$datosvalidados['dis_codigo']=$datos['dis_codigo'];
+
+		// Verifico que el número de disposicion no exista.
+		$ArregloDatos=array();
+		$ArregloDatos['dis_numero_exacto']=$datos["dis_numero"];
+		if(!$this->BuscarDisposicion($ArregloDatos,$numfilas,$result,$error,$errormail)){
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error buscando la disposición.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+			return false;			
+		}				
+		if ($numfilas>1) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha completado la operación, pues ya existe el <br> número de disposición:".$datos["dis_numero"],array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+			return false;			
+		} elseif ($numfilas==1) {	// hay una disposición que no es el el que se esta modificando			   
+		   $fila_exp=mysqli_fetch_assoc($result);
+		   if ($fila_exp['dis_codigo']!= $datos['dis_codigo']) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha completado la operación, pues ya existe el <br> número de disposición:".$datos["dis_numero"],array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+				return false;							   
+		   }
+		}
+		$datosvalidados["dis_numero"]=$datos["dis_numero"];
+
+		if (!$this->_DatosValidosComunesDisposicion($datos,$datosvalidados))
+		   return false; 
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosComunesDisposicion($datos,&$datosvalidados)	{
+
+		if (trim($datos['dis_numero'])=="") {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar el número del disposición.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+			return false;
+		}	
+		$datosvalidados['dis_numero']=$datos['dis_numero'];
+
+		// Fecha de protocolización
+		if (trim($datos['dis_fecha'])=="" || !FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['dis_fecha'],"FechaDDMMAAAA"))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La fecha de la disposición no es vádida.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+			return false;
+		}
+		$fecha_actual_AAAAMMDD=date("Y/m/d");
+		$fechaincioinap="01/01/".ANOINICALINAP;
+		$fechaincioinap_AAAAMMDD=FuncionesPHPLocal::ConvertirFecha($fechaincioinap,'dd/mm/aaaa','aaaa-mm-dd');
+		$fecha_disposicion=FuncionesPHPLocal::ConvertirFecha($datos['dis_fecha'],'dd/mm/aaaa','aaaa-mm-dd');
+
+		// La fecha de la disposicion no puede ser mayor a la actual o menor a la de indico de inap
+		if ($fecha_disposicion < $fechaincioinap_AAAAMMDD || $fecha_disposicion > $fecha_actual_AAAAMMDD )
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La fecha de la disposición debe ser menor o igual a la actual y mayor o igual a ".$fechaincioinap,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+			return false;
+		}
+		$datosvalidados['dis_fecha']=$datos['dis_fecha'];
+		$datosvalidados['dis_obs']=$datos['dis_obs'];
+		
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+} // class
+?>

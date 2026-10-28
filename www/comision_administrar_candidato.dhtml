@@ -1,0 +1,386 @@
+<?php require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+
+$oComisionPersona= new cComisionPersona($conexion);
+$oComisionPersonaCandidato= new cComisionPersonaCandidato($conexion);
+
+$oAgente= new cAgentes($conexion);
+$oComision= new cComision($conexion);
+$oActividad= new cActividad($conexion);
+$oUsuario= new cUsuarios($conexion);
+
+
+//----------------------------------------------------------------------------------------- 
+$filacomision=array();
+$filacomision['comi_codinap']=(isset($_POST['comi_codinap_seleccion']))?$_POST['comi_codinap_seleccion']:"";
+$filacomision['comi_codigo']=(isset($_POST['comi_codigo']))?$_POST['comi_codigo']:"";
+$filacomision['comi_codigo']=(isset($_GET['comi_codigo']))?$_GET['comi_codigo']:"";
+
+if (isset($_POST['comi_codinap_seleccion'])) {
+	if($conexion->TraerCampo("comision","comi_codigo",array("comi_codinap='",$_POST['comi_codinap_seleccion'],"'"),$comi_codigo,$numfilas,$errno))
+		$filacomision['comi_codigo']=htmlspecialchars($comi_codigo,ENT_QUOTES);
+}
+
+if ( isset($_GET['comi_codigo']) ) {
+	if($conexion->TraerCampo("comision","comi_codinap",array("comi_codigo='",$filacomision['comi_codigo'],"'"),$comi_codigo_inap,$numfilas,$errno))
+		$filacomision['comi_codinap']=htmlspecialchars($comi_codigo_inap,ENT_QUOTES);
+}
+
+?>
+<script type="text/javascript">
+	 <?php $oComisionPersona->ValidarFormAltaInscribirAlumno(); 	?>
+	 <?php $oAgente->ActualizarOrganismoLaboralJS();  ?>
+</script>
+<?php
+//----------------------------------------------------------------------------------------- 
+function MostrarGrillaSeleccion($conexion,$comi_codinap) {
+
+		$oActividad = new cActividad($conexion);
+		$oComision= new cComision($conexion);
+		$oComisionPersonaCandidato= new cComisionPersonaCandidato($conexion);
+		$escalafon = new cEscalafones($conexion);
+		$jurisdicciones	 = new jurisdicciones;
+
+				
+		$ArregloDatos=array("comi_codinap"=>$comi_codinap,"comi_estado"=>COMISIONABIERTA.",".COMISIONNUEVA);	
+							
+		if(!$oComision->BuscarComision($ArregloDatos,$numfilas,$resulcomi,$error,$errormail)) {
+			$txt_sys_mail="Error al buscar para la comisión ABIERTA - \ncomi_codigo=".$_POST['comi_codinap_seleccion'];
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} elseif ($numfilas!=1) {
+			$txt_sys_mail="Hay más de un registro para la comisión\ncomi_codigo=".$_POST['comi_codinap_seleccion'];
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No se puede inscribir en la Comisión porque no una una comisión NUEVA o ABIERTA.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return true;
+		}
+		$fila_comision = mysqli_fetch_assoc($resulcomi);
+
+			switch ($_SESSION['rolcod']) {
+				case USUCURSOINAP:
+					$ArregloDatos=array("comi_codigo"=>$fila_comision['comi_codigo'],
+										"cpc_estado"=>CANDIDATO_APROBADO);	
+					$titulo = "Candidatos enviados para Evaluar";
+					$leyenda_boton = "Inscribir Candidatos Seleccionados";
+					break;
+			
+				case COORDINADORTECNICO:
+				case USUORGANISMO:
+					$ArregloDatos=array("comi_codigo"=>$fila_comision['comi_codigo'],
+										"cpc_estado"=>CANDIDATO_SIN_EVALUAR,
+										"jurisdid_inap"=>$_SESSION["jurisdid_inap"]
+										);	
+					$titulo = "Candidatos para enviar a INAP";
+					$leyenda_boton = "Enviar a INAP los Candidatos Seleccionados";					
+					
+					break;
+					
+				case USUUNIVERSIDAD:
+					
+					$ArregloDatos=array("comi_codigo"=>$fila_comision['comi_codigo'],
+										"cpc_estado"=>CANDIDATO_SIN_EVALUAR_UNIVERSIDAD
+										);	
+					$titulo = "Candidatos a Becas para enviar a INAP";
+					$leyenda_boton = "Enviar a INAP los Candidatos Seleccionados";					
+					
+					break;					
+			}
+			$ArregloDatos["leyenda"] = $titulo;
+			$ArregloDatos["orderby"] = "jurisdid_inap, ultmodfecha ASC";;
+			$_SESSION['filtro_busqueda'] = $ArregloDatos;
+			
+		if(!$oComisionPersonaCandidato->TraerDatosInscripcion($ArregloDatos,$result_candidatos,$numfilas_candidatos)) {
+				$error="Error al buscar los datos de inscripción.";
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+		}
+
+			
+		if ($numfilas_candidatos >=LIMITE_BUSQUEDA_MEDIANO*6) {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"La búsqueda retornó demasiadas filas, ajuste el criterio de búsqueda.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;			
+		}
+
+
+		?> <p class="textoDatoBold" align="center">Si desea inscribir candidatos vía Web haga click <a href="<?php echo "https://".$_SERVER['SERVER_NAME']."/inscripcion_web.dhtml?comi_codigo=".$fila_comision['comi_codigo']?>" target="_blank">aquí</a></p> <?php
+	if($numfilas_candidatos>0) {  ?>
+	
+		<div align="right">
+		<br>
+		<a class="linkListadoMenu" href="download_tablas_excel.dhtml?tabla=inscripcion_web&amp;">Descargar a Excel<img alt="Bajar en Formato .xls" title="Bajar en Formato .xls" src="./images/iconoexcel.jpg" border="0" width="15"></a>
+		<br>
+		</div>
+
+	
+	<p class="textoTitulosGrilla"><?php echo $titulo?></p>
+		<table width="100%" class="textoTablaDato" align="center" border="1">
+				<tr class="colorTitulosGrupo textoTituloGrupo" align="center">
+					<td> CUIT / CUIL </td>
+					<td> Apellido </td>
+					<td> Nombre </td>
+                    <td> Organismo del Coordinador T&eacute;cnico de Capacitaci&oacute;n </td>
+					
+					<?php if ($_SESSION['rolcod'] == COORDINADORTECNICO || $_SESSION['rolcod'] == USUORGANISMO ) { ?>
+							<td>Datos <br /> modificados </td>
+					<?php } ?>	
+					<td> Editar datos</td>
+					<td width="10%"> Seleccionar </td>
+				</tr>
+                
+                
+	<?php		
+		while ($fila_candidato = mysqli_fetch_assoc($result_candidatos)) {
+		
+				$conexion->TraerCampo("jurisdiccion_inap","jurisdnom",array("jurisdid='",$fila_candidato['jurisdid_inap'],"'"),$jurisdnom,$numfilas,$errno);
+
+	?>
+				<tr align="center">
+					<td> <?php echo $fila_candidato['pers_cuilt'] ?> </td>
+					<td> <?php echo $fila_candidato['pers_apellido'] ?> </td>
+					<td> <?php echo $fila_candidato['pers_nombre'] ?> </td>
+					<!--<td> <?php /* if ($fila_candidato['pers_codigo'] == "") { ?>
+                    			SI
+                        <? } else { ?> NO <? } */?>                        </td>-->
+                    <td> <?php echo $jurisdnom ?> </td>
+					<?php if ($_SESSION['rolcod'] == COORDINADORTECNICO || $_SESSION['rolcod'] == USUORGANISMO ) { ?>
+						<td>
+								<?php
+								if ($fila_candidato['cambio_datos'] == "si") { ?>
+										<img src="images/cancel.jpg" />
+								<?php } else echo "&nbsp;"; ?>			
+						</td>
+					<?php } ?>	
+						
+					<td> 
+						<a href="javascript:Popup('candidato_modificar_popup.dhtml?pers_cuilt=<?php echo $fila_candidato['pers_cuilt'] ?>&amp;comi_codigo=<?php echo $fila_candidato['comi_codigo'] ?>','ventana_persona',540,350,screen.availWidth-560,screen.availHeight-350,'yes');" ><img src="images/editar.jpg"  alt="Editar Datos" width="24" height="24" border="0" /></a>					</td>
+					<td> <input type="checkbox"  name="chk_<?php echo $fila_candidato['pers_cuilt'] ?>" value="<?php echo $fila_candidato['pers_cuilt'] ?>"  id="chk_<?php echo $fila_comision['comi_codigo']."_".$fila_candidato['pers_cuilt'] ?>" /></td>
+				</tr>
+				<tr align="center">
+				  <td colspan="8" align="left">
+					<?php	
+					
+			
+					
+					if ($fila_candidato["escalafcod"] != "") {
+
+						$oActividad->ObtenerOrganismoInstitucion(NULL, $fila_candidato["jurisdid_apn"], $fila_candidato["orgapub_codigo"],$jurisdnom,$sector_org,$tipoorg_codigo,$jurisdid_campo,true,false);
+						
+						$escalafon->TraerDatosCompletosEscalafon($fila_candidato["escalafcod"],$fila_candidato["agrupcod"],$fila_candidato["escalafnivcod"],$fila_candidato["escalafgradocod"],$texto_salida);
+						if ($fila_candidato["jurisdid_apn"] != "")
+							if (!$jurisdicciones->SelectJurisdxID($fila_candidato["jurisdid_apn"],array(),TABGRALES_TS_ARRAY,$fila_jurisd,array(),$NumFilas,$CodError)) 
+								FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"No se pudo obtener la raiz de jurisdicciones. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+                        echo "<b>Situación escalafonaria:</b> ".htmlspecialchars($texto_salida,ENT_QUOTES); 
+					
+						
+						if ($fila_candidato['escalafcod'] != "")
+							 echo "<br><b>Organismo donde trabaja:</b> ".htmlspecialchars($jurisdnom,ENT_QUOTES); 
+							 else 
+							 echo "<br><b>Organismo donde trabaja:</b>  No definido ";
+					}
+														
+														?>				  </td>
+		  </tr>
+				
+				
+	<?php 
+			
+			} ?>
+    	</table>
+        
+<br /><br />
+        <div align="center">
+          <input type="submit" class="botones" value="<?php echo $leyenda_boton?>" onclick="return confirm('¡Esta seguro que desea <?php echo $leyenda_boton?>?');" />
+          <input type="hidden" name="operacion" id="operacion" value="I"  />
+          <input type="hidden" name="comi_codigo" id="comi_codigo" value="<?php echo $fila_comision['comi_codigo']?>"  />
+        </div>
+<?php	}  else 
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No se encontraron candidatos para la Comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+	
+	        
+	
+	return true;
+} 		
+
+
+
+	$ok=true;
+
+	// resumen de candidatos
+	switch ($_SESSION['rolcod']) {
+		case USUCURSOINAP:
+			$ArregloDatos=array(
+								"cpc_estado"=>CANDIDATO_APROBADO);	
+			$titulo = "Candidatos enviados por Coordinadores Técnicos";
+			$leyenda_boton = "Inscribir Candidatos Seleccionados";
+			break;
+	
+			
+	}
+
+			$ArregloDatos["orderby"] = "ultmodfecha ASC";;
+
+	if(!$oComisionPersonaCandidato->TraerDatosInscripcionResumen($ArregloDatos,$result_candidatos,$numfilas_candidatos)) {
+			$error="Error al buscar los datos de inscripción.";
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$ok = false;
+	}
+	
+	if (mysqli_num_rows($result_candidatos) >0) {
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"Candidatos a Comisiones.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		?>
+		
+				<table width="90%" border="1" align="center" cellpadding="1" cellspacing="1" class="textoTablaDato">
+				<tr class="colorTitulosGrupo textoTituloGrupo" align="center">
+					<td> Actividad </td>
+					<td> Comisión </td>
+					<td> Fecha de Inicio </td>
+					<td> Fecha de Finalización </td>
+					<td> Candidatos </td>
+				</tr>
+
+		<?php
+				while ($fila_resumen = mysqli_fetch_assoc($result_candidatos)) {
+					$oComision->TraerDatosComision($fila_resumen['comi_codigo'],$fila_comision,$es_modif);
+					if ($oActividad->TraerDatosActividad($fila_comision['act_codigo'],$filaact,$es_modif)) {
+						if (!$es_modif) {
+							FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No se ha encontrado la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+							$ok = false;
+						}	
+					} 
+					
+					$muestro = true;
+
+					if ($_SESSION['rolcod'] == USUUNIVERSIDAD ) {
+						$ArregloDatosComi = array("comi_codigo"=>$fila_resumen["comi_codigo"]);
+						if(!$oComisionPersona->BuscarComisionAvanzada($ArregloDatosComi, $numfilas, $resultComision, $error, $errormail)) {
+							$txt_sys_mail = "Error al buscar comisiones Avanzadas por Nobre y apellido"; // "\ntipoact_codigo=$tipoact_codigo";
+							FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al buscar comisiones.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+							return false;
+						} 
+						if ($numfilas == 1) {
+							$fila_comision_avanzada = mysqli_fetch_assoc($resultComision);
+						}
+						if ( !in_array($fila_comision_avanzada["univ_codigo"], $universidades_usuario))
+							$muestro = false;
+					}
+					
+					
+					if ($muestro) {				
+						
+						?>
+						<tr align="center">
+							<td> <?php echo $filaact["act_nombre"]?> </td>
+							<td> <?php echo $fila_resumen["comi_codinap"]?> </td>
+							<td> <?php echo $fila_comision["comi_fecha_inicio_ddmmaaaa"]?> </td>
+							<td> <?php echo $fila_comision["comi_fecha_fin_ddmmaaaa"]?> </td>
+							<td> <?php echo $fila_resumen["total"]?> </td>
+						</tr>
+					<?php
+						} // if muestro
+					} // while ?>
+			
+			
+</table>
+			<br /><br />
+				
+				
+			
+		
+	<?php }	
+		
+	else 
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"Ud. no tiene candidatos para evaluar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		
+	
+
+
+if ($ok) { 		
+$destino_formulario_interface="comision_inscribir_candidato.dhtml";
+?>
+<form action="<?php echo $destino_formulario_interface ?>" method="post" name="formulario_seleccion" id="formulario_seleccion">
+	<table width="100%" class="textoTablaDato" align="center">
+	<tr>
+		<td><?php $oComisionPersona->PedirComision($filacomision['comi_codinap'],'formulario_seleccion','comi_codinap_seleccion','Candidato'); ?></td>
+	</tr>
+	</table>
+</form>	
+<?php 
+$es_modif=false;
+$ok=false;
+if ($filacomision['comi_codigo']=="") {
+
+	if ( isset($_POST['comi_codigo']) || isset($_POST['comi_codinap_seleccion']) )
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No se ha encontrado la Comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+
+} else {
+
+	if ($oComisionPersona->TraerDatosComision($filacomision['comi_codigo'],$filacomision,$es_modif)) {
+		if (!$es_modif) {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No se ha encontrado la Comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		} else { 
+			switch ($_SESSION['rolcod']) {
+				case USUCURSOINAP:
+				case USUUNIVERSIDAD:
+					$oActividadCurso = new cActividadCursoInap($conexion); 
+					$formact_codigo=FORMATOCURSO;
+					$tipoact_codigo=TIPOACTCURSOINAP;
+					if ($oComisionPersona->TienePermisoInscribir($filacomision['comi_codigo'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap'])) 
+						$ok=true;
+					
+					break;
+				
+				case COORDINADORTECNICO:
+				case USUORGANISMO:
+					
+					$oActividadCurso = new cActividadCursoJurisdiccional($conexion); 
+					$formact_codigo=FORMATOCURSO;
+					$tipoact_codigo=TIPOACTCURSOINAP;
+					$ok=true;
+					break;
+					
+			} // Tiene permiso el usuario sobre la comision
+			
+		}	// Se encontró la comisión	
+	} // No se produjo error al buscar la comisión
+
+} // seleccion de comisión
+
+
+if ($ok) { 
+	$act_codigo=$filacomision['act_codigo'];
+	$actprog_sec=$filacomision['actprog_sec'];
+
+	if ($oActividadCurso->MostrarDatosActividadAsignable($conexion,$act_codigo,$formact_codigo,$tipoact_codigo,$actprog_sec)) {
+	?>
+	    <br /><br />
+		<form name="formulario" action="comision_inscribir_candidato_upd.dhtml" method="post">
+        <?php
+		if (!MostrarGrillaSeleccion($conexion,$filacomision['comi_codinap']))
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar datos 2.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+
+		 ?>
+		 <input type="hidden" name="tipoact_codigo" id="tipoact_codigo" value="<?php echo $tipoact_codigo?>" />
+		</form>
+  <?php } ?>  
+<?php } // fin ok ?>
+<?php } // fin ok ?>
+
+<?php
+$oEncabezados->PieMenuEmergente(); 
+?>

@@ -1,0 +1,258 @@
+<?php 
+require('./include.dhtml');
+
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+//----------------------------------------------------------------------------------------- 
+?>
+	<script language="javascript" type="text/javascript">
+	
+	function ValidarCuit(formulario){
+		if (formulario.usuarioCUIT.value=="")
+		{
+			alert("Debe ingresar el CUIT/CUIL/CDI del usuario");
+			formulario.usuarioCUIT.focus();
+			return false;
+		}
+		if(!ValidarContenido(formulario.usuarioCUIT.value,'CUIT'))
+		{
+			alert("El CUIT/CUIL/CDI de usuario no es válido");
+			formulario.usuarioCUIT.focus();
+			return false;
+		}
+		return true;
+	}
+	
+	function ValidarListaAbajo (lista) {
+
+	return true;	
+	}
+
+
+	</script>
+
+<?php
+//--------------------------------------------------------------------------------------------------
+function MostrarGrillaSeleccion($conexion) {
+
+	$spnombre='sel_usuarios_usuarios_roles_jurisdiccion_inap_xrolcod';
+	$spparam = array('prolcod'=>USUACTJUR,				
+			);
+
+	if(!$conexion->ejecutarStoredProcedure($spnombre,$spparam,$result_usu,$num_usu,$errno)) {	
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar usuarios enlaces.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),"");
+		return false;			
+	}
+
+	if ($num_usu>0) {
+
+
+			$opciones=array(
+				"numPagina"=>isset($_GET['paginaG1'])?$_GET['paginaG1']:1,
+				"FilasPagina"=>$num_usu,
+				"NombrePaginaQuery"=>"paginaG1"
+			);
+			
+			if (isset($_GET['paginaG1']))	{
+				$querystring=FuncionesPHPLocal::ArmarQueryString("paginaG1","",false);
+				$opciones['QueryString']=$querystring;
+			}
+			
+			$oGrilla = new cGrilla($opciones);
+			$oGrilla->SetearTituloGrilla('Usuarios de Actividades Jurisdiccionales (enlaces)');
+			
+			$oGrilla->SetearAnchoGrilla('90%');
+			
+			$miColumna1 = $oGrilla->AddColumna('txt');
+			$oGrilla->Setear('titulo_columna',$miColumna1,'CUIT');
+			$oGrilla->Setear('campo_grilla',$miColumna1,'usuarioCUIT');
+			$oGrilla->Setear('align_columna',$miColumna1,'left');
+		
+			$miColumna2 = $oGrilla->AddColumna('txt');
+			$oGrilla->Setear('titulo_columna',$miColumna2,'Nombre');
+			$oGrilla->Setear('campo_grilla',$miColumna2,'usuarionombre');
+			$oGrilla->Setear('align_columna',$miColumna2,'left');
+		
+			$miColumna3 = $oGrilla->AddColumna('txt');
+			$oGrilla->Setear('titulo_columna',$miColumna3,'Apellido');
+			$oGrilla->Setear('campo_grilla',$miColumna3,'usuarioapellido');
+			$oGrilla->Setear('align_columna',$miColumna3,'left');
+		
+			$miColumna4 = $oGrilla->AddColumna('linkimg');
+			$oGrilla->Setear('titulo_columna',$miColumna4,'Editar');
+			$oGrilla->Setear('ancho_columna',$miColumna4,'60');
+			$oGrilla->Setear('url',$miColumna4,'usuarios_enlace_jurisdiccion_inap.dhtml');
+			$oGrilla->Setear('url_ancla',$miColumna4,'Edicion');
+			
+			$oGrilla->Setear('imagen',$miColumna4,'images/editar.jpg');
+			$oGrilla->Setear('altImagen',$miColumna4,'Editar');						
+			$oGrilla->AddParametrosURL($miColumna4,"usuariocod","usuariocod");
+			$oGrilla->AddParametrosURL($miColumna4,"operacion","M","cte");
+		
+			if (!$oGrilla->CargarGrilla($result_usu))
+				return false;
+
+			$oGrilla->MostrarGrilla();
+		
+
+} else { 
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No hay usuarios enlaces.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+	 }
+	return true;
+} 		
+?>
+<br>
+	<table width="100%" class="textoTablaDato">
+		<tr> 
+			<td align="center">			
+			<?php	
+				MostrarGrillaSeleccion($conexion); 	
+			?>
+			</td>
+		</tr>	
+	</table>
+
+<a name="Edicion"></a>
+<?php 
+if  (isset($_GET['operacion']) && ($_GET['operacion'] == "M")) {
+		$datosbien = true;
+		$spnombreusuario='sel_usuarios_roles_jurisdiccion_inap_xusuariocod_rolcod_jurisdid';
+		$spparamusuario=array('pusuariocod'=>$_GET['usuariocod']);
+		$spparamusuario+=array('prolcod'=>USUACTJUR);
+		$spparamusuario+=array('pjurisdid_inap'=>0);
+		
+		$conexion->ejecutarStoredProcedure($spnombreusuario,$spparamusuario,$queryusuario,$numfilas,$errorcod);
+		if($numfilas==1)
+		{
+			if($conexion->TraerCampo("usuarios","usuarioCUIT",array("usuariocod='",$_GET['usuariocod'],"'"),$usuarioCUIT,$numfilas,$errno))
+				$usuarioCUIT=htmlspecialchars($usuarioCUIT,ENT_QUOTES);
+
+			if($conexion->TraerCampo("usuarios","usuarioapellido",array("usuariocod='",$_GET['usuariocod'],"'"),$usuarioapellido,$numfilas,$errno))
+				$usuarioapellido=htmlspecialchars($usuarioapellido,ENT_QUOTES);
+			
+			if($conexion->TraerCampo("usuarios","usuarionombre",array("usuariocod='",$_GET['usuariocod'],"'"),$usuarionombre,$numfilas,$errno))
+				$usuarionombre=htmlspecialchars($usuarionombre,ENT_QUOTES);
+		} else {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error en la validación del usuario.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),"\nusuariocod =".$_GET['usuariocod']);
+			$datosbien=false;
+		
+		}
+
+	if ($datosbien) {
+		?>
+		<script language="javascript" type="text/javascript">
+		
+		var campos_linea=new Array("lst|listajurisdiccionesarriba[]|listajurisdiccionesabajo[]");
+		var datos_grilla=new Array();
+		
+		// ciclo recorriendo los mismos datos que la grilla
+		datos_grilla[0]=new Array();
+		datos_grilla[0][0]="";
+		<?php
+		
+		$i = 1;
+		//while($filagrupo=mysql_fetch_assoc($resultado))
+		//{
+			echo "datos_grilla[".$i."]=new Array();\n";
+			echo "datos_grilla[".$i."][0]=new Array(";
+			
+			if(!$conexion->ejecutarStoredProcedure("sel_jurisdiccion_inap_asignadas_enlace_xusuariocod",array('pusuariocod'=>$_GET['usuariocod']),$resulorganismo,$numfilas,$errno)) die();
+		
+			$codigosel=array();
+			while($filaorganismo=mysqli_fetch_assoc($resulorganismo))
+				$codigosel[]=$filaorganismo["jurisdid"];
+			
+			if(count($codigosel)>0)
+				echo "'".implode("','",$codigosel)."'";
+			
+			echo ");\n";
+			$i++;
+		//}
+		
+		
+		?>
+		</script>
+		<div align='center'>
+		<form method="POST" action="usuarios_enlace_jurisdiccion_inap_upd.dhtml" name="formulario">
+		
+		<table  width="90%" class="textotabla">
+		<tr><td>
+			<fieldset class="bordeDetalleRegistro">
+			<legend class="textoLeyendaDetalleRegistro">  Organismos asignados al usuario.</legend>
+		
+		<table  width="100%" class="textotabla">
+			<tr>
+				<td colspan="2" align="center" valign="top">
+				
+				<table  width="100%" class="textotabla">
+					<tr>
+						<td class='textoEtiqueta' width="30%" align="left">CUIT</td>
+						<td class="textoEtiquetaDatoResaltado" align="left"><?php echo $usuarioCUIT ?></td>
+					</tr>
+					<tr>
+						<td class='textoEtiqueta' align="left">Apellido</td>
+						<td class="textoEtiquetaDatoResaltado" align="left"><?php echo $usuarioapellido ?></td>
+					</tr>
+					<tr>
+						<td class='textoEtiqueta' align="left">Nombre</td>
+						<td class="textoEtiquetaDatoResaltado" align="left"><?php echo $usuarionombre ?></td>
+					</tr>
+				</table>
+				</td>
+			</tr>
+			<tr>
+				<td valign="top" colspan="2" style="height:20px">	
+				<?php 
+					FuncionesPHPLocal::ArmarListasAB($conexion,"sel_jurisdiccion_inap_noasignadas_enlace_xusuariocod",array("pusuariocod"=>$_GET['usuariocod'], "porderby"=>"jurisdnom"),"jurisdid","jurisdnom","formulario","listajurisdicciones","Organismos Disponibles","Organismos Asignados","width: 500px",10,false)
+				?>
+				</td>
+			</tr>				
+			<tr>
+				<td valign="top" colspan="2" style="height:20px">	</td>
+			</tr>
+			<tr >
+				<td colspan="2" align="center">
+				<input type="hidden" value="<?php echo $usuarioCUIT?>" name="usuarioCUIT" />
+				<input type="hidden" value="<?php echo $_GET['usuariocod']?>" name="usuariocod" />
+				<input type="submit" name="botonalta" class="botones" value="Actualizar" onClick="SeleccionarTodosLista(formulario['listajurisdiccionesabajo[]']); return ValidarListaAbajo('listajurisdiccionesabajo')">	
+				</td>
+			</tr>
+		 </table>
+				</fieldset> 			
+		</td></tr>		
+		</table>
+		</form>
+		</div>
+		<script type="text/javascript">
+			var ListaOrigen = EncontrarObjeto ('listajurisdiccionesarriba');
+			var ListaDestino = EncontrarObjeto ('listajurisdiccionesabajo[]');
+			PasarItemsInicialesLista('formulario',ListaOrigen,ListaDestino,datos_grilla[1][0]);
+		</script>
+	
+	  <p>&nbsp; </p>
+	  <p>&nbsp;</p>  
+	  <p>&nbsp; </p>
+<?php } // if datos_bien
+
+
+} // operacion == M
+//----------------------------------------------------------------------------------------- 
+$oEncabezados->PieMenuEmergente();
+?>
+

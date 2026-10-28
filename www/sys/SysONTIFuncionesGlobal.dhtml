@@ -1,0 +1,80 @@
+<?php
+class FuncionesGlobal
+{
+	// ----------------------------------------------------------------------------------------------------
+	function URL_Servidor($https=false)
+	{
+		$protocolo="http://";
+		if($https)
+			$protocolo="https://";
+		
+		switch($_SERVER['SERVER_ADDR'])
+		{
+			case '10.1.10.173':
+				return $protocolo.$_SERVER['SERVER_ADDR']."/contenido/portal";
+				break;
+			case '10.1.10.115':
+				return $protocolo."contenidotest.sgp.gov.ar";
+				break;
+			case '200.123.99.247':
+				return "http://testjgm.sgp.gob.ar";
+				break;
+			default:
+				return $protocolo.$_SERVER['SERVER_ADDR'];
+				break;
+		}
+
+		echo "Error en obtener la IP del servidor";		
+		die();
+	}
+	// ----------------------------------------------------------------------------------------------------
+	function URL_Servidor_Portal($dominio_portal="")
+	{
+
+		// Ej: $dominio_portal="eng.jgm.gob.ar"
+		$protocolo="http://";
+			
+		switch($_SERVER['SERVER_ADDR'])
+		{
+			// Ver IP produccion 	
+			case '200.123.99.247':
+			case '200.123.99.244':
+				$protocolo="https://";
+				return $protocolo.$dominio_portal;
+				break;
+			// IP desarrollo  	
+			case '10.1.10.173':
+				return $protocolo.$_SERVER['SERVER_ADDR'];
+				break;		
+			default:
+				return $protocolo.$_SERVER['SERVER_ADDR'];
+				break;
+		}
+		echo "Error en obtener la IP del servidor";		
+	}	
+
+	// ----------------------------------------------------------------------------------------------------
+	function URL_Servidor_Paginas_Portal($dir_contenido_portal="",$dominio_portal="")
+	{
+
+		// Ej: $dir_contenido_portal="/contenido/portalescuelagorbierno"
+		// Ej: $dominio_portal="eng.jgm.gob.ar"
+		$protocolo="http://";
+			
+		switch($_SERVER['SERVER_ADDR'])
+		{
+			// IP desarrollo  	
+			case '10.1.10.173':
+				return $protocolo.$_SERVER['SERVER_ADDR'].$dir_contenido_portal;
+				break;		
+			// IP produccion 	 
+			default:
+				$protocolo="https://";
+				return $protocolo.$dominio_portal;
+				break;
+		}
+		echo "Error en obtener la IP del servidor";		
+	}	
+	// ----------------------------------------------------------------------------------------------------
+}
+?>

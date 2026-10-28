@@ -1,0 +1,76 @@
+<?php
+class cProvincias {
+
+	var $conexion;
+		
+	public function __construct($conexion)
+	{
+		$this->conexion = &$conexion;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ProvinciasSP(&$spnombre,&$spparam)
+	{
+		$spnombre="sel_provincias_validas_orden";
+		$spparam =array('porderby'=>"provincianom",'pprovinciaestado'=>ESTADOACTIVO);
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function PartidosSP($provinciacod,&$spnombre,&$spparam)
+	{
+		$spnombre="sel_partidos_validos_orden";
+		$spparam =array('pprovinciacod'=>$provinciacod,'porderby'=>"partidonom",'ppartidoestado'=>ESTADOACTIVO);
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function LocalidadesSP($provinciacod,$partidocod,&$spnombre,&$spparam)
+	{
+		$spnombre="sel_localidades_validas_orden";
+		$spparam =array('pprovinciacod'=>$provinciacod,'ppartidocod'=>$partidocod,'porderby'=>"localidadnom",'plocalidadestado'=>ESTADOACTIVO);
+	}
+	
+//-----------------------------------------------------------------------------------------------------	
+	function TraerDatosProvincia($provinciacod,&$texto_salida)	{
+		if (!$this->conexion->TraerCampo("provincias","provincianom",array("provinciacod='",$provinciacod,"'"),$provincianom,$numfilas,$errorcod))	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Se produjo un error al buscar la provincia.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}		
+		$texto_salida=$provincianom;
+		return true;
+	}
+	
+//-----------------------------------------------------------------------------------------------------	
+	function TraerDatosCompletosProvincia($provinciacod,$partidocod,$localidadcod,&$texto_salida)
+	{
+	
+		$texto_salida="";
+		$spnombre="sel_localidad_xprovinciacod_partidocod_localidadcod";
+		$spparam=array(
+					"pprovinciacod"=>$provinciacod,
+					"ppartidocod"=>$partidocod,
+					"plocalidadcod"=>$localidadcod
+					);
+					
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Se produjo un error al obtener los datos de provincia, partido y localidad. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$fila=mysqli_fetch_assoc($query);
+		if (!$this->conexion->TraerCampo("provincias","provincianom",array("provinciacod='",$fila["provinciacod"],"'"),$provincianom,$numfilas,$errorcod))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Se produjo un error al buscar la provincia.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$result=false;
+		}
+		if (!$this->conexion->TraerCampo("partidos","partidonom",array("partidocod='",$fila["partidocod"],"'"),$partidocod,$numfilas,$errorcod))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Se produjo un error al buscar el partido.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$result=false;
+		}
+
+		$texto_salida=$provincianom." / ".$partidocod." / ".$fila["localidadnom"];
+		
+		return true;
+	}
+
+
+}// FIN CLASE	
+
+?>

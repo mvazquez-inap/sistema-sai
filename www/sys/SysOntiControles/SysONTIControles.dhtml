@@ -1,0 +1,162 @@
+<?php
+//----------------------------------------------------------------------------------------- 
+// Clase con la lógica para el manejo de grillas
+//----------------------------------------------------------------------------------------- 
+
+class cCtrSuggest
+{
+
+	var $opciones=array();		// Array
+								//	"numPagina"=>isset($_GET['xpagina'])?$_GET['xpagina']:1,
+								//	"css"=>Hoja de estilo que va a utilizar,
+	
+	var $formulario;			// Objeto que maneja el listado de la grilla
+								// de clase cListadosTemplate
+								
+	var $columnas = array();	// Columnas de la grilla.
+	
+								// Formato de cada columna de la grilla
+								// tipo: txt 	  Dato que simplemente se muestra
+								// tipo: link	  Enlace a un URL
+								// tipo: linkimg  Enlace a un URL a través de una imagen
+								// tipo: popup	  Popup a un URL	
+
+
+	var $error=false;			// Alguna operación produjo o no error 
+	var $errorMsg="";			// Descripcion del error que se produjo
+	
+	var $ancho="100%";			// Ancho de la tabla que contiene la grilla
+
+	var $param_url = array();	// Se usa para definir parametros url
+
+	// NUEVO
+	var $orden_grilla=false;	
+	var $orden_campo_grilla="";	
+	var $orden_sentido_grilla=0;
+	
+	var $campo_mostrar;
+	
+	
+	function cCtrSuggest($opciones, $css_suggest="suggest.css" )
+	{
+		$this->opciones['css']=$css_suggest;
+	}
+
+//-----------------------------------------------------------------------------------------
+//							 PUBLICAS	
+//----------------------------------------------------------------------------------------- 
+	
+	function Setear($campo,$dato) {	
+			
+		 switch ($campo) {		 
+		 	case "campo_mostrar":
+				$this->campo_mostrar = $dato;
+				break;
+
+			default: echo "Error en la llamada!".$campo."<br>";
+		 }
+	}
+
+
+	
+
+	function SetearLeyendaLink($columna,$tipo,$valor) {
+		$this->columnas[$columna]['leyenda_param']=array ('tipo_param'=>$tipo,'valor'=>$valor);
+	}
+
+	function SetearOrden($orden_campo,$orden_sentido) {				
+		$this->orden_campo_grilla=$orden_campo;
+		if ($orden_sentido=="D")
+			$this->orden_sentido_grilla=SORT_DESC;
+		elseif ($orden_sentido=="A")
+			$this->orden_sentido_grilla=SORT_ASC;
+			
+	}
+
+
+	function CargarDatosSuggest($datos) {		
+
+		if (is_array($datos)) {					 
+			
+			//foreach ($datos)
+			
+		} else	{
+			
+			
+				$this->opciones['query']=$datos;
+				$this->datos_xml = "<?xml version=\"1.0\" encoding=\"iso-8859-1\" standalone=\"yes\"?> ";
+				$this->datos_xml .= "<resultado>";
+				while ($fila = mysqli_fetch_assoc($datos))
+				{	
+					$this->datos_xml .= "<name>".$fila[$this->campo_mostrar]."</name>";
+				}
+				$this->datos_xml .= "</resultado>";
+			
+		}
+		
+		return true;
+	}
+
+	function MostrarDatosSuggest() {	
+		if (!$this->error)
+		{	
+			// TODO
+			header('Content-Type: text/xml'); 
+			echo $this->datos_xml;
+			
+		}	
+	}
+
+	function MostrarError() {		
+		echo "Se produjo el siguiente error:".$this->errorMsg;
+	}		
+
+	function GetError() {		
+		return $this->errorMsg;
+	}		
+		
+	function ValidarOrdenGrilla() {
+	
+		foreach ($this->columnas as $columna) {
+			if( isset($columna['campo_grilla']) && $columna['campo_grilla']==$this->orden_campo_grilla)	
+				return true;
+		}		
+		return false;			
+	}
+
+//-----------------------------------------------------------------------------------------
+//							 PUBLICAS	
+//----------------------------------------------------------------------------------------- 
+	
+	
+	
+	function _SetearCampo($tipo,$dato) {
+		 $this->$tipo=$dato;
+	}
+
+	
+	// FALTAN Validaciones
+	function _ValidarDatos($columnas,&$error) {
+	
+		foreach ($this->columnas as $row_columna) {
+			switch ($row_columna["tipo"]) {
+			case "txt" : 
+					if (!isset ($row_columna["campo_grilla"]))					{
+						$error='Falta el campo_grilla de la columna: '.$row_columna["titulo_columna"];
+						return false;
+					}
+					break;
+			case "link":
+					if (!isset ($row_columna["url"])) {
+						$error='Falta el url de la columna: '.$row_columna["titulo_columna"];
+						return false;
+					}					
+					break;
+			}	// fin switch		
+		} // fin foreach
+		return true;
+	}
+}
+// --------------------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------
+?>

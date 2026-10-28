@@ -1,0 +1,164 @@
+<?php 
+require_once('nusoap/lib/nusoap.php');
+ini_set("memory_limit","64M");
+//-----------------------------------------------------------------------------------------
+//							 WS CreditosPersonales	
+//----------------------------------------------------------------------------------------- 
+// Clase para el manejo del web service de wsCreditosPersonales.
+// 
+// Cualquier cliente que se conecte por php, podrá hacerlo via la interface directa que ofrece
+// el ws o incluyendo esta clase en el sitio y utilizando la interface aquí propuesta.
+//----------------------------------------------------------------------------------------- 
+// Atención: los creditos son sólo los acreditados vía el sistema SAI (no históricos).
+//----------------------------------------------------------------------------------------- 
+// Ejemplo utilizando la clase nusoap para la conexión al WS.
+//----------------------------------------------------------------------------------------- 
+class cCreditosPersonalesINAP {
+	
+	// variable privada para el manejo del cliente del WS.
+	private $cliente;
+
+	// variable privada para el manejo de errores.
+	private $error;
+	
+	public $fault;
+
+	function __construct($wsl, $credenciales=false){
+
+//		Se puede fijar aca.
+// 		$this->cliente = new nusoap_client(self::WSDL, 'wsdl');
+		$this->cliente = new nusoap_client($wsl, 'wsdl');
+
+		if ($credenciales)
+			$this->cliente->setCredentials(getenv("SAI_WS_USER") ?: "", getenv("SAI_WS_PASSWORD") ?: "", "basic");
+		
+		$this->fault=false;
+	}
+	
+	// Destructor de la clase
+	function __destruct() {	    } 	
+//-----------------------------------------------------------------------------------------
+//							 PUBLICAS	
+//-----------------------------------------------------------------------------------------
+// getCreditosTotal
+//----------------------------------------------------------------------------------------- 
+// Entrada:
+// Retorna: Cantidad de créditos del agente.
+//----------------------------------------------------------------------------------------- 
+	public function getCreditosTotal($cuit,$fecha_desde,$fecha_hasta)
+	{
+		$params = array ("cuit"=>$cuit,"fecha_desde"=>$fecha_desde, "fecha_hasta"=>$fecha_hasta);
+		$result=$this->cliente->call('creditosTotal',$params);	
+		
+		$this->fault=false;
+		
+		if ($this->cliente->fault!="") 				
+			$this->setError($result);
+		
+		return $result;
+	} 
+//-----------------------------------------------------------------------------------------
+// getDetalleCreditosTotal
+//----------------------------------------------------------------------------------------- 
+// Entrada: cuit 			= cuit/cuil
+//			fecha_desde= fecha de ínicio del perírodo (disposición)
+//			fecha_hasta= fecha de fin del perírodo (disposición)
+// Retorna: xml => con las actividades acreditadas en el período indicado (act_codinap,act_nombre,tipoact_codigo,total_creditos,exp_numero,dis_numero,dis_fecha).
+//----------------------------------------------------------------------------------------- 
+	public function getDetalleCreditosTotal($cuit,$fecha_desde,$fecha_hasta)
+	{
+		$this->fault=false;
+		
+		$params = array ("cuit"=>$cuit,"fecha_desde"=>$fecha_desde, "fecha_hasta"=>$fecha_hasta);
+		$result=$this->cliente->call('detalleCreditosTotal',$params);	
+		
+		if ($this->cliente->fault!="") 				
+			$this->setError($result);
+		
+		return $result;
+	} 
+//-----------------------------------------------------------------------------------------
+// getCreditosPorFormato
+//----------------------------------------------------------------------------------------- 
+// Entrada: formato			= tipo de formato de la actividad
+//			cuit 			= cuit/cuil
+//			fecha_desde= fecha de ínicio del perírodo (disposición)
+//			fecha_hasta= fecha de fin del perírodo (disposición)
+// Retorna: Cantidad de créditos del agente del formato indicado.
+//----------------------------------------------------------------------------------------- 
+	public function getCreditosPorFormato($formato, $cuit,$fecha_desde,$fecha_hasta)
+	{
+		
+		$this->fault=false;
+		
+		$params = array ("formact_codigo"=>$formato,"cuit"=>$cuit,"fecha_desde"=>$fecha_desde, "fecha_hasta"=>$fecha_hasta);
+		$result=$this->cliente->call('creditosPorFormato',$params);	
+
+		if ($this->cliente->fault!="") 				
+			$this->setError($result);
+	
+		return $result;
+	} 	
+//-----------------------------------------------------------------------------------------
+// getdetalleCreditosPorFormato
+//----------------------------------------------------------------------------------------- 
+// Entrada: formato			= tipo de formato de la actividad
+//			cuit 			= cuit/cuil
+//			fecha_desde= fecha de ínicio del perírodo (disposición)
+//			fecha_hasta= fecha de fin del perírodo (disposición)
+// Retorna: xml con las actividades del formato acreditadas en el período indicado (act_codinap,act_nombre,tipoact_codigo,total_creditos,exp_numero,dis_numero,dis_fecha)
+//----------------------------------------------------------------------------------------- 
+	public function getDetalleCreditosPorFormato($formato, $cuit,$fecha_desde,$fecha_hasta)
+	{
+		$this->fault=false;
+		
+		$params = array ("formact_codigo"=>$formato,"cuit"=>$cuit,"fecha_desde"=>$fecha_desde, "fecha_hasta"=>$fecha_hasta);
+		$result=$this->cliente->call('detalleCreditosPorFormato',$params);	
+
+		if ($this->cliente->fault!="") 
+			$this->setError($result);
+		
+		return $result;
+	} 	
+//-----------------------------------------------------------------------------------------
+// getDatosPersonales
+//----------------------------------------------------------------------------------------- 
+// Entrada: cuit 			= cuit/cuil
+// Retorna: xml con los datos de la persona
+//----------------------------------------------------------------------------------------- 
+	public function getDatosPersonales($cuit)
+	{
+		$this->fault=false;
+		$params = array ("cuit"=>$cuit);
+		$result=$this->cliente->call('datosPersonales',$params);	
+		if ($this->cliente->fault!="") 
+			$this->setError($result);
+		
+		return $result;
+	} 	
+//-----------------------------------------------------------------------------------------
+// getError
+//----------------------------------------------------------------------------------------- 
+// Entrada: -
+// Retorna: El error ocurrido.
+//----------------------------------------------------------------------------------------- 
+	public function getError()
+	{
+		return $this->error;
+	}
+//-----------------------------------------------------------------------------------------
+//							 PRIVADAS	
+//----------------------------------------------------------------------------------------- 
+// setError
+//----------------------------------------------------------------------------------------- 
+// Entrada: El error a setear en la variable privada de la clase.
+// Retorna: No retorna datos.
+//-----------------------------------------------------------------------------------------
+	private function setError($error)
+	{
+		$this->error=$error;
+		$this->fault=true;
+	}
+//-----------------------------------------------------------------------------------------
+}
+?>

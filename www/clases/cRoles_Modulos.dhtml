@@ -1,0 +1,634 @@
+<?php
+//----------------------------------------------------------------------------------------- 
+class cRoles_Modulos
+{
+	var $conexion;
+
+	public function __construct($conexion)
+	{
+		$this->conexion = &$conexion;
+	}
+	
+//-----------------------------------------------------------------------------------------
+//							 PUBLICAS	
+//----------------------------------------------------------------------------------------- 
+
+//----------------------------------------------------------------------------------------- 
+// Retorna una consulta con todos los usuarios que cumplan con las condiciones
+
+// Parámetros de Entrada:
+//		ArregloDatos: array asociativo con los filtros. Claves: usuarionombre, usuarioapellido, usuariocuit, usuarioemail
+
+// Retorna:
+//		numfilas,resultado: cantidad de filas y query de resultado
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+
+	function BuscarDatos ($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)
+	{
+		$sparam=array('pestadomodcod' =>0);
+		$sparam+=array('pestadorol' =>0);
+	
+		$sparam+=array('pmodulocod' =>"");
+		$sparam+=array('prolcod' =>"");
+
+		$sparam+=array('porderby' =>"rolcod");
+
+		if (isset ($ArregloDatos['modulocod']))
+		{
+			if ($ArregloDatos['modulocod']!="")
+			{	
+				$sparam['pmodulocod']= $ArregloDatos['modulocod'];
+				$sparam['pestadomodcod']= 1;
+			}
+		}
+		
+		if (isset ($ArregloDatos['rolcod']))
+		{
+			if ($ArregloDatos['rolcod']!="")
+			{	
+				$sparam['prolcod']= $ArregloDatos['rolcod'];
+				$sparam['pestadorol']= 1;
+			}
+		}	
+		
+		if (isset ($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+				$sparam['porderby']= $ArregloDatos['orderby'];
+		}	
+		
+		$spnombre="sel_roles_modulos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar el Rol-Módulo.";
+			$errormail="Error al buscar el Rol-Módulo ".$errno;
+			return false;
+		}
+
+		return true;
+	}
+	
+//-----------------------------------------------------------------------------------------------------	
+	function DescargarExcel()	{
+
+	$spparam['pxmodulocod']  = "0";
+	$spparam['pxrolcod']  = "0";
+	
+	$spparam['pmodulocod']  = "";
+	$spparam['prolcod']  = "";
+
+	if ($_GET['modulocod']!="") {
+		$spparam['pxmodulocod']  = "1";
+		$spparam['pmodulocod'] = $_GET['modulocod'];			
+	}		
+
+	if ($_GET['rolcod']!="") {
+		$spparam['pxrolcod']  = "1";
+		$spparam['prolcod'] = $_GET['rolcod'];			
+	}
+
+	$spnombre="sel_modulos_asignados_xmodulocod_rolcod";
+
+	if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado_mod,$numfilas,$errno))
+		return false;
+		
+		
+		
+		$i=0;
+		while ($filaresult=mysqli_fetch_assoc($resultado_mod))
+		{
+			$arrayresult[$i]['rolnom']= $filaresult['rolnom'];
+			$arrayresult[$i]['modulodesc']= $filaresult['modulodesc'];
+			$arrayresult[$i]['modulotextomenu']= $filaresult['modulotextomenu'];
+			$arrayresult[$i]['grupomodtextomenu']= $filaresult['grupomodtextomenu'];
+			$arrayresult[$i]['tipo_asignacion']= $filaresult['tipo_asignacion'];
+			$i++;
+			
+		}
+		$nombrearchivo="roles_modulos.xls";  
+		
+		$oExcel= new cEscribirExcel($nombrearchivo);
+		$oExcel->AddHoja('roles_modulos');
+		$oExcel->EsconderGrillas();
+		$oExcel->PaginaHorizontal();
+		$oExcel->FormatoColumna (0,35); // rol
+		$oExcel->FormatoColumna (1,50); // módulo
+		$oExcel->FormatoColumna (2,50); // texto en menú
+		$oExcel->FormatoColumna (3,20); // menú
+		$oExcel->FormatoColumna (4,10); // asignación
+		
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",12);
+		$oExcel->AddFormato ("Color","azul");
+		$oExcel->AddFormato ("FgColor",22);
+		$oExcel->CargarDatosVariasCeldas (0,0,0,4,'Listado de Roles-Módulo al '.date("d/m/Y"),true);
+
+		// Titulos de las columnas
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("TextWrap","");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",12);
+		$oExcel->AddFormato ("Color","negro");
+		$oExcel->AddFormato ("FgColor","gris");
+	
+		$oExcel->CargarDatos (1,0,"Rol",true);
+		$oExcel->CargarDatos (1,1,"Módulo",true);
+		$oExcel->CargarDatos (1,2,"Texto en Menú",true);
+		$oExcel->CargarDatos (1,3,"Menú",true);
+		$oExcel->CargarDatos (1,4,"Asignación",true);
+				
+		$arrayclaves=array(	'rolnom','modulodesc','modulotextomenu',
+							'grupomodtextomenu','tipo_asignacion');
+		$i=2;
+		foreach ($arrayresult as $datos) {
+			$oExcel->CargarGrilla ($datos,$i,0,$arrayclaves,array());	
+			$i++;
+		}
+		
+		$oExcel->Enviar();
+	}
+	
+//-----------------------------------------------------------------------------------------------------	
+	function RolSP(&$spnombre,&$spparam)
+	{
+		$spnombre="sel_roles_orden";
+		$spparam =array(
+			"porderby"=>"roltodo"
+		);
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function ModuloSP(&$spnombre,&$spparam)
+	{
+		$spnombre="sel_modulos_orden";
+		$spparam =array(
+			"porderby"=>"modulotodo"
+		);
+	}
+
+//-------------------------------------------------------------------------
+	function AltaRolModulo ($datos)
+	{
+
+		if(!$this->_DatosValidosAltaRolModulo($datos,$datosvalidados))
+			return false;
+
+		$spnombre="ins_roles_modulos";
+		$spparam=array(
+			'pmodulocod'=>$datosvalidados["modulocod"] ,
+			'prolcod'=>$datosvalidados["rolcod"] ,
+			'prolmodtipoasig'=>$datosvalidados["rolmodtipoasig"] ,
+			'pultmodusuario'=>$_SESSION['usuariocod'] ,
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+			);			
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)
+		{
+			$txt_sys_mail = "rolcod='".$datosvalidados['rolcod']." \modulocod='".$datosvalidados['modulocod'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Se produjo un error al insertar el Rol-Módulo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+		
+		// Si el módulo es fijo (asignado automáticamente por el sistema). 
+		// Automáticamente se agrega a todos los usuarios de ese rol que no lo tengan asignado.
+		if ($datosvalidados["rolmodtipoasig"]==MODULOTIPOFIJO) { 
+			if(!$this->_AltaModuloUsuariosDelRol($datosvalidados))
+				return false;
+		}	
+		return true;
+	}
+
+//-------------------------------------------------------------------------
+	function BajaRolModulo ($datos)
+	{
+		// Ver 
+		// Si es fijo, borro el módulo a todos los usuarios del sistema
+		// Si no es fijo y hay usuarios da error.
+
+		if(!$this->_DatosValidosBajaRolModulo($datos,$datosvalidados))
+			return false;
+
+		// Si se da de baja un modulo fijo, se elimina de todos usuarios del sistema.
+		if ($datosvalidados["rolmodtipoasig"]==MODULOTIPOFIJO) { 
+			if(!$this->_BajaModuloUsuariosDelRol($datosvalidados))
+				return false;		
+		} 		
+
+		$spnombre="del_roles_modulos_xrolcod_xmodulocod";
+		$spparam=array(
+			'pmodulocod'=>$datosvalidados["modulocod"] ,
+			'prolcod'=>$datosvalidados["rolcod"] ,
+			);			
+			
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)
+		{
+			$txt_sys_mail = "modulocod='".$datosvalidados['modulocod']." \rolcod='".$datosvalidados['rolcod'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Se produjo un error al eliminar el Rol-Módulo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		return true;
+	}
+
+//-------------------------------------------------------------------------
+	function ModifRolModulo ($datos)
+	{
+
+		if(!$this->_DatosValidosModifRolModulo($datos,$datosvalidados))
+			return false;
+
+		$spnombre="upd_roles_modulos_xrolcod_modulocod";
+		$spparam=array(
+			'prolmodtipoasig'=>$datosvalidados["rolmodtipoasig"] ,
+			'prolcod'=>$datosvalidados["rolcod"] ,
+			'pmodulocod'=>$datosvalidados["modulocod"] ,
+			'pultmodusuario'=>$_SESSION['usuariocod'] ,
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+			);			
+			
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)
+		{
+			$txt_sys_mail = "modulocod='".$datosvalidados['modulocod']." \rolcod='".$datosvalidados['rolcod'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Se produjo un error al modificar el Rol-Módulo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+
+		if ($datosvalidados["rolmodtipoasig"]==MODULOTIPOFIJO) { 
+			if(!$this->_AltaModuloUsuariosDelRol($datosvalidados))
+				return false;
+		}	
+
+		return true;
+	}
+
+
+	function Insertar ($ArregloDatos, &$error, &$errormail)
+	{
+		
+		if (!$this->BuscarDatos ($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+			return false;
+		
+		if ($numfilas==1)
+		{
+			$error="Error, el Rol-Módulo ya se encuentra en la tabla de roles_modulos. ";
+			$errormail="Error, el Rol-Módulo ya se encuentra en la tabla de roles_modulos. ";
+			return false;
+		}
+		
+		$sparam =array("pmodulocod"=>$ArregloDatos['modulocod']);
+		$sparam+=array("prolcod"=>$ArregloDatos['rolcod']);
+		$sparam+=array('prolmodtipoasig'=> $ArregloDatos['rolmodtipoasig']);
+		$sparam+=array("pultmodusuario"=>$_SESSION['usuariocod']);
+		$sparam+=array("pultmodfecha"=>date("Y/m/d H:i:s"));
+		
+		$spnombre="ins_roles_modulos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al insertar el Rol-Módulo.";
+			$errormail="Error al insertar el Rol-Módulo".$errno;
+			return false;
+		}
+		return true;
+	}
+
+
+	function Eliminar ($ArregloDatos, &$error, &$errormail)
+	{
+		if (!isset ($ArregloDatos['modulocod']) || ($ArregloDatos['modulocod']==""))
+		{
+			$error="Error Código de Módulo Inexistente.";
+			$errormail="Error Código de Módulo Inexistente.";
+			return false;
+		}
+		if (!isset ($ArregloDatos['rolcod']) || ($ArregloDatos['rolcod']==""))
+		{
+			$error="Error Código Rol Inexistente.";
+			$errormail="Error Código de Rol Inexistente.";
+			return false;
+		}
+
+		if (!$this->BuscarDatos ($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+			return false;
+		
+		if ($numfilas!=1)
+		{
+			$error="Error Código de Rol-Módulo Inexistente.";
+			$errormail="Error Código de Rol-Módulo Inexistente. ";
+			return false;
+		}
+		
+		// VERIFICAR QUE NO TENGA NADA COLGANDO(MODULOS)
+		
+		$sparam =array("pmodulocod"=>$ArregloDatos['modulocod']);
+		$sparam +=array("prolcod"=>$ArregloDatos['rolcod']);
+		$spnombre="del_roles_modulos_xrolcod_xmodulocod";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al eliminar el Módulo-Archivo.";
+			$errormail="Error al eliminar el Módulo-Archivo ".$errno;
+			return false;
+		}
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosAltaRolModulo($datos,&$datosvalidados)
+	{
+		$datosvalidados=array();
+					
+		if(!$this->_DatosValidosComunesRolModulo($datos,$datosvalidados))
+			return false;
+
+		return true;
+	}
+	
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosBajaRolModulo($datos,&$datosvalidados)
+	{
+		$datosvalidados=array();
+
+		$spnombre="sel_roles_modulos";
+		$spparam=array(
+			'pestadomodcod'=>"1" ,
+			'pmodulocod'=>$datos["modulocod"] ,
+			'pestadorol'=>"1" ,
+			'prolcod'=>$datos["rolcod"] ,
+			'porderby'=>"rolcod" ,
+			);			
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)
+		{
+			$txt_sys_mail = "modulocod='".$datos['modulocod']." \rolcod='".$datos['rolcod'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El módulo rol seleccionado no es válido.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		$datosvalidados['modulocod'] = $datos['modulocod'];
+		$datosvalidados['rolcod'] = $datos['rolcod'];		
+		$datosvalidados['rolmodtipoasig'] = $datos['rolmodtipoasig'];		
+
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosModifRolModulo($datos,&$datosvalidados)
+	{
+		$datosvalidados=array();
+
+		$spnombre="sel_roles_modulos";
+		$spparam=array(
+			'pestadomodcod'=>"1" ,
+			'pmodulocod'=>$datos["modulocod"] ,
+			'pestadorol'=>"1" ,
+			'prolcod'=>$datos["rolcod"] ,
+			'porderby'=>"rolcod" ,
+			);			
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)
+		{
+			$txt_sys_mail = "modulocod='".$datos['modulocod']." \rolcod='".$datos['rolcod'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El módulo rol seleccionado no es válido.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		$datosvalidados['modulocod'] = $datos['modulocod'];
+		$datosvalidados['rolcod'] = $datos['rolcod'];		
+
+		if(!$this->_DatosValidosComunesRolModulo($datos,$datosvalidados))
+			return false;
+
+		
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosComunesRolModulo($datos,&$datosvalidados)
+	{
+
+			$this->RolSP($spnombre,$spparam);
+			$arraybusq=array("rolcod"=>$datos['rolcod']);
+			if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,$arraybusq,$query,$filaret,$numfilasmatcheo,$errorcod) || $numfilasmatcheo!=1)
+			{
+				$txt_sys_mail = "rolcod='".$datos['rolcod']." - numfilasmatcheo='".$numfilasmatcheo."' - errorcod='".$errorcod."'. ";
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en selección del rol.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			}
+			$datosvalidados["rolcod"]=$datos["rolcod"];
+
+			$this->ModuloSP($spnombre,$spparam);
+			$arraybusq=array("modulocod"=>$datos['modulocod']);
+			if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,$arraybusq,$query,$filaret,$numfilasmatcheo,$errorcod) || $numfilasmatcheo!=1)
+			{
+				$txt_sys_mail = "modulocod='".$datos['modulocod']." - numfilasmatcheo='".$numfilasmatcheo."' - errorcod='".$errorcod."'. ";
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en selección del módulo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			}
+
+			$datosvalidados["modulocod"]=$datos["modulocod"];
+
+			$spnombre="sel_constantes_grales_xsistemanom_constantetipo";
+			$spparam= array('pconstantetipo'=>"MODULOTIPOASIG",
+							'psistemanom'=>SISTEMA,
+					  );
+			
+			$arraybusq=array("constantecod"=>$datos['rolmodtipoasig']);
+			if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,$arraybusq,$query,$filaret,$numfilasmatcheo,$errorcod) || $numfilasmatcheo!=1)
+			{
+				$txt_sys_mail = "rolmodtipoasig='".$datos['rolmodtipoasig']." - numfilasmatcheo='".$numfilasmatcheo."' - errorcod='".$errorcod."'. ";
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en el tipo de asignación del módulo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			}
+
+			$datosvalidados["rolmodtipoasig"]=$datos["rolmodtipoasig"];
+
+			return true;
+	}	
+	
+//-------------------------------------------------------------------------
+	function _AltaModuloUsuariosDelRol($datosvalidados) {
+
+		// Alta del módulo a todos los usuarios del rol que no lo tuvieran
+		
+		// Seleccion de los distintos usuarios con el rol 
+		$spnombre="sel_usuarios_roles_jurisdiccion_inap_xrolcod";
+		$spparam=array(	'prolcod'=>$datosvalidados["rolcod"]);			
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query_usuarios,$numfilas,$errno) )
+		{
+			$txt_sys_mail ="rolcod='".$datosvalidados['rolcod']." \modulocod='".$datosvalidados['modulocod'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Se produjo un error al insertar el módulo a los usuarios del rol.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+		
+		// Para cada usuario del rol 
+		// Si NO tiene el módulo que se agrega 
+		if ($numfilas>0) {
+		
+			while ($fila_usuario_rol = mysqli_fetch_assoc($query_usuarios))	{			
+
+				$spnombre='sel_usuarios_roles_jurisdiccion_inap_modulos_xusuariocod_rolcod_jurisdid_modulocod';
+				$spparam=array('pusuariocod'=>$fila_usuario_rol['usuariocod']);
+				$spparam+=array('prolcod'=>$fila_usuario_rol["rolcod"]);
+				$spparam+=array('pjurisdid_inap'=>$fila_usuario_rol["jurisdid_inap"]);
+				$spparam+=array('pmodulocod'=>$datosvalidados["modulocod"] );
+				
+				if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) )
+				{
+					$txt_sys_mail ="rolcod='".$datosvalidados['rolcod']." \modulocod='".$datosvalidados['modulocod'];
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Se produjo un error al insertar el módulo a los usuarios del rol.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+					return false;
+				}
+	
+				if($numfilas==0) {
+					$spnombre="ins_usuarios_roles_jurisdiccion_inap_modulos";
+					$spparam=array(
+						'pusuariocod'=>$fila_usuario_rol['usuariocod'],
+						'pmodulocod'=>$datosvalidados["modulocod"] ,
+						'prolcod'=>$datosvalidados["rolcod"] ,
+						'pjurisdid_inap'=>$fila_usuario_rol['jurisdid_inap'] ,
+						'pultmodusuario'=>$_SESSION['usuariocod'] ,
+						'pultmodfecha'=> date("Y/m/d H:i:s")
+						);			
+					
+					if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) )
+					{	$txt_sys_mail ="rolcod='".$datosvalidados['rolcod']." \modulocod='".$datosvalidados['modulocod'];
+						FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Se produjo un error al insertar el módulo a los usuarios del rol.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+						return false;
+					}
+					
+					FuncionesPHPLocal::RegistrarAcceso($this->conexion,'33901',"Global / usuariocod='".$fila_usuario_rol['usuariocod']."' - rolcod='".$datosvalidados["rolcod"]."' - jurisd='".$fila_usuario_rol['jurisdid_inap']."' - modulocod='".$datosvalidados["modulocod"] ,$_SESSION['usuariocod']);
+
+				} // el usuario no tiene el módulo
+			}	// fin while
+		}	// fin hay usuarios del rol
+
+		return true;
+	}
+
+//-------------------------------------------------------------------------
+	function _BajaModuloUsuariosDelRol($datosvalidados) 
+	{
+		// Da la baja del módulo a todos los usuarios del ROL
+
+		$spnombre="sel_usuarios_roles_jurisdiccion_inap_modulos_xrolcod_modulocod";
+		$spparam=array(
+			'pmodulocod'=>$datosvalidados["modulocod"] ,
+			'prolcod'=>$datosvalidados["rolcod"] ,
+		);			
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query_usu_rol_mod,$numfilas,$errno) )
+		{
+			$txt_sys_mail ="selección de Usuarios/"."rolcod='".$datosvalidados['rolcod']." \modulocod='".$datosvalidados['modulocod'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Se produjo un error al eliminar el módulo a los usuarios del rol.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		$spnombre="del_usuarios_roles_jurisdiccion_inap_modulos_xrolcod_modulocod";
+		$spparam=array(
+			'pmodulocod'=>$datosvalidados["modulocod"] ,
+			'prolcod'=>$datosvalidados["rolcod"] ,
+		);			
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) )
+		{
+			$txt_sys_mail ="rolcod='".$datosvalidados['rolcod']." \modulocod='".$datosvalidados['modulocod'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Se produjo un error al eliminar el módulo a los usuarios del rol.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		while ($fila_usu_rol_mod=mysqli_fetch_assoc($query_usu_rol_mod)) 
+			FuncionesPHPLocal::RegistrarAcceso($this->conexion,'33902',"Global / usuariocod='".$fila_usu_rol_mod['usuariocod']."' - rolcod='".$fila_usu_rol_mod["rolcod"]."' - jurisd='".$fila_usu_rol_mod['jurisdid_inap']."' - modulocod='".$fila_usu_rol_mod["modulocod"] ,$_SESSION['usuariocod']);
+
+		return true;	
+	}
+	
+	//------------------------------------------------------------------------------------------
+	function Agregar_Modulos_De_Rol ($usuariocod, $rolcod, $jurisdid_inap) {
+	
+		$result = true;
+		
+		$sparam =array("prolcod"=>$rolcod);
+		$sparam+=array("prolmodtipoasig"=>array('"','F', '"',",","'","D","'"));
+		$sparam+=array("porderby"=>"modulocod");
+		$spnombre="sel_roles_modulos_xrolcod_rolmodtipoasig";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar los Módulos del Rol.";
+			$errormail="Error buscar en roles_modulos. ".$errno;
+			$result = false;
+		}
+
+		if ($result) {
+			while ($fila_modulo = mysqli_fetch_assoc($resultado)) {
+				$spnombre="ins_usuarios_roles_jurisdiccion_inap_modulos";
+				$spparam=array(
+					'pusuariocod'=>$usuariocod,
+					'pmodulocod'=>$fila_modulo["modulocod"] ,
+					'prolcod'=>$rolcod ,
+					'pjurisdid_inap'=>$jurisdid_inap ,
+					'pultmodusuario'=>$_SESSION['usuariocod'] ,
+					'pultmodfecha'=> date("Y/m/d H:i:s")
+				);			
+				
+				if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) )
+				{	$txt_sys_mail ="rolcod='".$rolcod." \modulocod='".$fila_modulo["modulocod"];
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Se produjo un error al insertar el módulo a los usuarios del rol.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+					$result = false;
+				} else
+					FuncionesPHPLocal::RegistrarAcceso($this->conexion,'33901',"Global / usuariocod='".$usuariocod."' - rolcod='".$rolcod."' - jurisd='".$jurisdid_inap."' - modulocod='".$fila_modulo["modulocod"] ,$_SESSION['usuariocod']);
+			} // while
+		
+		} // if ($result)
+	
+		return $result;	
+	}
+	
+	//------------------------------------------------------------------------------------------
+	function Eliminar_Modulos_De_Rol ($usuariocod, $rolcod, $jurisdid_inap) {
+	
+		$result = true;
+		
+		$sparam =array("prolcod"=>$rolcod);
+		$sparam+=array("pusuariocod"=>$usuariocod);
+		$sparam+=array("pjurisdid_inap"=>$jurisdid_inap);		
+		$sparam+=array("prolmodtipoasig"=>array('"','F','"',",","'","D","'",",","'","N","'"));
+		$spnombre="sel_usuarios_roles_jurisdiccion_inap_modulos_asignadas_xrolcod_tipoasig";	
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado_mod,$numfilas,$errno) )
+		{
+			$error="Error al buscar los Módulos del Rol.";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$result = false;
+		}
+
+		if (!$errno && $result) {
+			while ($fila_modulo = mysqli_fetch_assoc($resultado_mod)) {
+
+				$spnombre="del_usuarios_roles_jurisdiccion_inap_xusuariocod_xrolcod_xjurisdid_xmodulocod";
+				$spparamdel=array('pusuariocod'=>$usuariocod);
+				$spparamdel+=array('prolcod'=>$rolcod);
+				$spparamdel+=array('pjurisdid_inap'=>$jurisdid_inap);
+				$spparamdel+=array('pmodulocod'=>$fila_modulo['modulocod']);
+				
+				if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparamdel,$resultado,$numfilas,$errno))
+				{
+									
+					if($errorcod==MYSQLFORKEY){
+						FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Existen organismos relacionados con usuarios '".$jurisdid_inap."'. Imposible borrarlo ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+						$result = false;
+					}	
+				}else
+					FuncionesPHPLocal::RegistrarAcceso($this->conexion,'33902',"usuariocod='".$usuariocod."' - rolcod='".$rolcod."' - jurisd='".$jurisdid_inap."' - modulocod='".$fila_modulo['modulocod'],$_SESSION['usuariocod']);
+			} // while
+		
+		} // if ($result)
+	
+		return $result;	
+	}
+	//------------------------------------------------------------------------------------------
+	
+//-------------------------------------------------------------------------
+} // FIN CLASE
+?>

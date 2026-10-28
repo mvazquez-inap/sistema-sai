@@ -1,0 +1,253 @@
+<?php require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+//---------------------------------------------------------------------------------------------------------------
+?>
+<script type="text/javascript" language="javascript">
+
+function ArmaComboPoc(jurisdid_inap,formulario,idCombo,idAguarde) {
+
+	var archivo="obtener_poc_organismo_ajax.dhtml";		
+	var datos ="jurisdid_inap="+jurisdid_inap+"&formulario="+formulario;
+
+	var contenedor=document.getElementById(idAguarde);
+	contenedor.innerHTML='Aguarde, cargando objetivos ...';
+	
+	var objCombo=document.getElementById(idCombo);
+	
+	var ajax=nuevoAjax();
+	ajax.open("POST",archivo,true);
+
+	ajax.onreadystatechange=function() {
+		if (ajax.readyState==4) {	
+//			if (ajax.responseText.substr(0,15)=="//tienepermisos") 	{	
+			objCombo.innerHTML=ajax.responseText;
+			contenedor.innerHTML='';
+			
+//			} else {	
+//				objCombo.innerHTML="Ud. no tiene los permisos";
+//				contenedor.innerHTML='';
+//			}
+				
+		}
+	}
+
+	ajax.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
+	ajax.send(datos);		
+}	
+
+
+
+function ArmaComboObj(poc_codigo,idCombo,idAguarde) {
+
+	var archivo="obtener_objetivos_poc_ajax.dhtml";		
+	var datos ="poc_codigo="+poc_codigo;
+
+	var contenedor=document.getElementById(idAguarde);
+	contenedor.innerHTML='Aguarde, cargando Poc ...';
+	
+	var objCombo=document.getElementById(idCombo);
+	
+	var ajax=nuevoAjax();
+	ajax.open("POST",archivo,true);
+
+	ajax.onreadystatechange=function() {
+		if (ajax.readyState==4) {	
+//			if (ajax.responseText.substr(0,15)=="//tienepermisos") 	{				
+				objCombo.innerHTML=ajax.responseText;
+				contenedor.innerHTML='';
+//			} else {	
+//				objCombo.innerHTML="Ud. no tiene los permisos";
+//				contenedor.innerHTML='';
+//			}
+				
+		}
+	}
+
+	ajax.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
+	ajax.send(datos);		
+}	
+
+
+//------------------------------------------------------------------------------------------------ 
+ function PedirParametrosListado(form, cod_listado) {
+	form.cod_listado.value=cod_listado;
+	InvertirEstado_Visibilidad('interfaz_parametros_'+cod_listado) ;
+ }
+//------------------------------------------------------------------------------------------------ 
+ function ValidarJS(form, cod_listado) {    
+	
+	if (form.param_poc_codigo.value=="") {
+		alert('Debe seleccionar el código del POC');
+		form.param_poc_codigo.focus();
+		return false;
+	} else 
+		return true;
+ }
+//------------------------------------------------------------------------------------------------ 
+</script>
+<br><div class="textoTitulo" align="left"> Menu Listado de Poc</div><br>
+<ul style="border:0; text-align:left" > 
+	<!-- *************************************************************************************** -->
+	<!-- *********************************** PARAMETROS LST 1 ********************************** -->
+<li style="margin-top:16px">
+	<a href="javascript:void(0)" class="linkListadoMenu" onClick="PedirParametrosListado(formulario_parametros_1,1);CambiarEstado_Visibilidad('interfaz_parametros_2','invisible');"> Listado Detalle del POC</a>
+ </li>
+ <li style="margin-top:16px">
+	<a href="javascript:void(0)" class="linkListadoMenu" onClick="PedirParametrosListado(formulario_parametros_2,2);CambiarEstado_Visibilidad('interfaz_parametros_1','invisible');"> Listado Detalle del POC x Objetivo</a>    
+    </li>
+   	<form action="poc_lst.dhtml" method="post" name="formulario_parametros_1" id="formulario_parametros_1" target="_blank">
+    <div id="idAguarde1"></div>
+	<table class="textoTablaDato" align="center" width="95%" id="interfaz_parametros_1" cellpadding="1" cellspacing="1" >
+		<tr>
+			<td valign="middle" colspan="2">&nbsp;</td>
+		</tr>
+        <?php  if ($_SESSION['rolcod'] == COORDINADORINAP || $_SESSION['rolcod'] == USUCURSOINAP ) { ?>
+		<tr>
+			<td valign="middle" >Organismo</td>
+			<td valign="top" class="textoEtiquetaDatoResaltado">  		
+		<?php		
+				$oAgentes = new cAgentes($conexion);
+				$oAgentes->Jurisdid_InapSP($spnombre,$spparam);
+				FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario_parametros_1","param_jurisdid_coordinacion","jurisdid","jurisdnom","0","",$filaajurisdid,$selejurisdid,0,'ArmaComboPoc(this.value,"formulario_parametros_1","id_poc_combo1","idAguarde1");',"width:370px",false,false,"",false);
+		?>				
+
+			</td>
+		</tr>
+                    
+         <?php } ?>           
+		<tr>
+			<td valign="middle" >Poc</td>
+			<td valign="top" class="textoEtiquetaDatoResaltado" id="id_poc_combo1">  		
+				<?php	$querystring=FuncionesPHPLocal::ArmarQueryString("poc_codigo","",false);
+					$spparam=array('pjurisdid_inap'=>$_SESSION['jurisdid_inap'],'porderby'=>"poc_ano");
+					FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,"sel_poc_xjurisdid_inap",$spparam,"formulario_parametros_1","param_poc_codigo","poc_codigo","poc_descri_completa","","-- Seleccione un POC",$filaselec,$selec,1,"","width:370px",false,true,"",false);	
+				?>						
+			</td>
+		</tr>
+		<tr>
+			<td  valign="middle"  colspan="2">&nbsp;</td>
+		</tr>
+		<tr>
+			<td valign="middle" colspan="2" align="center">
+			<input type="submit" name="confirma_listado" value="Listar" class="botones" onClick="return ValidarJS(formulario_parametros_1,1); "/>
+			<input type="hidden" name="cod_listado" id="cod_listado" value="" />
+			</td>
+		</tr>
+	</table>
+	<script type="text/javascript" language="javascript">CambiarEstado_Visibilidad('interfaz_parametros_1','invisible');</script>
+    </form>
+
+
+   	<form action="poc_lst.dhtml" method="post" name="formulario_parametros_2" id="formulario_parametros_2" target="_blank">
+    <div id="idAguarde"></div>
+	<table class="textoTablaDato" align="center" width="95%" id="interfaz_parametros_2" cellpadding="1" cellspacing="1" >
+		<tr>
+			<td valign="middle" colspan="2">&nbsp;</td>
+		</tr>
+        <?php  if ($_SESSION['rolcod'] == COORDINADORINAP || $_SESSION['rolcod'] == USUCURSOINAP) { ?>
+		<tr>
+			<td valign="middle" >Organismo</td>
+			<td valign="top" class="textoEtiquetaDatoResaltado">  		
+		<?php		
+				$oAgentes = new cAgentes($conexion);
+				$oAgentes->Jurisdid_InapSP($spnombre,$spparam);
+				FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario_parametros_2","param_jurisdid_coordinacion","jurisdid","jurisdnom","0","",$filaajurisdid,$selejurisdid,0,'ArmaComboPoc(this.value,"formulario_parametros_2","id_poc_combo","idAguarde");',"width:370px",false,false,"",false);
+		?>				
+
+			</td>
+		</tr>
+                    
+         <?php } ?>   
+         
+		<tr>
+			<td valign="middle" >Poc</td>
+			<td valign="top" class="textoEtiquetaDatoResaltado" id="id_poc_combo">  		
+				<?php	$querystring=FuncionesPHPLocal::ArmarQueryString("poc_codigo","",false);
+					$spparam=array('pjurisdid_inap'=>$_SESSION['jurisdid_inap'],'porderby'=>"poc_ano");
+					FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,"sel_poc_xjurisdid_inap",$spparam,"formulario_parametros_2","param_poc_codigo","poc_codigo","poc_descri_completa","","-- Seleccione POC",$filaselec,$selec,1,'ArmaComboObj(this.value,"id_obj_combo","idAguarde");',"width:370px",false,false,"",false);	
+					
+				?>						
+			</td>
+		</tr>
+		<tr>
+			<td valign="middle" >Objetivo</td>
+			<td valign="top" class="textoEtiquetaDatoResaltado" id="id_obj_combo">  	
+				<?php  $valores_combo[0] = array('pocobj_codigo'=>"0",'pocobj_descripcion'=>'-- Todos');
+                    FuncionesPHPLocal::ArmarCombo_SinSalto_deArray($valores_combo, "formulario_parametros_2","param_pocobj_codigo","pocobj_codigo","","pocobj_descripcion","","",$fila,$selo,0,'',$style="width:370px",false, false);
+                ?>	
+			</td>
+		</tr>
+		<tr>
+			<td  valign="middle"  colspan="2">&nbsp;</td>
+		</tr>
+		<tr>
+			<td valign="middle" colspan="2" align="center">
+			<input type="submit" name="confirma_listado" value="Listar" class="botones" onClick="return ValidarJS(formulario_parametros_2,2); "/>
+			<input type="hidden" name="cod_listado" id="cod_listado" value="" />
+			</td>
+		</tr>
+	</table>
+	<script type="text/javascript" language="javascript">CambiarEstado_Visibilidad('interfaz_parametros_2','invisible');</script>
+	</form>
+<!--		
+	<li style="margin-top:16px"> -->
+	<!-- *************************************************************************************** -->
+	<!-- *********************************** PARAMETROS LST 1 ********************************** -->
+<!--
+	<form action="poc_lst.dhtml"  method="post" name="formulario_parametros_2" id="formulario_parametros_2">
+	<a href="javascript:void(0)" class="linkListadoMenu" onClick="PedirParametrosListado(formulario_parametros_2,2)";> Listado Poc 2 </a>
+	<table class="textoTablaDato" align="center" width="95%" id="interfaz_parametros_2" cellpadding="1" cellspacing="1" >
+		<tr>
+			<td valign="middle" colspan="2" >&nbsp;</td>
+		</tr>
+		<tr>
+			<td valign="middle" colspan="2" class="textoEtiquetaDatoResaltado">&nbsp;</td>
+		</tr>
+		<tr>
+			<td valign="middle" class="textoEtiquetaDatoResaltado">Parametro 1 (lst 2):	</td>
+			<td valign="middle" align="right">  		
+				<input type="text" size="21" maxlength="20" name="param_poc_anio" id="param_poc_anio" value="">
+			</td>
+		</tr>
+		<tr>
+			<td valign="middle" class="textoEtiquetaDatoResaltado">Parametro 2 (lst 2):	</td>
+			<td valign="middle" align="right">  		
+				<input type="text" size="21" maxlength="20" name="param_prueba" id="param_prueba" value="">
+			</td>
+		</tr>
+		<tr>
+			<td  valign="middle"  colspan="2"class="textoEtiquetaDatoResaltado">&nbsp;</td>
+		</tr>
+		<tr>
+			<td valign="middle" colspan="2" align="center">
+			<input type="submit" name="confirma_listado" value="Listar" class="botones" />
+			<input type="hidden" name="cod_listado" id="cod_listado" value="" />
+			</td>
+		</tr>
+	</table>
+	<script type="text/javascript" language="javascript">CambiarEstado_Visibilidad('interfaz_parametros_2','invisible');</script>
+	</form>
+-->
+<!-- *************************************************************************************** -->
+</ul>
+<?php
+//--------------------------------------------------------------------------------------------------------------------------
+$oEncabezados->PieMenuEmergente(); 
+?>

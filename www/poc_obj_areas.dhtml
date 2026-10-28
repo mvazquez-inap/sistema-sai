@@ -1,0 +1,204 @@
+<?php
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+$oPocPocObjetivoPocArea = new cPocPocObjetivoPocArea($conexion);
+//----------------------------------------------------------------------------------------- 	
+?>
+<SCRIPT LANGUAGE="JavaScript" type="text/javascript">
+var campos_linea=new Array("lst|listaareasizq[]|listaareasder[]");
+var datos_grilla=new Array();
+
+function FXBuscar(frm,datos,metodo,archivo,idelemento,idtitulo,titulo,codigoobjetivo) {
+	if (frm.poc_codigo.selectedIndex!=0)
+	{
+		var datosmetodo=null;
+		var contenedor=document.getElementById(idelemento);
+		contenedor.innerHTML='';
+		var ajax=nuevoAjax();
+		if (metodo=="GET")
+			ajax.open(metodo,archivo+"?"+datos,true);
+		else
+		{	
+			datosmetodo=datos;
+			ajax.open(metodo,archivo,true);
+		}
+		ajax.onreadystatechange=function() {
+			if (ajax.readyState==4) 
+			{	
+				eval (ajax.responseText);
+
+				contenedor.innerHTML="";
+				CambiarPropiedad("listaareasizq[]","","disabled",false);
+				CambiarPropiedad("listaareasder[]","","disabled",false);
+				
+				frm.botonalta.disabled=false;
+				CambiarPropiedad("listaareasizq[]","","disabled",false);
+				
+			//	var obj = EncontrarObjeto('listaareasder[]');
+			//	alert(obj.disabled);
+				
+				if (datos_grilla.length>1)
+					CambiarPropiedad("listaareasder[]","","disabled",false);	
+				
+				frm.botonalta.disabled=false;
+
+			//	alert(campos_linea);
+			// 	CargarDatosModificar('CARGAR',frm,campos_linea,datos_grilla,idtitulo,titulo);
+					  
+				frm.pocobj_codigo.value=codigoobjetivo;
+				frm.pocobj_descripcion.value=pocobj_descripcion;
+				
+				if (titulo=='Eliminar Objetivo') {
+					CambiarPropiedad("listaareasizq[]","","disabled",true);
+					CambiarPropiedad("listaareasder[]","","disabled",true);			
+				}
+			}
+		}
+		ajax.send(datosmetodo);
+	} else {
+		alert ("Debe Seleccionar un POC");
+	}	
+}
+</script>
+<form action="poc_obj_areas_upd.dhtml" method="post" name="formulario">
+<table width="95%" class="textoTablaDato" align="center">
+	<tr> 
+		<td colspan="2" >&nbsp;</td>
+	</tr>
+	<tr>
+		<td class='textoEtiqueta' valign="top" width="50">POC</td>
+		<td class="textoEtiquetaDatoResaltado">
+		<?php	$oPoc = new cPoc($conexion);
+			$oPoc->PocSP($_SESSION['rolcod'],$_SESSION['jurisdid_inap'],$spnombre,$spparam);
+			$querystring=FuncionesPHPLocal::ArmarQueryString("poc_codigo","",false);
+			FuncionesPHPLocal::ArmarCombo_BD($conexion,$spnombre,$spparam,"formulario","poc_codigo","poc_codigo","poctodo",$querystring,"-- Seleccione un POC",$filaselec,$selec,"width:490px");
+		?>
+		</td>
+	</tr>
+</table>	
+
+<?php if($filaselec['poc_codigo']!="") { ?>
+
+	<br>
+	<div align="center">
+	<div align="center" id="buscador" ></div>
+	
+	<?php 
+	//ACA IRIA EL STORED DE LOS OBJETIVOS
+	$oPocObjetivo = new cPocObjetivo($conexion);
+	$pocobjjuris=$_SESSION['jurisdid_inap'];
+	$oPocObjetivo->ObjetivosSP($pocobjjuris,$spnombre,$spparam);
+	if(!$conexion->ejecutarStoredProcedure($spnombre,$spparam,$queryobj,$numfilas,$errno)) 	{
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar objetivos. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		die();
+	}
+	?>
+		  <table width="95%" border="1" cellpadding="1" cellspacing="1" class="textotabla">
+			  <tr align="center">
+				  <td class='colorTitulosGrupo textoTituloGrupo' width="70%">Objetivo</td>
+				  <td class='colorTitulosGrupo textoTituloGrupo' width="100">Actualizar Áreas</td>
+				  <td class='colorTitulosGrupo textoTituloGrupo' width="10%">Eliminar</td>
+			  </tr>
+	<?php
+		$i=1;
+		
+		if(mysqli_num_rows($queryobj)>0)
+			mysqli_data_seek($queryobj,0);
+	
+		while($filaobjetivo=mysqli_fetch_assoc($queryobj))
+		{	//print_r($filaobjetivo);
+			//ACA TENDRIA QUE VER SI ESE "POC_CODIGO Y ESE POCOBJ_CODIGO" TIENEN POR LO MENOS 1 REGISTRO
+			//EN "POC_POC_OBJ_POC_AREA", SI TIENE, PONGO $puedoborrar EN TRUE Y MUESTRO EL ICONO DE BORRAR
+			$puedoborrar=true;
+			$ArregloDatos= array();
+			$ArregloDatos['poc_codigo']=$filaselec['poc_codigo'];
+			$ArregloDatos['pocobj_codigo']=$filaobjetivo['pocobj_codigo'];
+			if(!$oPocPocObjetivoPocArea->BuscarPocPocObjetivoPocArea($ArregloDatos,$numfilas,$resultado,$error,$errormail)){
+				$txt_sys_mail="Error al seleccionar los Objetivos.";
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar los Objetivos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+				$puedoborrar=false;		
+			}
+			if($numfilas==0)
+				$puedoborrar=false;	
+	?>
+			  <tr>
+				  <td align="left" >
+					  <?php echo htmlspecialchars($filaobjetivo['pocobj_descripcion'],ENT_QUOTES);?>
+				  </td>
+				  <td align="center">
+						<a href="#Edicion" onClick='FXBuscar(formulario,"poc_codigo=<?php echo $filaselec['poc_codigo'];?>&amp;pocobj_codigo=<?php echo $filaobjetivo['pocobj_codigo']?>","GET","poc_obj_areas_ajax.dhtml","buscador","AltaModifLabel","Modificar Objetivo","<?php echo $filaobjetivo['pocobj_codigo']?>");'>
+							<img src="images/ed.jpg" border="0" alt="edicion">
+						</a>
+				  </td>
+				  <td align="center">
+
+	<?php		if($puedoborrar){ ?>			  
+					  <input type="image" src="images/del.jpg" alt="borrar" name="borrar" onClick='FXBuscar(formulario,"poc_codigo=<?php echo $filaselec['poc_codigo'];?>&amp;pocobj_codigo=<?php echo $filaobjetivo['pocobj_codigo']?>","GET","poc_obj_areas_ajax.dhtml","buscador","AltaModifLabel","Eliminar Objetivo","<?php echo $filaobjetivo['pocobj_codigo']?>");if(!confirm("Si elimina el Objetivo, eliminará también las Áreas asignadas al Objetivo.\n ¿Está seguro que desea borrar el Objetivo seleccionado?")) return false; formulario.pocobj_codigo.value=<?php echo $filaobjetivo["pocobj_codigo"] ?>'>
+					  <input type="hidden" name="botonbaja" value="borrar">
+	<?php		}
+			else
+				echo "&nbsp;"; ?>				  
+				  </td>
+			  </tr>
+	<?php
+			$i++;
+		}
+	?>
+		  </table>
+	</div>
+	<br>
+<?php } //fin de:if($filaselec['poc_codigo']!="") 
+
+if($filaselec['poc_codigo']!="") { ?> 
+
+<a name="Edicion"></a>
+<table width="80%" class="textoTablaDato">
+	  <tr>
+		  <td valign="top" colspan="2" height="10">	  </td>
+  	  </tr>
+	  <tr>
+		  <td colspan="2" class='textoEtiqueta'>Objetivo Seleccionado: &nbsp;&nbsp;<input type="text" size="60" name="pocobj_descripcion" id="pocobj_descripcion"  disabled="disabled" value="" />  </td>
+  	  </tr>
+	  
+	  <tr>
+		<td colspan="2" valign="top">
+		<?php
+			$oPocArea = new cPocArea($conexion);
+			$oPocArea->AreasSP($_SESSION['jurisdid_inap'],$spnombre,$spparam);
+			$querystring=FuncionesPHPLocal::ArmarQueryString("pocarea_codigo");
+			FuncionesPHPLocal::ArmarListas($conexion,$spnombre,$spparam,"pocarea_codigo","pocarea_descripcion","formulario","listaareas","Áreas Disponibles","Áreas Seleccionadas","width: 270px",10,false,false)
+		?>
+		</td>
+	  </tr>	
+	  <tr>
+		  <td valign="top" colspan="2" height="20">
+  		  </td>
+  	  </tr>
+	  <tr align="center">
+	    <td colspan="2" valign="top">
+		  <input type="submit" name="botonalta" class="botones" value="Actualizar" disabled onClick="SeleccionarTodosLista(formulario['listaareasder[]']);return <?php echo $Act=true; ?>">
+		  <input type="hidden" name="pocobj_codigo" value="">
+	  </td>
+    </tr>
+</table>	
+<?php } //fin de:if($filaselec['poc_codigo']!="") ?>
+</form>
+<?php $oEncabezados->PieMenuEmergente(); ?>

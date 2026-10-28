@@ -1,0 +1,26 @@
+<?php
+require('./include.dhtml');
+header('Content-Type: text/html; charset=utf-8');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+//--------------------------------------------------------------------------------------------------------------------------------------------------------
+$oPocObjetivo = new cPocObjetivo($conexion);
+$spnombre = "sel_poc_poc_objetivo_poc_area_xpoc_codigo";
+$spparam=array('ppoc_codigo'=>$_POST['poc_codigo'],'porderby'=>"pocobj_descripcion");
+FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario_parametros_2","param_pocobj_codigo","pocobj_codigo","pocobj_descripcion","","-- Todos ",$fila,$selo,1,'',$style="width:370px",false,false,"",false);
+//--------------------------------------------------------------------------------------------------------------------------------------------------------
+?>

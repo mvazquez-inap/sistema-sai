@@ -1,0 +1,359 @@
+<?php
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+$oPoc = new cPoc($conexion);
+$oPocActividad= new cPocActividad($conexion);
+//----------------------------------------------------------------------------------------- 	
+	function MostrarGrillaNoEditable($conexion,$modulo,$poc_codigo,$poc_estado="") {
+		$oPocActividad= new cPocActividad($conexion);
+		$ArregloDatos= array();
+		$ArregloDatos['pocact_estado'] = POCACTIVIDADAPROBADA.",".POCACTIVIDADPEDAPROB;
+		$ArregloDatos['orderby'] = "pocact_nombre_tentativo";
+		$ArregloDatos['poc_codigo']=$poc_codigo;	
+		if (!$oPocActividad->BuscarPocActividad($ArregloDatos,$numfilas,$result,$error,$errormail)) {
+			$txt_sys_mail="\npoc_codigo_".$poc_codigo."\nerror=".$errormail;
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando datos a mostrar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;			
+		}
+		$i=0;
+		while ($filaresult=mysqli_fetch_assoc($result))
+		{
+			$arrayresult[$i]['pocact_codigo']= $filaresult['pocact_codigo'];
+			$arrayresult[$i]['pocact_nombre_tentativo']= $filaresult['pocact_nombre_tentativo'];
+			$arrayresult[$i]['poctipopres_codigo']= $filaresult['poctipopres_codigo'];
+			$arrayresult[$i]['pocact_estado']= $filaresult['pocact_estado'];
+			$conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","POCACTIVIDADESTADO","' and constantecod='",$filaresult['pocact_estado'],"'"),$caracterdesc,$numfilascaracter,$errorcod);
+			$arrayresult[$i]['pocact_estado']= $caracterdesc;
+			$arrayresult[$i]['poc_codigo']= $filaresult['poc_codigo'];
+			$i++;
+		}
+		if ($numfilas ==0) {
+			return true;			
+		}
+		$opciones=array(
+			"numPagina"=>isset($_GET['pagina'])?$_GET['pagina']:1,
+			"NombrePaginaQuery"=>"pagina",
+			"FilasPagina"=>10
+		);
+		if (isset($_GET['pagina']))	{
+			$querystring=FuncionesPHPLocal::ArmarQueryString("pagina","",false);	
+			$opciones['QueryString']=$querystring;
+		}
+		$oGrilla = new cGrilla($opciones);
+		$oGrilla->SetearTituloGrilla('Actividades No Editables');	
+		$oGrilla->SetearAnchoGrilla('90%');
+		
+		$miColumna1 = $oGrilla->AddColumna('txt');
+		$oGrilla->Setear('titulo_columna',$miColumna1,'Actividad');
+		$oGrilla->Setear('ancho_columna',$miColumna1,'70%');
+		$oGrilla->Setear('campo_grilla',$miColumna1,'pocact_nombre_tentativo');
+		$oGrilla->Setear('align_columna',$miColumna1,'left');
+		
+		$miColumna2 = $oGrilla->AddColumna('txt');
+		$oGrilla->Setear('titulo_columna',$miColumna2,'Estado');
+		$oGrilla->Setear('ancho_columna',$miColumna2,'30%');
+		$oGrilla->Setear('campo_grilla',$miColumna2,'pocact_estado');
+		$oGrilla->Setear('align_columna',$miColumna2,'center');
+		
+		if (!$oGrilla->CargarGrilla($arrayresult))
+			return false;
+		$oGrilla->MostrarGrilla();
+		return true;
+	} 		
+//----------------------------------------------------------------------------------------- 	
+	function MostrarGrillaSeleccion($conexion,$modulo,$poc_codigo,$poc_estado="") {
+		$oPocActividad= new cPocActividad($conexion);
+		$ArregloDatos= array();
+		$ArregloDatos['pocact_estado'] = POCACTIVIDADNUEVA.",".POCACTIVIDADRECHAZADA;
+		$ArregloDatos['orderby'] = "pocact_nombre_tentativo";
+		$ArregloDatos['poc_codigo']=$poc_codigo;	
+		if (!$oPocActividad->BuscarPocActividad($ArregloDatos,$numfilas,$result,$error,$errormail)) {
+			$txt_sys_mail="\npoc_codigo_".$poc_codigo."\nerror=".$errormail;
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando datos a mostrar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;			
+		}
+		$i=0;
+		while ($filaresult=mysqli_fetch_assoc($result))
+		{
+			$arrayresult[$i]['pocact_codigo']= $filaresult['pocact_codigo'];
+			$arrayresult[$i]['pocact_nombre_tentativo']= $filaresult['pocact_nombre_tentativo'];
+			$arrayresult[$i]['poctipopres_codigo']= $filaresult['poctipopres_codigo'];
+			$arrayresult[$i]['pocact_estado']= $filaresult['pocact_estado'];
+			$arrayresult[$i]['poc_codigo']= $filaresult['poc_codigo'];
+			$i++;
+		}
+		if ($numfilas ==0) {
+			return true;			
+		}
+		$opciones=array(
+			"numPagina"=>isset($_GET['pagina'])?$_GET['pagina']:1,
+			"NombrePaginaQuery"=>"pagina",
+			"FilasPagina"=>10
+		);
+		if (isset($_GET['pagina']))	{
+			$querystring=FuncionesPHPLocal::ArmarQueryString("pagina","",false);	
+			$opciones['QueryString']=$querystring;
+		}
+		$oGrilla = new cGrilla($opciones);
+		$oGrilla->SetearTituloGrilla('Actividades Editables');	
+		$oGrilla->SetearAnchoGrilla('90%');
+		
+		$miColumna1 = $oGrilla->AddColumna('txt');
+		$oGrilla->Setear('titulo_columna',$miColumna1,'Actividad');
+		$oGrilla->Setear('campo_grilla',$miColumna1,'pocact_nombre_tentativo');
+		$oGrilla->Setear('align_columna',$miColumna1,'left');
+		
+		$miColumna3 = $oGrilla->AddColumna('linkimg');
+		$oGrilla->Setear('titulo_columna',$miColumna3,'Editar');
+		$oGrilla->Setear('ancho_columna',$miColumna3,'60');
+		$oGrilla->Setear('url',$miColumna3,$modulo);
+		$oGrilla->Setear('url_ancla',$miColumna3,'Edicion');
+		$oGrilla->Setear('imagen',$miColumna3,'images/editar.jpg');
+		$oGrilla->Setear('altImagen',$miColumna3,'Editar');						
+		$oGrilla->AddParametrosURL($miColumna3,"poc_codigo","poc_codigo");
+		$oGrilla->AddParametrosURL($miColumna3,"pocact_codigo","pocact_codigo");
+		$oGrilla->AddParametrosURL($miColumna3,"operacion","M","cte");
+
+		$miColumna4 = $oGrilla->AddColumna('linkimg');
+		$oGrilla->Setear('titulo_columna',$miColumna4,'Eliminar');
+		$oGrilla->Setear('ancho_columna',$miColumna4,'60');
+		$oGrilla->Setear('url',$miColumna4,$modulo);
+		$oGrilla->Setear('url_ancla',$miColumna4,'Edicion');
+		$oGrilla->Setear('imagen',$miColumna4,'images/borrar.jpg');
+		$oGrilla->Setear('altImagen',$miColumna4,'Eliminar');
+		$oGrilla->AddParametrosURL($miColumna4,"poc_codigo","poc_codigo");
+		$oGrilla->AddParametrosURL($miColumna4,"pocact_codigo","pocact_codigo");
+		$oGrilla->AddParametrosURL($miColumna4,"operacion","B","cte");
+
+		if (!$oGrilla->CargarGrilla($arrayresult))
+			return false;
+		$oGrilla->MostrarGrilla();
+		return true;
+	} 		
+//--------------------------------------------------------------------------------------------------
+?>
+<script type="text/javascript">
+	<?php $oPocActividad->ValidarFormAltaActividad(); ?>
+</script>
+<?php 
+$modulo_recarga= "poc_actividad.dhtml";
+$result = true;
+//--------------------------------------------------------------------------------------------------
+// Se confirmo la operacion 
+//--------------------------------------------------------------
+	if ( isset($_POST['boton_confirma']) ) 	{
+
+		$commit=true;
+		$conexion->ManejoTransacciones("B");
+
+		// Alta - Baja - Modificación
+		if ($commit) 	{
+			if (isset($_POST['boton_confirma'])) {
+				if ($_POST['operacion']=="I") {
+					if ($oPocActividad->AltaPocActividad($_POST)) 
+					{
+						$nuevocodigo=$conexion->UltimoCodigoInsertado();
+						FuncionesPHPLocal::RegistrarAcceso($conexion,"37301","pocact_codigo=".$nuevocodigo,$_SESSION['usuariocod']);
+						FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se ha dado de Alta la Actividad ".$_POST['pocact_nombre_tentativo'].".",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					} else {
+						//$arraymensajepantalla="No se ha podido dar de alta la Actividad del Poc";
+						//FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+						$commit=false;
+					}
+				}			
+				if ($_POST['operacion'] == "M") {
+					if ($oPocActividad->ModifDatosPocActividad($_POST)) 
+					{
+						FuncionesPHPLocal::RegistrarAcceso($conexion,"37303","pocact_codigo=".$_POST['pocact_codigo'],$_SESSION['usuariocod']);
+						FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se han modificado los datos de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					} else {
+						//$arraymensajepantalla="No se ha podido modificar el Poc";
+						//FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+						$commit=false;
+						}
+					//}//fin: else
+				}//fin: if ($_POST['operacion'] == "M")
+				if ($_POST['operacion'] == "B") {
+						if ($oPocActividad->EliminarDatosPocActividad($_POST)) 
+						{			
+							FuncionesPHPLocal::RegistrarAcceso($conexion,"37302","pocact_codigo=".$_POST['pocact_codigo'],$_SESSION['usuariocod']);
+							FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se ha dado de baja la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+						} else {
+							//$arraymensajepantalla="No se ha podido eliminar el Poc";
+							//FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+							$commit=false;
+							}
+				}
+			 }//fin: if (isset($_POST['boton_actualizar']))			
+			//}//fin: if ($commit) 
+			
+			if($commit)
+				$conexion->ManejoTransacciones("C");
+			else
+				$conexion->ManejoTransacciones("R");
+		}	// commit
+	} // 	if (isset($_POST['boton_actualizar']) || (isset($_POST['boton_eliminar'])) 
+
+	//------------------------------------------------------------
+	// Inicio de pantalla
+	//------------------------------------------------------------
+	// Se define la acción
+
+	if (!isset($_GET['operacion'])) {
+		$leyenda_operacion = "Agregar";
+		$boton_operacion = "Agregar";		
+		$operacion = "I";
+	} else {
+		switch ($_GET['operacion']) {		
+		case "M" :
+				$leyenda_operacion = "Actualizar";		
+				$boton_operacion = "Actualizar";		
+				$operacion = "M";				
+				break;
+		case "B" :
+				$leyenda_operacion = "Eliminar";		
+				$boton_operacion = "Eliminar";		
+				$operacion = "B";				
+				break;
+		default:
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error de operación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$result=false;
+		}
+	}
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////	
+	?>
+	<script type="text/javascript">
+		<?php $oPoc->ValidarFormAltaPoc(); ?>
+	</script>
+	<?php	
+	//------- DATOS DE UN REGISTRO
+	if ($result) { 	
+
+		$fila_tabla=array();						//  NUEVO
+		$es_modif = false;	
+
+		if ($operacion == "M" || $operacion == "B") {	
+			// BAJA o MODIFICACION
+			// Datos para la seleccion de un registro por su clave.
+			$ArregloDatos=array();
+			$ArregloDatos['pocact_codigo']= $_GET['pocact_codigo'];
+			if(!$oPocActividad->BuscarPocActividad($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+			{
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"El código no corresponde a una actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					?><br><br><br><div align="center"><a href="poc_actividad.dhtml" class="linkFondoBlanco">Volver</a></div><?php
+					$esta_ok=false;
+			}
+			else
+				$datospoc=mysqli_fetch_assoc($resultado);
+		} // Obtencion de datos 
+		
+		if ($result) {  		?>
+			<table width="100%" class="textoTablaDato">
+			<tr> 
+			   <td align="center">
+					<form action="<?php echo $modulo_recarga; ?>" method="post" name="formulario">
+					<table width="80%"  border="0" align="center" cellspacing="0" cellpadding="0">		
+						<tr> 
+							<td colspan="2" >&nbsp;</td>
+						</tr>
+						<tr>
+							<td valign="top" width="20%" >
+								<span class='textoEtiqueta'>Poc</span>
+							</td>
+							<td class="textoEtiquetaDatoResaltado" width="80%" align="left">
+							<?php	$oPoc->PocEstados($_SESSION['jurisdid_inap'],$spnombre,$spparam);
+								$querystring=FuncionesPHPLocal::ArmarQueryString("poc_codigo","",false);
+								$querystring=FuncionesPHPLocal::ArmarQueryString("operacion","",false);
+								FuncionesPHPLocal::ArmarCombo_BD($conexion,$spnombre,$spparam,"formulario","poc_codigo","poc_codigo","poctodo",$querystring,"-- Seleccione un POC",$filaselec,$selec);
+							?>
+							</td>
+						</tr>	
+						<tr>
+							<td valign="top" colspan="2">&nbsp; </td>
+						</tr>
+					</table>
+					</form>
+	
+			<?php		if(isset($filaselec)) {		?>
+				<tr> 
+					<td align="center">									
+		<?php				if (!MostrarGrillaNoEditable($conexion,$modulo_recarga,$filaselec['poc_codigo'],$filaselec['poc_estado']))
+							FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar datos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		?>			</td>
+				</tr>
+				<tr> 
+					<td colspan="2" >&nbsp;</td>
+				</tr>
+				<tr> 
+					<td align="center">	
+		<?php				if (!MostrarGrillaSeleccion($conexion,$modulo_recarga,$filaselec['poc_codigo'],$filaselec['poc_estado']))
+							FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar datos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		?>			</td>
+				</tr>	
+	<?php		} // fin de: if(isset($filaselec)){ ?>		
+			</table>
+			<br>
+			<?php		if(isset($filaselec)){
+				// Para que se quede en el POC seleccionado
+				$param_poc=isset($_GET['poc_codigo'])?"?poc_codigo=".$_GET['poc_codigo']:""; 	   ?>
+				<a name="Edicion"></a>
+				<form action="<?php echo $modulo_recarga.$param_poc; ?>" method="post" name="formulario_upd">
+				<table width="80%"  border="0" align="center" cellspacing="0" cellpadding="0">			
+					<tr> 
+						<td>
+						<fieldset class="bordeDetalleRegistro">
+						<legend class="textoLeyendaDetalleRegistro">  Detalle de la Actividad  ( <?php echo $leyenda_operacion ?>  )</legend>
+						<table width="100%" class="textoTablaDato" cellpadding="2" cellspacing="0">
+								<tr> 
+									<td colspan="2" >&nbsp;</td>
+								</tr>
+								<tr>
+									<td valign="top" class="textoEtiqueta">Nombre Actividad</td>
+									<td class="textoEtiquetaDatoResaltado">	
+									 <textarea cols="100"  name="pocact_nombre_tentativo"  style="width:400px" <?php echo ($operacion == "B")?' class="inputReadonly" readonly ':' class="textoInput" '?>><?php if($operacion == "M" || $operacion == "B") echo htmlspecialchars($datospoc['pocact_nombre_tentativo'],ENT_QUOTES) ?></textarea>
+									</td>
+								</tr> 
+								<tr>
+									<td valign="top" class="textoEtiqueta">Tipo Prestador </td>
+									<td class="textoEtiquetaDatoResaltado">	
+									<?php FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,"sel_poc_tipo_prestador_xorderby",array('porderby'=>"poctipopres_descripcion"),"formulario_upd","poctipopres_codigo","poctipopres_codigo","poctipopres_descripcion",($operacion == "M" || $operacion == "B")?$datospoc['poctipopres_codigo']:"","-- Seleccione un Tipo de Prestador",$fila_tipo_prest,$selec_tipo_prest,$filas=1,$onchange="",$style="width:400px",false,false,"",($operacion == "B")); ?>
+									</td>
+								</tr> 
+								<tr>
+									<td colspan="2" align="center">
+										<input type="submit" name="boton_confirma" value="<?php echo $boton_operacion; ?>" onClick="return ValidarFormAltaActividad(formulario_upd,'<?php echo $operacion ?>'); " class="botones" />
+										<input type="submit" name="boton_cancela" value="Cancelar" class="botones" />
+										<input type="hidden" name="operacion" id="operacion" value="<?php echo $operacion;?>" />
+										<input type="hidden" name="poc_codigo" value="<?php  echo (isset($_GET['poc_codigo']))?$_GET['poc_codigo'] :"" ?>"  />
+										<input type="hidden" name="pocact_codigo" id="pocact_codigo" value="<?php echo (isset($_GET['pocact_codigo']))?$_GET['pocact_codigo'] :"" ?>" />				  
+									
+									</td>
+								</tr>					
+						</table>
+						</fieldset> 
+						</td>
+						</tr>
+					</table>
+				</form>		
+	<?php		} //fin de: if(isset($filaselec)){
+		} // $result
+	} // $result
+$oEncabezados->PieMenuEmergente(); 
+?>

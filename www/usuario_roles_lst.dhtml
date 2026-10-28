@@ -1,0 +1,117 @@
+<?php 
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+
+$oUsuario=new cUsuarios($conexion);
+$oRol = new cRoles($conexion);
+//----------------------------------------------------------------------------------------- 	
+// Inicio de pantalla
+if(!$oUsuario->BuscarUsuarios($_POST,$numfilasusuarios,$resultadousuarios,$error,$errormail)) {
+	FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando usuarios. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$error);
+	die();
+}
+$muchosusuarios=false;
+//if($numfilasusuarios>LIMITE_BUSQUEDA_CHICO) {
+//	$muchosusuarios=true;
+?>
+<!-- <p class="" align="left">La búsqueda solicitada supera el límite permitido de usuarios a mostrar. Por favor, realice nuevamente la búsqueda siendo más específico en los datos ingresados.</p> -->		
+<?php
+//}
+
+?>
+<div align="right" style="width:97%">
+	<a href="usuario_buscar.dhtml" class="linkFondoBlanco textoAclaraciones">Volver a realizar la búsqueda</a>
+</div>
+<br>
+<?php
+if(!$muchosusuarios) {
+?>
+	<?php	$array_mostrar=array();
+		while($filausuario=mysqli_fetch_assoc($resultadousuarios)) {
+
+			if(!$oRol->RolesDeUnUsuario($filausuario['usuariocod'],$numfilasroles,$resultadoroles))
+				die();
+	
+			$array_datos_roles=array();
+			$array_roles=array();
+	
+			while($filarol=mysqli_fetch_assoc($resultadoroles)) {
+				if ( ($_POST['rolcod']!="" && $_POST['rolcod']==$filarol['rolcod']) || $_POST['rolcod']=="" ) {		
+
+					$jurisdnom="";
+					if ($filarol['rolcod'] == COORDINADORTECNICO || $filarol['rolcod'] == USUORGANISMO || $filarol['rolcod'] == USUACTJUR ) 
+						$conexion->TraerCampo("jurisdiccion_inap","jurisdnom",array("jurisdid='",$filarol['jurisdid_inap'],"'"),$jurisdnom,$numfilas,$errno);
+		
+					$array_roles[]=$filarol['rolcod'];
+					$array_datos_roles[]=array('rolcod'=>$filarol['rolcod'],'roldesc'=>$filarol['roldesc'],'jurisdid_inap'=>$filarol['jurisdid_inap'],'jurisdnom'=>$jurisdnom,
+											 'usuroljur_domicilio'=>$filarol['usuroljur_domicilio'],'usuroljur_telefono'=>$filarol['usuroljur_telefono'], 'usuroljur_fax'=>$filarol['usuroljur_fax']);
+				}
+			}	
+
+			if ( ($_POST['rolcod']!="" && in_array($_POST['rolcod'],$array_roles) ) || $_POST['rolcod']=="" ) {		
+				$array_mostrar[]=array('usuarioCUIT'=>htmlspecialchars($filausuario['usuarioCUIT'],ENT_QUOTES),
+							'usuariocod'=>htmlspecialchars($filausuario['usuariocod'],ENT_QUOTES),
+							'usuarioestadodesc'	=>($filausuario['usuarioestado']!=USUARIOBAJA)?"ACTIVO":"BAJA",						
+							'usuarioestado'	=>$filausuario['usuarioestado'],						
+				            'usuarionombrecompleto'=>htmlspecialchars($filausuario['usuarioapellido'].", ".$filausuario['usuarionombre'],ENT_QUOTES),
+				            'usuarioemail'=>htmlspecialchars($filausuario['usuarioemail'],ENT_QUOTES), 
+						    'usuarioroles'=>$array_datos_roles);							
+			}				
+		} ?>
+	
+	<?php
+
+	if ( !isset($_POST['rolcod']) || $_POST['rolcod']=="")  { 
+
+		$opciones=array(
+			"archivo_template"=>"templates/lst_usuarios_roles.tpl.dhtml",
+			"arreglo"=>$array_mostrar,
+			"TituloListado"=>"Listado de Usuarios / Roles ",
+			"FilasPagina"=>count($array_mostrar),
+		);
+
+	 } else { 
+	 
+		$descri_rol="";
+		if (count($array_mostrar)>0) 
+			$descri_rol=$array_mostrar[0]['usuarioroles'][0]['roldesc'];
+		$opciones=array(
+			"archivo_template"=>"templates/lst_usuarios_del_rol.tpl.dhtml",
+			"arreglo"=>$array_mostrar,
+			"TituloListado"=>"Listado de Usuarios del Rol : ".$descri_rol,
+			"FilasPagina"=>count($array_mostrar),
+		);
+	}
+	
+	
+	if(!$oListado=new cListadosTemplate($opciones))
+	{
+		$nrolinea=__LINE__;
+		return false;
+	}
+
+	if(!$oListado->MostrarListado())
+	{
+		$nrolinea=__LINE__;
+		return false;
+	}	
+} // se mostraron los usuarios
+$oEncabezados->PieMenuEmergente();
+?>

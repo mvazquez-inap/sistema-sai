@@ -1,0 +1,907 @@
+<?php
+//----------------------------------------------------------------------------------------- 
+class cPersonas 
+{
+	var $conexion;
+
+	function cPersonas($conexion)
+	{
+		$this->conexion = &$conexion;
+	}
+//-----------------------------------------------------------------------------------------
+//							 PUBLICAS	
+//----------------------------------------------------------------------------------------- 
+	function PersonaEsAgente($pers_codigo)
+	{
+		$sparam=array('ppers_codigo' =>$pers_codigo);
+		$spnombre="sel_agente_xpers_codigo";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar al agente.";
+			$errormail="Error al buscar al agente en la tabla agente. ".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		if ($numfilas == 1)	{
+			return true;
+		}
+		return false;
+	}
+	
+
+//-----------------------------------------------------------------------------------------------------	
+	function PersonaEsActividadAautodesarrolloPersona($pers_codigo)
+	{
+		$sparam=array('ppers_codigo' =>$pers_codigo);
+		$spnombre="sel_actividad_autodesarrollo_persona_xpers_codigo";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar a la persona.";
+			$errormail="Error al buscar a la persona en la tabla actividad_autodesarrollo. ".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		if ($numfilas >= 1)	{
+			return true;
+		}
+		return false;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function PersonaEsActividadAautodesarrolloDictamen($pers_codigo)
+	{
+		$sparam=array('ppers_codigo' =>$pers_codigo);
+		$spnombre="sel_actividad_autodesarrollo_dictamen_xpers_codigo";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar a la persona.";
+			$errormail="Error al buscar a la persona en la tabla actividad_autodesarrollo_dictamen. ".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		if ($numfilas >= 1)	{
+			return true;
+		}
+		return false;
+	}
+		
+//-----------------------------------------------------------------------------------------------------	
+	function PersonaEsActividadExternaPersona($pers_codigo)
+	{
+		$sparam=array('ppers_codigo' =>$pers_codigo);
+		$spnombre="sel_actividad_externa_persona_xpers_codigo";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar a la persona.";
+			$errormail="Error al buscar a la persona en la tabla actividad_externa_persona. ".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		if ($numfilas >= 1)	{
+			return true;
+		}
+		return false;
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function PersonaEsComisionPersona($pers_codigo)
+	{
+		$sparam=array('ppers_codigo' =>$pers_codigo);
+		$spnombre="sel_comision_persona_xpers_codigo";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar a la persona.";
+			$errormail="Error al buscar a la persona en la tabla comision_persona. ".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		if ($numfilas >= 1)	{
+			return true;
+		}
+		return false;
+	}
+		
+		
+
+//-----------------------------------------------------------------------------------------------------	
+	function ValidarFormAltaPersonaJS($valida = true)
+	{
+?>
+		function ValidarFormAltaPersonaJS(formulario) {
+
+	<?php if ($valida) { ?>
+			if (!ValidarContenido(formulario.pers_cuilt.value,"CUIT")){
+				alert("El CUIT/CUIL/CDI no es válido");
+				formulario.pers_cuilt.focus();
+				return false;
+			}	
+	<?php } ?>
+
+			if (!ValidarContenido(formulario.pers_apellido.value,"AlfabeticoPuro") || (trim(formulario.pers_apellido.value)=="")){
+				alert("Debe ingresar un apellido válido");
+				formulario.pers_apellido.focus();
+				return false;
+			}	
+		
+			if (!ValidarContenido(formulario.pers_nombre.value,"AlfabeticoPuro") || (trim(formulario.pers_nombre.value)=="")){
+				alert("Debe ingresar un nombre válido");
+				formulario.pers_nombre.focus();
+				return false;
+			}	
+		
+			if (!ValidarContenido(formulario.pers_nombre.value,"AlfabeticoPuro") || (trim(formulario.pers_nombre.value)=="")){
+				alert("Debe ingresar un nombre válido");
+				formulario.pers_nombre.focus();
+				return false;
+			}	
+		
+			// if ((!formulario.pers_sexo[0].checked) && (!formulario.pers_sexo[1].checked))
+			// {
+// MV - SEXO - 17032023 
+if (
+    (!formulario.pers_sexo[0].selected) &&
+    (!formulario.pers_sexo[1].selected) &&
+    (!formulario.pers_sexo[2].selected) &&
+    (!formulario.pers_sexo[3].selected) &&
+    (!formulario.pers_sexo[4].selected) &&
+    (!formulario.pers_sexo[5].selected) &&
+    (!formulario.pers_sexo[6].selected) &&
+    (!formulario.pers_sexo[7].selected) &&
+    (!formulario.pers_sexo[8].selected) &&
+    (!formulario.pers_sexo[9].selected)
+){			
+
+				alert("Debe seleccionar el sexo");
+				return false;
+			}
+			
+			if(formulario.pers_email.value!="" && !ValidarContenido(formulario.pers_email.value,"Email"))
+			{
+				alert("Debe ingresar el eMail válido");
+				formulario.pers_email.focus();
+				return false;	
+			}
+			
+			if(formulario.pers_fechanac.value!="" && !ValidarFecha(formulario.pers_fechanac.value))
+			{
+				alert("Debe ingresar la fecha de nacimiento válida");
+				formulario.pers_fechanac.focus();
+				return false;	
+			}
+			
+			
+			
+			return true;
+		}
+<?php
+}
+//-----------------------------------------------------------------------------------------------------	
+	function TraerDatosPersona($pers_cuilt,&$datosresult, &$es_modif)
+	{
+		$datosagente=array();
+		$es_modif = false;		
+		$sparam=array('ppers_cuilt'=>$pers_cuilt);
+		$sparam+=array('ppers_estado'=>PERSONAACTIVA.",".PERSONABAJA);	
+		$spnombre="sel_persona_xperscuilt_pers_estado";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar a la persona.";
+			$errormail="Error al buscar a la persona en la tabla persona. ".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		if ($numfilas == 1)	{
+			$datosresult = mysql_fetch_assoc($resultado);
+			$es_modif = true;			
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function TraerDatosPersona_xCod($pers_codigo,&$datosresult, &$es_modif)
+	{
+		$datosagente=array();
+		$es_modif = false;		
+		$sparam=array('ppers_codigo' =>$pers_codigo);
+		$spnombre="sel_persona_xpers_codigo";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar a la persona.";
+			$errormail="Error al buscar a la persona en la tabla persona. ".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		if ($numfilas == 1)	{
+			$datosresult = mysql_fetch_assoc($resultado);
+			$es_modif = true;
+		}
+		return true;
+		
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function TraerDatosPersonaTemporal($pers_cuilt,&$datosresult, &$es_modif)
+	{
+		$datosagente=array();
+		$es_modif = false;		
+		$sparam=array('ppers_cuilt'=>$pers_cuilt);
+		$sparam+=array('ppers_estado'=>PERSONAACTIVA);	
+		$spnombre="sel_persona_temp_xperscuilt_pers_estado";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar a la persona.";
+			$errormail="Error al buscar a la persona en la tabla persona temporal. ".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		if ($numfilas == 1)	{
+			$datosresult = mysql_fetch_assoc($resultado);
+			$es_modif = true;			
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function TraerDatosPersonaTemporal_xCod($pers_codigo,&$datosresult, &$es_modif)
+	{
+		$datosagente=array();
+		$es_modif = false;		
+		$sparam=array('ppers_codigo' =>$pers_codigo);
+		$spnombre="sel_persona_temp_xpers_codigo";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar a la persona.";
+			$errormail="Error al buscar a la persona en la tabla persona. ".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		if ($numfilas == 1)	{
+			$datosresult = mysql_fetch_assoc($resultado);
+			$es_modif = true;
+		}
+		return true;
+		
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function ModifDatosPers($datos)
+	{
+		
+		if(!$this->_DatosValidosModifPers($datos,$datosvalidados))
+			return false;
+
+		$spnombre="upd_persona_xpers_codigo";
+		$spparam=array(
+			'ppers_codigo'=>$datosvalidados["pers_codigo"] ,
+			'ppers_nombre'=>$datosvalidados["pers_nombre"] ,			
+			'ppers_apellido'=>$datosvalidados["pers_apellido"] ,			
+			'ppers_sexo'=>$datosvalidados["pers_sexo"] ,			
+			'ppers_estado'=>PERSONAACTIVA,						
+			'ppers_email'=>$datosvalidados["pers_email"],
+			'ppers_fechanac'=>$datosvalidados["pers_fechanac"],
+			'pultmodusuario'=>$_SESSION['usuariocod'] ,
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+			);			
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al modificar la persona.";
+			$errormail="Error al modificar en la tabla persona".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function AltaDatosPers($datos)
+	{
+		if(!$this->_DatosValidosAltaPers($datos,$datosvalidados))
+			return false;
+
+		$spnombre="ins_persona";
+		$spparam=array(
+			'ppers_cuilt'=>$datosvalidados["pers_cuilt"] ,
+			'ppers_nombre'=>$datosvalidados["pers_nombre"] ,			
+			'ppers_apellido'=>$datosvalidados["pers_apellido"] ,			
+			'ppers_sexo'=>$datosvalidados["pers_sexo"] ,						
+			'ppers_estado'=>PERSONAACTIVA,
+			'ppers_email'=>$datosvalidados["pers_email"],								
+			'ppers_fechanac'=>$datosvalidados["pers_fechanac"],											
+			'pultmodusuario'=>$_SESSION['usuariocod'] ,
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+			);			
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al insertar la persona.";
+			$errormail="Error al insertar en la tabla persona".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		return true;
+	}	
+	
+//-----------------------------------------------------------------------------------------------------	
+	function BorrarDatosPers($pers_codigo)
+	{
+		if(!$this->_DatosValidosBorrarDatosPers($pers_codigo,$datosvalidados))
+			return false;
+
+
+		$esAgente = $this->PersonaEsAgente($datosvalidados["pers_codigo"]);
+		$esActividad_autodesarrollo_persona = $this->PersonaEsActividadAautodesarrolloPersona($datosvalidados["pers_codigo"]);
+		$esActividad_autodesarrollo_dictamen = $this->PersonaEsActividadAautodesarrolloDictamen($datosvalidados["pers_codigo"]);
+		$esActividad_externa_persona= $this->PersonaEsActividadExternaPersona($datosvalidados["pers_codigo"]);
+		$esComision_persona= $this->PersonaEsComisionPersona($datosvalidados["pers_codigo"]);
+
+		if (!$esActividad_autodesarrollo_persona && !$esActividad_autodesarrollo_dictamen && !$esActividad_autodesarrollo_dictamen && !$esActividad_externa_persona && !$esComision_persona) {
+		
+
+			//baja física
+		
+			if ($esAgente) {
+				$spnombre="del_agente_xpers_codigo";
+				$spparam=array(
+					'ppers_codigo'=>$datosvalidados["pers_codigo"]
+				);			
+		
+				if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+				{
+					$error="Error al eliminar los datos laborales.";
+					$errormail="Error al eliminar en la tabla agente".$errno;
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+					return false;
+				}
+
+			}
+				
+			$spnombre="del_persona_xpers_codigo";
+			$spparam=array(
+				'ppers_codigo'=>$datosvalidados["pers_codigo"]
+			);			
+		
+		} else {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"La persona se encuentra registrada en alguna actividad INAP.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),"");
+			return false;
+		/*
+				//baja lógica
+				$spnombre="upd_persona_cambio_estado_xpers_codigo";
+				$spparam=array(
+					'ppers_codigo'=>$datosvalidados["pers_codigo"] ,
+					'ppers_estado'=>PERSONABAJA ,						
+					'pultmodusuario'=>$_SESSION['usuariocod'] ,
+					'pultmodfecha'=> date("Y/m/d H:i:s")
+					);			
+					
+		*/			
+		}
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al eliminar la persona.";
+			$errormail="Error al eliminar en la tabla persona".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+
+		return true;
+	}	
+
+
+//-----------------------------------------------------------------------------------------------------	
+	function ModifMailPers($datos)
+	{
+		//if(!$this->_DatosValidosModifPers($datos,$datosvalidados))
+		//	return false;
+		// Se valida en la interface
+		$spnombre="upd_persona_mail_xpers_codigo";
+		$spparam=array(
+			'ppers_codigo'=>$datos["pers_codigo"] ,
+			'ppers_email'=>$datos["pers_email"],
+			'pultmodusuario'=>$_SESSION['usuariocod'] ,
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+		);			
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al modificar el mail de la persona.";
+			$errormail="Error al modificar el mail de la persona.".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		return true;
+	}	
+
+
+
+//-----------------------------------------------------------------------------------------------------	
+	function AltaDatosPersSinCuil($datos)
+	{
+		if(!$this->_DatosValidosAltaPersSinCuil($datos,$datosvalidados))
+			return false;
+
+		$spnombre="ins_persona";
+		$spparam=array(
+			'ppers_cuilt'=>$datosvalidados["pers_cuilt"] ,
+			'ppers_nombre'=>$datosvalidados["pers_nombre"] ,			
+			'ppers_apellido'=>$datosvalidados["pers_apellido"] ,			
+			'ppers_sexo'=>$datosvalidados["pers_sexo"] ,						
+			'ppers_estado'=>PERSONAACTIVA,
+			'ppers_email'=>$datosvalidados["pers_email"],								
+			'ppers_fechanac'=>$datosvalidados["pers_fechanac"],											
+			'pultmodusuario'=>$_SESSION['usuariocod'] ,
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+			);			
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al insertar la persona.";
+			$errormail="Error al insertar en la tabla persona".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		return true;
+	}	
+	
+	
+//-----------------------------------------------------------------------------------------------------	
+	function AltaDatosPersTemporal($datos)
+	{
+		if(!$this->_DatosValidosAltaPersTemporal($datos,$datosvalidados))
+			return false;
+
+		$spnombre="ins_persona_temp";
+		$spparam=array(
+			'ppers_cuilt'=>$datosvalidados["pers_cuilt"] ,
+			'ppers_nombre'=>$datosvalidados["pers_nombre"] ,			
+			'ppers_apellido'=>$datosvalidados["pers_apellido"] ,			
+			'ppers_sexo'=>$datosvalidados["pers_sexo"] ,						
+			'ppers_estado'=>PERSONAACTIVA,
+			'ppers_email'=>$datosvalidados["pers_email"],	
+			'ppers_fechanac'=>$datosvalidados["pers_fechanac"],
+			'pultmodusuario'=>$_SESSION['usuariocod'] ,
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+			);			
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al insertar la persona.";
+			$errormail="Error al insertar en la tabla persona".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		return true;
+	}	
+	
+	
+//-----------------------------------------------------------------------------------------------------	
+	function BorrarDatosPersTemporal($pers_codigo)
+	{
+		if(!$this->_DatosValidosBorrarDatosPersTemporal($pers_codigo,$datosvalidados))
+			return false;
+
+		$spnombre="del_persona_temp_xpers_codigo";
+		$spparam=array(
+			'ppers_codigo'=>$datosvalidados["pers_codigo"]
+		);			
+		
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al eliminar la persona temporal.";
+			$errormail="Error al eliminar en la tabla persona".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+
+		return true;
+	}	
+
+
+
+//-----------------------------------------------------------------------------------------------------	
+	function RehabilitarPersona($datos)
+	{
+		if(!$this->_DatosValidosRehabilitarPers($datos,$datosvalidados))
+			return false;
+
+		$spnombre="upd_persona_cambio_estado_xpers_codigo";
+		$spparam=array(
+			'ppers_codigo'=>$datosvalidados["pers_codigo"] ,
+			'ppers_estado'=>PERSONAACTIVA ,						
+			'pultmodusuario'=>$_SESSION['usuariocod'] ,
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+			);			
+			
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al rehabilitar a la persona.";
+			$errormail="Error al modificar en la tabla persona. Rehabilitación de persona.".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+	
+		return true;
+	}	
+
+//----------------------------------------------------------------------------------------- 
+	function VerificarCUITDuplicado($cuit,&$mensaje_salida)
+	{
+	
+		$spnombre="sel_persona_xperscuilt_pers_estado";
+		$spparam=array('ppers_cuilt'=>$cuit);		
+		$spparam+=array('ppers_estado'=>PERSONAACTIVA.",".PERSONABAJA);					
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar persona.";
+			$errormail="Error al buscar en tabla persona".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+	
+		if ($numfilas == 1) {
+			$mensaje_salida = "La persona ya se encuentra en el sistema.";
+			return false;
+		}
+		
+		return true;
+	}
+
+
+//----------------------------------------------------------------------------------------- 
+	function VerificarCUITDuplicadoTemp($cuit,&$mensaje_salida)
+	{
+	
+		$spnombre="sel_persona_temp_xperscuilt_pers_estado";
+		$spparam=array('ppers_cuilt'=>$cuit);		
+		$spparam+=array('ppers_estado'=>PERSONAACTIVA.",".PERSONABAJA);					
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar persona.";
+			$errormail="Error al buscar en tabla persona".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+	
+		if ($numfilas == 1) {
+			$mensaje_salida = "La persona ya se encuentra a la espera de la evaluación del Coordinador Técnico.";
+			return false;
+		}
+		
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosAltaPers($datos,&$datosvalidados)
+	{
+		$datosvalidados=array();
+
+		if (!FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['pers_cuilt'],"CUIT"))
+		{
+			$arraymensajepantalla="El CUIT ingresado no es válido";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["pers_cuilt"]=$datos["pers_cuilt"];
+
+		
+		if(!$this->VerificarCUITDuplicado($datos["pers_cuilt"],$mensaje_salida))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,$mensaje_salida,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		if(!$this->_DatosValidosComunesDatosPers($datos,$datosvalidados))
+			return false;
+
+		return true;
+	}
+
+
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosAltaPersSinCuil($datos,&$datosvalidados)
+	{
+		$datosvalidados=array();
+
+		$datosvalidados["pers_cuilt"]=$datos["pers_cuilt"];
+
+		if(!$this->VerificarCUITDuplicado($datos["pers_cuilt"],$mensaje_salida))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,$mensaje_salida,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		if(!$this->_DatosValidosComunesDatosPers($datos,$datosvalidados))
+			return false;
+
+		return true;
+	}
+	
+	
+
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosBorrarDatosPers($pers_codigo,&$datosvalidados)
+	{
+
+		if(!$this->TraerDatosPersona_xCod($pers_codigo,$datosvalidados,$es_modif))
+			return false;
+			
+//		$datosvalidados["pers_codigo"]=$datos_persona["pers_codigo"];
+		return true;
+	}
+
+
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosModifPers($datos,&$datosvalidados)
+	{
+		$datosvalidados=array();
+
+		if(!$this->TraerDatosPersona_xCod($datos['pers_codigo'],$datos_persona,$es_modif))
+			return false;
+			
+		$datosvalidados["pers_codigo"]=$datos["pers_codigo"];
+	
+		if(!$this->_DatosValidosComunesDatosPers($datos,$datosvalidados))
+			return false;
+
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosAltaPersTemporal($datos,&$datosvalidados)
+	{
+		$datosvalidados=array();
+
+		if (!FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['pers_cuilt'],"CUIT"))
+		{
+			$arraymensajepantalla="El CUIT ingresado no es válido";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["pers_cuilt"]=$datos["pers_cuilt"];
+
+		
+	/*	if(!$this->VerificarCUITDuplicado($datos["pers_cuilt"],$mensaje_salida))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,$mensaje_salida,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+	*/
+		if(!$this->VerificarCUITDuplicadoTemp($datos["pers_cuilt"],$mensaje_salida))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,$mensaje_salida,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		if(!$this->_DatosValidosComunesDatosPers($datos,$datosvalidados))
+			return false;
+
+		return true;
+	}
+
+
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosBorrarDatosPersTemporal($pers_codigo,&$datosvalidados)
+	{
+
+		if(!$this->TraerDatosPersonaTemporal_xCod($pers_codigo,$datosvalidados,$es_modif))
+			return false;
+			
+//		$datosvalidados["pers_codigo"]=$datos_persona["pers_codigo"];
+		return true;
+	}
+
+
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosRehabilitarPers($datos,&$datosvalidados)
+	{
+		$datosvalidados=array();
+
+		if(!$this->TraerDatosPersona_xCod($datos['pers_codigo'],$datos_persona,$es_modif))
+			return false;
+			
+		$datosvalidados["pers_codigo"]=$datos["pers_codigo"];
+		$datosvalidados["pers_cuilt"]=$datos["pers_cuilt"];
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosComunesDatosPers($datos,&$datosvalidados)	{
+
+		if (trim($datos['pers_apellido']) =="" || !FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['pers_apellido'],"AlfabeticoPuro"))
+		{
+			$arraymensajepantalla="El apellido ingresado no es válido";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["pers_apellido"]=strtoupper ($datos["pers_apellido"]);
+		
+		if (trim($datos['pers_nombre']) =="" || !FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['pers_nombre'],"AlfabeticoPuro"))
+		{
+			$arraymensajepantalla="El nombre ingresado no es válido";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["pers_nombre"]=$datos["pers_nombre"];
+
+		// if (!isset($datos['pers_sexo']) || ($datos['pers_sexo'] != SEXO_FEMENINO) && ($datos['pers_sexo'] != SEXO_MASCULINO)) {
+// MV - SEXO - 17032023 
+if ( (!isset($datos['pers_sexo'])) ||  (
+    ($datos['pers_sexo'] != SEXO_FEMENINO) && 
+    ($datos['pers_sexo'] != SEXO_MASCULINO) &&
+    ($datos['pers_sexo'] != SEXO_MUJER_TRANS) &&
+    ($datos['pers_sexo'] != SEXO_VARON_TRANS) &&
+    ($datos['pers_sexo'] != SEXO_TRAVESTI) &&
+    ($datos['pers_sexo'] != SEXO_TRANSEXUAL) &&
+    ($datos['pers_sexo'] != SEXO_TRANSGENERO) &&
+    ($datos['pers_sexo'] != SEXO_NO_BINARIE) &&
+    ($datos['pers_sexo'] != SEXO_NINGUNA) &&
+    ($datos['pers_sexo'] != SEXO_NO_RESPONDE)
+)){	
+			$arraymensajepantalla="El sexo ingresado no es válido";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["pers_sexo"]=$datos["pers_sexo"];
+
+		if ($datos['pers_email']!="" && !FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['pers_email'],"Email"))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en el mail. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["pers_email"]=($datos['pers_email']!="")?$datos["pers_email"]:"NULL";
+
+		
+		
+		// Fecha nacimiento- [pers_fechanac] 	- [OBLIG]
+		if (trim($datos['pers_fechanac'])=="" || !FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['pers_fechanac'],"FechaDDMMAAAA"))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La fecha de nacimiento no es válida.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$fechanac_AAAAMMDD=FuncionesPHPLocal::ConvertirFecha($datos['pers_fechanac'],'dd/mm/aaaa','aaaa-mm-dd');
+		$datosvalidados["pers_fechanac"]=$fechanac_AAAAMMDD;
+
+
+
+		return true;
+	}	
+//----------------------------------VANI------------------------------------------------------- 
+// Retorna una consulta con todos las personas que cumplan con las condiciones
+
+// Parámetros de Entrada:
+//		datosbuscar: array asociativo con los filtros. 
+//	Claves: pers_nombre, pers_apellido, pers_cuilt,
+//			pers_codigo, pers_estado
+
+// Retorna:
+//		numfilas,resultado: cantidad de filas y query de resultado
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+
+	function BuscarPersonas ($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)
+	{
+		$sparam=array('pxcuit'=>0);
+		$sparam+=array('pxcod'=>0);
+		$sparam+=array('pxnombre'=>0);
+		$sparam+=array('pxapellido'=>0);
+		$sparam+=array('pxestado'=>0);
+		
+		$sparam+=array('ppers_cuilt' =>"");
+		$sparam+=array('ppers_codigo' =>"");
+		$sparam+=array('ppers_nombre' =>"");
+		$sparam+=array('ppers_apellido' =>"");
+		$sparam+=array('ppers_estado' =>"-1");
+		$sparam+=array('porderby' =>"pers_apellido,pers_nombre");
+
+		if (isset ($ArregloDatos['pers_cuilt']))
+		{
+			if ($ArregloDatos['pers_cuilt']!="")
+			{	
+				$sparam['ppers_cuilt']= $ArregloDatos['pers_cuilt'];
+				$sparam['pxcuit']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['pers_codigo']))
+		{
+			if ($ArregloDatos['pers_codigo']!="")
+			{	
+				$sparam['ppers_codigo']= $ArregloDatos['pers_codigo'];
+				$sparam['pxcod']= 1;
+			}
+		}	
+		if (isset ($ArregloDatos['pers_nombre']))
+		{
+			if ($ArregloDatos['pers_nombre']!="")
+			{	
+				$sparam['ppers_nombre']= $ArregloDatos['pers_nombre'];
+				$sparam['pxnombre']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['pers_apellido']))
+		{
+			if ($ArregloDatos['pers_apellido']!="")
+			{	
+				$sparam['ppers_apellido']= $ArregloDatos['pers_apellido'];
+				$sparam['pxapellido']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['pers_estado']))
+		{
+			if ($ArregloDatos['pers_estado']!="")
+			{	
+				$sparam['ppers_estado']= $ArregloDatos['pers_estado'];
+				$sparam['pxestado']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+			{	
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+
+		$spnombre="sel_personas_xdatos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar la Persona.";
+			$errormail="Error al buscar la Persona ".$errno;
+			return false;
+		}
+
+		return true;
+	}
+
+
+//---------------------------------------VANI-------------------------------------------------- 
+	function PedirCuit($cuit,$formularioName,$inputName,$confirmName,$submit = true, $accion = "", $valida = true) { ?>
+	<SCRIPT LANGUAGE="JavaScript" type="text/javascript">
+	function ValidarIngresoCuit(<?php echo $formularioName ?>) 	{
+	
+	<?php if ($valida) { ?>
+		if(<?php echo $formularioName ?>.<?php echo $inputName ?>=="" || !ValidarContenido(<?php echo $formularioName ?>.<?php echo $inputName ?>.value,"CUIT"))	{
+			alert("El CUIT/CUIL/CDI no es válido");
+			<?php echo $formularioName ?>.<?php echo $inputName ?>.focus();
+			return false;	
+		}
+		
+	<?php } ?>		
+		return true;
+	} 	
+	</SCRIPT>
+		<table width="100%" class="textoTablaDato" align="center">
+			<tr>
+				<td valign="middle" width="20%" class='textoEtiquetaClave'>
+                <?php if ($valida) { ?>
+            	    CUIT/CUIL/CDI
+				<?php } else { ?>		                
+					N&deg; Documento
+            	<?php } ?>		                
+                </td>
+				<td class="textoEtiquetaDatoResaltado" width="20%">
+					<input type="text" name="<?php echo $inputName ?>" id="<?php echo $inputName ?>" size="11" maxlength="11" class='textoInput' value="<?php echo  trim($cuit) ;?>">					
+				</td>
+				<td class="textoEtiquetaDato" width="5%" align="left">
+					<a href='javascript:void(0)' onClick="Popup('persona_busq_basica.dhtml?formulario=<?php echo $formularioName ?>&amp;destino=<?php echo $inputName ?>&amp;estado=&amp;volver=1&amp;submit=<?php echo $submit?>&amp;accion=<?php echo $accion?>','ventana_descripciones',630,360,screen.availWidth-650,screen.availHeight-420,'yes');"><img src="images/searchsai.jpg" alt="Buscar" border="0" style="vertical-align:-5px"></a>
+				</td>
+				<td class="textoEtiqueta">
+					<input type="<?php echo ($submit)?"submit":"button"?>" name="<?php echo $confirmName ?>" value="Confirma" onClick="return ValidarIngresoCuit(<?php echo $formularioName ?>);" class="botones" />
+				</td>
+			</tr>	
+		</table>	
+	<?php } 
+//----------------------------------------------------------------------------------------- 
+} // class
+?>

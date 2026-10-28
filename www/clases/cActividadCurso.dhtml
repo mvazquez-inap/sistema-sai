@@ -1,0 +1,1374 @@
+<?php
+//-----------------------------------------------------------------------------------------
+class cActividadCurso extends cActividad {
+
+	public function __construct($conexion) {
+		parent::__construct($conexion);
+	}
+//-----------------------------------------------------------------------------------------
+	function TieneTipo($act_codigo,$tipoact_codigo,&$tiene_tipo)	{
+
+		$tiene_tipo=$this->EsActividadCursoTipo($act_codigo,$tipoact_codigo,$error,$errormsg);
+		if ($error) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$errormsg,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		    return false;
+		}
+	    return true;
+	}
+	//-----------------------------------------------------------------------------------------------------
+	 function ObtenerTipos($act_codigo,&$array_tipos)	{
+
+			$ArregloDatos = array();
+			$ArregloDatos['act_codigo'] = $act_codigo;
+
+			if(!$this->BuscarActividadCurso($ArregloDatos,$numfilas,$resultActCurso,$error,$errormail)){
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al obtener los tipos de Curso.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+
+			while ($fila_resultCurso = mysqli_fetch_assoc($resultActCurso)) {
+				$array_tipos[]+= $fila_resultCurso['tipoact_codigo'];
+			}
+			return true	;
+	}
+
+//-----------------------------------------------------------------------------------------
+	function EsActividadCursoTipo($act_codigo,$tipoact_codigo,&$error,&$errormsg)	{
+
+		// La actividad debe existir y ser formato curso
+		$error=false;
+		if (!$this->TraerDatosActividadCurso($act_codigo,$result_actividad_curso,$es_modif_act_curso)) {
+			$error=true;
+			return false;
+		}
+
+		if (!$es_modif_act_curso) {
+			$errormsg="Error al buscar la Actividad Curso.";
+			//FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$errormsg,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$error=true;
+			return false;
+		}
+
+		return ($result_actividad_curso['tipoact_codigo'] == $tipoact_codigo);
+	}
+
+//-----------------------------------------------------------------------------------------------------
+// Toma el tipo de la actividad curso enviada y crea un objeto del tipo correspondiente.
+
+function newActividadCursoTipo($act_codigo, &$oActividadCurso) {
+
+	$error = false;
+	$tiene_formato_tipo = false;
+	$oActividadCurso = new cActividadCurso($this->conexion);
+
+	if ($this->TieneFormatoTipo($act_codigo,FORMATOCURSO,TIPOACTCURSOINAP,$tiene_formato_tipo)) {
+		if ($tiene_formato_tipo) {
+			$oActividadCurso = new cActividadCursoInap($this->conexion);
+		} elseif ($oActividadCurso->TieneFormatoTipo($act_codigo,FORMATOCURSO,TIPOACTCURSOJURISD,$tiene_formato_tipo))  {
+				if ($tiene_formato_tipo) {
+					$oActividadCurso = new cActividadCursoJurisdiccional($this->conexion);
+				} elseif ($oActividadCurso->TieneFormatoTipo($act_codigo,FORMATOCURSO,TIPOACTCURSOINST,$tiene_formato_tipo))  {
+						if ($tiene_formato_tipo) {
+							$oActividadCurso = new cActividadCursoInstitucional($this->conexion);
+						}
+				}
+			} else
+				$error = true;
+	} else
+		$error = true;
+
+	if ($error)	{
+		$txt_sys_mail= "Error al crear un objeto del formato de la actividad curso: \nact_codigo =".$act_codigo;
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al crear la actividad curso.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+		return false;
+	}
+}
+//-----------------------------------------------------------------------------------------
+	function TraerDatosActividadCurso($act_codigo,&$datosresult,&$es_modif){
+
+		$datosresult=array();
+		$es_modif = false;
+		$sparam=array('pact_codigo'=>$act_codigo);
+		$spnombre="sel_actividad_curso_xact_codigo";
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$errormail="\nact_codigo=".$act_codigo."\nerror=.".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar la Actividad Curso.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		if ($numfilas == 1)	{
+			$datosresult = mysqli_fetch_assoc($resultado);
+			$es_modif = true;
+		}
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function AltaDatosActividadCurso($datos, &$act_codigo_nuevo,&$act_codinap) {
+
+		switch($datos['actividad_curso']['tipoact_codigo']) {
+			case TIPOACTCURSOINAP:
+				$prefijo = "IN";
+				break;
+			case TIPOACTCURSOJURISD:
+				$prefijo = "JU";
+				break;
+			case TIPOACTCURSOINST:
+				$prefijo = "IS";
+				break;
+		}
+
+		if(!$this->AltaDatosActividad($datos['actividad'],$act_codigo_nuevo, true, $prefijo, $act_codinap))
+			return false;
+		FuncionesPHPLocal::RegistrarAcceso($this->conexion,"38001","act_codigo=".$act_codigo_nuevo,$_SESSION['usuariocod']);
+
+		if(!$this->_DatosValidosAltaActividadCurso($datos['actividad_curso'],$datosvalidados))
+			return false;
+
+		$spnombre="ins_actividad_curso";
+		$spparam=array(
+			'pact_codigo'=>$act_codigo_nuevo,
+			'pjurisdid_inap'=> $datosvalidados['jurisdid_inap'],
+			'ptipoact_codigo'=> $datosvalidados['tipoact_codigo'],
+			'pactcur_creditos'=> $datosvalidados['actcur_creditos'],
+			'pactcur_estado'=> $datosvalidados['actcur_estado'],
+			'pactcur_obs'=> $datosvalidados['actcur_obs'],
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+		);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se pudo dar de alta la Actividad Curso.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function EliminarDatosActividadCurso($act_codigo) {
+
+		if(!$this->_DatosValidosEliminarActividadCurso($act_codigo,$datosvalidados))
+			return false;
+
+		// Eliminar la asociación entre la actividad y los docentes.
+		if($datosvalidados['tipoact_codigo']==TIPOACTCURSOINAP || $datosvalidados['tipoact_codigo']==TIPOACTCURSOJURISD) {
+			$oActividadCursoPrestadorDocente = new cActividadCursoPrestadorDocente($this->conexion);
+			if (!$oActividadCursoPrestadorDocente->EliminarDatosActividadCursoPrestadorDocenteTodos($act_codigo))
+				return false;
+			FuncionesPHPLocal::RegistrarAcceso($this->conexion,"38502","Global / act_codigo=".$act_codigo,$_SESSION['usuariocod']);
+		}
+
+		// Eliminar actividad_curso
+		$spnombre="del_actividad_curso";
+		$spparam=array('pact_codigo'=>$act_codigo);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			$txt_sys_mail="Error al eliminar el diseño curso.\nact_codigo=".$act_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al eliminar la Actividad Curso.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		if(!$this->EliminarDatosActividad($act_codigo,FORMATOCURSO))
+			return false;
+		FuncionesPHPLocal::RegistrarAcceso($this->conexion,"38002","act_codigo=".$act_codigo,$_SESSION['usuariocod']);
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function ModifDatosActividadCurso($datos)	{
+
+		if(!$this->ModifDatosActividad($datos['actividad']))
+			return false;
+		FuncionesPHPLocal::RegistrarAcceso($this->conexion,"38003","act_codigo=".$datos['actividad']['act_codigo'],$_SESSION['usuariocod']);
+
+		if(!$this->_DatosValidosModifActividadCurso($datos['actividad_curso'],$datosvalidados))
+			return false;
+
+		$spnombre="upd_actividad_curso";
+		$spparam=array(
+			'pact_codigo'=> $datosvalidados['act_codigo'],
+			'pactcur_obs'=> $datosvalidados['actcur_obs'],
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+		);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se pudo modificar la Actividad Curso.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function ActualizarCreditos($act_codigo,$act_creditos) {
+
+		$spnombre="upd_actividad_curso_asigno_creditos_xact_codigo";
+		$spparam=array(
+			'pact_codigo'=> $act_codigo,
+			'pactcur_creditos'=> $act_creditos,
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+			);
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al actualizar los créditos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			if ($numfilas != 1) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al actualizar los créditos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function TienePermisoModificar($act_codigo,$rolcod,$jurisdid) {
+
+		// Valida el estado con rol y la jurisdicción, NO valida si tiene o no dictamen la actividad.
+		if (!$this->TraerDatosActividadCurso($act_codigo,$fila_actividad_curso,$es_modif_act_curso))
+			return false;
+
+		$txt_sys_mail="\nact_codigo=".$act_codigo;
+		if (!$es_modif_act_curso)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe la Actividad Curso a modificar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		if 	($rolcod == USUCURSOINAP || $rolcod == USUACTINS)  {
+			if ($fila_actividad_curso['actcur_estado'] == ACTCURSOACTIVO)
+				return true;
+			else {
+				$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","ACTCURSOESTADO","' and constantecod='",$fila_actividad_curso['actcur_estado'],"'"),$descri,$numfilas,$errorcod);
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado de la Actividad Curso (".$descri."), no le permite modificarla.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			}
+		} elseif ($rolcod == COORDINADORTECNICO  ||  $rolcod ==  USUORGANISMO) {
+			 if ($fila_actividad_curso['jurisdid_inap'] == $jurisdid) {
+					if ($fila_actividad_curso['actcur_estado'] == ACTCURSONUEVO || $fila_actividad_curso['actcur_estado'] == ACTCURSORECHAZADO)
+						return true;
+					else {
+						$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","ACTCURSOESTADO","' and constantecod='",$fila_actividad_curso['actcur_estado'],"'"),$descri,$numfilas,$errorcod);
+						FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado de la Actividad Curso (".$descri."), no le permite modificarla.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+						return false;
+					}
+			 } else {
+ 				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene acceso a modificar la Actividad Curso.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			}
+		} elseif ($rolcod == SUPERUSUARIO) {
+			return true;
+		}
+
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para modificar la Actividad Curso.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function MostrarDatosActividadAsignable($conexion,$act_codigo,$formact_codigo,$tipoact_codigo,$actprog_sec) {
+
+		$oDictamen = new cDictamen($conexion);
+		$ok = true;
+
+		$ArregloDatos['act_codigo'] = $act_codigo;
+		$ArregloDatos['actprog_sec']=$actprog_sec;
+		
+		if ($_SESSION['rolcod'] != SUPERUSUARIO) {
+			$ArregloDatos['dic_estado'] = DICTAMENACTIVO;
+			$ArregloDatos['formact_codigo'] = $formact_codigo;
+			$ArregloDatos['tipoact_codigo'] = $tipoact_codigo;
+		}
+
+		if(!$this->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas,$result,$error,$errormail)) {
+			$txt_sys_mail="\nact_codigo=".$ArregloDatos['act_codigo']."\nformact_codigo=".$ArregloDatos['formact_codigo']."\ntipoact_codigo=".$ArregloDatos['tipoact_codigo']."\nactprog_sec=".(isset($ArregloDatos['actprog_sec'])?$ArregloDatos['actprog_sec']:"")."\nerror=".$errormail;
+			$txt_sys_mail.= "\n error en BuscarActividadDictaminadaAvanzada";
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"No se ha encontrado el dictamen de la actividad seleccionada.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			$ok = false;
+		}
+		if ($numfilas != 1 && $_SESSION['rolcod'] != SUPERUSUARIO) {
+			$txt_sys_mail="\nact_codigo=".$ArregloDatos['act_codigo']."\nformact_codigo=".$ArregloDatos['formact_codigo']."\ntipoact_codigo=".$ArregloDatos['tipoact_codigo']."\nactprog_sec=".(isset($ArregloDatos['actprog_sec'])?$ArregloDatos['actprog_sec']:"")."\nerror=".$errormail;
+			$txt_sys_mail.="\nnumfilas=".$numfilas;
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"El dictamen de la programación no esta activo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			$ok = false;
+		}
+
+		if ($ok) {
+			$filaauto = mysqli_fetch_assoc($result);
+			
+?>			<fieldset class="bordeDetalleRegistro">
+			<legend class="textoLeyendaDetalleRegistro">Datos Actividad </legend>
+			<table width="100%" class="textoTablaDato" align="center" cellpadding="2" cellspacing="0" border="0">
+				<tr>
+					<td>
+						<table width="100%" class="textoTablaDato" align="center" border="0" cellpadding="2" cellspacing="2">
+						<tr>
+							<td valign="top" width="25%" class='textoEtiqueta'>Nombre</td>
+							<td class="textoEtiquetaDatoResaltado">
+							<textarea cols="100" rows="2" class="inputReadonly" readonly="readonly" name="act_nombre"  id="act_nombre"  style="width:400px" ><?php echo htmlspecialchars($filaauto['act_nombre'],ENT_QUOTES); ?></textarea>
+							</td>
+						</tr>
+						<tr>
+							<td valign="top" width="15%" class='textoEtiqueta'>Código INAP</td>
+							<td class="textoEtiquetaDatoResaltado"><input type="text" name="act_codinap" id="act_codinap"  class="inputReadonly" readonly="readonly" size="21" maxlength="20" value="<?php echo htmlspecialchars($filaauto['act_codinap'],ENT_QUOTES) ?>">
+							</td>
+						</tr>
+						<tr>
+							<td valign="top" width="25%" class='textoEtiqueta'>Tipo de Actividad</td>
+							<td class="textoEtiquetaDatoResaltado">	<?php
+								$conexion->TraerCampo("tipo_actividad","tipoact_descripcion",array("tipoact_codigo='",$filaauto['tipoact_codigo'],"'"),$tipoact_descripcion,$numfilas,$errno);
+								echo $tipoact_descripcion;	?>
+							</td>
+						</tr>
+						<tr>
+							<td colspan="2">
+								<table width="100%" class="textoTablaDato" align="center" cellpadding="2" cellspacing="0" border="0">
+									<tr>
+										<td valign="middle" width="25%" class='textoEtiqueta'>Vigencia Desde</td>
+										<td class="textoEtiquetaDatoResaltado"><input type="text" name="actprog_fecha_inicio" id="actprog_fecha_inicio"  class="inputReadonly" readonly="readonly" size="11"  value="<?php echo FuncionesPHPLocal::ConvertirFecha($filaauto['actprog_fecha_inicio'],'aaaa-mm-dd','dd/mm/aaaa'); ?>"></td>
+										<td valign="middle" width="25%" class='textoEtiqueta'>Vigencia Hasta</td>
+										<td class="textoEtiquetaDatoResaltado"><input type="text" name="actprog_fecha_fin" id="actprog_fecha_fin"  class="inputReadonly" readonly="readonly" size="11"  value="<?php echo FuncionesPHPLocal::ConvertirFecha($filaauto['actprog_fecha_fin'],'aaaa-mm-dd','dd/mm/aaaa'); ?>"></td>
+									</tr>
+								</table>
+							</td>
+						</tr>
+						</table>
+					</td>
+					</tr>
+				</table>
+			</fieldset>
+		<?php }  // if ok
+		return $ok;
+ 	}
+//-----------------------------------------------------------------------------------------------------
+	function TienePermisoModificarActividadPrestador($act_codigo,$rolcod,$jurisdid) {
+
+		if (!$this->TraerDatosActividadCurso($act_codigo,$fila_actividad_curso,$es_modif_act_curso))
+			return false;
+
+		$txt_sys_mail="\nact_codigo=".$act_codigo;
+		if (!$es_modif_act_curso)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe la Actividad Curso a modificar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		if 	($rolcod == SUPERUSUARIO)
+			return true;
+
+		if 	($rolcod == USUCURSOINAP || $rolcod == USUACTINS)  {
+			if ($fila_actividad_curso['actcur_estado'] == ACTCURSOACTIVO)
+				return true;
+			else {
+				$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","ACTCURSOESTADO","' and constantecod='",$fila_actividad_curso['actcur_estado'],"'"),$descri,$numfilas,$errorcod);
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado de la Actividad Curso (".$descri."), no le permite modificarla.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			}
+		} elseif ($rolcod == COORDINADORTECNICO  ||  $rolcod ==  USUORGANISMO ||  $rolcod ==  USUACTJUR ) { // Agrego el enalce
+
+			 if ($fila_actividad_curso['jurisdid_inap'] == $jurisdid) { // Se verifica jurisdiccion
+
+				 if($rolcod ==  USUACTJUR) {
+
+					 if ($fila_actividad_curso['actcur_estado'] == ACTCURSOACTIVO) // Nuevo el enlace modifica equipo docente de lo aprobado
+							return true;
+						else {
+							$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","ACTCURSOESTADO","' and constantecod='",$fila_actividad_curso['actcur_estado'],"'"),$descri,$numfilas,$errorcod);
+							FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado de la Actividad Curso (".$descri."), no le permite modificarla.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+							return false;
+						}
+
+				 } else {
+						if ($fila_actividad_curso['actcur_estado'] == ACTCURSOACTIVO || $fila_actividad_curso['actcur_estado'] == ACTCURSONUEVO || $fila_actividad_curso['actcur_estado'] == ACTCURSORECHAZADO )
+						 // || $fila_actividad_curso['actcur_estado'] == ACTCURSOACTIVO // ya no modifica activos
+							return true;
+						else {
+							$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","ACTCURSOESTADO","' and constantecod='",$fila_actividad_curso['actcur_estado'],"'"),$descri,$numfilas,$errorcod);
+							FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado de la Actividad Curso (".$descri."), no le permite modificarla.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+							return false;
+						}
+				}
+			 } else {
+
+ 				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene acceso a modificar la Actividad Curso.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			}
+		}
+
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para modificar la Actividad Curso.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function TienePermisoBaja($act_codigo,$rolcod,$jurisdid) {
+
+		// Valida el estado con rol y la jurisdicción, NO valida si tiene o no dictamen la actividad.
+		if (!$this->TraerDatosActividadCurso($act_codigo,$fila_actividad_curso,$es_modif_act_curso))
+			return false;
+
+		$txt_sys_mail="\nact_codigo=".$act_codigo;
+		if (!$es_modif_act_curso)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe la Actividad Curso a eliminar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		if 	($rolcod == USUCURSOINAP || $rolcod == USUACTINS )  {
+			if ($fila_actividad_curso['actcur_estado'] == ACTCURSOACTIVO)
+				return true;
+			else {
+				$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","ACTCURSOESTADO","' and constantecod='",$fila_actividad_curso['actcur_estado'],"'"),$descri,$numfilas,$errorcod);
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado de la Actividad Curso (".$descri."), no le permite eliminarla.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			}
+		} elseif ($rolcod == COORDINADORTECNICO  ||  $rolcod ==  USUORGANISMO) {
+			 if ($fila_actividad_curso['jurisdid_inap'] == $jurisdid) {
+					if ($fila_actividad_curso['actcur_estado'] == ACTCURSONUEVO || $fila_actividad_curso['actcur_estado'] == ACTCURSORECHAZADO)
+						return true;
+					else {
+						$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","ACTCURSOESTADO","' and constantecod='",$fila_actividad_curso['actcur_estado'],"'"),$descri,$numfilas,$errorcod);
+						FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado de la Actividad Curso (".$descri."), no le permite eliminarla.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+						return false;
+					}
+			 } else {
+ 				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene acceso a eliminar la Actividad Curso.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			}
+		}
+
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para eliminar la Actividad Curso.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function ValidarFormAltaActividadCurso()
+	{
+?>		function ValidarFormAltaActividadCurso(formulario,operacion) {
+			// Sólo observación y es optativa
+			return true;
+		}
+<?php }
+//-----------------------------------------------------------------------------------------------------
+	function BuscarActividadCurso($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		$sparam=array('pxact_codigo'=>0);
+		$sparam+=array('pxact_nombre'=>0);
+		$sparam+=array('pxact_codinap'=>0);
+		$sparam+=array('pxact_codinap_exacto'=>0);
+
+		$sparam+=array('pxactcur_estado'=>0);
+		$sparam+=array('pxjurisdid_inap'=>0);
+		$sparam+=array('pxtipoact_codigo'=>0);
+
+		$sparam+=array('pxprogcur_codigo'=>0);
+		$sparam+=array('pxareacur_codigo'=>0);
+
+
+		$sparam+=array('pact_codigo'=>"");
+		$sparam+=array('pact_nombre'=>"");
+		$sparam+=array('pact_codinap'=>"");
+		$sparam+=array('pact_codinap_exacto'=>"");
+		$sparam+=array('pactcur_estado'=>"-1");
+		$sparam+=array('pjurisdid_inap'=>"");
+		$sparam+=array('ptipoact_codigo'=>"-1");
+
+		$sparam+=array('pprogcur_codigo'=>"");
+		$sparam+=array('pareacur_codigo'=>"");
+
+
+		$sparam+=array('porderby'=>"act_nombre");
+
+
+		if (isset ($ArregloDatos['act_codigo']))
+		{
+			if ($ArregloDatos['act_codigo']!="")
+			{
+				$sparam['pact_codigo']= $ArregloDatos['act_codigo'];
+				$sparam['pxact_codigo']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['act_nombre']))
+		{
+			if ($ArregloDatos['act_nombre']!="")
+			{
+				$sparam['pact_nombre']= $ArregloDatos['act_nombre'];
+				$sparam['pxact_nombre']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['act_codinap']))
+		{
+			if ($ArregloDatos['act_codinap']!="")
+			{
+				$sparam['pact_codinap']= $ArregloDatos['act_codinap'];
+				$sparam['pxact_codinap']= 1;
+			}
+		}
+
+		if (isset($ArregloDatos['act_codinap_exacto']))
+		{
+			if ($ArregloDatos['act_codinap_exacto']!="")
+			{
+				$sparam['pact_codinap_exacto']= $ArregloDatos['act_codinap_exacto'];
+				$sparam['pxact_codinap_exacto']= 1;
+			}
+		}
+
+		if (isset($ArregloDatos['actcur_estado']))
+		{
+			if ($ArregloDatos['actcur_estado']!="")
+			{
+				$sparam['pactcur_estado']= $ArregloDatos['actcur_estado'];
+				$sparam['pxactcur_estado']= 1;
+			}
+		}
+
+		if (isset($ArregloDatos['jurisdid_inap']))
+		{
+			if ($ArregloDatos['jurisdid_inap']!="")
+			{
+				$sparam['pjurisdid_inap']= $ArregloDatos['jurisdid_inap'];
+				$sparam['pxjurisdid_inap']= 1;
+			}
+		}
+
+		if (isset($ArregloDatos['tipoact_codigo']))
+		{
+			if ($ArregloDatos['tipoact_codigo']!="")
+			{
+				$sparam['ptipoact_codigo']= $ArregloDatos['tipoact_codigo'];
+				$sparam['pxtipoact_codigo']= 1;
+			}
+		}
+
+		if (isset($ArregloDatos['progcur_codigo']))	{
+			if ($ArregloDatos['progcur_codigo']!="")
+			{
+				$sparam['pprogcur_codigo']= $ArregloDatos['progcur_codigo'];
+				$sparam['pxprogcur_codigo']= 1;
+			}
+		}
+
+		if (isset($ArregloDatos['areacur_codigo']))	{
+			if ($ArregloDatos['areacur_codigo']!="")
+			{
+				$sparam['pareacur_codigo']= $ArregloDatos['areacur_codigo'];
+				$sparam['pxareacur_codigo']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+			{
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+
+		$spnombre="sel_actividad_curso_xdatos";
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar el Actividad Curso.";
+			$errormail="Error al buscar el Actividad Curso.".$errno;
+			return false;
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function BuscarActividadDictaminada($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		// Retorna también datos de la programacion, dictamen, expediente y disposición
+		$sparam=array('pxact_codigo'=>0);
+		$sparam+=array('pxjurisdid_inap'=>0);
+		$sparam+=array('pxtipoact_codigo'=>0);
+		$sparam+=array('pxactcur_estado'=>0);
+		$sparam+=array('pxexp_codigo'=>0);
+		$sparam+=array('pxdis_codigo'=>0);
+		$sparam+=array('pxdic_codigo'=>0);
+		$sparam+=array('pxdic_estado'=>0);
+
+		$sparam+=array('pact_codigo'=>"");
+		$sparam+=array('ptipoact_codigo'=>"-1");
+		$sparam+=array('pjurisdid_inap'=>"");
+		$sparam+=array('pactcur_estado'=>"-1");
+		$sparam+=array('pexp_codigo'=>"");
+		$sparam+=array('pdis_codigo'=>"");
+		$sparam+=array('pdic_codigo'=>"");
+		$sparam+=array('pdic_estado'=>"-1");
+		$sparam+=array('porderby'=>"act_nombre");
+
+		if (isset ($ArregloDatos['act_codigo']))
+		{
+			if ($ArregloDatos['act_codigo']!="")
+			{
+				$sparam['pact_codigo']= $ArregloDatos['act_codigo'];
+				$sparam['pxact_codigo']= 1;
+			}
+		}
+
+		if (isset($ArregloDatos['actcur_estado']))
+		{
+			if ($ArregloDatos['actcur_estado']!="")
+			{
+				$sparam['pactcur_estado']= $ArregloDatos['actcur_estado'];
+				$sparam['pxactcur_estado']= 1;
+			}
+		}
+
+		if (isset($ArregloDatos['jurisdid_inap']))
+		{
+			if ($ArregloDatos['jurisdid_inap']!="")
+			{
+				$sparam['pjurisdid_inap']= $ArregloDatos['jurisdid_inap'];
+				$sparam['pxjurisdid_inap']= 1;
+			}
+		}
+
+		if (isset($ArregloDatos['tipoact_codigo']))
+		{
+			if ($ArregloDatos['tipoact_codigo']!="")
+			{
+				$sparam['ptipoact_codigo']= $ArregloDatos['tipoact_codigo'];
+				$sparam['pxtipoact_codigo']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['exp_codigo']))
+		{
+			if ($ArregloDatos['exp_codigo']!="")
+			{
+				$sparam['pexp_codigo']= $ArregloDatos['exp_codigo'];
+				$sparam['pxexp_codigo']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['dis_codigo']))
+		{
+			if ($ArregloDatos['dis_codigo']!="")
+			{
+				$sparam['pdis_codigo']= $ArregloDatos['dis_codigo'];
+				$sparam['pxdis_codigo']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['dic_codigo']))
+		{
+			if ($ArregloDatos['dic_codigo']!="")
+			{
+				$sparam['pdic_codigo']= $ArregloDatos['dic_codigo'];
+				$sparam['pxdic_codigo']= 1;
+			}
+		}
+
+		if (isset($ArregloDatos['dic_estado']))
+		{
+			if ($ArregloDatos['dic_estado']!="")
+			{
+				$sparam['pdic_estado']= $ArregloDatos['dic_estado'];
+				$sparam['pxdic_estado']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+			{
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+
+		$spnombre="sel_actividad_curso_dictaminada_xdatos";
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar actividades dictaminadas.";
+			$errormail="Error al buscar actividades dictaminadas.".$errno;
+			return false;
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function BuscarActividadDictaminadaAvanzada($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		// Retorna también datos de la programacion, dictamen, expediente y disposición
+
+		$sparam=array('pxact_nombre'=>0);
+		$sparam+=array('pxact_codigo'=>0);
+		$sparam+=array('pxact_codinap'=>0);
+		$sparam+=array('pxjurisdid_inap'=>0);
+		$sparam+=array('pxtipoact_codigo'=>0);
+		$sparam+=array('pxactcur_estado'=>0);
+		$sparam+=array('pxexp_numero'=>0);
+		$sparam+=array('pxdis_numero'=>0);
+		$sparam+=array('pxdic_estado'=>0);
+		$sparam+=array('pxdic_codigo'=>0);
+		$sparam+=array('pxdis_codigo'=>0);
+		$sparam+=array('pxcon_dispo'=>0);
+		$sparam+=array('pxsin_dispo'=>0);
+		$sparam+=array('pxactprog_sec'=>0);
+		$sparam+=array('pxactprog_fecha_inicio'=>0);
+		$sparam+=array('pxactprog_fecha_fin'=>0);
+		$sparam+=array('pxprogcur_codigo'=>0);
+		$sparam+=array('pxareacur_codigo'=>0);
+		$sparam+=array('pxactdisinap_beca'=>0);
+		$sparam+=array('pxdic_esta_visado_no'=>0);
+		$sparam+=array('pxdic_esta_visado_si'=>0);
+		
+
+		$sparam+=array('pact_nombre'=>"");
+		$sparam+=array('pact_codigo'=>"");
+		$sparam+=array('pact_codinap'=>"");
+		$sparam+=array('ptipoact_codigo'=>"-1");
+		$sparam+=array('pjurisdid_inap'=>"-1");
+		$sparam+=array('pactcur_estado'=>"-1");
+		$sparam+=array('pexp_numero'=>"");
+		$sparam+=array('pdis_numero'=>"");
+		$sparam+=array('pdic_estado'=>"-1");
+		$sparam+=array('pdic_codigo'=>"-1");
+		$sparam+=array('pdis_codigo'=>"-1");
+		$sparam+=array('pactprog_sec'=>"");
+		$sparam+=array('pactprog_fecha_inicio'=>"");
+		$sparam+=array('pactprog_fecha_fin'=>"");
+		$sparam+=array('pprogcur_codigo'=>"");
+		$sparam+=array('pareacur_codigo'=>"");
+		$sparam+=array('pactdisinap_beca'=>"");
+		//$sparam+=array('pdic_esta_visado'=>"");
+		
+		$sparam+=array('porderby'=>"act_nombre");
+
+		if (isset($ArregloDatos['act_codigo'])) {
+			if ($ArregloDatos['act_codigo']!="") {
+				$sparam['pact_codigo']= $ArregloDatos['act_codigo'];
+				$sparam['pxact_codigo']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['act_nombre']))	{
+			if ($ArregloDatos['act_nombre']!="")
+			{
+				$sparam['pact_nombre']= $ArregloDatos['act_nombre'];
+				$sparam['pxact_nombre']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['act_codinap']))	{
+			if ($ArregloDatos['act_codinap']!="")
+			{
+				$sparam['pact_codinap']= $ArregloDatos['act_codinap'];
+				$sparam['pxact_codinap']= 1;
+			}
+		}
+		if (isset($ArregloDatos['jurisdid_inap']))	{
+			if ($ArregloDatos['jurisdid_inap']!="")
+			{
+				$sparam['pjurisdid_inap']= $ArregloDatos['jurisdid_inap'];
+				$sparam['pxjurisdid_inap']= 1;
+			}
+		}
+		if (isset($ArregloDatos['tipoact_codigo']))		{
+			if ($ArregloDatos['tipoact_codigo']!="")
+			{
+				$sparam['ptipoact_codigo']= $ArregloDatos['tipoact_codigo'];
+				$sparam['pxtipoact_codigo']= 1;
+			}
+		}
+		if (isset($ArregloDatos['dic_estado']))		{
+			if ($ArregloDatos['dic_estado']!="")
+			{
+				$sparam['pdic_estado']= $ArregloDatos['dic_estado'];
+				$sparam['pxdic_estado']= 1;
+			}
+		}
+		if (isset($ArregloDatos['actcur_estado']))		{
+			if ($ArregloDatos['actcur_estado']!="")
+			{
+				$sparam['pactcur_estado']= $ArregloDatos['actcur_estado'];
+				$sparam['pxactcur_estado']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['exp_numero']))	{
+			if ($ArregloDatos['exp_numero']!="")
+			{
+				$sparam['pexp_numero']= $ArregloDatos['exp_numero'];
+				$sparam['pxexp_numero']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['dis_numero']))	{
+			if ($ArregloDatos['dis_numero']!="")
+			{
+				$sparam['pdis_numero']= $ArregloDatos['dis_numero'];
+				$sparam['pxdis_numero']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['dis_codigo']))	{
+			if ($ArregloDatos['dis_codigo']!="")
+			{
+				$sparam['pdis_codigo']= $ArregloDatos['dis_codigo'];
+				$sparam['pxdis_codigo']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['dic_codigo']))	{
+			if ($ArregloDatos['dic_codigo']!="")
+			{
+				$sparam['pdic_codigo']= $ArregloDatos['dic_codigo'];
+				$sparam['pxdic_codigo']= 1;
+			}
+		}
+		// Mandar 	1 x con disposición
+		// 			0 x sin disposición
+		if (isset ($ArregloDatos['con_disposicion'])) {
+			if ($ArregloDatos['con_disposicion']!="")  {
+				$sparam['pxcon_dispo']= ($ArregloDatos['con_disposicion'])?"1":"0";
+			}
+		}
+		if (isset ($ArregloDatos['sin_disposicion'])) {
+			if ($ArregloDatos['sin_disposicion']!="")  {
+				$sparam['pxsin_dispo']= ($ArregloDatos['sin_disposicion'])?"1":"0";
+			}
+		}
+		if (isset ($ArregloDatos['actprog_sec'])) {
+			if ($ArregloDatos['actprog_sec']!="") {
+				$sparam['pactprog_sec']= $ArregloDatos['actprog_sec'];
+				$sparam['pxactprog_sec']= 1;
+			}
+		}
+		if (isset($ArregloDatos['actprog_fecha_inicio']))	{
+			if ($ArregloDatos['actprog_fecha_inicio']!="")
+			{
+				$sparam['pactprog_fecha_inicio']= $ArregloDatos['actprog_fecha_inicio'];
+				$sparam['pxactprog_fecha_inicio']= 1;
+			}
+		}
+		if (isset($ArregloDatos['actprog_fecha_fin']))	{
+			if ($ArregloDatos['actprog_fecha_fin']!="")
+			{
+				$sparam['pactprog_fecha_fin']= $ArregloDatos['actprog_fecha_fin'];
+				$sparam['pxactprog_fecha_fin']= 1;
+			}
+		}
+
+
+		if (isset($ArregloDatos['progcur_codigo']))	{
+			if ($ArregloDatos['progcur_codigo']!="")
+			{
+				$sparam['pprogcur_codigo']= $ArregloDatos['progcur_codigo'];
+				$sparam['pxprogcur_codigo']= 1;
+			}
+		}
+
+		if (isset($ArregloDatos['areacur_codigo']))	{
+			if ($ArregloDatos['areacur_codigo']!="")
+			{
+				$sparam['pareacur_codigo']= $ArregloDatos['areacur_codigo'];
+				$sparam['pxareacur_codigo']= 1;
+			}
+		}
+
+		if (isset($ArregloDatos['actdisinap_beca']))	{
+			if ($ArregloDatos['actdisinap_beca']!="")
+			{
+				$sparam['pactdisinap_beca']= $ArregloDatos['actdisinap_beca'];
+				$sparam['pxactdisinap_beca']= 1;
+			}
+		}
+
+
+		if (isset($ArregloDatos['dic_esta_visado']) && $ArregloDatos['dic_esta_visado']!="")	{
+				$sparam['pxdic_esta_visado_si']= $ArregloDatos['dic_esta_visado'];
+				$sparam['pxdic_esta_visado_no']= $ArregloDatos['dic_esta_visado'];
+		}
+
+		if (isset ($ArregloDatos['orderby']))	{
+			if ($ArregloDatos['orderby']!="")
+			{
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+
+		$spnombre="sel_actividad_curso_dictaminada_avanzada_xdatos";
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar actividades dictaminadas.";
+			$errormail="Error al ejecutar una búsqueda avanzada de actividades dictaminadas.".$errno;
+			return false;
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function BuscarActividadCursoSinDictamen($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		$sparam=array('pxact_codigo'=>0);
+		$sparam+=array('pxact_nombre'=>0);
+		$sparam+=array('pxact_codinap'=>0);
+		$sparam+=array('pxact_codinap_exacto'=>0);
+		$sparam+=array('pxactdisinap_beca'=>0);
+
+		$sparam+=array('pxactcur_estado'=>0);
+		$sparam+=array('pxjurisdid_inap'=>0);
+		$sparam+=array('pxtipoact_codigo'=>0);
+		$sparam+=array('pxprogcur_codigo'=>0);
+		$sparam+=array('pxareacur_codigo'=>0);
+
+
+		$sparam+=array('pact_codigo'=>"");
+		$sparam+=array('pact_nombre'=>"");
+		$sparam+=array('pact_codinap'=>"");
+		$sparam+=array('pact_codinap_exacto'=>"");
+		$sparam+=array('pactcur_estado'=>"-1");
+		$sparam+=array('pjurisdid_inap'=>"");
+		$sparam+=array('ptipoact_codigo'=>"-1");
+		$sparam+=array('pprogcur_codigo'=>"");
+		$sparam+=array('pareacur_codigo'=>"");
+		$sparam+=array('pactdisinap_beca'=>"");
+
+
+
+
+		$sparam+=array('porderby'=>"act_nombre");
+
+
+		if (isset ($ArregloDatos['act_codigo']))
+		{
+			if ($ArregloDatos['act_codigo']!="")
+			{
+				$sparam['pact_codigo']= $ArregloDatos['act_codigo'];
+				$sparam['pxact_codigo']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['act_nombre']))
+		{
+			if ($ArregloDatos['act_nombre']!="")
+			{
+				$sparam['pact_nombre']= $ArregloDatos['act_nombre'];
+				$sparam['pxact_nombre']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['act_codinap']))
+		{
+			if ($ArregloDatos['act_codinap']!="")
+			{
+				$sparam['pact_codinap']= $ArregloDatos['act_codinap'];
+				$sparam['pxact_codinap']= 1;
+			}
+		}
+
+		if (isset($ArregloDatos['act_codinap_exacto']))
+		{
+			if ($ArregloDatos['act_codinap_exacto']!="")
+			{
+				$sparam['pact_codinap_exacto']= $ArregloDatos['act_codinap_exacto'];
+				$sparam['pxact_codinap_exacto']= 1;
+			}
+		}
+
+		if (isset($ArregloDatos['actcur_estado']))
+		{
+			if ($ArregloDatos['actcur_estado']!="")
+			{
+				$sparam['pactcur_estado']= $ArregloDatos['actcur_estado'];
+				$sparam['pxactcur_estado']= 1;
+			}
+		}
+
+		if (isset($ArregloDatos['jurisdid_inap']))
+		{
+			if ($ArregloDatos['jurisdid_inap']!="")
+			{
+				$sparam['pjurisdid_inap']= $ArregloDatos['jurisdid_inap'];
+				$sparam['pxjurisdid_inap']= 1;
+			}
+		}
+
+		if (isset($ArregloDatos['tipoact_codigo']))
+		{
+			if ($ArregloDatos['tipoact_codigo']!="")
+			{
+				$sparam['ptipoact_codigo']= $ArregloDatos['tipoact_codigo'];
+				$sparam['pxtipoact_codigo']= 1;
+			}
+		}
+
+
+		if (isset($ArregloDatos['progcur_codigo']))	{
+			if ($ArregloDatos['progcur_codigo']!="")
+			{
+				$sparam['pprogcur_codigo']= $ArregloDatos['progcur_codigo'];
+				$sparam['pxprogcur_codigo']= 1;
+			}
+		}
+
+		if (isset($ArregloDatos['areacur_codigo']))	{
+			if ($ArregloDatos['areacur_codigo']!="")
+			{
+				$sparam['pareacur_codigo']= $ArregloDatos['areacur_codigo'];
+				$sparam['pxareacur_codigo']= 1;
+			}
+		}
+
+		if (isset($ArregloDatos['actdisinap_beca']))	{
+			if ($ArregloDatos['actdisinap_beca']!="")
+			{
+				$sparam['pactdisinap_beca']= $ArregloDatos['actdisinap_beca'];
+				$sparam['pxactdisinap_beca']= 1;
+			}
+		}
+
+
+
+		if (isset ($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+			{
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+
+		$spnombre="sel_actividad_curso_sin_dictamen_xdatos";
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar el Actividad Curso.";
+			$errormail="Error al buscar el Actividad Curso.".$errno;
+			return false;
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function BuscarActividadCursoAsignablesPoc($filtro,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		$resultado = array();
+
+		// Dado el poc busco el año
+		$oPoc= new cPoc($this->conexion);
+		if(!$oPoc->TraerDatosPoc($filtro['poc_codigo'],$datos_poc,$es_modif))
+			return false;
+
+		$sparam=array();
+
+		$sparam+=array('pxact_nombre'=>0);
+		$sparam+=array('pact_nombre'=>'');
+		$sparam+=array('pxact_codigo'=>0);
+		$sparam+=array('pact_codigo'=>'');
+
+		if (isset($filtro['act_nombre'])) {
+			if ($filtro['act_nombre']!="") {
+				$sparam['pact_nombre'] = $filtro['act_nombre'];
+				$sparam['pxact_nombre'] = 1;
+			}
+		}
+
+		if (isset($filtro['act_codigo'])) {
+			if ($filtro['act_codigo']!="") {
+				$sparam['pact_codigo'] = $filtro['act_codigo'];
+				$sparam['pxact_codigo'] = 1;
+			}
+		}
+
+		$fecha_ini_poc = $datos_poc['poc_ano']."01"."01";
+		$fecha_fin_poc = $datos_poc['poc_ano']."12"."31";
+
+		$sparam+=array('pfecha_inicio1'=>$fecha_ini_poc);
+		$sparam+=array('pfecha_inicio2'=>$fecha_ini_poc);
+		$sparam+=array('pfecha_inicio3'=>$fecha_ini_poc);
+		$sparam+=array('pfecha_inicio4'=>$fecha_ini_poc);
+		$sparam+=array('pfecha_inicio5'=>$fecha_ini_poc);
+
+		$sparam+=array('pfecha_fin1'=>$fecha_fin_poc);
+		$sparam+=array('pfecha_fin2'=>$fecha_fin_poc);
+		$sparam+=array('pfecha_fin3'=>$fecha_fin_poc);
+
+		$sparam+=array('pxact_codinap'=>0);
+		$sparam+=array('pact_codinap'=>"");
+
+
+		$sparam+=array('pxactcur_estado'=>0);
+		$sparam+=array('pactcur_estado'=>"-1");
+
+		$sparam+=array('pxdic_codigo'=>0);
+		$sparam+=array('pdic_codigo'=>"-1");
+
+		$sparam+=array('pxdic_estado'=>1);
+		$sparam+=array('pdic_estado'=>DICTAMENACTIVO);
+
+		$sparam+=array('pxcon_dispo'=>0);
+		$sparam+=array('pxsin_dispo'=>0);
+
+		$sparam+=array('pxactprog_sec'=>0);
+		$sparam+=array('pactprog_sec'=>"");
+
+		$sparam+=array('porderby'=>"tipoact_codigo, act_nombre");
+
+		// ACTIVIDADES INAP
+		$sparam+=array('pxjurisdid_inap'=>0);
+		$sparam+=array('pjurisdid_inap'=>'-1');
+
+		$sparam+=array('pxtipoact_codigo'=>1);
+		$sparam+=array('ptipoact_codigo'=>TIPOACTCURSOINAP);
+
+		$spnombre="sel_actividad_curso_dictaminada_en_fechas_xdatos";
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultDictamenesActINAP,$numfilas,$errno))	{
+			$error=" Error al obtener actividades/programaciones disponibles para el poc.";
+			$errormail="Inap - \n poc_codigo= ".$filtro['poc_codigo']."\n pfecha_inicio1= ".$sparam['pfecha_inicio1']."\npfecha_fin1= ".$sparam['pfecha_fin1'].$errno;
+			return false;
+		}
+
+		while ($fila = mysqli_fetch_assoc($resultDictamenesActINAP))  {
+				$resultado[$fila['act_codigo']]= array ('poc_codigo'=>$filtro['poc_codigo'],
+									 'act_codigo'=>$fila['act_codigo'],
+									 'tipoact_codigo'=>$fila['tipoact_codigo'],
+									 'act_codinap'=>$fila['act_codinap'],
+									 'act_nombre'=>$fila['act_nombre']
+									 );
+		}
+
+		// Actividades JURISDICCIONALES
+		$sparam['pxtipoact_codigo']=1;
+		$sparam['ptipoact_codigo']=TIPOACTCURSOJURISD;
+		$sparam['pxjurisdid_inap']=1;
+		$sparam['pjurisdid_inap']=$filtro['jurisdid_inap'];
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultDictamenesActJURISD,$numfilas,$errno))	{
+			$error=" Error al obtener actividades/programaciones disponibles para el poc.";
+			$errormail="Jurisdiccionales - \n poc_codigo= ".$filtro['poc_codigo']."\n pfecha_inicio1= ".$sparam['pfecha_inicio1']."\npfecha_fin1= ".$sparam['pfecha_fin1'].$errno;
+			return false;
+		}
+		while ($fila = mysqli_fetch_assoc($resultDictamenesActJURISD))  {
+				$resultado[$fila['act_codigo']]= array ('poc_codigo'=>$filtro['poc_codigo'],
+									 'act_codigo'=>$fila['act_codigo'],
+									 'tipoact_codigo'=>$fila['tipoact_codigo'],
+									 'act_codinap'=>$fila['act_codinap'],
+									 'act_nombre'=>$fila['act_nombre']
+									 );
+		}
+
+		$numfilas=count($resultado);
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function MostrarPrestadoresActividad($conexion,$act_codigo, $operacion="V") {
+
+	if ($operacion=="A") { ?>
+		<a href="actividad_curso_prestador_docente.dhtml?act_codigo=<?= $act_codigo; ?>">Actualizar Equipo Docente de la actividad</a>
+		<br /> &nbsp;
+<?php	}
+
+	// Selecciono todos los prestadores asociados a la actividad.
+	$oPrestadorDocente = new cPrestadorDocente($conexion);
+	$ArregloDatos= array();
+	$ArregloDatos['act_codigo']=$act_codigo;
+
+	if(!$oPrestadorDocente->BuscarPrestadorDocentexActividad($ArregloDatos,$numfilas,$resultado,$error,$errormail)) {
+		$txt_sys_mail="\nact_codigo=".$act_codigo."\nerror=".$error;
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error buscando los prestadores docentes de la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	}
+
+	$opciones=array(
+		"numPagina"=>isset($_GET['pagina'])?$_GET['pagina']:1,
+		"NombrePaginaQuery"=>"pagina",
+		"FilasPagina"=>$numfilas
+	);
+
+	$oGrilla = new cGrilla($opciones);
+	$oGrilla->SetearTituloGrilla("Prestadores Docentes de la Actividad");
+	$oGrilla->SetearAnchoGrilla('100%');
+
+	$miColumna1 = $oGrilla->AddColumna('txt');
+	$oGrilla->Setear('titulo_columna',$miColumna1,"CUIT/CUIL");
+	$oGrilla->Setear('campo_grilla',$miColumna1,"presdoc_cuilt");
+	$oGrilla->Setear('align_columna',$miColumna1,'left');
+	$oGrilla->Setear('ancho_columna',$miColumna1,'20%');
+
+	$miColumna2 = $oGrilla->AddColumna('txt');
+	$oGrilla->Setear('titulo_columna',$miColumna2,"Apellido");
+	$oGrilla->Setear('campo_grilla',$miColumna2,"presdoc_apellido");
+	$oGrilla->Setear('align_columna',$miColumna2,'left');
+
+	$miColumna3 = $oGrilla->AddColumna('txt');
+	$oGrilla->Setear('titulo_columna',$miColumna3,"Nombre");
+	$oGrilla->Setear('campo_grilla',$miColumna3,"presdoc_nombre");
+	$oGrilla->Setear('align_columna',$miColumna3,'left');
+
+	if (!$oGrilla->CargarGrilla($resultado))
+		return false;
+
+	$oGrilla->MostrarGrilla();
+
+	return true;
+}
+//-----------------------------------------------------------------------------------------------------
+	function _DatosValidosAltaActividadCurso($datos,&$datosvalidados)	{
+
+		$datosvalidados=array();
+
+		if (!$this->_DatosValidosComunesActividadCurso($datos,$datosvalidados))
+		   return false;
+
+		$spnombre = "sel_tipo_actividad_xformact_codigo_orden";
+		$spparam = array("pformact_codigo"=>FORMATOCURSO,"porderby"=>"tipoact_descripcion");
+		if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("tipoact_codigo"=>$datos["tipoact_codigo"]),$resultado,$filatipo_act,$numfilas,$errno) || $numfilas!=1)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar el tipo de Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados['tipoact_codigo'] = $datos['tipoact_codigo'];
+
+		$datosvalidados['jurisdid_inap'] = $datos['jurisdid_inap'];
+		$datosvalidados['actcur_estado'] = $datos['actcur_estado'];
+		$datosvalidados['actcur_creditos'] = $datos['actcur_creditos'];
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function _DatosValidosEliminarActividadCurso($act_codigo,&$datosvalidados)	{
+
+		// Se elimina la actividad
+		$datosvalidados=array();
+		if (!$this->TraerDatosActividadCurso($act_codigo,$datosvalidados,$es_modif_act_curso))
+			return false;
+
+		// Debe existir
+		if (!$es_modif_act_curso) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar la Actividad Curso.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		// No debe estar asignada a ninguna comisión
+		$oComision=new cComision($this->conexion);
+		$ArregloDatos=array();
+		$ArregloDatos['act_codigo']=$act_codigo;
+		if (!$oComision->BuscarComision($ArregloDatos,$numfilas,$resultado,$error,$errormail)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		if ($numfilas>=1) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"La actividad tiene comisiones, las mismas deben ser eliminadas <br>antes de eliminar la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+
+		// A los cursos sólo se les puede agregar el formato de autodesarrollo.
+		// Verificar que no tiene asignado el formato de autodesarrollo.
+		if (!$this->TieneFormato($act_codigo,FORMATOAUTO,$tiene_formato)) {
+			$errormail="\nact_codigo=".$act_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error verificar formatos de la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		if ($tiene_formato) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"La actividad tiene asignado el formato de Autodesarrollo.<br><br>Se Deber&aacute; eliminar dicho formato antes de eliminar la Actividad Curso.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function _DatosValidosModifActividadCurso($datos,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		if (!$this->_DatosValidosComunesActividadCurso($datos,$datosvalidados))
+		   return false;
+
+		$datosvalidados['act_codigo'] = $datos['act_codigo'];
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function _DatosValidosComunesActividadCurso($datos,&$datosvalidados)	{
+		$datosvalidados=array();
+		$datosvalidados['actcur_obs'] = $datos['actcur_obs'];
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+// Funciones WS_SAI
+//-----------------------------------------------------------------------------------------------------
+	function CreditosActividad_porPersona($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		$sparam=array('ppers_cuilt'=>'');
+
+		$sparam+=array('pxfecha_inicio'=>0);
+		$sparam+=array('pfecha_inicio'=>'');
+		$sparam+=array('pxfecha_fin'=>0);
+		$sparam+=array('pfecha_fin'=>'');
+
+		// Se copian los valores del valor correspondiente sin c1
+		$sparam+=array('ppers_cuilt_c1'=>'');
+
+		// Es por cuit
+		$sparam['ppers_cuilt']= $ArregloDatos['pers_cuilt'];
+		$sparam['ppers_cuilt_c1']= $ArregloDatos['pers_cuilt'];
+
+		// Fecha de realizacion
+		if (isset($ArregloDatos['fecha_inicio']))
+		{
+			if ($ArregloDatos['fecha_inicio']!="")
+			{
+				$sparam['pfecha_inicio']= $ArregloDatos['fecha_inicio'];
+				$sparam['pxfecha_inicio']= 1;
+			}
+		}
+
+		if (isset($ArregloDatos['fecha_fin']))
+		{
+			if ($ArregloDatos['fecha_fin']!="")
+			{
+				$sparam['pfecha_fin']= $ArregloDatos['fecha_fin'];
+				$sparam['pxfecha_fin']= 1;
+			}
+		}
+
+		$spnombre="sel_creditos_actividad_curso_xcuilt";
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar créditos por Actividades Curso.";
+			$errormail="Error al buscar créditos de Actividades Curso.".$errno;
+			return false;
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function ActividadCertificada_porPersona($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		$sparam=array('ppers_cuilt'=>'');
+
+		$sparam+=array('pxfecha_inicio'=>0);
+		$sparam+=array('pfecha_inicio'=>'');
+		$sparam+=array('pxfecha_fin'=>0);
+		$sparam+=array('pfecha_fin'=>'');
+
+		// Se copian los valores del valor correspondiente sin c1
+		$sparam+=array('ppers_cuilt_c1'=>'');
+
+		$sparam+=array('porderby'=>'fecha_fin');
+		// Es por cuit
+		$sparam['ppers_cuilt']= $ArregloDatos['pers_cuilt'];
+		$sparam['ppers_cuilt_c1']= $ArregloDatos['pers_cuilt'];
+
+		// Fecha de realizacion
+		if (isset($ArregloDatos['fecha_inicio']))
+		{
+			if ($ArregloDatos['fecha_inicio']!="")
+			{
+				$sparam['pfecha_inicio']= $ArregloDatos['fecha_inicio'];
+				$sparam['pxfecha_inicio']= 1;
+			}
+		}
+
+		if (isset($ArregloDatos['fecha_fin']))
+		{
+			if ($ArregloDatos['fecha_fin']!="")
+			{
+				$sparam['pfecha_fin']= $ArregloDatos['fecha_fin'];
+				$sparam['pxfecha_fin']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+			{
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+		$spnombre="sel_actividad_curso_certificada_xcuilt";
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar Actividades Curso Certificadas.";
+			$errormail="Error al buscar Actividades Curso Certificadas".$errno;
+			return false;
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+// fin WS_SAI
+//-----------------------------------------------------------------------------------------------------
+
+} // class
+?>

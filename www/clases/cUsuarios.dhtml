@@ -1,0 +1,1007 @@
+<?php
+//----------------------------------------------------------------------------------------- 
+// Clase con la lógica para el manejo de usuarios
+
+/* La clase requiere que esten definidos:
+
+	Stored Básicos: 	sel_usuarios_xusuariocod
+						upd_usuarios_xusuariocod
+						sel_usuarios_xusuariocuit
+						upd_usuariopassword_xusuariocod						
+						sel_usuarios_xusuariocuit_usuarioemail
+						
+	Registros de Acceso: 
+
+	Clase: cRoles 
+*/
+
+class cUsuarios
+{
+	var $conexion;
+
+	public function __construct($conexion)
+	{
+		$this->conexion = &$conexion;
+	}
+
+//-----------------------------------------------------------------------------------------
+//							 PUBLICAS	
+//----------------------------------------------------------------------------------------- 
+/*
+//----------------------------------------------------------------------------------------- 
+// Retorna una consulta con todos los usuarios que cumplan con las condiciones
+
+// Parámetros de Entrada:
+//		datosbuscar: array asociativo con los filtros. Claves: usuarionombre, usuarioapellido, usuariocuit, usuarioemail
+
+// Retorna:
+//		numfilas,resultado: cantidad de filas y query de resultado
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+
+	function BuscarUsuariosXDatos($datosbuscar,&$numfilas,&$resultado)
+	{
+		$spnombre="sel_usuarios_xdatos_menorestado";
+		$spparam=array("pusuarioestado"=>USUARIOBAJA,"pusuarionombre"=>"","pusuarioapellido"=>"","pusuariocuit"=>"","pusuarioemail"=>"","porderby"=>"usuarioapellido,usuarionombre");
+		
+		if(isset($datosbuscar["usuarionombre"]))
+			$spparam["pusuarionombre"]=$datosbuscar["usuarionombre"];
+		if(isset($datosbuscar["usuarioapellido"]))
+			$spparam["pusuarioapellido"]=$datosbuscar["usuarioapellido"];
+		if(isset($datosbuscar["usuariocuit"]))
+			$spparam["pusuariocuit"]=$datosbuscar["usuariocuit"];
+		if(isset($datosbuscar["usuarioemail"]))
+			$spparam["pusuarioemail"]=$datosbuscar["usuarioemail"];
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando usuarios. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		
+		return true;
+	}
+*/
+//----------------------------------------------------------------------------------------- 
+// Agrega un nuevo usuario al sistema
+
+// Parámetros de Entrada:
+//		datos: array asociativo con los datos a agregar
+
+// Retorna:
+//		nuevapwd: la password generada para el usuario
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+
+	function AltaUsuario($datos,&$nuevapwd)	{
+
+		// Se pueden hacer las validaciones acá
+
+		$nuevapwd=FuncionesPHPLocal::GenerarPassword(6);
+
+		$spnombre="ins_usuarios";
+		$spparam=array("pusuariocuit"=>$datos["usuariocuit"]);
+		$spparam+=array("pusuarionombre"=>$datos["usuarionombre"]);
+		$spparam+=array("pusuarioapellido"=>$datos["usuarioapellido"]);
+		$spparam+=array("pusuarioemail"=>$datos["usuarioemail"]);
+		$spparam+=array("pusuariopassword"=>md5($nuevapwd));
+		$spparam+=array("pusuarioestado"=>USUARIONUEVO);
+		$spparam+=array("pusuariodioalta"=>$_SESSION['usuariocod']);
+		$spparam+=array("pusuariofalta"=>date("Y/m/d H:i:s"));
+		$spparam+=array("pultmodusuario"=>$_SESSION['usuariocod']);
+		$spparam+=array("pultmodfecha"=>date("Y/m/d H:i:s"));
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se pudo dar de alta el usuario. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		return true;
+	
+	}
+	
+//----------------------------------------------------------------------------------------- 
+// Da de baja un usuario
+
+// Parámetros de Entrada:
+//		usuariocod: usuario a modificar los datos
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+
+	function EliminarUsuario($usuariocod)
+	{
+
+		$roles=new cRoles($this->conexion);
+	
+		if(!$roles->RolesDeUnUsuario($usuariocod,$numfilasroles,$resultadoroles))
+			return false;
+			
+		if($numfilasroles!=0)
+			return false;
+			
+		$spnombre="upd_usuarios_estado_xusuariocod";
+		$spparam=array("pusuariocod"=>$usuariocod);				
+		$spparam+=array("pusuarioestado"=>USUARIOBAJA);				
+		$spparam+=array("pultmodusuario"=>$_SESSION['usuariocod']);
+		$spparam+=array("pultmodfecha"=>date("Y/m/d H:i:s"));
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al dar de baja el usuario. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		return true;
+	}
+	
+//----------------------------------------------------------------------------------------- 
+// Modifica los datos del usuario
+
+// Parámetros de Entrada:
+//		usuariocod: usuario a modificar los datos
+//		datos: array asociativo con los datos a agregar
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+
+	function ModificarUsuario($usuariocod,$datos,&$errno)	{
+		
+
+		$ArregloDatos['usuariocod']=$usuariocod;
+		if (!$this->BuscarUsuarios ($ArregloDatos,$numfilas,$resultadousuarios,$error,$errormail) || $numfilas!=1)
+			return false;
+	
+		$spnombre="upd_usuarios_xusuariocod";
+		$spparam=array("pusuariocod"=>$usuariocod);
+		$spparam+=array("pusuariocuit"=>$datos["usuariocuit"]);
+		$spparam+=array("pusuarionombre"=>$datos["usuarionombre"]);
+		$spparam+=array("pusuarioapellido"=>$datos["usuarioapellido"]);
+		$spparam+=array("pusuarioemail"=>$datos["usuarioemail"]);
+		$spparam+=array("pultmodusuario"=>$_SESSION['usuariocod']);
+		$spparam+=array("pultmodfecha"=>date("Y/m/d H:i:s"));
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se pudieron modificar los datos. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		
+		return true;
+	}
+	
+//----------------------------------------------------------------------------------------- 
+// Rehabilita un usuario dado de baja
+
+// Parámetros de Entrada:
+//		usuariocuit,usuarioemail: los datos de la cuenta a rehabilitar
+
+// Retorna:
+//		nuevapwd: la nueva password generada
+//		error: si se produjo algún error
+//		msgok: mensaje de salida
+	
+	function RehabilitarUsuario ($usuariocuit,$usuarioemail,&$nuevapwd,&$error,&$msgok)
+	{		
+
+		$spnombreusuario='sel_usuarios_xusuariocuit_usuarioemail';
+		$spparamusuario=array('pusuariocuit'=>$usuariocuit,'pusuarioemail'=>$usuarioemail);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombreusuario,$spparamusuario,$queryusuario,$numfilas,$errno) || $numfilas!=1)
+		{
+			$error= "Los datos ingresados no corresponden a un usuario - '".htmlspecialchars($usuariocuit,ENT_QUOTES)."'/'".htmlspecialchars($usuarioemail,ENT_QUOTES)."'";
+			return false;
+		}
+		else
+		{ // se encontró un usuario con los datos
+			$usuario=mysqli_fetch_assoc($queryusuario);
+			
+			if($usuario["usuarioestado"]!=USUARIOBAJA)
+			{
+				$error= "Su usuario no se encuentra para rehabilitar - '".htmlspecialchars($usuariocuit,ENT_QUOTES)."'/'".htmlspecialchars($usuarioemail,ENT_QUOTES)."'";
+				return false;
+			}
+			else
+			{ // se puede generar la nueva contraseña
+				$nuevapwd=FuncionesPHPLocal::GenerarPassword(6);
+				
+				$spnombreusu='upd_usuariopassword_xusuariocod';
+				$spparamusu=array('pusuariopassword'=>md5($nuevapwd),'pusuarioestado'=>USUARIONUEVO,'pultmodusuario'=>0,'pultmodfecha'=>date('Y/m/d H:i:s'),'pusuariocod'=>$usuario["usuariocod"]);
+			
+				if(!$this->conexion->ejecutarStoredProcedure($spnombreusu,$spparamusu,$nousar,$numfilas,$errno) || $numfilas!=1)
+				{
+					$error= "Error BD en selección de usuarios. ";
+					return false;
+				}	
+				else
+				{
+					$msgok="Se envió la nueva contraseña al mail del usuario. El envío puede demorar unos minutos.";
+				}
+	
+			} // fin de se puede enviar la nueva contraseña
+		} // fin de se encontró el usuario
+
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Retorna una consulta con los datos del usuario por usuariocod
+
+// Parámetros de Entrada:
+//		usuariocod: usuario a buscar
+
+// Retorna:
+//		numfilas,resultado: cantidad de filas y query de resultado
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+
+	function BuscarUsuariosXUsuariocod($usuariocod,&$numfilas,&$resultado,$solo_activos=true)
+	{
+		if($solo_activos)
+		{
+			$spnombre="sel_usuarios_xusuariocod_menorestado";
+			$spparam=array("pusuarioestado"=>USUARIOBAJA,"pusuariocod"=>$usuariocod);
+		}
+		else
+		{
+			$spnombre='sel_usuarios_xusuariocod';
+			$spparam=array('pusuariocod'=>$usuariocod);
+		}
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas>1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando usuarios. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		
+		return true;
+	}
+	
+	function BuscarUsuarioUniversidadsXUsuarioUniversidad($usuariocod,$univ_codigo, &$numfilas,&$resultado,$solo_activos=true)
+	{
+			$spnombre="sel_usuario_universidad_xusuario_univ";
+			$spparam=array("pusuariocod"=>$usuariocod,"puniv_codigo"=>$univ_codigo);
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas>1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando usuarios. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		
+		return true;
+	}
+
+		function BuscarUsuarioUniversidadsXUsuario($usuariocod, &$numfilas,&$resultado,$solo_activos=true)
+	{
+			$spnombre="sel_usuario_universidad_xusuario";
+			$spparam=array("pusuariocod"=>$usuariocod);
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando usuarios. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		
+		return true;
+	}
+	
+	
+//----------------------------------------------------------------------------------------- 
+	function BuscarUsuariosXUsuarioRol($usuariocod,$rolcod,$jurisdid,&$numfilas,&$resultado)
+	{
+		$spnombre='sel_usuarios_roles_jurisdiccion_inap_xusuariocod_rolcod_jurisdid';
+		$spparam=array('pusuariocod'=>$usuariocod);
+		$spparam+=array('prolcod'=>$rolcod);
+		$spparam+=array('pjurisdid_inap'=>$jurisdid);
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno)) {
+			$txt_sys_mail="Rol buscado="."\n usuariocod=".$usuariocod."\n rolcod= ".$rolcod."\n jurisdid=".$jurisdid;;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando rol del usuario. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} elseif($numfilas>1)	{
+			$txt_sys_mail="Rol buscado (más de un registro para el mismo rol)\n"."\n usuariocod=".$usuariocod."\n rolcod= ".$rolcod."\n jurisdid=".$jurisdid;;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando rol del usuario. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;			
+		}
+
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Retorna los datos de un usuario
+
+// Parámetros de Entrada:
+//		usuariocod: usuario a buscar
+
+// Retorna:
+//		datos: son los datos del usuario
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+
+	function TraerDatosUsuario($usuariocod,&$datos,$solo_activos=true)
+	{
+		if(!$this->BuscarUsuariosXUsuariocod($usuariocod,$numfilas,$resultado,$solo_activos) || $numfilas!=1)
+			return false;
+		
+		$datos=mysqli_fetch_assoc($resultado);
+		
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Valida que no este ya cargado el CUIT ingresado
+
+// Parámetros de Entrada:
+//		usuarioCUIT: es el CUIT a buscar
+//		usuariocod: en caso que sea distinto a vacio, entonces el unico cuit existente tiene que ser el de ese usuario
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+
+	function ValidarCUIT($usuariocuit,$usuariocod="")
+	{
+		$spnombre='sel_usuarios_xusuariocuit';
+		$spparam=array('pusuariocuit'=>$usuariocuit);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$queryusuario,$numfilas,$errno))
+			return false;
+			
+		if($numfilas==0)
+			return true;
+		elseif($numfilas==1)
+		{
+			if($usuariocod!="")
+			{
+				$fila=mysqli_fetch_assoc($queryusuario);
+				
+				if($fila["usuariocod"]==$usuariocod)
+					return true;
+			}
+		}
+			
+		return false;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Cambiar PWD del usuario
+
+// Parámetros de Entrada:
+//		usuariocod: es el usuario a cambiar la contraseña
+//		claveactual: es la clave actual del usuario
+//		clavenueva: es la nueva clave del usuario
+//		claveconf: es la confirmación de la clave nueva
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+	
+	function CambiarPwd($usuariocod,$claveactual,$clavenueva,$claveconf)
+	{
+		if(!$this->BuscarUsuariosXUsuariocod($usuariocod,$numfilasusuarios,$resultadousuarios) || $numfilasusuarios!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando usuarios. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$filausuario=mysqli_fetch_assoc($resultadousuarios);
+	
+	
+		if(md5($claveactual)!=$filausuario["usuariopassword"] || $clavenueva!=$claveconf)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Los datos ingresados son erróneos. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		
+		if(!FuncionesPHPLocal::ValidarPassword($clavenueva,$claveactual,$filausuario["usuarioCUIT"],6))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La nueva contraseña no es válida. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+	
+		$spnombreusu='upd_usuariopassword_xusuariocod';
+		$spparamusu=array('pusuariopassword'=>md5($clavenueva),'pusuarioestado'=>USUARIOACT,'pultmodusuario'=>$_SESSION['usuariocod'],'pultmodfecha'=>date('Y/m/d H:i:s'),'pusuariocod'=>$usuariocod);
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombreusu,$spparamusu,$nousar,$numfilas,$errno) || $numfilas!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error BD en selección de usuarios. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}	
+		
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+
+	function CambiarPwdDocente($usuariocod,$claveactual,$clavenueva,$claveconf)
+	{
+		$oPrestadorDocente = new cPrestadorDocente($this->conexion);
+
+		
+		if(!$oPrestadorDocente->TraerDatosPrestadorDocente($usuariocod,$filausuario,$numltadousuarios))
+		{
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando al Prestador. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			die();
+		}
+		if(md5($claveactual)!=$filausuario["presdoc_password"] || $clavenueva!=$claveconf)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Los datos ingresados son erróneos. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		if(!FuncionesPHPLocal::ValidarPassword($clavenueva,$claveactual,$filausuario["presdoc_cuilt"],6))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La nueva contraseña no es válida. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+	
+		$spnombreusu='upd_prestador_docente_xpresdoc_codigo';
+		$spparamusu=array('ppresdoc_password'=>md5($clavenueva),'ppresdoc_estado'=>USUARIOACT,'pultmodusuario'=>$_SESSION['usuariocod'],'pultmodfecha'=>date('Y/m/d H:i:s'),'ppresdoc_codigo'=>$usuariocod);
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombreusu,$spparamusu,$nousar,$numfilas,$errno) || $numfilas!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error BD en selección de usuarios. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}	
+		
+		return true;
+	}
+
+
+
+
+//----------------------------------------------------------------------------------------- 
+// Genera una password nueva para ser enviada al usuario
+
+// Parámetros de Entrada:
+//		usuariocuit/usuariomail: datos a buscar en la base
+
+// Retorna:
+//		nuevapwd: la clave nueva generada por el sistema
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+	
+	function OlvidoPassword($usuariocuit,$usuarioemail,&$nuevapwd)
+	{		
+		$spnombreusuario='sel_usuarios_xusuariocuit_usuarioemail';
+		$spparamusuario=array('pusuariocuit'=>$usuariocuit,'pusuarioemail'=>$usuarioemail);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombreusuario,$spparamusuario,$queryusuario,$numfilas,$errno) || $numfilas!=1)
+		{
+			echo "<br><br><br><br>";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Los datos ingresados no corresponden a un usuario - '".htmlspecialchars($usuariocuit,ENT_QUOTES)."'/'".htmlspecialchars($usuarioemail,ENT_QUOTES)."'",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			echo "<br><br>";
+			echo "<div align='center'><a href='".$_SERVER['PHP_SELF']."' class='textoTablaDato linkFondoBlanco'>Volver a ingresar los datos</a></div>";
+			return false;
+		}
+		else
+		{ // se encontró un usuario con los datos
+			$usuario=mysqli_fetch_assoc($queryusuario);
+			
+			if($usuario["usuarioestado"]>USUARIOACT)
+			{
+				echo "<br><br><br><br>";
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No se pudo enviar una contraseña nueva. Su usuario no se encuentra activo - '".htmlspecialchars($usuariocuit,ENT_QUOTES)."'/'".htmlspecialchars($usuarioemail,ENT_QUOTES)."'",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				echo "<br><br>";
+				echo "<div align='center'><a href='".$_SERVER['PHP_SELF']."' class='textoTablaDato linkFondoBlanco'>Volver a ingresar los datos</a></div>";
+				return false;
+			}
+			else
+			{ // se puede generar la nueva contraseña
+				$nuevapwd=FuncionesPHPLocal::GenerarPassword(6);
+				
+				$spnombreusu='upd_usuariopassword_xusuariocod';
+				$spparamusu=array('pusuariopassword'=>md5($nuevapwd),'pusuarioestado'=>USUARIONUEVO,'pultmodusuario'=>0,'pultmodfecha'=>date('Y/m/d H:i:s'),'pusuariocod'=>$usuario["usuariocod"]);
+			
+				if(!$this->conexion->ejecutarStoredProcedure($spnombreusu,$spparamusu,$nousar,$numfilas,$errno) || $numfilas!=1)
+				{
+					echo"<p>&nbsp;</p>";
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error en selección de usuarios. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}	
+				else
+				{
+					echo "<br><br><br><br>";
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_OK,"Se envió su nueva contraseña al mail. El envío puede demorar unos minutos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					echo "<br><br>";
+					echo "<div align='center'><a href='index.dhtml' class='textoTablaDato linkFondoBlanco'>Volver a inicio</a></div>";
+					FuncionesPHPLocal::RegistrarAcceso($this->conexion,'023807',"usuariocod=".$usuario["usuariocod"]." - usuariocuit=".$usuariocuit,0);	
+				}
+	
+			} // fin de se puede enviar la nueva contraseña
+		} // fin de se encontró el usuario
+		
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Pantalla para elegir el rol con el que quiere trabajar el usuario
+
+// Parámetros de Entrada:
+//		usuariocod
+
+// Retorna:
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+	
+	function PantallaElegirRol($usuariocod)
+	{
+		$roles=new cRoles($this->conexion);
+		
+?>	
+<div align="center">
+<script language="javascript" type="text/javascript">
+function Validar(formulario)
+{
+	if(formulario.rol_jurisd.value=="")
+	{
+		alert("Debe seleccionar un rol y un organismo");
+		formulario.rol_jurisd.focus();
+		return false;
+	}
+
+	return true;	
+}
+
+function selRadioButton(formulario, indice) {
+  formulario.rol_jurisd[indice].click();
+}	
+</script>
+
+<form method="POST" action="<?php echo $_SERVER['PHP_SELF'] ?>" name="formulario">
+<table width="100%" class="textoTablaDatoChica" cellpadding="0" cellspacing="0">
+
+<?php		
+	$roles->RolesDeUnUsuarioSP($usuariocod,$spnombre,$spparam);
+
+	if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$queryusuarioroles,$numfilas,$errno) )	{
+		echo"<p>&nbsp;</p>";
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error BD en selección de roles del usuario. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;
+	}
+	
+	if($this->conexion->TraerCampo("usuarios","concat(usuarioapellido,',',usuarionombre)",array("usuariocod='",$_SESSION['usuariocod'],"'"),$usuario,$numfilas,$errno))
+		$usuario=htmlspecialchars($usuario,ENT_QUOTES);
+
+	if($this->conexion->TraerCampo("usuarios","usuariocuit",array("usuariocod='",$_SESSION['usuariocod'],"'"),$usuariocuit,$numfilas,$errno))
+	 	$usuariocuit=htmlspecialchars($usuariocuit,ENT_QUOTES);
+	
+?>
+	<tr> 
+    	<td colspan="3">
+			<table width="100%" class="textoTablaDato">
+				<tr>
+					<td class="textoEtiqueta"> Usuario:</td>
+					<td width="50%" align="left"> <?php echo $usuario; ?> </td>
+					<td class="textoEtiqueta"> CUIT / CUIL / CDI:</td>
+					<td align="left"> <?php echo $usuariocuit; ?> </td>
+				</tr>
+			</table>
+		</td>
+	</tr>
+	
+	<tr> 
+		<td colspan="3" >
+		<table width="100%" cellpadding="2" cellspacing="0"  border="1" class="bordeTabla textoTablaDato">
+			<tr class='colorTitulosGrupo textoTituloGrupo'> 
+				<td width="5%"></td>
+				<td width="50%">Rol</td>
+				<td>Organismo</td>
+			</tr>
+<?php
+	$primero = true;
+	$i=0;
+	
+	$fila_rol_completo = array();
+	while ($fila_usuario_rol=mysqli_fetch_assoc($queryusuarioroles)) {
+
+		if($this->conexion->TraerCampo("roles","roldesc",array("rolcod='",$fila_usuario_rol['rolcod'],"'"),$roldesc,$numfilas,$errno))
+		{	$roldesc=htmlspecialchars($roldesc,ENT_QUOTES);
+			$fila_usuario_rol['roldesc'] =$roldesc;				
+		} 
+
+
+		if($this->conexion->TraerCampo("roles","rolselecjurisd",array("rolcod='",$fila_usuario_rol['rolcod'],"'"),$rolselecjurisd,$numfilas,$errno)) {	
+			if ($rolselecjurisd=="S" || $fila_usuario_rol['rolcod']==USUACTJUR) {				
+				if ($fila_usuario_rol['jurisdid_inap']!=-1) { 
+						$objJurisdicciones= new jurisdicciones;
+						if ($objJurisdicciones->SelectJurisdxID($fila_usuario_rol['jurisdid_inap'],array(),TABGRALES_TS_ARRAY,$fila_jurisd,array(),$NumFilas,$CodError)) {
+							$organismo=htmlspecialchars($fila_jurisd[$fila_usuario_rol['jurisdid_inap']]['jurisdnom'],ENT_QUOTES);
+						}	
+					} else // Caso de ser un USUACTJUR sin ningún organismo como enlace, jurisdid_in.
+					   $organismo =  "No tiene asignado Organismo";
+			}  else 	
+				$organismo = "&nbsp;";				
+		
+			$fila_usuario_rol['organismo'] =$organismo;				
+				
+		} // ok traer campo 
+		$fila_rol_completo[] = $fila_usuario_rol;
+		
+	}
+	
+
+	$arrayresult_ordenado=FuncionesPHPLocal::Array_column_sort($fila_rol_completo,"rolcod", "organismo");
+
+	foreach ($arrayresult_ordenado as $clave =>$fila_usuario_rol) {
+	?>  
+		<tr align="left" onmouseover="setPointer(this, <?php echo ($i+1) ?>, 'over', '<?php echo COLOR_FILA_FONDO_DEFAULT ?>', '<?php echo COLOR_FILA_OVER ?>', '<?php echo COLOR_FILA_FONDO_CLARO ?>');" onmouseout="setPointer(this, <?php echo ($i+1) ?>, 'out', '<?php echo COLOR_FILA_FONDO_DEFAULT ?>', '<?php echo COLOR_FILA_OVER ?>', '<?php echo COLOR_FILA_FONDO_DEFAULT ?>');" onmousedown="setPointer(this, <?php echo ($i+1) ?>, 'click', '<?php echo COLOR_FILA_FONDO_DEFAULT ?>', '<?php echo COLOR_FILA_OVER ?>', '<?php echo COLOR_FILA_OVER ?>'); " onclick="setPointer(this, <?php echo ($i+1) ?>, 'click', '<?php echo COLOR_FILA_FONDO_DEFAULT ?>', '<?php echo COLOR_FILA_OVER ?>', '<?php echo COLOR_FILA_OVER ?>'); selRadioButton(formulario,<?php echo $i ?>); "> 
+			<?php $rol_jurisd=$fila_usuario_rol['rolcod']."#".$fila_usuario_rol['jurisdid_inap'];?>
+		    <td bgcolor="<?php echo COLOR_FILA_FONDO_DEFAULT; ?>"> <input name="rol_jurisd" type="radio" value="<?php echo $rol_jurisd ?>" <?php echo $primero?"checked":""; ?> ></td>
+			<td bgcolor="<?php echo COLOR_FILA_FONDO_DEFAULT; ?>" valign="middle"><?php 
+				if($this->conexion->TraerCampo("roles","roldesc",array("rolcod='",$fila_usuario_rol['rolcod'],"'"),$roldesc,$numfilas,$errno))
+				{	$roldesc=htmlspecialchars($roldesc,ENT_QUOTES);
+					echo $roldesc;				
+				} 
+				?>	  		  
+			</td>		  			
+			<td valign="middle" bgcolor="<?php echo COLOR_FILA_FONDO_DEFAULT;?>"> <?php 
+				if($this->conexion->TraerCampo("roles","rolselecjurisd",array("rolcod='",$fila_usuario_rol['rolcod'],"'"),$rolselecjurisd,$numfilas,$errno)) {	
+					if ($rolselecjurisd=="S" || $fila_usuario_rol['rolcod']==USUACTJUR) {				
+						if ($fila_usuario_rol['jurisdid_inap']!=-1) { 
+								$objJurisdicciones= new jurisdicciones;
+								if ($objJurisdicciones->SelectJurisdxID($fila_usuario_rol['jurisdid_inap'],array(),TABGRALES_TS_ARRAY,$fila_jurisd,array(),$NumFilas,$CodError)) {
+									$organismo=htmlspecialchars($fila_jurisd[$fila_usuario_rol['jurisdid_inap']]['jurisdnom'],ENT_QUOTES);
+									echo $organismo;
+								}	
+							} else // Caso de ser un USUACTJUR sin ningún organismo como enlace, jurisdid_in.
+							   echo "No tiene asignado Organismo";
+					}  else 	
+						echo "&nbsp;";				
+				} // ok traer campo ?>		  
+			</td>	
+		</tr>
+	<?php	$primero = false;
+		$i++;
+		
+		}
+
+/*
+	while ($fila_usuario_rol=mysql_fetch_assoc($queryusuarioroles)) {
+	?>  
+		<tr align="left" onmouseover="setPointer(this, <? echo ($i+1) ?>, 'over', '<? echo COLOR_FILA_FONDO_DEFAULT ?>', '<? echo COLOR_FILA_OVER ?>', '<? echo COLOR_FILA_FONDO_CLARO ?>');" onmouseout="setPointer(this, <? echo ($i+1) ?>, 'out', '<? echo COLOR_FILA_FONDO_DEFAULT ?>', '<? echo COLOR_FILA_OVER ?>', '<? echo COLOR_FILA_FONDO_DEFAULT ?>');" onmousedown="setPointer(this, <? echo ($i+1) ?>, 'click', '<? echo COLOR_FILA_FONDO_DEFAULT ?>', '<? echo COLOR_FILA_OVER ?>', '<? echo COLOR_FILA_OVER ?>'); " onclick="setPointer(this, <? echo ($i+1) ?>, 'click', '<? echo COLOR_FILA_FONDO_DEFAULT ?>', '<? echo COLOR_FILA_OVER ?>', '<? echo COLOR_FILA_OVER ?>'); selRadioButton(formulario,<? echo $i ?>); "> 
+			<? $rol_jurisd=$fila_usuario_rol['rolcod']."#".$fila_usuario_rol['jurisdid_inap'];?>
+		    <td bgcolor="<? echo COLOR_FILA_FONDO_DEFAULT; ?>"> <input name="rol_jurisd" type="radio" value="<? echo $rol_jurisd ?>" <? echo $primero?"checked":""; ?> ></td>
+			<td bgcolor="<? echo COLOR_FILA_FONDO_DEFAULT; ?>" valign="middle"><? 
+				if($this->conexion->TraerCampo("roles","roldesc",array("rolcod='",$fila_usuario_rol['rolcod'],"'"),$roldesc,$numfilas,$errno))
+				{	$roldesc=htmlspecialchars($roldesc,ENT_QUOTES);
+					echo $roldesc;				
+				} 
+				?>	  		  
+			</td>		  			
+			<td valign="middle" bgcolor="<? echo COLOR_FILA_FONDO_DEFAULT;?>"> <? 
+				if($this->conexion->TraerCampo("roles","rolselecjurisd",array("rolcod='",$fila_usuario_rol['rolcod'],"'"),$rolselecjurisd,$numfilas,$errno)) {	
+					if ($rolselecjurisd=="S" || $fila_usuario_rol['rolcod']==USUACTJUR) {				
+						if ($fila_usuario_rol['jurisdid_inap']!=-1) { 
+								$objJurisdicciones= new jurisdicciones;
+								if ($objJurisdicciones->SelectJurisdxID($fila_usuario_rol['jurisdid_inap'],array(),TABGRALES_TS_ARRAY,$fila_jurisd,array(),$NumFilas,$CodError)) {
+									$organismo=htmlspecialchars($fila_jurisd[$fila_usuario_rol['jurisdid_inap']]['jurisdnom'],ENT_QUOTES);
+									echo $organismo;
+								}	
+							} else // Caso de ser un USUACTJUR sin ningún organismo como enlace, jurisdid_in.
+							   echo "No tiene asignado Organismo";
+					}  else 	
+						echo "&nbsp;";				
+				} // ok traer campo ?>		  
+			</td>	
+		</tr>
+	<?	$primero = false;
+		$i++;
+	} 
+	
+	*/
+	?>
+	
+		</table>
+	  </td>
+	</tr>
+	<tr>
+		<td colspan="3" height="10"> </td>
+	</tr>
+    
+	<tr> 
+      <td colspan="3" align="center">
+	  	<input name="botonelegirrol" type="submit" class="botones" value="Aceptar" onClick="return Validar(formulario);"> 
+	  </td>
+    </tr>
+	
+	<tr>
+		<td colspan="3" height="10"> </td>
+	</tr>
+    
+    <tr> 
+      <td colspan="3" align="center" class="textoTablaDato">
+	  <?php echo "<div align='center'><a class='linkFondoBlanco' href='index.dhtml'>Volver a Inicio</a></div>"; ?>
+	  </td>
+    </tr>
+	
+	<?php	//ob_end_flush(); ?>
+	
+  </table>
+</form>
+</div>
+<?php	
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+// Retorna si el rol elegido es válido
+
+// Parámetros de Entrada:
+//		usuariocod
+//		rolcod
+
+// Retorna:
+//		datosvalidados: retorna el rol asignado
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+	
+	
+	function ValidarDatosElegirRol($usuariocod,$rolcod,$jurisdid,&$datosvalidados)
+	{
+		$roles=new cRoles($this->conexion);
+
+		$roles->RolesDeUnUsuarioSP($usuariocod,$spnombre,$spparam);
+		$arraybusq=array("rolcod"=>$rolcod,'jurisdid_inap'=>$jurisdid);
+
+		if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,$arraybusq,$query,$filaret,$numfilasmatcheo,$errno))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error BD en selección de roles. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		elseif($numfilasmatcheo!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error filas en selección de roles. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;			
+		}
+	  	$datosvalidados["jurisdid_inap"]=$filaret["jurisdid_inap"];
+		$datosvalidados["rolcod"]=$filaret["rolcod"];
+
+		return true;
+	}
+//----------------------------------------------------------------------------------------- 
+// Retorna una consulta con todos los usuarios que cumplan con las condiciones
+
+// Parámetros de Entrada:
+//		datosbuscar: array asociativo con los filtros. 
+//	Claves: usuarionombre, usuarioapellido, usuariocuit, usuarioemail,
+//			usuariocod, usuarioestado, usuariopasword
+
+// Retorna:
+//		numfilas,resultado: cantidad de filas y query de resultado
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+
+	function BuscarUsuarios ($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)
+	{
+		$sparam=array('pxcuit'=>0);
+		$sparam+=array('pxcod'=>0);
+		$sparam+=array('pxnombre'=>0);
+		$sparam+=array('pxapellido'=>0);
+		$sparam+=array('pxpassword'=>0);
+		$sparam+=array('pxemail'=>0);
+		$sparam+=array('pxestado'=>0);
+		
+		$sparam+=array('pusuariocuit' =>"");
+		$sparam+=array('pusuariocod' =>"");
+		$sparam+=array('pusuarionombre' =>"");
+		$sparam+=array('pusuarioapellido' =>"");
+		$sparam+=array('pusuariopassword' =>"");
+		$sparam+=array('pusuarioemail' =>"");
+		$sparam+=array('pusuarioestado' =>"-1");
+		$sparam+=array('porderby' =>"usuarioapellido, usuarionombre");
+
+		if (isset ($ArregloDatos['usuarioCUIT']))
+		{
+			if ($ArregloDatos['usuarioCUIT']!="")
+			{	
+				$sparam['pusuariocuit']= $ArregloDatos['usuarioCUIT'];
+				$sparam['pxcuit']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['usuariocod']))
+		{
+			if ($ArregloDatos['usuariocod']!="")
+			{	
+				$sparam['pusuariocod']= $ArregloDatos['usuariocod'];
+				$sparam['pxcod']= 1;
+			}
+		}	
+		if (isset ($ArregloDatos['usuariopassword']))
+		{
+			if ($ArregloDatos['usuariopassword']!="")
+			{	
+				$sparam['pusuariopassword']= $ArregloDatos['usuariopassword'];
+				$sparam['pxpassword']= 1;
+			}
+		}	
+		if (isset ($ArregloDatos['usuarionombre']))
+		{
+			if ($ArregloDatos['usuarionombre']!="")
+			{	
+				$sparam['pusuarionombre']= $ArregloDatos['usuarionombre'];
+				$sparam['pxnombre']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['usuarioapellido']))
+		{
+			if ($ArregloDatos['usuarioapellido']!="")
+			{	
+				$sparam['pusuarioapellido']= $ArregloDatos['usuarioapellido'];
+				$sparam['pxapellido']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['usuarioemail']))
+		{
+			if ($ArregloDatos['usuarioemail']!="")
+			{	
+				$sparam['pusuarioemail']= $ArregloDatos['usuarioemail'];
+				$sparam['pxemail']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['usuarioestado']))
+		{
+			if ($ArregloDatos['usuarioestado']!="")
+			{	
+				$sparam['pusuarioestado']= $ArregloDatos['usuarioestado'];
+				$sparam['pxestado']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+			{	
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+
+
+		$spnombre="sel_usuarios_xdatos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar el Usuario.";
+			$errormail="Error al buscar el Usuario ".$errno;
+			return false;
+		}
+
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+	function PedirCuit($cuit,$formularioName,$inputName,$confirmName) { ?>
+	
+	<SCRIPT LANGUAGE="JavaScript" type="text/javascript">
+
+	function ValidarIngresoCuit(<?php echo $formularioName ?>) 	{
+		if(<?php echo $formularioName ?>.<?php echo $inputName ?>=="" || !ValidarContenido(<?php echo $formularioName ?>.<?php echo $inputName ?>.value,"CUIT"))	{
+			alert("El CUIT/CUIL/CDI no es válido");
+			<?php echo $formularioName ?>.<?php echo $inputName ?>.focus();
+			return false;	
+		}
+		return true;
+	}  
+
+	</SCRIPT>
+		<table width="100%" class="textoTablaDato" align="center">
+			<tr>
+			<td valign="top" width="25%" class='textoEtiquetaClave'>CUIT/CUIL/CDI</td>
+			<td class="textoEtiquetaDatoResaltado" width="20%">
+				<input type="text" name="<?php echo $inputName ?>" id="<?php echo $inputName ?>" size="11" maxlength="11" class='textoInput' value="<?php echo  trim($cuit) ;?>">					
+			</td>
+
+			<td class="textoEtiquetaDato" width="5%" align="left">
+					<a href='javascript:void(0)' onClick="Popup('usuario_selector.dhtml?formulario=<?php echo $formularioName ?>&amp;destino=<?php echo $inputName ?>&amp;estado=&amp;volver=1','ventana_descripciones',630,360,screen.availWidth-650,screen.availHeight-420,'yes');"><img src="images/searchsai.jpg" alt="Buscar" border="0" style="vertical-align:-5px"></a>
+			</td>
+			
+			<td class="textoEtiqueta">
+				<input type="submit" name="<?php echo $confirmName ?>" value="Confirma" onClick="return ValidarIngresoCuit(<?php echo $formularioName ?>);" class="botones" />
+			</td>
+			</tr>	
+		</table>	
+	<?php 
+		unset($_SESSION['array_busqueda_basica_usuario']); 
+	} 
+//----------------------------------------------------------------------------------------- 
+	function MostrarDatosBasicosUsuarios($filausuario) { ?>
+	<!-- Nombre, Apellido, Mail  -->	
+	<table width="80%" align="left" class="textoTablaDatos" cellpadding="0" cellspacing="0">
+		<tr>
+			<td>
+				<fieldset class="bordeDetalleUsuario">
+				<legend class="textoLeyendaDetalleUsuario"> Datos del Usuario </legend>
+				<table width="100%" class="textoDatosUsuario" align="left" cellspacing="3">
+					<tr>
+						<td class="textoEtiquetaDatosUsuario">Apellido:</td>
+						<td><?php echo isset($filausuario['usuarioapellido'])?htmlspecialchars($filausuario['usuarioapellido'],ENT_QUOTES):"" ?></td>
+					</tr>
+					<tr>
+						<td class="textoEtiquetaDatosUsuario">Nombre:</td>		
+						<td><?php echo isset($filausuario['usuarionombre'])?htmlspecialchars($filausuario['usuarionombre'],ENT_QUOTES):"" ; ?></td> 					
+					</tr>
+					<tr>
+						<td class="textoEtiquetaDatosUsuario">Email:</td>
+						<td><?php echo isset($filausuario['usuarioemail'])?htmlspecialchars($filausuario['usuarioemail'],ENT_QUOTES):"" ?></td>
+					</tr> 
+				</table>	
+				</fieldset> 
+			</td>		
+		</tr>	
+	</table>	
+	<?php } 
+	
+	
+	
+	
+//----------------------------------------------------------------------------------------- 
+	function UniversidadesPosiblesAsignar ($usuariocod,&$numfilas,&$univ_sin_asignar ){
+		
+		$spnombre="sel_universidad_asignar_xusuario";
+		$spparam=array(
+			'pusuariocod'=> $usuariocod,
+			'puniv_estado'=> ESTADOACTIVO
+			);
+			
+  		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar las universidades.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		} 
+
+		$univ_sin_asignar=array();
+		if($numfilas>0) {
+			while($fila=mysqli_fetch_assoc($resultado))
+				$univ_sin_asignar[]=$fila["univ_codigo"];
+		}	
+
+		
+		return true;
+			
+	}
+	
+	
+		
+//----------------------------------------------------------------------------------------- 
+	function TienePermisoAsignarUniversidad ($rolcod){
+	
+		if($rolcod != ADMIINAP)	{
+			return false;
+		} 
+		
+		return true;
+			
+	}
+
+	//----------------------------------------------------------------------------------------- 
+	function TienePermisoDesasignarUniversidad ($rolcod){
+	
+		if($rolcod != ADMIINAP)	{
+			return false;
+		} 
+		
+		return true;
+			
+	}
+	
+	
+		
+//----------------------------------------------------------------------------------------- 
+	function AsignarUniversidad ($usuariocod, $univ_codigo, &$error, &$errormail){
+
+			$spnombre="ins_usuario_universidad";
+			$spparam=array("pusuariocod"=>$usuariocod);				
+			$spparam+=array("puniv_codigo"=>$univ_codigo);			
+			$spparam+=array("pultmodusuario"=>$_SESSION['usuariocod']);
+			$spparam+=array("pultmodfecha"=>date("Y/m/d H:i:s"));
+							
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)			{
+				$errormail="Error al insertar en ins_usuario_universidad"."\n".$errorparam;
+				$error="Error al asignar la universidad"."\n".$errorparam;
+				return false;
+			}
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+	function DesasignarUniversidad ($usuariocod, $univ_codigo, &$error, &$errormail){
+
+			$spnombre="del_usuario_universidad";
+			$spparam=array("pusuariocod"=>$usuariocod);				
+			$spparam+=array("puniv_codigo"=>$univ_codigo);			
+							
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) || $numfilas!=1)			{
+				$errormail="Error al eliminar en usuario_universidad"."\n";
+				$error="Error al eliminar la universidad"."\n";
+				return false;
+			}
+		return true;
+	}
+				
+
+//----------------------------------------------------------------------------------------- 
+} // fin Clase
+?>

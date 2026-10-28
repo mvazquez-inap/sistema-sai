@@ -1,0 +1,444 @@
+<?php
+//----------------------------------------------------------------------------------------- 
+class cPocObjetivo 
+{
+	var $conexion;
+
+	public function __construct($conexion) {
+		$this->conexion = &$conexion;
+	}
+//-----------------------------------------------------------------------------------------
+	function ObjetivosSP($pocobjetivojuris,&$spnombre,&$spparam)
+	{
+		$spnombre="sel_pocobjetivos_xjurisdid_inap";
+		$spparam =array('porderby'=>"pocobj_descripcion",'pjurisdid_inap'=>$pocobjetivojuris);
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function AltaPoc_Objetivo($datos) {
+	
+		if(!$this->_DatosValidosAltaPoc_Objetivo($datos,$datosvalidados))
+			return false;
+		
+		$spnombre="ins_poc_objetivo";
+		$spparam=array(
+			'ppocobj_descripcion'=>$datosvalidados["pocobj_descripciones"] ,
+			'pjurisdid_inap'=>$_SESSION["jurisdid_inap"] ,			
+			'pultmodusuario'=>$_SESSION['usuariocod'] ,
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+			);			
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al agregar el poc_objetivo.";
+			$errormail="Error al insertar en la tabla poc_objetivo".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		return true;
+	}		
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosAltaPoc_Objetivo($datos,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		
+		if(!$this->_DatosValidosComunesPoc_Objetivo($datos,$datosvalidados))
+			return false;
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ModifDatosPoc_Objetivo($datos)	{
+
+		$ArregloDatos=array();
+		$ArregloDatos['pocobj_descripcion']= $datos['pocobj_descripcion'];
+		$ArregloDatos['jurisdid_inap']= $_SESSION['jurisdid_inap'];
+
+		if(!$this->BuscarPocObjetivo($ArregloDatos,$numfilas,$resultado,$error,$errormail))		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_OK,"El código no corresponde a un objetivo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		} else
+			$datospoc=mysqli_fetch_assoc($resultado);
+
+		$datospoc['pocobj_descripciones']=$datos['pocobj_descripciones'];
+
+		//Debo verificar q no este asignada a ningun Poc para poder modificarlo!!!!
+		//para esto verifico q el area no se encuentre en la tabla PocPocObjetivoPocArea
+		
+		$ArregloDatos=array();
+		$ArregloDatos['pocobj_codigo']= $datospoc['pocobj_codigo'];
+		$oPocPocObjetivoPocArea=new cPocPocObjetivoPocArea($this->conexion);
+	
+		if (!$oPocPocObjetivoPocArea->BuscarPocPocObjetivoPocArea($ArregloDatos,$numfilas,$resultado,$error,$errormail)) 
+			return false;
+
+		if($numfilas==0) {
+		
+			if(!$this->_DatosValidosModifPocObjetivo($datospoc,$datosvalidados))
+				return false;
+
+			$spnombre="upd_poc_objetivo";
+			$spparam=array(
+				'ppocobj_codigo'=> $datosvalidados['pocobj_codigo'], 
+				'ppocobj_descripcion'=> $datosvalidados['pocobj_descripciones'],
+				'pultmodusuario'=>$_SESSION['usuariocod'],
+				'pultmodfecha'=> date("Y/m/d H:i:s")
+			);
+
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1){
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al actualizar el objetivo. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+
+		} else {
+			$error="El Objetivo esta relacionado con algún Poc.";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosModifPocObjetivo($datos,&$datosvalidados)	{
+
+		if(!$this->_DatosValidosComunesPoc_Objetivo($datos,$datosvalidados))
+			return false;
+
+		$datosvalidados=$datos;
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function EliminarDatosPoc_Objetivo($datos) { //$pocobj_codigo
+	
+		$ArregloDatos=array();
+		$ArregloDatos['pocobj_descripcion']= $datos['pocobj_descripciones'];
+		$ArregloDatos['jurisdid_inap']= $_SESSION['jurisdid_inap'];
+		if(!$this->BuscarPocObjetivo($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_OK,"El código no corresponde a un objetivo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		else
+			$datospoc=mysqli_fetch_assoc($resultado);
+		//Debo verificar q no este asignada a ningun Poc para poder borrarlo!!!!
+		//para esto verifico q el area no se encuentre en la tabla PocPocObjetivoPocArea
+		
+		$ArregloDatos=array();
+		$ArregloDatos['pocobj_codigo']= $datospoc['pocobj_codigo'];
+		$oPocPocObjetivoPocArea=new cPocPocObjetivoPocArea($this->conexion);
+	
+		if (!$oPocPocObjetivoPocArea->BuscarPocPocObjetivoPocArea($ArregloDatos,$numfilas,$resultado,$error,$errormail)) 
+			return false;
+		
+		if($numfilas==0) {
+		
+		//$spnombre="del_poc_area";
+		$spnombre="del_poc_objetivo";
+		$spparam=array('ppocobj_codigo'=> $datospoc['pocobj_codigo']);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod)) 
+			return false;					  	 	
+		}
+		else
+		{
+			$error="Imposible eliminar el Objetivo. Existen relaciones con el Poc.";
+			$errormail="Imposible eliminar el Objetivo. Existen relaciones con el Poc. ";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+
+		return true;
+	}	
+
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosComunesPoc_Objetivo($datos,&$datosvalidados)	{
+
+		// Valido la descripcion	  
+		$datosvalidados=array();
+		if (trim($datos['pocobj_descripciones']) == "") {
+			$arraymensajepantalla="Debe ingresar la descripción del Objetivo";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		// Valido q no se repita la descripcion para esa jurisd.
+		$sparam=array(  'ppocobj_descripcion'=>$datos['pocobj_descripciones'],
+						'pjurisdid_inap'=>$_SESSION['jurisdid_inap']);
+
+		$spnombre="sel_poc_objetivo_xpocobj_descripcion_jurisdid_inap";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))				{
+			$error="Error al buscar objetivos del poc.";
+			$errormail="Error al buscar objetivos del poc. ".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		if($numfilas==1){
+		
+			$fila = mysqli_fetch_assoc($resultado);
+			if ($fila['pocobj_codigo'] != $datos['pocobj_codigo']) {
+				$error="Ya existe un Objetivo con esa descripción.";
+				$errormail="Imposible actualizar el objetivo. Ya existe un objetivo con esa descripción. ".$errno;
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+				return false;
+			}
+		}
+		
+		$datosvalidados=$datos;
+
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function BuscarPocObjetivo($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		$sparam=array('pxpocobj_descripcion'=>0);
+		$sparam+=array('pxpocobj_codigo'=>0);
+		$sparam+=array('pxjurisdid_inap'=>0);
+		
+		$sparam+=array('ppocobj_descripcion' =>"");
+		$sparam+=array('ppocobj_codigo' =>"");
+		$sparam+=array('pjurisdid_inap' =>"");
+		$sparam+=array('porderby' =>"pocobj_descripcion");
+
+		if (isset ($ArregloDatos['pocobj_descripcion']))
+		{
+			if ($ArregloDatos['pocobj_descripcion']!="")
+			{	
+				$sparam['ppocobj_descripcion']= $ArregloDatos['pocobj_descripcion'];
+				$sparam['pxpocobj_descripcion']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['pocobj_codigo']))
+		{
+			if ($ArregloDatos['pocobj_codigo']!="")
+			{	
+				$sparam['ppocobj_codigo']= $ArregloDatos['pocobj_codigo'];
+				$sparam['pxpocobj_codigo']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['jurisdid_inap']))
+		{
+			if ($ArregloDatos['jurisdid_inap']!="")
+			{	
+				$sparam['pjurisdid_inap']= $ArregloDatos['jurisdid_inap'];
+				$sparam['pxjurisdid_inap']= 1;
+			}
+		}
+		
+		if (isset ($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+			{	
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+		
+		$spnombre="sel_poc_objetivo_xdatos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			
+			$error="Error al buscar el Objetivo.";
+			$errormail="Error al buscar el Objetivo.".$errno;
+			return false;
+		}
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	/*function ListadoObjetivos($etapcod,&$arreglo,$usuariocod,$rolcod,$filaobj=NULL)
+	{
+		
+		$oEtapPermisos= new cEtapsPermisos($this->conexion,$this->versionactual,$this->especifcodactual);
+		
+		if(is_null($filaetap))
+		{
+			if (!$this->TraerDatosEtap($etapcod,$filaetap,$error,$ok))
+				return false;
+		}
+		ob_clean();
+		?>
+		
+		<a href='javascript:void(0)' class="linkmenunegro" onClick="Popup('listetaps_list.dhtml?versioncod=<? echo $this->versionactual?>&amp;especifcod=<? echo $this->especifcodactual?>&amp;etapcod=<? echo $filaobj["etapcod"] ?>','ventanatexto3',760,600,screen.availWidth-770,screen.availHeight-635,'yes')">
+			<? echo htmlspecialchars ($filaobj['etapnom'],ENT_QUOTES);?>
+		</a>
+		<? 
+		$arreglo[0]=ob_get_contents();
+
+		ob_clean();
+		$arreglo[1]=$filaobj['etapcod'];
+		
+		if (!$this->TraerCamposModificables($filaobj['etapcod'],$querylistado,$error))
+			return false;
+		
+		$total=mysql_num_rows ($querylistado);
+		ob_clean();
+
+		if ($oEtapPermisos->SeEncuentraBloqueadoxUsuario($filaobj['etapcod'],$usuariocod,$rolcod))
+		{		
+			?>
+			<a href="Etaps_Camposmodif.dhtml?etapcod=<? echo $filaobj["etapcod"] ?>" title="Campos Modificables" class="linkfondoblanco">
+				<? 
+					echo $total;
+				?>
+			</a>
+			<?
+		}else
+			echo $total;
+			
+		$arreglo[2]=ob_get_contents();
+		ob_clean();
+		$puedemodificar=false;
+		if ($oEtapPermisos->PuedeModificarEtap($filaobj['etapcod'],$usuariocod,$rolcod))
+		{
+			$puedemodificar=true;
+		?>
+			<a href="Etaps_alta.dhtml?etapcod=<? echo $filaobj["etapcod"] ?>" title="Editar">
+				<img src="images/ed.gif" border="0" alt="edicion">
+			</a>
+		<?
+		}else
+			echo "&nbsp;";
+		
+		$arreglo[3]=ob_get_contents();
+		ob_clean();
+		
+		if($oEtapPermisos->PuedeEliminarEtap ($filaobj['etapcod'],$usuariocod,$rolcod))
+		{	
+		?>			
+			<a href="EtapsABM_upd.dhtml?etapcod=<? echo $filaobj["etapcod"] ?>" title="Eliminar">
+				<img src="images/del.gif" border="0" alt="Eliminar" title="Eliminar">
+			</a>
+		<?
+		}else
+			echo "&nbsp;";
+		$arreglo[4]=ob_get_contents();
+		
+		ob_clean();
+	
+		if($oEtapPermisos->PuedeAprobarEtap ($filaobj['etapcod'],$_SESSION['usuariocod'],$_SESSION['rolcod']))
+		{
+		?>			
+				<a href='javascript:if(Confirmar()){FXBuscar("especifcod=<? echo $this->especifcodactual?>&amp;etapcod=<? echo htmlspecialchars ($filaobj["etapcod"],ENT_QUOTES)?>","GET","Etaps_aprobar_ajax.dhtml","<? echo htmlspecialchars ($filaobj["etapcod"],ENT_QUOTES)?>");}' title="Aprobar" class="linkfondoblanco">A</a>
+
+		<?
+		}elseif ($oEtapPermisos->PuedeMandarAModificarEtap ($filaobj['etapcod'],$_SESSION['usuariocod'],$_SESSION['rolcod']))
+		{
+		?>			
+				<a href='javascript:FXBuscar("especifcod=<? echo $this->especifcodactual?>&amp;etapcod=<? echo htmlspecialchars ($filaobj["etapcod"],ENT_QUOTES)?>&amp;","GET","Etaps_amodificar_ajax.dhtml","<? echo htmlspecialchars ($filaobj["etapcod"],ENT_QUOTES)?>");' title="Mandar a Modificar" class="linkfondoblanco">M</a>
+
+		<?
+		}else
+			echo "&nbsp;";
+			
+		$arreglo[9]=ob_get_contents();
+		ob_clean();
+	
+		if($oEtapPermisos->PuedeBloquearEtap ($filaobj['etapcod'],$_SESSION['usuariocod'],$_SESSION['rolcod']))
+		{
+		?>			
+				<a href='javascript:FXBuscar("especifcod=<? echo $this->especifcodactual?>&amp;etapcod=<? echo htmlspecialchars ($filaobj["etapcod"],ENT_QUOTES)?>&amp;bloqueo=1","GET","Etaps_bloqueo_ajax.dhtml","<? echo htmlspecialchars ($filaobj["etapcod"],ENT_QUOTES)?>");' title="Bloquear" class="linkfondoblanco">B</a>
+
+		<?
+		}elseif ($oEtapPermisos->PuedeDesBloquearEtap ($filaobj['etapcod'],$_SESSION['usuariocod'],$_SESSION['rolcod']))
+		{
+		?>			
+				<a href='javascript:FXBuscar("especifcod=<? echo $this->especifcodactual?>&amp;etapcod=<? echo htmlspecialchars ($filaobj["etapcod"],ENT_QUOTES)?>&amp;bloqueo=0","GET","Etaps_bloqueo_ajax.dhtml","<? echo htmlspecialchars ($filaobj["etapcod"],ENT_QUOTES)?>");' title="DesBloquear" class="linkfondoblanco">DB</a>
+
+		<?
+		}else
+			echo "&nbsp;";
+			
+		$arreglo[10]=ob_get_contents();
+		ob_clean();
+
+
+		if ($puedemodificar)
+		{
+		?>
+			<a href="Rel_Etap_Etap.dhtml?etapcod=<? echo $filaobj["etapcod"] ?>" title="Relacionar Etaps" class="linkfondoblanco">
+				RE
+			</a>
+		<?
+		}else
+			echo "&nbsp;";
+			
+		$arreglo[5]=ob_get_contents();
+
+		ob_clean();
+		if ($puedemodificar)
+		{
+		?>
+			<a href="Rel_Opcion_Etap.dhtml?etapcod=<? echo $filaobj["etapcod"] ?>" title="Relacionar Opcionales" class="linkfondoblanco">
+				RO
+			</a>
+		<?
+		}else
+			echo "&nbsp;";
+			
+		$arreglo[6]=ob_get_contents();
+
+		$arreglo[7]="&nbsp;";
+		$arreglo[8]="&nbsp;";
+		$arreglo[11]="&nbsp;";
+		$arreglo[12]="&nbsp;";
+		$arreglo[13]="&nbsp;";
+		$arreglo[14]="&nbsp;";
+		$arreglo[15]="&nbsp;";
+
+		ob_clean();
+		?>		
+		<div align="left">
+			Estado: <strong>
+		<?
+		echo $oEtapPermisos->EstadoEtap($filaobj['etapcod']);
+		?>				
+			</strong>
+			&nbsp;-&nbsp;
+			Usuario: <strong>
+		<? 
+		if($oEtapPermisos->UsuarioModificando($filaobj['etapcod'],$datosusuario))
+			echo $datosusuario["usuarioapenom"];
+		else
+			echo "---";
+		
+		?>				
+			</strong>
+			&nbsp;-&nbsp;
+			Última Modificación: <strong>
+		<? 			
+		echo ConvertirFecha($filaobj['ultmodfecha'],"aaaa-mm-dd","dd/mm/aaaa");
+		 ?>
+		 </strong> 
+		 </div>
+		<? 
+		$arreglo[16]=ob_get_contents();
+		ob_clean();
+
+		if ($oEtapPermisos->EtapEnModificacion($filaobj['etapcod']) && $oEtapPermisos->RolPuedeModificar($_SESSION['rolcod']) && $oEtapPermisos->SeEncuentraDesbloqueado($filaobj['etapcod']))
+		{
+			?>
+			<input type="checkbox" name="Aprobar_<? echo $filaobj['etapcod']?>">
+			<?
+		}else
+		echo "&nbsp;";
+		$arreglo[17]=ob_get_contents();
+		ob_clean();
+		return true;
+	}*/
+//-----------------------------------------------------------------
+/*	function ValidarFormAltaPocArea()
+	{
+?>		function ValidarFormAltaPocArea(formulario,operacion) {
+
+			if ((trim(formulario.pocarea_descripciones.value)=="")){
+				alert("Debe ingresar la descripción del área");
+				formulario.pocarea_descripciones.focus();
+				return false;
+			}	
+
+			return true;
+		}
+<? }
+//-----------------------------------------------------------------------------------------------------	
+*/
+} // class
+?>

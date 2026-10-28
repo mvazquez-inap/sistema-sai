@@ -1,0 +1,3548 @@
+<?php
+//----------------------------------------------------------------------------------------- 
+class cPrestadorDocente 
+{
+	var $conexion;
+
+	public function __construct($conexion) {
+		$this->conexion = &$conexion;
+	}
+//-----------------------------------------------------------------------------------------
+	function TraerDatosPrestadorDocente($presdoc_codigo,&$datosresult,&$es_modif){
+	
+		$datosresult=array();
+		$es_modif = false;		
+		$sparam=array('ppresdoc_codigo' =>$presdoc_codigo);
+		$spnombre="sel_prestador_docente_xpresdoc_codigo";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar el prestador docente.";
+			$errormail="Error al buscar el prestador docente en tabla presador_docente. ".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		if ($numfilas == 1)	{
+			$datosresult = mysqli_fetch_assoc($resultado);
+			$es_modif = true;
+		}
+		return true;
+	}
+	
+//-----------------------------------------------------------------------------------------------------	
+	function Alta_Pres_Doc_Tipo_Postulacion($presdoc_codigo,$tipopos_codigo ) {
+	
+	$spnombre="ins_prestador_docente_tipo_postulacion";
+	$spparam=array(
+		'ppresdoc_codigo'=> $presdoc_codigo,
+		'ptipopos_codigo'=> $tipopos_codigo,
+		'pultmodusuario'=>$_SESSION['usuariocod'],
+		'pultmodfecha'=> date("Y/m/d H:i:s")
+	);
+	if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)
+		return false;
+
+	return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function Baja_Pres_Doc_Tipo_Postulacion($presdoc_codigo) {
+	
+	$spnombre="del_prestador_docente_tipo_postulacion_x_presdoc";
+	$spparam=array(
+		'ppresdoc_codigo'=> $presdoc_codigo
+	);
+	if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+		return false;
+
+	return true;
+	}
+
+	
+//-----------------------------------------------------------------------------------------------------	
+	function AltaDatosPrestadorDocente($datos, &$presdoc_codigo) {
+
+	if(!$this->_DatosValidosAltaPrestadorDocente($datos,$datosvalidados))
+		return false;
+
+	// El que valida determina el jurisdicccion y estado según el usuario que da el alta
+	$spnombre="ins_prestador_docente";
+	$spparam=array(
+		'ppresdoc_nombre'=> $datosvalidados['presdoc_nombre'],
+		'ppresdoc_apellido'=> $datosvalidados['presdoc_apellido'],
+		'ppresdoc_sexo'=> $datosvalidados['presdoc_sexo'],
+		'ppresdoc_origen_pais_codigo'=> $datosvalidados['presdoc_origen_pais_codigo'],
+		'ppresdoc_eventual'=> $datosvalidados['presdoc_eventual'],
+		'ppresdoc_cuilt'=> $datosvalidados['presdoc_cuilt'],
+		'ppresdoc_password'=> $datosvalidados['presdoc_password'],
+		'ppresdoc_caracter_alta'=> $datosvalidados['presdoc_caracter_alta'],
+		'ppresdoc_falta'=> FuncionesPHPLocal::ConvertirFecha($datosvalidados['presdoc_falta'],'dd/mm/aaaa','aaaa-mm-dd'), 
+		'ppresdoc_falta_prov'=> ($datosvalidados['presdoc_falta_prov'] != "NULL")?FuncionesPHPLocal::ConvertirFecha($datosvalidados['presdoc_falta_prov'],'dd/mm/aaaa','aaaa-mm-dd'):"NULL", 						
+		'ppresdoc_falta_def'=> ($datosvalidados['presdoc_falta_def'] != "NULL")?FuncionesPHPLocal::ConvertirFecha($datosvalidados['presdoc_falta_def'],'dd/mm/aaaa','aaaa-mm-dd'):"NULL", 				
+		'ppresdoc_presentacion'=> $datosvalidados['presdoc_presentacion'],
+		'ppresdoc_telefono'=> $datosvalidados['presdoc_telefono'],
+		'ppresdoc_celular'=> $datosvalidados['presdoc_celular'],
+		'ppresdoc_email'=>$datosvalidados['presdoc_email'],
+		'ppresdoc_calle'=> $datosvalidados['presdoc_calle'],
+		'ppresdoc_numero'=>$datosvalidados['presdoc_numero'],
+		'ppresdoc_piso'=> $datosvalidados['presdoc_piso'],
+		'ppresdoc_cp'=> $datos['presdoc_cp'],
+		'ppresdoc_prov_codigo'=> $datosvalidados['presdoc_prov_codigo'],
+		'ppresdoc_part_loca_descripcion'=> $datosvalidados['presdoc_part_loca_descripcion'],			
+		'ppresins_codigo'=> $datosvalidados['presins_codigo'],
+		'pjurisdid_apn'=> $datosvalidados['jurisdid_apn'],
+		'pjurisdid_origen'=> $datosvalidados['jurisdid_origen'],
+		'porgapub_codigo'=> $datosvalidados['orgapub_codigo'],
+		'ppresdoc_cargo'=> $datosvalidados['presdoc_cargo'],
+		'ppresdoc_estado'=> $datosvalidados['presdoc_estado'],
+		'ppresdoc_eve_organismo'=> $datosvalidados['presdoc_eve_organismo'],		
+		'ppresdoc_max_nivel_estudio'=> $datosvalidados['presdoc_max_nivel_estudio'],		
+		'ppresdoc_ult_titulo'=> $datosvalidados['presdoc_ult_titulo'],		
+		'ppresdoc_ult_titulo_institucion'=> $datosvalidados['presdoc_ult_titulo_institucion'],		
+		'ppresdoc_ult_titulo_ano'=> $datosvalidados['presdoc_ult_titulo_ano'],		
+		'ppresdoc_ido_competencias'=> $datosvalidados['presdoc_ido_competencias'],		
+		'presdoc_ido_instituciones'=> $datosvalidados['presdoc_ido_instituciones'],		
+		'ppresdoc_cv'=> $datosvalidados['presdoc_cv'],				
+		'pultmodusuario'=>$_SESSION['usuariocod'],
+		'pultmodfecha'=> date("Y/m/d H:i:s")
+	);
+
+	if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)
+	{
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se pudo dar de alta el prestador. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;
+	} else {
+		$presdoc_codigo = $this->conexion->ultimocodigoinsertado();
+
+		// agrego los tipos de postulación
+		$nuevocodigo=$this->conexion->UltimoCodigoInsertado();
+		foreach ($datosvalidados["tipopos"] as $clave => $valor) {
+			if(!$this->Alta_Pres_Doc_Tipo_Postulacion($nuevocodigo,$valor,$errno)) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se pudo agregar el tipo de postulación al docente. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			} else {
+				FuncionesPHPLocal::RegistrarAcceso($this->conexion,"36301","presdoc_codigo=".$nuevocodigo."tipopos_codido=".$valor,$_SESSION['usuariocod']);
+			}
+		}				
+	}
+
+	return true;
+}	
+
+//-----------------------------------------------------------------------------------------------------	
+	function PosibleBajaFisica($presdoc_codigo) {
+	
+		if(!$this->conexion->TraerCampo('actividad_curso_prestador_docente','presdoc_codigo',array("presdoc_codigo='",$presdoc_codigo,"'"),$dato,$numfilas,$errno)) {
+			$error="Error al intentar la baja.";
+			$errormail="Error al determinar si puede ser realizada la baja física del prestador docente (actividad_curso_prestador_docente). error=".$errno."presdoc_codigo='".$presdoc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;	
+	    } elseif ($numfilas!=0) {
+			return false;	
+		}
+
+		if(!$this->conexion->TraerCampo('comision_prestador_docente','presdoc_codigo',array("presdoc_codigo='",$presdoc_codigo,"'"),$dato,$numfilas,$errno)) {
+			$error="Error al intentar la baja.";
+			$errormail="Error al determinar si puede ser realizada la baja física del prestador docente (comision_prestador_docente). error=".$errno."presdoc_codigo='".$presdoc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;	
+	    } elseif ($numfilas!=0) {
+			return false;	
+		}
+		
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _BajaCascada($presdoc_codigo) {
+	
+		// Se eliminan las áreas del prestador docente.	
+		// Baja física 
+		$oPrestadorDocenteArea = new cPrestadorDocenteArea($this->conexion);
+		if (!$oPrestadorDocenteArea->EliminarDatosPrestadorDocenteAreaTodas($presdoc_codigo))
+			return false;
+		FuncionesPHPLocal::RegistrarAcceso($this->conexion,"36202","Global / presdoc_codigo=".$presdoc_codigo,$_SESSION['usuariocod']);
+
+		// Hay que sacar al prestador de todos los equipos docentes.
+		// Baja física o lógica, según tenga comisiones o no el prestador docente.
+		$oActividadCursoPrestadorDocente = new cActividadCursoPrestadorDocente($this->conexion);
+		if( !$oActividadCursoPrestadorDocente->EliminarDatosActividadesCursoPrestadorDocenteTodas($presdoc_codigo))
+			return false;
+		FuncionesPHPLocal::RegistrarAcceso($this->conexion,"38502","Global / presdoc_codigo=".$presdoc_codigo,$_SESSION['usuariocod']);
+
+
+		// borro todos los tipos de postulación que tiene el docente
+		if(!$this->Baja_Pres_Doc_Tipo_Postulacion($presdoc_codigo)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se pudo eliminar los tipos de postulación del docente. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		} else {
+			FuncionesPHPLocal::RegistrarAcceso($this->conexion,"36302","Global / presdoc_codigo=".$presdoc_codigo,$_SESSION['usuariocod']);
+		}
+
+
+		return true;	
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function EliminarDatosPrestadorDocente($presdoc_codigo, &$bajafisica) {
+
+		if(!$this->_DatosValidosEliminarPrestadorDocente($presdoc_codigo,$datosvalidados))
+			return false;
+
+		if(!$this->_BajaCascada($datosvalidados['presdoc_codigo']))	
+				return false;
+	
+		if ($this->PosibleBajaFisica($datosvalidados['presdoc_codigo']))	{		
+			
+			$esbajafisica=true;
+			$spnombre="del_prestador_docente";
+			$spparam=array(
+				'ppresdoc_codigo'=> $datosvalidados['presdoc_codigo']
+			);
+
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod)) 
+				return false;					  	 	
+						
+		} else {
+		
+				$esbajafisica=false;
+				$spnombre="upd_prestador_docente_baja_xpresdoc_codigo";
+				$spparam=array(
+					'ppresdoc_fbaja'=> date("Y/m/d H:i:s"),
+					'ppresdoc_estado'=> PRESDOCBAJA,
+					'pultmodusuario'=>$_SESSION['usuariocod'],
+					'ppresdoc_codigo'=> $datosvalidados['presdoc_codigo']
+					);
+
+				  if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod) || $numfilas!=1) {
+						return false;					  	 	
+				}
+		}
+
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function RehabilitarDatosPrestadorDocente($presdoc_codigo)	{
+
+		if(!$this->_DatosValidosRehabilitarPrestadorDocente($presdoc_codigo,$datosvalidados))
+			return false;
+		
+		$spnombre="upd_prestador_docente_cambio_estado_xpresdoc_codigo";
+		$spparam=array(
+			'ppresdoc_estado'=> PRESDOCINACTIVO,
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s"),
+			'ppresdoc_codigo'=> $presdoc_codigo
+			);
+
+		  if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod) || $numfilas!=1) {
+				return false;					  	 	
+		}
+
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function ActivarDatosPrestadorDocente($presdoc_codigo)	{
+
+		if(!$this->_DatosValidosActivarPrestadorDocente($presdoc_codigo,$datosvalidados))
+			return false;
+		
+		$spnombre="upd_prestador_docente_cambio_estado_xpresdoc_codigo";
+		$spparam=array(
+			'ppresdoc_estado'=> PRESDOCACTIVO,
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s"),
+			'ppresdoc_codigo'=> $presdoc_codigo
+			);
+
+		  if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod) || $numfilas!=1) {
+				return false;					  	 	
+		}
+
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function ModifHistorialPrestadorDocente($datos)	{
+
+		if(!$this->_DatosValidosModifHistorialPrestadorDocente($datos,$datosvalidados))
+			return false;
+
+	
+		$spnombre="upd_prestador_docente_historial_xpresdoc_codigo";
+		$spparam=array(
+			'ppresdoc_codigo'=> $datosvalidados['presdoc_codigo'], 
+			'ppresdoc_historial'=> $datosvalidados['presdoc_historial'],
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+		);
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al actualizar el historial del prestador. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		
+		return true;
+	}	
+	
+		
+//-----------------------------------------------------------------------------------------------------	
+	function ModifDatosPrestadorDocente($datos)	{
+
+		if(!$this->_DatosValidosModifPrestadorDocente($datos,$datosvalidados))
+			return false;
+			
+	
+		$spnombre="upd_prestador_docente";
+		$spparam=array(
+			'ppresdoc_codigo'=> $datosvalidados['presdoc_codigo'], 
+			'ppresdoc_nombre'=> $datosvalidados['presdoc_nombre'],
+			'ppresdoc_apellido'=> $datosvalidados['presdoc_apellido'],
+			'ppresdoc_sexo'=> $datosvalidados['presdoc_sexo'],
+			'ppresdoc_origen_pais_codigo'=> $datosvalidados['presdoc_origen_pais_codigo'],
+			'ppresdoc_eventual'=> $datosvalidados['presdoc_eventual'],
+			'ppresdoc_cuilt'=> $datosvalidados['presdoc_cuilt'],
+			'ppresdoc_caracter_alta'=> $datosvalidados['presdoc_caracter_alta'],
+			'ppresdoc_falta'=> FuncionesPHPLocal::ConvertirFecha($datosvalidados['presdoc_falta'],'dd/mm/aaaa','aaaa-mm-dd'), 
+			'ppresdoc_falta_prov'=> FuncionesPHPLocal::ConvertirFecha($datosvalidados['presdoc_falta_prov'],'dd/mm/aaaa','aaaa-mm-dd'), 
+			'ppresdoc_falta_def'=> ($datosvalidados['presdoc_falta_def'] != "NULL")?FuncionesPHPLocal::ConvertirFecha($datosvalidados['presdoc_falta_def'],'dd/mm/aaaa','aaaa-mm-dd'):"NULL", 				
+			'ppresdoc_presentacion'=> $datosvalidados['presdoc_presentacion'],
+			'ppresdoc_telefono'=> $datosvalidados['presdoc_telefono'],
+			'ppresdoc_celular'=> $datosvalidados['presdoc_celular'],
+			'ppresdoc_email'=> $datosvalidados['presdoc_email'],
+			'ppresdoc_calle'=> $datosvalidados['presdoc_calle'],
+			'ppresdoc_numero'=> $datosvalidados['presdoc_numero'],
+			'ppresdoc_piso'=> $datosvalidados['presdoc_piso'],
+			'ppresdoc_cp'=> $datosvalidados['presdoc_cp'],
+			'ppresdoc_prov_codigo'=> $datosvalidados['presdoc_prov_codigo'],
+			'ppresdoc_part_loca_descripcion'=> $datosvalidados['presdoc_part_loca_descripcion'],			
+			'ppresins_codigo'=> $datosvalidados['presins_codigo'],
+			'pjurisdid_apn'=> $datosvalidados['jurisdid_apn'],
+			'pjurisdid_origen'=> $datosvalidados['jurisdid_origen'],
+			'porgapub_codigo'=> $datosvalidados['orgapub_codigo'],
+			'ppresdoc_cargo'=> $datosvalidados['presdoc_cargo'],			
+			'ppresdoc_eve_organismo'=> $datosvalidados['presdoc_eve_organismo'],		
+			'ppresdoc_max_nivel_estudio'=> $datosvalidados['presdoc_max_nivel_estudio'],		
+			'ppresdoc_ult_titulo'=> $datosvalidados['presdoc_ult_titulo'],		
+			'ppresdoc_ult_titulo_institucion'=> $datosvalidados['presdoc_ult_titulo_institucion'],		
+			'ppresdoc_ult_titulo_ano'=> $datosvalidados['presdoc_ult_titulo_ano'],		
+			'ppresdoc_ido_competencias'=> $datosvalidados['presdoc_ido_competencias'],		
+			'ppresdoc_ido_instituciones'=> $datosvalidados['presdoc_ido_instituciones'],		
+			'ppresdoc_cv'=> $datosvalidados['presdoc_cv'],				
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+		);
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al actualizar el prestador. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		} else {
+
+
+		// borro todos los tipos de postulación que tiene el docente
+		if(!$this->Baja_Pres_Doc_Tipo_Postulacion($datosvalidados['presdoc_codigo'])) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se pudo eliminar los tipos de postulación del docente. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		} else {
+			FuncionesPHPLocal::RegistrarAcceso($this->conexion,"36302","Global / presdoc_codigo=".$datosvalidados['presdoc_codigo'],$_SESSION['usuariocod']);
+		}
+
+		// agrego los tipos de postulación seleccionados
+		foreach ($datosvalidados["tipopos"] as $clave => $valor) {
+			if(!$this->Alta_Pres_Doc_Tipo_Postulacion($datosvalidados['presdoc_codigo'],$valor,$errno)) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se pudo agregar el tipo de postulación al docente. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			} else {
+				FuncionesPHPLocal::RegistrarAcceso($this->conexion,"36301","presdoc_codigo=".$datosvalidados['presdoc_codigo']."tipopos_codido=".$valor,$_SESSION['usuariocod']);
+			}
+		}				
+
+
+		
+		}
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function EvaluarPrestadorDocente($presdoc_codigo,$operacion,$datos,&$datosvalidados) {
+
+		if(!$this->_DatosValidosEvaluarPrestadorDocente($presdoc_codigo,$operacion,$datos,$datosvalidados))
+			return false;
+	
+		if ($operacion == "A") {
+			$estado = PRESDOCACTIVO;
+		} else {
+			$estado = PRESDOCRECHAZADO;	
+		}
+	
+		$spnombre="upd_prestador_docente_evaluar_xpresdoc_codigo_presdoc_estado";
+		$spparam=array(
+			'ppresdoc_codigo'=> $presdoc_codigo, 
+			'ppresdoc_caracter_alta'=> $datosvalidados['presdoc_caracter_alta'],
+			'ppresdoc_estado'=> $estado,	
+			'ppresdoc_falta_prov'=> date("Y/m/d"),
+			'ppresdoc_falta_def'=> ($datosvalidados['presdoc_caracter_alta']==PRESDOCDEFINITIVO)?date("Y/m/d"):"NULL",
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+		);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al actualizar la evaluación del prestador docente. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}	
+		
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function PedirAprobacionPrestadorDocente($presdoc_codigo) {
+
+		if(!$this->_DatosValidosPedidoAprobacionPrestadorDocente($presdoc_codigo))
+			return false;
+
+		$spnombre="upd_prestador_docente_cambio_estado_xpresdoc_codigo";
+		$spparam=array(
+			'ppresdoc_estado'=>PRESDOCPENDIENTEAPROBACION,
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s"),
+			'ppresdoc_codigo'=> $presdoc_codigo
+			);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al realizar el pedido de aprobación del Prestador Docente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}	
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoModificar($presdoc_codigo,$rolcod,$jurisdid) {
+	
+		if(!$this->TraerDatosPrestadorDocente($presdoc_codigo,$filaprestador,$es_modif))  {
+			$error="Error al buscar el prestador docente.";
+			$errormail="Error al buscar el prestador docente en tabla presador_docente \n presdoc_codigo=".$presdoc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		if (!$es_modif) {
+			$error="Error no se encontró el prestador docente.";
+			$errormail="Error no se encontró el prestador docente \n presdoc_codigo=".$presdoc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		} 
+		
+		if($rolcod==COORDINADORTECNICO || $rolcod==USUORGANISMO) {  
+			
+			if ($filaprestador['jurisdid_origen']==$jurisdid) {
+				if($filaprestador['presdoc_estado']==PRESDOCNUEVO || $filaprestador['presdoc_estado'] == PRESDOCRECHAZADO) {
+					return true;			
+				} else {
+					$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","PRESDOCESTADO","' and constantecod='",$filaprestador['presdoc_estado'],"'"),$descri,$numfilas,$errorcod);
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"El estado del Prestador Docente (".$descri."), no le permite modificarlo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}  
+			} else {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No tiene acceso a modificar al prestador docente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));	
+				return false;
+			}	
+			
+		} elseif ($rolcod==ADMICURSO || $rolcod==USUCURSO) {
+				if($filaprestador['presdoc_estado']==PRESDOCACTIVO || $filaprestador['presdoc_estado']==PRESDOCINACTIVO)
+				  return true;
+				else {
+					$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","PRESDOCESTADO","' and constantecod='",$filaprestador['presdoc_estado'],"'"),$descri,$numfilas,$errorcod);
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"El estado del Prestador Docente (".$descri."), no le permite modificarlo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}  
+		}
+	return false;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoBaja($presdoc_codigo,$rolcod,$jurisdid) {
+	
+		if(!$this->TraerDatosPrestadorDocente($presdoc_codigo,$filaprestador,$es_modif))  {
+			$error="Error al buscar el prestador docente.";
+			$errormail="Error al buscar el prestador docente en tabla presador_docente \n presdoc_codigo=".$presdoc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		if (!$es_modif) {
+			$error="Error no se encontró el prestador docente.";
+			$errormail="Error no se encontró el prestador docente \n presdoc_codigo=".$presdoc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		} 
+		
+		if($rolcod==COORDINADORTECNICO || $rolcod==USUORGANISMO) {  
+			if ($filaprestador['jurisdid_origen']==$jurisdid) {
+				if($filaprestador['presdoc_estado']==PRESDOCNUEVO || $filaprestador['presdoc_estado'] == PRESDOCRECHAZADO) {
+					return true;
+				} else {
+					$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","PRESDOCESTADO","' and constantecod='",$filaprestador['presdoc_estado'],"'"),$descri,$numfilas,$errorcod);
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"El estado del Prestador Docente (".$descri."), no le permite eliminarlo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}  
+			} else {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No tiene acceso a eliminar al prestador docente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));	
+				return false;				
+			}
+		} elseif ($rolcod==ADMICURSO || $rolcod==USUCURSO) {
+				if($filaprestador['presdoc_estado']==PRESDOCACTIVO || $filaprestador['presdoc_estado']==PRESDOCINACTIVO)
+				  return true;
+				else {
+					$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","PRESDOCESTADO","' and constantecod='",$filaprestador['presdoc_estado'],"'"),$descri,$numfilas,$errorcod);
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"El estado del Prestador Docente (".$descri."), no le permite eliminarlo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}  
+		}
+		
+		return false;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoRehabilitar($presdoc_codigo,$rolcod,$jurisdid) {
+	
+		if(!$this->TraerDatosPrestadorDocente($presdoc_codigo,$filaprestador,$es_modif))  {
+			$error="Error al buscar el prestador docente.";
+			$errormail="Error al buscar el prestador docente en tabla presador_docente \n presdoc_codigo=".$presdoc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		if (!$es_modif) {
+			$error="Error no se encontró el prestador docente.";
+			$errormail="Error no se encontró el prestador docente \n presdoc_codigo=".$presdoc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		} 
+		
+		if ($rolcod==ADMICURSO || $rolcod==USUCURSO) {
+			if($filaprestador['presdoc_estado']==PRESDOCBAJA)
+			  return true;
+			else {
+				$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","PRESDOCESTADO","' and constantecod='",$filaprestador['presdoc_estado'],"'"),$descri,$numfilas,$errorcod);
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"El estado del Prestador Docente (".$descri."), no le permite rehabilitarlo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}  
+		}
+		return false;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoActivar($presdoc_codigo,$rolcod,$jurisdid) {
+	
+		if(!$this->TraerDatosPrestadorDocente($presdoc_codigo,$filaprestador,$es_modif))  {
+			$error="Error al buscar el prestador docente.";
+			$errormail="Error al buscar el prestador docente en tabla presador_docente \npresdoc_codigo=".$presdoc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		if (!$es_modif) {
+			$error="Error no se encontró el prestador docente aca.";
+			$errormail="Error no se encontró el prestador docente \npresdoc_codigo=".$presdoc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		} 
+		
+		if ($rolcod==ADMICURSO || $rolcod==USUCURSO) {
+			if($filaprestador['presdoc_estado']==PRESDOCINACTIVO)
+			  return true;
+			else {
+				$txt_sys_mail ="Error al activar el prestador docente.";
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al cargar áreas al prestador docente.\npresdoc_codigo=".$filaprestador['presdoc_codigo'],array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			}  
+		}
+		return false;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoEvaluar($presdoc_codigo,$rolcod) {
+		if(!$this->TraerDatosPrestadorDocente($presdoc_codigo,$filaprestador,$es_modif))  {
+			$error="Error al buscar el prestador docente.";
+			$errormail="Error al buscar el prestador docente en tabla presador_docente \npresdoc_codigo=".$presdoc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		if (!$es_modif) {
+			$error="Error no se encontró el prestador docente.";
+			$errormail="Error no se encontró el prestador docente \npresdoc_codigo=".$presdoc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		} 
+		
+		
+		if($rolcod==ADMICURSO || $rolcod==USUCURSO) {  
+			if($filaprestador['presdoc_estado']==PRESDOCPENDIENTEAPROBACION) {
+				return true;
+			}  else {
+				$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","PRESDOCESTADO","' and constantecod='",$filaprestador['presdoc_estado'],"'"),$descri,$numfilas,$errorcod);
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"El estado del Prestador Docente (".$descri."), no le permite pedir la aprobación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;			
+			}
+		} 
+				
+		return false;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoPedirAprobacion($presdoc_codigo,$rolcod,$jurisdid) {
+		
+		if(!$this->TraerDatosPrestadorDocente($presdoc_codigo,$filaprestador,$es_modif))  {
+			$error="Error al buscar el prestador docente.";
+			$errormail="Error al buscar el prestador docente en tabla prestador_docente \n presdoc_codigo=".$presdoc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		if (!$es_modif) {
+			$error="Error no se encontró el prestador docente.";
+			$errormail="Error no se encontró el prestador docente \n presdoc_codigo=".$presdoc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		} 
+		
+		if($rolcod==COORDINADORTECNICO || $rolcod==USUORGANISMO) {  
+			if ($filaprestador['jurisdid_origen']==$jurisdid) {
+				if($filaprestador['presdoc_estado']==PRESDOCNUEVO || $filaprestador['presdoc_estado'] == PRESDOCRECHAZADO) {
+						return true;
+				} else {
+					$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","PRESDOCESTADO","' and constantecod='",$filaprestador['presdoc_estado'],"'"),$descri,$numfilas,$errorcod);
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"El estado del Prestador Docente (".$descri."), no le permite pedir la aprobación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}  
+			} else {
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No tiene acceso a modificar al prestador docente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));	
+					return false;
+			}	
+		} 
+	return false;	
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ValidarFormAltaPrestadorDocente()
+	{
+?>		
+
+	function VerificarExistenciaCUILT(formulario,valor_buscado,codigo_buscado) {
+	
+		var ajax=nuevoAjax();
+		var variables="?tipo=DO&valor_buscado="+valor_buscado+"&valor_codigo_unico="+codigo_buscado;
+		var direccion= "verifico_existencia_codigo_ajax.dhtml"+variables;
+		if (valor_buscado=='') {
+			alert('El número de CUIT/CUIL no puede quedar en blanco.');
+			return false;				
+		}
+		
+		ajax.open("GET",direccion,true);
+		ajax.onreadystatechange=function() {
+			if (ajax.readyState==4) {	
+				if (ajax.responseText.substr(0,15)=="//tienepermisos") 	{				
+					eval (ajax.responseText);
+					if (!ejecutook){	
+
+						alert('Ya existe un Prestador Docente con el número de CUIT/CUIL ingresado.');
+						formulario.presdoc_cuilt.value = "";
+						formulario.presdoc_cuilt.focus();
+						return false;
+					} else {
+						alert('No hay prestadores docentes con el número de CUIT/CUIL ingresado, puede continuar la carga.');
+						return true;
+					}
+				} else {	
+					alert (ajax.responseText);
+					return false;
+				}
+			}
+		}	
+		ajax.send(null);		
+		return false;
+	}
+
+		function ValidarFormAltaPrestadorDocente(formulario,operacion) {
+		//-----datos básicos----------------------------------------------------------------
+			if (!ValidarContenido(formulario.presdoc_apellido.value,"AlfabeticoPuro") || (trim(formulario.presdoc_apellido.value)=="")){
+				alert("Debe ingresar un apellido válido");
+				formulario.presdoc_apellido.focus();
+				return false;
+			}	
+			if (!ValidarContenido(formulario.presdoc_nombre.value,"AlfabeticoPuro") || (trim(formulario.presdoc_nombre.value)=="")){
+				alert("Debe ingresar un nombre válido");
+				formulario.presdoc_nombre.focus();
+				return false;
+			}	
+			if ((!formulario.presdoc_sexo[0].checked) && (!formulario.presdoc_sexo[1].checked))
+			{
+				alert("Debe seleccionar el sexo");
+				return false;
+			}
+			
+			if ((trim(formulario.presdoc_origen_pais_codigo.value)=="")){
+				alert("Debe ingresar un pais de origen");
+				formulario.presdoc_origen_pais_codigo.focus();
+				return false;
+			}	
+
+
+<?php 		if ($_SESSION['rolcod']==ADMICURSO || $_SESSION['rolcod']==USUCURSO) { ?>
+
+			if ((!formulario.presdoc_caracter_alta[0].checked) && (!formulario.presdoc_caracter_alta[1].checked))
+			{
+				alert("Debe seleccionar el caracter de alta");
+				return false;
+			}
+
+			// Fecha de Alta Provisorio
+			if (formulario.presdoc_caracter_alta[0].checked || formulario.presdoc_caracter_alta[1].checked) {
+				if (formulario.presdoc_falta_prov.value=="" || !ValidarFecha(formulario.presdoc_falta_prov.value))
+				{
+					alert("La fecha de alta provisorio no es válida");
+					formulario.presdoc_falta_prov.focus();
+					return false;
+				}
+			}
+
+			// Fecha de Alta Definitivo
+			if (formulario.presdoc_caracter_alta[1].checked) {
+				if (formulario.presdoc_falta_def.value=="" || !ValidarFecha(formulario.presdoc_falta_def.value))
+				{
+					alert("La fecha de alta definitivo no es válida");
+					formulario.presdoc_falta_def.focus();
+					return false;
+				}
+				
+				var fechainicio=ConvertirFecha(formulario.presdoc_falta_prov.value,'dd/mm/aaaa','aaaammdd');
+				var fechafin=ConvertirFecha(formulario.presdoc_falta_def.value,'dd/mm/aaaa','aaaammdd');
+				if (fechainicio>fechafin) 	{
+					alert("La fecha de alta definitiva debe ser mayor o igual que la fecha de alta provisoria");
+					formulario.presdoc_falta_def.focus();
+					return false;
+				}
+				
+			}
+			
+			
+<?php 		} ?>		
+
+
+			// Fecha de Carga
+			if (formulario.presdoc_falta.value=="" || !ValidarFecha(formulario.presdoc_falta.value))
+			{
+				alert("La fecha de carga del prestador no es válida");
+				formulario.presdoc_falta.focus();
+				return false;
+			}
+
+			if ((!formulario.presdoc_eventual[0].checked) && (!formulario.presdoc_eventual[1].checked))
+			{
+				alert("Debe seleccionar el tipo de prestador");
+				return false;
+			}
+
+	
+			
+		//-----datos prestador  eventual----------------------------------------------------------------
+			
+			if (formulario.presdoc_eventual[0].checked)  {
+
+				if ((trim(formulario.presdoc_eve_organismo.value)=="")){
+					alert("Debe ingresar el Organismo donde trabaja");
+					formulario.presdoc_eve_organismo.focus();
+					return false;
+				}	
+
+				if ((trim(formulario.presdoc_eve_cargo.value)=="")){
+					alert("Debe ingresar un Cargo/Función");
+					formulario.presdoc_eve_cargo.focus();
+					return false;
+				}	
+
+				if (!ValidarContenido(formulario.presdoc_eve_email.value,"Email")){
+					alert("El correo electrónico no es válido");
+					formulario.presdoc_eve_email.focus();
+					return false;
+				}	
+
+
+			
+			}
+			
+			
+
+		//-----datos prestador no eventual----------------------------------------------------------------
+			
+			if (formulario.presdoc_eventual[1].checked)  {
+			
+				if ((trim(formulario.presdoc_cuilt.value)=="")){
+					alert("Debe ingresar un CUIT");
+					formulario.presdoc_cuilt.focus();
+					return false;
+				}	
+
+				if (!ValidarContenido(formulario.presdoc_cuilt.value,"CUIT")){
+					alert("El CUIT/CUIL/CDI no es válido");
+					formulario.presdoc_cuilt.focus();
+					return false;
+				}	
+
+			
+            
+				if ((trim(formulario.presdoc_password.value)=="")){
+					alert("Debe ingresar la contraseña");
+					formulario.presdoc_password.focus();
+					return false;
+				}	
+
+				if ((trim(formulario.presdoc_password2.value)=="")){
+					alert("Debe ingresar la confirmación de la contraseña");
+					formulario.presdoc_password2.focus();
+					return false;
+				}	
+
+				if ((trim(formulario.presdoc_password.value)!=trim(formulario.presdoc_password2.value))){
+					alert("Las contraseñas no coinciden");
+					formulario.presdoc_password.focus();
+					return false;
+				}	
+
+								
+				if ((!formulario.presdoc_presentacion[0].checked) && (!formulario.presdoc_presentacion[1].checked))
+				{
+					alert("Debe seleccionar el tipo de presentación");
+					return false;
+				}
+					
+				if (formulario.presdoc_presentacion[0].checked && formulario.tipo_individual_con_org[0].checked) {
+					if ((trim(formulario.jurisdid.value)=="")){
+						alert("Debe ingresar un organismo donde trabaja");
+						formulario.jurisdid.focus();
+						return false;
+					}	
+				}
+
+				if (formulario.presdoc_presentacion[1].checked) {
+					if ((trim(formulario.presins_codigo.value)=="")){
+						alert("Debe ingresar una Institución Prestadora");
+						formulario.presins_codigo.focus();
+						return false;
+					}	
+				}
+	
+				if (formulario.tipo_individual_con_org[0].checked) {
+					if ((trim(formulario.presdoc_cargo.value)=="")){
+						alert("Debe ingresar un Cargo/Función");
+						formulario.presdoc_cargo.focus();
+						return false;
+					}	
+				}
+				
+				
+				if ((trim(formulario.presdoc_telefono.value)=="")){
+					alert("Debe ingresar un teléfono");
+					formulario.presdoc_telefono.focus();
+					return false;
+				}	
+			
+				if (!ValidarContenido(formulario.presdoc_email.value,"Email")){
+					alert("El correo electrónico no es válido");
+					formulario.presdoc_email.focus();
+					return false;
+				}	
+
+				if ((trim(formulario.presdoc_calle.value)=="")){
+					alert("Debe ingresar una calle");
+					formulario.presdoc_calle.focus();
+					return false;
+				}	
+
+				if ((trim(formulario.presdoc_numero.value)=="")){
+					alert("Debe ingresar un número de la calle");
+					formulario.presdoc_numero.focus();
+					return false;
+				}	
+				
+				if ((trim(formulario.presdoc_piso.value)=="")){
+					alert("Debe ingresar un piso");
+					formulario.presdoc_piso.focus();
+					return false;
+				}	
+
+				if ((trim(formulario.presdoc_cp.value)=="")){
+					alert("Debe ingresar un Código Postal");
+					formulario.presdoc_cp.focus();
+					return false;
+				}	
+	
+
+				if ((trim(formulario.presdoc_prov_codigo.value)=="")){
+					alert("Debe ingresar una provincia");
+					formulario.presdoc_prov_codigo.focus();
+					return false;
+				}	
+				
+				if ((trim(formulario.presdoc_part_loca_descripcion.value)=="")){
+					alert("Debe ingresar Partido / Localidad");
+					formulario.presdoc_part_loca_descripcion.focus();
+					return false;
+				}	
+					
+				// Tiene que seleccionarse por lo menos 1 tipo de postulación
+				cant = 0;
+				todos=document.getElementsByTagName('input');
+			    for (var i=0; i< todos.length; i++) {
+				if((todos[i].name.substr(0,8) == "tipopos_") && (todos[i].checked))
+					cant++;
+				}
+				if (cant == 0)	{
+					alert("Debe seleccionar algún Tipo de Postulación");
+					formulario.tipopos_1.focus();
+					return false;
+				}			
+
+				// Tiene que seleccionarse 1 tipo de formación
+				cant = 0;
+				todos=document.getElementsByTagName('input');
+			    for (var i=0; i< todos.length; i++) {
+				if((todos[i].name.substr(0,13) == "nivest_codigo") && (todos[i].checked))
+					cant++;
+				}
+				if (cant != 1)	{
+					alert("Debe seleccionar un Nivel de Estudios");
+					return false;
+				}			
+
+				if ((trim(formulario.presdoc_ult_titulo.value)=="")){
+					alert("Debe ingresar el último título alcanzado");
+					formulario.presdoc_ult_titulo.focus();
+					return false;
+				}	
+
+				if ((trim(formulario.presdoc_ult_titulo_institucion.value)=="")){
+					alert("Debe ingresar la institución educativa");
+					formulario.presdoc_ult_titulo_institucion.focus();
+					return false;
+				}	
+
+				if ((trim(formulario.presdoc_ult_titulo_ano.value)=="")){
+					alert("Debe ingresar el año de egreso educativa");
+					formulario.presdoc_ult_titulo_ano.focus();
+					return false;
+				}	
+
+				if ((trim(formulario.presdoc_ult_titulo_ano.value)=="")){
+					alert("Debe ingresar el año de egreso educativa");
+					formulario.presdoc_ult_titulo_ano.focus();
+					return false;
+				}	
+
+				if ((trim(formulario.presdoc_ido_competencias.value)=="")){
+					alert("Debe ingresar las competencias");
+					formulario.presdoc_ido_competencias.focus();
+					return false;
+				}	
+				
+				if ((trim(formulario.presdoc_ido_instituciones.value)=="")){
+					alert("Debe ingresar la Institución / Organismo");
+					formulario.presdoc_ido_instituciones.focus();
+					return false;
+				}	
+				
+				if ((trim(formulario.presdoc_cv.value)=="")){
+					alert("Debe ingresar el resumen del CV de egreso educativa");
+					formulario.presdoc_cv.focus();
+					return false;
+				}	
+
+
+
+		}			
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function SeleccionPais(formulario ){
+		var elSelect = document.getElementById('datos_provincia');
+		if (formulario.presdoc_pais_codigo.value == <?php echo ARGENTINA?>) {
+			elSelect.style.display ="block";
+		} else {
+			elSelect.style.display ="none";
+		}
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function SeleccionTipoPrestador(formulario, seccion, seccion_ev ){
+		var elSelect = document.getElementById(seccion);
+		var elSelectEv = document.getElementById(seccion_ev);		
+		if (formulario.presdoc_eventual[0].checked) {
+			elSelect.style.display ="none";
+			elSelectEv.style.display ="block";			
+		} else {
+			elSelect.style.display ="block";
+			elSelectEv.style.display ="none";						
+		}
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function SeleccionTieneOrganismo(formulario, seccion ){
+		var elSelect = document.getElementById(seccion);
+		if (formulario.tipo_individual_con_org[0].checked) {
+			elSelect.style.display ="block";
+		} else {
+			elSelect.style.display ="none";
+		}
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function SeleccionCaracterAlta(formulario, seccionprov, secciondef){
+		var elSelectProv = document.getElementById(seccionprov);
+		var elSelectDef = document.getElementById(secciondef);		
+		if (formulario.presdoc_caracter_alta[0].checked) {
+			CambiarPropiedad(seccionprov,"","disabled",false);
+			CambiarPropiedad(secciondef,"","disabled",true);
+		} else {
+			CambiarPropiedad(seccionprov,"","disabled",false);
+			CambiarPropiedad(secciondef,"","disabled",false);
+		}
+	}
+	
+	
+
+//-----------------------------------------------------------------------------------------------------	
+	function SeleccionTipoPresentacion(formulario, seccion_ind, seccion_ins ){
+		var elSelectInd = document.getElementById(seccion_ind);
+		var elSelectIns = document.getElementById(seccion_ins);
+	
+			if (formulario.presdoc_presentacion[0].checked) {
+				elSelectInd.style.display ="block";
+				elSelectIns.style.display ="none";			
+			} else {
+				if (formulario.presdoc_presentacion[1].checked) {
+					elSelectInd.style.display ="none";
+					elSelectIns.style.display ="block";			
+				} else {
+					elSelectInd.style.display ="none";
+					elSelectIns.style.display ="none";			
+				}	
+			}			
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function LimpioOrganismoIndividual(docu,jurisdid,jurisdnom,es_orga_publico) {
+		if(es_orga_publico == '<?php echo NO ?>') {		
+			var elValor=docu.getElementById(jurisdid);
+			SetearTexto(jurisdid,'',docu);
+			var elValor=docu.getElementById(jurisdnom);
+			SetearTexto(jurisdnom,'',docu);
+		}		
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function  ValidarDNIenCUIT (formulario) {
+		if (formulario.presdoc_cuilt.value.substr(2,8) != formulario.presdoc_dni.value ) {
+			return confirm ("El DNI no se corresponde con el CUIT ingresado. ¿Confirma los datos?")
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+function ValidarFormPrestadorDocenteEvaluar(formulario,operacion) {
+
+	if (operacion=="A") {
+		if ((!formulario.presdoc_caracter_alta[0].checked) && (!formulario.presdoc_caracter_alta[1].checked))
+		{
+			alert("Debe seleccionar el caracter de alta");
+			return false;
+		}
+	}	
+	return true;
+}
+
+//-----------------------------------------------------------------------------------------------------	
+function ContarCaracteres(field, max) {
+	if (field.value.length > max) {
+		alert('Solo puede ingresar hasta '+max+' caracteres (2 páginas de texto)');
+		field.value = field.value.substring(0, max);
+	}
+}
+
+//-----------------------------------------------------------------------------------------------------	
+function ValidarFormVencimientoPrestadorDocente(formulario) {
+
+	if (formulario.fecha_inicio.value=="" || !ValidarFecha(formulario.fecha_inicio.value))
+	{
+		alert("La fecha de inicial no es válida");
+		formulario.fecha_inicio.focus();
+		return false;
+	}
+
+	if (formulario.fecha_fin.value=="" || !ValidarFecha(formulario.fecha_fin.value))
+	{
+		alert("La fecha final no es válida");
+		formulario.fecha_fin.focus();
+		return false;
+	}
+	
+	
+	var fechainicio=ConvertirFecha(formulario.fecha_inicio.value,'dd/mm/aaaa','aaaammdd');
+	var fechafin=ConvertirFecha(formulario.fecha_fin.value,'dd/mm/aaaa','aaaammdd');
+	if (fechainicio>fechafin) 	{
+		alert("La fecha final debe ser mayor o igual que la fecha inicial");
+		formulario.fecha_inicio.focus();
+		return false;
+	}
+
+
+
+	return true;
+}
+
+<?php }
+//-----------------------------------------------------------------------------------------------------	
+	function BuscarPrestadorDocente($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		$sparam=array('pxcuilt'=>0);
+		$sparam+=array('pxcuilt_exacto'=>0);		
+		$sparam+=array('pxcodigo'=>0);
+		$sparam+=array('pxnombre'=>0);
+		$sparam+=array('pxapellido'=>0);
+		$sparam+=array('pxestado'=>0);
+		$sparam+=array('pxpresins_codigo'=>0);
+		$sparam+=array('pxjurisdid_origen'=>0);
+		$sparam+=array('pxeventual'=>0);		
+		
+		$sparam+=array('ppresdoc_cuilt' =>"");
+		$sparam+=array('ppresdoc_cuilt_exacto' =>"");		
+		$sparam+=array('ppresdoc_codigo' =>"");
+		$sparam+=array('ppresdoc_nombre' =>"");
+		$sparam+=array('ppresdoc_apellido' =>"");
+		$sparam+=array('ppresdoc_estado' =>"-1");
+		$sparam+=array('ppresins_codigo' =>"");		
+		$sparam+=array('pjurisdid_origen'=>"");
+		$sparam+=array('porderby' =>"presdoc_cuilt");
+		$sparam+=array('ppresdoc_eventual' =>"");
+
+		if (isset ($ArregloDatos['presdoc_cuilt']))
+		{
+			if ($ArregloDatos['presdoc_cuilt']!="")
+			{	
+				$sparam['ppresdoc_cuilt']= $ArregloDatos['presdoc_cuilt'];
+				$sparam['pxcuilt']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['presdoc_cuilt_exacto']))
+		{
+			if ($ArregloDatos['presdoc_cuilt_exacto']!="")
+			{	
+				$sparam['ppresdoc_cuilt_exacto']= $ArregloDatos['presdoc_cuilt_exacto'];
+				$sparam['pxcuilt_exacto']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['presdoc_codigo']))
+		{
+			if ($ArregloDatos['presdoc_codigo']!="")
+			{	
+				$sparam['ppresdoc_codigo']= $ArregloDatos['presdoc_codigo'];
+				$sparam['pxcodigo']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['presdoc_nombre']))
+		{
+			if ($ArregloDatos['presdoc_nombre']!="")
+			{	
+				$sparam['ppresdoc_nombre']= $ArregloDatos['presdoc_nombre'];
+				$sparam['pxnombre']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['presdoc_apellido']))
+		{
+			if ($ArregloDatos['presdoc_apellido']!="")
+			{	
+				$sparam['ppresdoc_apellido']= $ArregloDatos['presdoc_apellido'];
+				$sparam['pxapellido']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['presdoc_estado']))
+		{
+			if ($ArregloDatos['presdoc_estado']!="")
+			{	
+				$sparam['ppresdoc_estado']= $ArregloDatos['presdoc_estado'];
+				$sparam['pxestado']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['jurisdid_origen']))
+		{
+			if ($ArregloDatos['jurisdid_origen']!="")
+			{	
+				$sparam['pjurisdid_origen']= $ArregloDatos['jurisdid_origen'];
+				$sparam['pxjurisdid_origen']= 1;
+			}
+		}
+
+		
+		if (isset ($ArregloDatos['presins_codigo']))
+		{
+			if ($ArregloDatos['presins_codigo']!="")
+			{	
+				$sparam['ppresins_codigo']= $ArregloDatos['presins_codigo'];
+				$sparam['pxpresins_codigo']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['presdoc_eventual']))
+		{
+			if ($ArregloDatos['presdoc_eventual']!="")
+			{	
+				$sparam['ppresdoc_eventual']= $ArregloDatos['presdoc_eventual'];
+				$sparam['pxeventual']= 1;
+			}
+		}
+	
+		if (isset ($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+			{	
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+
+		$spnombre="sel_prestador_docente_xdatos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar el Prestador Docente.";
+			$errormail="Error al buscar el Prestador Docente.".$errno;
+			return false;
+		}
+
+		return true;
+	}
+	
+//-----------------------------------------------------------------------------------------------------	
+	function BuscarPrestadorDocenteVencimiento($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		$sparam = $ArregloDatos;
+		$spnombre="sel_prestador_docente_vencimiento";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar los Prestadores Docentes a vencer.";
+			$errormail="Error al buscar los Prestadores Docentes a vencer.".$errno;
+			return false;
+		}
+
+		return true;
+	}	
+
+//-----------------------------------------------------------------------------------------------------	
+	function DescargarExcel()	{
+
+		$ArregloDatos['presdoc_estado']=PRESDOCACTIVO;
+		$ArregloDatos['orderby']='presdoc_apellido, presdoc_nombre';
+		
+		if(!$this->BuscarPrestadorDocente($ArregloDatos,$numfilas,$result,$error,$errormail)){
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando datos a mostrar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;			
+		}
+		$i=0;
+		while ($filaresult=mysqli_fetch_assoc($result))
+		{
+			$arrayresult[$i]['presdoc_cuilt']= $filaresult['presdoc_cuilt'];
+			$arrayresult[$i]['presdoc_apellido']= $filaresult['presdoc_apellido'];
+			$arrayresult[$i]['presdoc_nombre']= $filaresult['presdoc_nombre'];
+			$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","PRESDOCCARACTER","' and constantecod='",$filaresult['presdoc_caracter_alta'],"'"),$caracterdesc,$numfilascaracter,$errorcod);
+			$arrayresult[$i]['presdoc_caracter_alta']= $caracterdesc;
+			$arrayresult[$i]['presdoc_falta_prov'] = FuncionesPHPLocal::ConvertirFecha($filaresult['presdoc_falta_prov'],'aaaa-mm-dd','dd/mm/aaaa');
+			$arrayresult[$i]['presdoc_falta_def'] = FuncionesPHPLocal::ConvertirFecha($filaresult['presdoc_falta_def'],'aaaa-mm-dd','dd/mm/aaaa');
+			
+			$i++;
+			
+		}
+		$nombrearchivo="prestador_docente.xls";  
+		
+		$oExcel= new cEscribirExcel($nombrearchivo);
+		$oExcel->AddHoja('prestador_docente');
+		$oExcel->EsconderGrillas();
+		$oExcel->PaginaHorizontal();
+		$oExcel->FormatoColumna (0,20); // cuilt
+		$oExcel->FormatoColumna (1,30); // apellido
+		$oExcel->FormatoColumna (2,30); // nombre
+		$oExcel->FormatoColumna (3,10); // caracter
+		$oExcel->FormatoColumna (4,20); // fecha de alta provisorio
+		$oExcel->FormatoColumna (5,20); // fecha de alta definitivo
+
+
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",12);
+		$oExcel->AddFormato ("Color","azul");
+		$oExcel->AddFormato ("FgColor",22);
+// 		Sacamos titulo		
+		$i=-1;
+		
+// 		$i++;		
+//		$oExcel->CargarDatosVariasCeldas ($i,0,0,5,'Prestadores Docentes',true);
+
+		// Titulos de las columnas
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("TextWrap","");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",12);
+		$oExcel->AddFormato ("Color","negro");
+		$oExcel->AddFormato ("FgColor","gris");
+
+		$i++;
+		$oExcel->CargarDatos ($i,0,"Cuit/Cuil",true);
+		$oExcel->CargarDatos ($i,1,"Apellido",true);
+		$oExcel->CargarDatos ($i,2,"Nombre",true);
+		$oExcel->CargarDatos ($i,3,"Caracter",true);
+		$oExcel->CargarDatos ($i,4,"Fecha de Alta Provisorio",true);
+		$oExcel->CargarDatos ($i,5,"Fecha de Alta Definitivo",true);		
+				
+		$arrayclaves=array(	'presdoc_cuilt','presdoc_apellido','presdoc_nombre',
+							'presdoc_caracter_alta','presdoc_falta_prov', 'presdoc_falta_def');
+		$i++;
+		foreach ($arrayresult as $datos) {
+			$oExcel->CargarGrilla ($datos,$i,0,$arrayclaves,array());	
+			$i++;
+		}
+		
+		$oExcel->Enviar();
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function DescargarExcelNoAsignado()	{
+
+		$spnombre="sel_comision_prestador_docente_noasignados";
+		$spparam=array("presdoc_estado"=>PRESDOCACTIVO);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$result,$numfilas,$errno))
+			return false;
+
+		
+		
+		
+		$i=0;
+		while ($filaresult=mysqli_fetch_assoc($result))
+		{
+			$arrayresult[$i]['presdoc_cuilt']= $filaresult['presdoc_cuilt'];
+			$arrayresult[$i]['presdoc_apellido']= $filaresult['presdoc_apellido'];
+			$arrayresult[$i]['presdoc_nombre']= $filaresult['presdoc_nombre'];
+			$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","PRESDOCCARACTER","' and constantecod='",$filaresult['presdoc_caracter_alta'],"'"),$caracterdesc,$numfilascaracter,$errorcod);
+			$arrayresult[$i]['presdoc_caracter_alta']= $caracterdesc;
+			$arrayresult[$i]['presdoc_falta_prov'] = FuncionesPHPLocal::ConvertirFecha($filaresult['presdoc_falta_prov'],'aaaa-mm-dd','dd/mm/aaaa');
+			$arrayresult[$i]['presdoc_falta_def'] = FuncionesPHPLocal::ConvertirFecha($filaresult['presdoc_falta_def'],'aaaa-mm-dd','dd/mm/aaaa');
+			
+			$i++;
+			
+		}
+		$nombrearchivo="prestador_docente_noasignado.xls";  
+		
+		$oExcel= new cEscribirExcel($nombrearchivo);
+		$oExcel->AddHoja('prestador_docente_noasignado');
+		$oExcel->EsconderGrillas();
+		$oExcel->PaginaHorizontal();
+		$oExcel->FormatoColumna (0,25); // cuilt
+		$oExcel->FormatoColumna (1,30); // apellido
+		$oExcel->FormatoColumna (2,30); // nombre
+		$oExcel->FormatoColumna (3,10); // caracter
+		$oExcel->FormatoColumna (4,20); // fecha de alta provisorio
+		$oExcel->FormatoColumna (5,20); // fecha de alta definitivo
+
+
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",12);
+		$oExcel->AddFormato ("Color","azul");
+		$oExcel->AddFormato ("FgColor",22);
+// 		Sacamos titulo		
+		$i=-1;
+		
+// 		$i++;		
+//		$oExcel->CargarDatosVariasCeldas ($i,0,0,5,'Prestadores Docentes',true);
+
+		// Titulos de las columnas
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("TextWrap","");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",12);
+		$oExcel->AddFormato ("Color","negro");
+		$oExcel->AddFormato ("FgColor","gris");
+
+		$i++;
+		$oExcel->CargarDatos ($i,0,"Cuit/Cuil",true);
+		$oExcel->CargarDatos ($i,1,"Apellido",true);
+		$oExcel->CargarDatos ($i,2,"Nombre",true);
+		$oExcel->CargarDatos ($i,3,"Caracter",true);
+		$oExcel->CargarDatos ($i,4,"Fecha de Alta Provisorio",true);
+		$oExcel->CargarDatos ($i,5,"Fecha de Alta Definitivo",true);		
+				
+		$arrayclaves=array(	'presdoc_cuilt','presdoc_apellido','presdoc_nombre',
+							'presdoc_caracter_alta','presdoc_falta_prov', 'presdoc_falta_def');
+		$i++;
+		foreach ($arrayresult as $datos) {
+			$oExcel->CargarGrilla ($datos,$i,0,$arrayclaves,array());	
+			$i++;
+		}
+		
+		$oExcel->Enviar();
+	}	
+	
+//-----------------------------------------------------------------------------------------------------	
+	function DescargarExcelActividad()	{
+
+
+	$oActividad = new cActividad($this->conexion);
+	$oDictamen = new cDictamen($this->conexion);					
+
+	$ArregloDatos1= array();
+	$ArregloDatos1['orderby']="presdoc_apellido";
+
+	if(!$this->BuscarPrestadorDocentexActividad($ArregloDatos1,$numfilas,$resultado_presdoc,$error,$errormail)) {
+		$txt_sys_mail="\nerror=".$error;
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error buscando los prestadores docentes de la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;			
+	}
+
+	$arrayresult = array();
+	$i=1;
+	$presdoc_actual = "*";
+	while ($fila_presdoc = mysqli_fetch_assoc($resultado_presdoc)) { 
+
+		if ($fila_presdoc['presdoc_codigo'] != $presdoc_actual) { 
+			$presdoc_actual = $fila_presdoc['presdoc_codigo'];
+			
+	
+	
+            $ArregloDatos= array();
+            $ArregloDatos['presdoc_codigo']=$fila_presdoc['presdoc_codigo'];
+        
+            if(!$this->BuscarPrestadorDocentexActividad($ArregloDatos,$numfilas_poract,$resultado_poract,$error,$errormail)) {
+                $txt_sys_mail="\nerror=".$error;
+                FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error buscando los prestadores docentes de la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+                return false;			
+            }
+        
+    
+            if($numfilas_poract>0)
+            {
+                
+                while ($fila_poract=mysqli_fetch_assoc($resultado_poract))	{
+                
+                    if (!$oActividad->TraerDatosActividad($fila_poract['act_codigo'],$filaact,$es_modif)) {
+                        FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha encontrado la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+                        $ok = false;
+                    }
+                    
+                    // busco las fecha de programación 
+                    // traigo los dictámenes DICTAMENACTIVO de la actividad
+                    $ArregloDatosDic = array();
+                    $ArregloDatosDic += array("act_codigo"=>$fila_poract['act_codigo']);	
+                    //$ArregloDatosDic += array("dic_estado"=>DICTAMENACTIVO);							
+        
+                    $oDictamen->BuscarDictamen($ArregloDatosDic,$numfilasdic,$array_resultado_dictamen,$error,$errormail);
+                    $fecha = "";
+                    foreach ($array_resultado_dictamen as $clave=>$valor) {
+                        if ($valor['dic_estado'] == DICTAMENACTIVO)
+                            $fecha .= FuncionesPHPLocal::ConvertirFecha($valor['actprog_fecha_inicio'],'aaaa-mm-dd','dd/mm/aaaa')." a ".FuncionesPHPLocal::ConvertirFecha($valor['actprog_fecha_fin'],'aaaa-mm-dd','dd/mm/aaaa'); 
+                    }	
+                    
+                    $arrayresult[$i]['presdoc_cuilt']= $fila_presdoc['presdoc_cuilt'];
+                    $arrayresult[$i]['presdoc_apellido']= $fila_presdoc['presdoc_apellido'];
+                    $arrayresult[$i]['presdoc_nombre']= $fila_presdoc['presdoc_nombre'];
+                    
+                    $arrayresult[$i]['act_codinap']= $filaact['act_codinap'];
+                    $arrayresult[$i]['act_nombre']= $filaact['act_nombre'];
+                    $arrayresult[$i]['fecha']= $fecha;			
+                    $i++;
+                }
+            }
+            
+             } 
+	}	
+	
+	
+
+		
+		
+		$nombrearchivo="prestador_docente_actividad.xls";  
+		
+		$oExcel= new cEscribirExcel($nombrearchivo);
+		$oExcel->AddHoja('prestador_docente_actividad');
+		$oExcel->EsconderGrillas();
+		$oExcel->PaginaHorizontal();
+		$oExcel->FormatoColumna (0,15); // cuilt
+		$oExcel->FormatoColumna (1,20); // apellido
+		$oExcel->FormatoColumna (2,20); // nombre
+		$oExcel->FormatoColumna (3,10); // act_codinap
+		$oExcel->FormatoColumna (4,60); // Actividad
+		$oExcel->FormatoColumna (5,20); // Programaciones
+
+
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",12);
+		$oExcel->AddFormato ("Color","azul");
+		$oExcel->AddFormato ("FgColor",22);
+// 		Sacamos titulo		
+		$i=-1;
+		
+// 		$i++;		
+//		$oExcel->CargarDatosVariasCeldas ($i,0,0,5,'Prestadores Docentes',true);
+
+		// Titulos de las columnas
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("TextWrap","");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",12);
+		$oExcel->AddFormato ("Color","negro");
+		$oExcel->AddFormato ("FgColor","gris");
+
+		$i++;
+		$oExcel->CargarDatos ($i,0,"Cuit/Cuil",true);
+		$oExcel->CargarDatos ($i,1,"Apellido",true);
+		$oExcel->CargarDatos ($i,2,"Nombre",true);
+		$oExcel->CargarDatos ($i,3,"Código INAP",true);
+		$oExcel->CargarDatos ($i,4,"Actividad",true);
+		$oExcel->CargarDatos ($i,5,"Programaciones",true);		
+				
+		$arrayclaves=array(	'presdoc_cuilt','presdoc_apellido','presdoc_nombre',
+							'act_codinap','act_nombre', 'fecha');
+		$i++;
+		foreach ($arrayresult as $datos) {
+			$oExcel->CargarGrilla ($datos,$i,0,$arrayclaves,array());	
+			$i++;
+		}
+		
+		$oExcel->Enviar();
+	}	
+	
+//-----------------------------------------------------------------------------------------------------	
+	function DescargarExcelComision()	{
+
+	$oComision = new cComision($this->conexion);
+	$oPrestadorDocente = new cComisionPrestadorDocente($this->conexion);
+	
+
+	$ArregloDatos= array();
+	$ArregloDatos['orderby']="presdoc_apellido";
+
+	if(!$oPrestadorDocente->BuscarComisionPrestadorDocente($ArregloDatos,$numfilas_presdoc,$resultado_presdoc,$error,$errormail)) {
+		$txt_sys_mail="\nerror=".$error;
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error buscando los prestadores docentes de la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;			
+	}
+	$arrayresult = array();
+	$i=1;
+	$presdoc_actual = "*";
+	while ($fila_presdoc = mysqli_fetch_assoc($resultado_presdoc)) { 
+	
+
+		if ($fila_presdoc['presdoc_codigo'] != $presdoc_actual) { 
+			$presdoc_actual = $fila_presdoc['presdoc_codigo'];
+
+			$this->TraerDatosPrestadorDocente($fila_presdoc['presdoc_codigo'],$filaprestador,$es_modif);
+
+			$ArregloDatos2= array();
+			$ArregloDatos2['presdoc_codigo']=$presdoc_actual;
+		
+			if(!$oPrestadorDocente->BuscarComisionPrestadorDocente($ArregloDatos2,$numfilas_porcomi,$resultado_porcomi,$error,$errormail)) {
+				$txt_sys_mail="\nerror=".$error;
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error buscando los prestadores docentes de la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;			
+			}
+		
+			if($numfilas_porcomi>0)
+			{
+				
+				
+				while ($fila_comi=mysqli_fetch_assoc($resultado_porcomi))	{
+
+						
+					$ArregloDatosComision=array("comi_codigo"=>$fila_comi['comi_codigo']);	
+		
+					if(!$oComision->BuscarComisionAvanzada($ArregloDatosComision, $numfilasComision, $resultComision, $error, $errormail)) {
+						FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha encontrado la Comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+						$ok = false;
+					}
+
+					if ($numfilasComision == 1) { 
+							$fila_comision = mysqli_fetch_assoc($resultComision);
+		
+							$this->conexion->TraerCampo("tipo_actividad","tipoact_descripcion",array("tipoact_codigo='",$fila_comision['tipoact_codigo'],"'"),$tipoact_descripcion,$numfilas_ta,$errorcod); 
+		
+							$arrayresult[$i]['presdoc_cuilt']=$filaprestador['presdoc_cuilt'];
+							$arrayresult[$i]['presdoc_apellido']=$filaprestador['presdoc_apellido'];
+							$arrayresult[$i]['presdoc_nombre']=$filaprestador['presdoc_nombre'];
+							
+							$arrayresult[$i]['act_codinap']=$fila_comision['act_codinap'];
+							$arrayresult[$i]['tipoact_descripcion']=$tipoact_descripcion;
+							$arrayresult[$i]['fecha_desde_hasta'] = isset($fila_comision['comi_fecha_inicio_ddmmaaaa'])?$fila_comision['comi_fecha_inicio_ddmmaaaa']." a ".$fila_comision['comi_fecha_fin_ddmmaaaa']:"Indefinida";
+							$arrayresult[$i]['comi_codinap']= $fila_comision['comi_codinap'];
+							$arrayresult[$i]['act_nombre']= $fila_comision['act_nombre'];
+							$i++;
+							
+							
+					}		
+							
+							
+					
+				}
+			}	
+		}	
+	}
+	
+
+		
+		
+		$nombrearchivo="prestador_docente_comision.xls";  
+		
+		$oExcel= new cEscribirExcel($nombrearchivo);
+		$oExcel->AddHoja('prestador_docente_comision');
+		$oExcel->EsconderGrillas();
+		$oExcel->PaginaHorizontal();
+		$oExcel->FormatoColumna (0,15); // cuilt
+		$oExcel->FormatoColumna (1,20); // apellido
+		$oExcel->FormatoColumna (2,20); // nombre
+		$oExcel->FormatoColumna (3,10); // act_codinap
+		$oExcel->FormatoColumna (4,60); // act_nombre
+		$oExcel->FormatoColumna (5,20); // comi_codinap
+		$oExcel->FormatoColumna (6,20); // tipoact_descripcion
+		$oExcel->FormatoColumna (7,25); // fecha_desde_hasta
+		
+
+
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",12);
+		$oExcel->AddFormato ("Color","azul");
+		$oExcel->AddFormato ("FgColor",22);
+// 		Sacamos titulo		
+		$i=-1;
+		
+// 		$i++;		
+//		$oExcel->CargarDatosVariasCeldas ($i,0,0,5,'Prestadores Docentes',true);
+
+		// Titulos de las columnas
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("TextWrap","");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",12);
+		$oExcel->AddFormato ("Color","negro");
+		$oExcel->AddFormato ("FgColor","gris");
+
+		$i++;
+		$oExcel->CargarDatos ($i,0,"Cuit/Cuil",true);
+		$oExcel->CargarDatos ($i,1,"Apellido",true);
+		$oExcel->CargarDatos ($i,2,"Nombre",true);
+		$oExcel->CargarDatos ($i,3,"Código INAP",true);
+		$oExcel->CargarDatos ($i,4,"Actividad",true);
+		$oExcel->CargarDatos ($i,5,"Código Comisión INAP",true);
+		$oExcel->CargarDatos ($i,6,"Tipo de Actividad",true);
+		$oExcel->CargarDatos ($i,7,"Realización",true);		
+				
+		$arrayclaves=array(	'presdoc_cuilt','presdoc_apellido','presdoc_nombre',
+							'act_codinap','act_nombre', 'comi_codinap', 'tipoact_descripcion', 'fecha_desde_hasta');
+		$i++;
+		foreach ($arrayresult as $datos) {
+			$oExcel->CargarGrilla ($datos,$i,0,$arrayclaves,array());	
+			$i++;
+		}
+		
+		$oExcel->Enviar();
+	}		
+//-----------------------------------------------------------------------------------------------------	
+	function PedirPrestador($formularioName,$inputName,$accion="",$submit=true,$filtro=array()) { ?>
+		<table width="100%" class="textoTablaDato" align="center">
+			<tr>
+				<td class="textoEtiquetaClave" align="left">
+					Seleccione Prestador &nbsp;&nbsp;&nbsp;
+					<a href='javascript:void(0)' onClick="Popup('prestador_docente_selector.dhtml?formulario=<?php echo $formularioName ?>&amp;destino=<?php echo $inputName ?>&amp;accion=<?php echo $accion ?><?php echo "&amp;submit=".$submit."&amp;"?>volver=1','ventana_descripciones',630,360,screen.availWidth-650,screen.availHeight-420,'yes');"><img src="images/searchsai.jpg" alt="Buscar" border="0" style="vertical-align:-5px"></a> &nbsp;&nbsp;&nbsp;
+					<input type="hidden" readonly class="inputReadonly" size="5" name="<?php echo $inputName ?>" id="<?php echo $inputName ?>" value="">
+				</td>			
+			</tr>			
+		</table>	
+<?php		unset($_SESSION['array_busqueda_basica_prestador_docente']);	
+		unset($_SESSION['filtro_busqueda']);
+ } 
+//-----------------------------------------------------------------------------------------------------	
+	function BuscarPrestadorDocentexActividad($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		// Busca en actividad_curso_prestador_docente, prestador_docente
+		// Retorna la información del prestador 
+		$sparam= array('pxact_codigo'=>0);
+		$sparam+=array('pxpresdoc_codigo'=>0);
+		$sparam+=array('pxpresdoc_estado'=>0);
+		$sparam+=array('pxactpres_estado'=>1);
+
+		$sparam+=array('pact_codigo' =>"");
+		$sparam+=array('ppresdoc_codigo' =>"");
+		$sparam+=array('ppresdoc_estado' =>"-1");		
+		$sparam+=array('pactpres_estado'=>ACTPRESDOCACTIVO);
+
+		$sparam+=array('porderby' =>"presdoc_apellido,presdoc_nombre");
+
+		if (isset ($ArregloDatos['act_codigo']))
+		{
+			if ($ArregloDatos['act_codigo']!="")
+			{	
+				$sparam['pact_codigo']= $ArregloDatos['act_codigo'];
+				$sparam['pxact_codigo']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['presdoc_codigo']))
+		{
+			if ($ArregloDatos['presdoc_codigo']!="")
+			{	
+				$sparam['ppresdoc_codigo']= $ArregloDatos['presdoc_codigo'];
+				$sparam['pxpresdoc_codigo']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['presdoc_estado']))
+		{
+			if ($ArregloDatos['presdoc_estado']!="")
+			{	
+				$sparam['ppresdoc_estado']= $ArregloDatos['presdoc_estado'];
+				$sparam['pxpresdoc_estado']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+			{	
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+
+		$spnombre="sel_actividad_curso_prestador_docente_xdatos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar el Prestador Docente .";
+			$errormail="Error al buscar Prestador Docente".$errno;
+			return false;
+		}
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function PaisSP(&$spnombre,&$spparam)	{
+		$spnombre="sel_paises_xestado";
+		$spparam = array("ppaisestado"=>ESTADOACTIVO, "porderby"=>"paisnom");
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function  ArmarMensajeEvaluar ($presdoc_codigo, $operacion, &$mensaje) {
+
+		$result = true;
+		if(!$this->TraerDatosPrestadorDocente($presdoc_codigo,$filaprestador,$es_modif))  {
+			$error="Error al buscar el prestador docente.";
+			$errormail="Error al buscar el prestador docente en tabla presador_docente \npresdoc_codigo=".$presdoc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			$result =  false;
+		}
+	
+		if ($result) {
+			$mensaje = " INAP ha ".$operacion." la incorporación al Registro de Prestadores docentes de \n";
+			$mensaje .= " Apellido:   ".$filaprestador['presdoc_apellido']."\n";	;		
+			$mensaje .= " Nombre:   ".$filaprestador['presdoc_nombre']."\n";	
+		
+			if ($filaprestador['presdoc_cuilt'] != NULL )
+				$mensaje .= " CUIT / CUIL:   ".$filaprestador['presdoc_cuilt']."\n";	;			
+		}
+				
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function  ArmarMensajePedidoAprobacion($presdoc_codigo,&$mensaje) {
+
+		$result = true;
+		if(!$this->TraerDatosPrestadorDocente($presdoc_codigo,$filaprestador,$es_modif))  {
+			$error="Error al buscar el prestador docente.";
+			$errormail="Error al buscar el prestador docente en tabla presador_docente \npresdoc_codigo=".$presdoc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			$result =  false;
+		}
+	
+		if ($result) {
+			$mensaje = "  El Coordinador técnico ha solicitado la incorporación al Registro de Prestadores Docentes de\n";
+			$mensaje .= " Apellido:   ".$filaprestador['presdoc_apellido']."\n";	;		
+			$mensaje .= " Nombre:   ".$filaprestador['presdoc_nombre']."\n";	
+			if ($filaprestador['presdoc_cuilt'] != NULL )
+				$mensaje .= " CUIT / CUIL:   ".$filaprestador['presdoc_cuilt']."\n";	;			
+			$this->conexion->TraerCampo("jurisdiccion_inap","jurisdnom",array("jurisdid='",$_SESSION['jurisdid_inap'],"'"),$jurisdnom,$numfilas,$errno);
+			$mensaje .= " Organismo de Coordinación: ".$jurisdnom."\n";				
+		}
+	}	
+
+//-----------------------------------------------------------------------------------------------------	
+	function MostrarHistorialPrestadorDocente($conexion,$es_modif,$filaprestador) {
+	?>
+		<table width="95%" class="textoTablaDato" align="center" cellpadding="2" cellspacing="2">
+			<tr>
+				<td colspan="2" >
+					<fieldset class="bordeDetalleUsuario">
+					<legend class="textoLeyendaDetalleRegistro"> Datos Básicos </legend>
+					<table width="100%" class="textoTablaDato" align="center">
+						<?php if ($filaprestador["presdoc_eventual"]=='N') {?>
+							<tr>
+								<td valign="top" width="25%" class='textoEtiqueta'>CUIT/CUIL</td>
+								<td class="textoEtiquetaDatoResaltado">
+									<input type="text" size="11" maxlength="11" name="presdoc_cuilt" class="inputReadonly" readonly="true" value="<?php echo htmlspecialchars($filaprestador['presdoc_cuilt'],ENT_QUOTES) ?>" />								</td>
+							</tr>
+					<?php } ?>					
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Apellido</td>
+						<td class="textoEtiquetaDatoResaltado"><input type="text" name="presdoc_apellido" id="presdoc_apellido" size="31" maxlength="30" class="inputReadonly" readonly="true" value="<?php echo htmlspecialchars($filaprestador['presdoc_apellido']); ?>"></td>
+					</tr>
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Nombre</td>
+						<td class="textoEtiquetaDatoResaltado"><input type="text" name="presdoc_nombre" id="presdoc_nombre" size="31" maxlength="30" class="inputReadonly" readonly="true" value="<?php echo htmlspecialchars($filaprestador['presdoc_nombre']); ?>"></td>
+					</tr>
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Sexo</td>
+						<td class="textoEtiquetaDatoResaltado">
+						<?php $conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","SEXO","' and constantecod='",$filaprestador['presdoc_sexo'],"'"),$descri,$numfilascaracter,$errorcod); 
+							echo $descri;
+						?>						</td>
+					</tr>
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Pais de Origen </td>
+						<td class="textoEtiquetaDatoResaltado">
+						<?php $conexion->TraerCampo("paises","paisnom",array("paiscod='",$filaprestador['presdoc_origen_pais_codigo'],"'"),$descri,$numfilascaracter,$errorcod); 
+							echo $descri;
+						?>						</td>
+					</tr>
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Caracter de alta</td>
+						<td class="textoEtiquetaDatoResaltado">
+						<?php $conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","PRESDOCCARACTER","' and constantecod='",$filaprestador['presdoc_caracter_alta'],"'"),$descri,$numfilascaracter,$errorcod); 
+							echo $descri;
+						?>						</td>
+					</tr>
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Tipo de Prestador </td>
+						<td class="textoEtiquetaDatoResaltado">
+						<?php $conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","PRESDOCEVENTUAL","' and constantecod='",$filaprestador['presdoc_eventual'],"'"),$descri,$numfilascaracter,$errorcod); 
+							echo $descri;
+						?>					  	</td>
+					</tr>
+					</table>
+				  </fieldset> 
+				</td>
+			</tr>
+		</table>
+		<table width="95%" class="textoTablaDato" align="center" cellpadding="2" cellspacing="2">
+			<tr>
+				<td colspan="2" >
+					<fieldset class="bordeDetalleUsuario">
+					<legend class="textoLeyendaDetalleRegistro"> Historial / Observaciones </legend>
+					<table width="100%" class="textoTablaDato" align="center">		
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>&nbsp;</td>
+						<td class="textoEtiquetaDatoResaltado"> 
+							<textarea cols="100" rows="7" style="width:100%" class='inputReadonly' readonly='true'>
+								<?= htmlspecialchars($filaprestador['presdoc_historial'],ENT_QUOTES);?>
+							</textarea>
+					</tr>
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>&nbsp;</td>
+						<td class="textoEtiquetaDatoResaltado"> 
+						<textarea rows="7" cols="100"  name="presdoc_historial" id="presdoc_historial"  style="width:400px" class="textoInput"></textarea></td>
+					</tr>
+					</table>
+					</fieldset>
+				</td>
+			</tr>
+		</table>	
+
+	<?php
+
+	return true;
+}
+	
+//-----------------------------------------------------------------------------------------------------	
+	function MostrarDatoPrestadorDocente($conexion,$operacion,$filaprestador=array()) {
+
+	$jurisdicciones	= new jurisdicciones;
+
+	// si queda esta opcion no mandar la conexion
+	if ($operacion=="A") {
+	   $es_modif = false;
+	} elseif ($operacion=="M" || $operacion=="V") {   
+	   	$es_modif = true;
+	   } else {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error en la llamada, operación inválida.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+	   }
+
+
+	if ($operacion=="V") 
+		$sDisabled = ' disabled="true"';
+	else	
+		$sDisabled = '';   
+	  
+	   
+?>		<table width="100%" class="textoTablaDato" align="center" cellpadding="2" cellspacing="2">
+			<tr>
+				<td colspan="2" >
+					<fieldset class="bordeDetalleRegistro">
+					<legend class="textoLeyendaDetalleRegistro"> Datos Básicos </legend>
+					<table width="100%" class="textoTablaDato" align="center">
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Apellido</td>
+						<td class="textoEtiquetaDatoResaltado"><input type="text" name="presdoc_apellido" id="presdoc_apellido" size="33" maxlength="30" <?= $sDisabled ?> class='textoInput' onblur="PasarAMayusculas('presdoc_apellido')" value="<?php echo ($es_modif) ? htmlspecialchars($filaprestador['presdoc_apellido'],ENT_QUOTES):""; ?>"></td>
+					</tr>
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Nombre</td>
+						<td class="textoEtiquetaDatoResaltado"><input type="text" name="presdoc_nombre" id="presdoc_nombre" size="33" maxlength="30" <?= $sDisabled ?> class='textoInput'  onblur="PasarAMayusculas('presdoc_nombre')" value="<?php echo ($es_modif) ? htmlspecialchars($filaprestador['presdoc_nombre'],ENT_QUOTES):""; ?>"></td>
+					</tr>
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Sexo</td>
+						<td class="textoEtiquetaDatoResaltado">
+						  <label><input name="presdoc_sexo" type="radio" <?= $sDisabled ?>  value="<?php echo SEXO_FEMENINO?>" <?php echo ($es_modif && $filaprestador["presdoc_sexo"]==SEXO_FEMENINO)?"checked='checked'":"" ?>>Femenino</label>
+						  <label><input name="presdoc_sexo" type="radio"<?= $sDisabled ?> value="<?php echo SEXO_MASCULINO?>" <?php echo ($es_modif && $filaprestador["presdoc_sexo"]==SEXO_MASCULINO)?"checked='checked'":"" ?>>Masculino</label>
+						</td>
+					</tr>
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Pais de Origen </td>
+						<td class="textoEtiquetaDatoResaltado">	<?php
+							$spnombre = "sel_paises_xestado";
+							$spparam = array("ppaisestado"=>ESTADOACTIVO, "porderby"=>"paisnom");
+							FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","presdoc_origen_pais_codigo","paiscod","paisnom",($es_modif)?$filaprestador['presdoc_origen_pais_codigo']:ARGENTINA,"-- Seleccione un País",$filaprespais,$seleprespais,1,"","width:400px",false,false,"",$operacion=="V");
+							?>						
+						</td>
+					</tr>
+					
+					<?php if ($_SESSION['rolcod'] == ADMICURSO || $_SESSION['rolcod'] == USUCURSO  ) {?>
+						<tr>
+							<td valign="top" width="25%" class='textoEtiqueta'>Caracter de alta</td>
+							<td class="textoEtiquetaDatoResaltado">
+								<input name="presdoc_caracter_alta"  <?= $sDisabled ?> type="radio" onclick="SeleccionCaracterAlta(formulario,'presdoc_falta_prov','presdoc_falta_def')" value="<?php echo PRESDOCPROVISORIO ?>" <?php echo ($es_modif && $filaprestador["presdoc_caracter_alta"]==PRESDOCPROVISORIO)?"checked='checked'":"" ?>/>Provisoria
+								<input name="presdoc_caracter_alta"  <?= $sDisabled ?> type="radio" onclick="SeleccionCaracterAlta(formulario,'presdoc_falta_prov','presdoc_falta_def')" value="<?php echo PRESDOCDEFINITIVO ?>"  <?php echo ($es_modif && $filaprestador["presdoc_caracter_alta"]==PRESDOCDEFINITIVO)?"checked='checked'":"" ?>/> Definitiva						  
+							</td>
+						</tr>
+
+						<tr>
+							<td valign="middle" class="textoEtiqueta" width="25%">Fecha de Alta Provisorio</td>
+							<td class="textoEtiquetaDatoResaltado">	
+						<?php 	if ($operacion == "B" || $operacion == "V") { ; 
+								echo  FuncionesPHPLocal::ConvertirFecha($filaprestador["presdoc_falta_prov"],'aaaa-mm-dd','dd/mm/aaaa');
+							} else { ?>
+								<input type="text" name="presdoc_falta_prov" id="presdoc_falta_prov"   maxlength="10" size="12" class="textoInput" value="<?php echo ($operacion!="A")? FuncionesPHPLocal::ConvertirFecha($filaprestador["presdoc_falta_prov"],'aaaa-mm-dd','dd/mm/aaaa'):"" ?>"  > 
+								<img src="images/calendario.gif" id="cal-button-2" name="cal-button-2" style="vertical-align:-4px; cursor:pointer" border="0" alt="Calendario">
+								<script type="text/javascript">
+									Calendar.setup({
+	<?php								if ($operacion!="A")	{
+	?>									  date    : "<?php echo  FuncionesPHPLocal::ConvertirFecha($filaprestador["presdoc_falta_prov"],'aaaa-mm-dd','dd/mm/aaaa') ?>",
+	<?php								}		?>				
+									range		  : [<?php echo ANOINICALINAP ?>,<?php echo date("Y") ?>],
+									inputField    : "presdoc_falta_prov",
+									button        : "cal-button-2",
+									ifFormat	: "%d/%m/%Y"
+									});
+								</script>
+							  <span class="textoAclaraciones">(dd/mm/aaaa)</span>
+							  <div style='font-size: 7px;'>&nbsp;</div>
+						<?php } ?>
+						
+							</td>							
+						</tr> 								
+
+						<tr>
+							<td valign="middle" class="textoEtiqueta" width="25%">Fecha de Alta Definitivo</td>
+							<td class="textoEtiquetaDatoResaltado">	
+						<?php 	if ($operacion == "B" || $operacion == "V") { ; 
+								echo  FuncionesPHPLocal::ConvertirFecha($filaprestador["presdoc_falta_def"],'aaaa-mm-dd','dd/mm/aaaa');
+							} else { ?>
+								<input type="text" name="presdoc_falta_def" id="presdoc_falta_def"   maxlength="10" size="12" class="textoInput" value="<?php echo ($operacion!="A")? FuncionesPHPLocal::ConvertirFecha($filaprestador["presdoc_falta_def"],'aaaa-mm-dd','dd/mm/aaaa'):"" ?>" <?php echo ($operacion!="A" && $filaprestador["presdoc_caracter_alta"] == PRESDOCPROVISORIO )?"disabled=\"disabled\"":""?>  > 
+								<img src="images/calendario.gif" id="cal-button-1" name="cal-button-1" style="vertical-align:-4px; cursor:pointer" border="0" alt="Calendario">
+								<script type="text/javascript">
+									Calendar.setup({
+	<?php								if ($operacion!="A")	{
+	?>									  date    : "<?php echo  FuncionesPHPLocal::ConvertirFecha($filaprestador["presdoc_falta_def"],'aaaa-mm-dd','dd/mm/aaaa') ?>",
+	<?php								}		?>				
+									range		  : [<?php echo ANOINICALINAP ?>,<?php echo date("Y") ?>],
+									inputField    : "presdoc_falta_def",
+									button        : "cal-button-1",
+									ifFormat	: "%d/%m/%Y"
+									});
+								</script>
+							  <span class="textoAclaraciones">(dd/mm/aaaa)</span>
+							  <div style='font-size: 7px;'>&nbsp;</div>
+							<?php } ?>
+						
+							</td>							
+						</tr> 								
+						
+					<?php } else { ?>
+
+						<tr>
+							<td valign="top" width="25%" class='textoEtiqueta'>Caracter de alta</td>
+							<td class="textoEtiquetaDatoResaltado">
+								<input name="presdoc_caracter_alta"  disabled="true" type="radio" onclick="SeleccionCaracterAlta(formulario,'presdoc_falta_prov','presdoc_falta_def')" value="<?php echo PRESDOCPROVISORIO ?>" <?php echo ($es_modif && $filaprestador["presdoc_caracter_alta"]==PRESDOCPROVISORIO)?"checked='checked'":"" ?>/>Provisoria
+								<input name="presdoc_caracter_alta"  disabled="true" type="radio" onclick="SeleccionCaracterAlta(formulario,'presdoc_falta_prov','presdoc_falta_def')" value="<?php echo PRESDOCDEFINITIVO ?>"  <?php echo ($es_modif && $filaprestador["presdoc_caracter_alta"]==PRESDOCDEFINITIVO)?"checked='checked'":"" ?>/> Definitiva						  
+							</td>
+						</tr>
+
+						<tr>
+							<td valign="middle" class="textoEtiqueta" width="25%">Fecha de Alta Provisorio</td>
+							<td class="textoEtiquetaDatoResaltado">	
+						<?php 	if ($operacion == "B" || $operacion == "V") { ; 
+								echo  FuncionesPHPLocal::ConvertirFecha($filaprestador["presdoc_falta_prov"],'aaaa-mm-dd','dd/mm/aaaa');
+						 } ?>
+							</td>							
+						</tr> 		
+
+						<tr>
+							<td valign="middle" class="textoEtiqueta" width="25%">Fecha de Alta Definitivo</td>
+							<td class="textoEtiquetaDatoResaltado">	
+						<?php 	if ($operacion == "B" || $operacion == "V") { ; 
+								echo  FuncionesPHPLocal::ConvertirFecha($filaprestador["presdoc_falta_def"],'aaaa-mm-dd','dd/mm/aaaa');
+						 } ?>
+						
+							</td>							
+						</tr> 								
+						
+
+
+                    <?php } ?>
+						<tr>
+							<td valign="middle" class="textoEtiqueta">Fecha de Carga</td>
+							<td class="textoEtiquetaDatoResaltado">	
+						<?php 	if ($operacion == "B" || $operacion == "V") { ; 
+								echo  FuncionesPHPLocal::ConvertirFecha($filaprestador["presdoc_falta"],'aaaa-mm-dd','dd/mm/aaaa');
+							} else { ?>
+								<input type="text" name="presdoc_falta" id="presdoc_falta"   maxlength="10" size="12"  class="inputReadonly" readonly  value="<?php echo ($operacion!="A")? FuncionesPHPLocal::ConvertirFecha($filaprestador["presdoc_falta"],'aaaa-mm-dd','dd/mm/aaaa'):date("d/m/Y"); ?>"> 
+						<?php } ?>
+						
+							</td>							
+						</tr> 								
+					
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Tipo de Prestador </td>
+						<td class="textoEtiquetaDatoResaltado">
+							<input name="presdoc_eventual" type="radio"  <?= $sDisabled ?> value="S" onclick="SeleccionTipoPrestador(formulario,'datos_noeventual','datos_eventual')" <?php echo ($es_modif && $filaprestador["presdoc_eventual"]=='S')?"checked='checked'":"" ?> />Eventual /  Artículo 5° Resol. SGP 51/2003
+						 <br /> 
+						    <input name="presdoc_eventual" type="radio"  <?= $sDisabled ?> onclick="SeleccionTipoPrestador(formulario,'datos_noeventual','datos_eventual')" value="N"  <?php echo ($es_modif && $filaprestador["presdoc_eventual"]=='N')?"checked='checked'":"" ?>/>Permanente 
+					  	</td>
+					</tr>
+                    
+
+					<?php if ($operacion == "M" || $operacion == "V") { ?>
+							<tr>
+								<td valign="top" width="25%" class='textoEtiqueta'>Organismo Origen </td>
+								<td class="textoEtiquetaDatoResaltado">
+								<?php
+									$jurisdnom = "INAP";
+									if ($filaprestador['jurisdid_origen'] != 0) {
+										if ($jurisdicciones->SelectJurisdxID($filaprestador['jurisdid_origen'],array(),TABGRALES_TS_ARRAY,$fila_jurisd,array(),$NumFilas,$CodError)) 
+											$jurisdnom=htmlspecialchars($fila_jurisd[$filaprestador['jurisdid_origen']]['jurisdnom'],ENT_QUOTES);
+										else {
+											$txt_sys_mail="Error al seleccionar el organismo público. \njurisdid_apn=".$filaprestador['jurisdid_origen'];
+											FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar el organismo público.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+											return false;
+										}
+									}
+									echo $jurisdnom;
+									
+								?>
+								</td>
+							</tr>
+					<?php } ?>
+					
+					</table>					
+					
+					</fieldset> 
+				</td>
+			</tr>
+		</table>
+
+	<?php 	if ($operacion == "V")   { // Muestro Areas del Prestador ?>
+			<table width="100%" class="textoTablaDato" align="center" cellpadding="2" cellspacing="2">
+			<tr>
+				<td colspan="2" >
+				<fieldset class="bordeDetalleRegistro">
+					<legend class="textoLeyendaDetalleRegistro"> Áreas de Competencia </legend>
+						<table width="100%" class="textoTablaDato" align="center">
+							<tr>
+								<td>
+								<?php $this->MostrarAreasPrestadorDocente($filaprestador["presdoc_codigo"]); ?>
+								</td>
+							</tr>
+						</table>	
+					</fieldset>
+				</td>
+			</tr>	
+			</table>
+		<?php  } // $operacion == "V" ?>
+
+
+
+	    <div id="datos_noeventual" style="display:<?php echo ($es_modif && $filaprestador["presdoc_eventual"]=='N')?"":"none" ?>">
+		<table width="100%" class="textoTablaDato" align="center">
+			<tr>
+				<td colspan="2" >
+					<fieldset class="bordeDetalleRegistro">
+					<legend class="textoLeyendaDetalleRegistro"> Datos Presentación </legend>
+					<table width="100%" class="textoTablaDato" align="center">
+						<tr>
+							<td valign="top" width="35%" class='textoEtiqueta'>CUIT/CUIL</td>
+							<td class="textoEtiquetaDatoResaltado">
+							<?php  
+							$codigo_unico = ($operacion=="A" || $filaprestador["presdoc_eventual"]=='S')?"0":$filaprestador['presdoc_cuilt'];
+							?>
+							<input type="text" class="textoInput"  <?= $sDisabled ?> size="13" maxlength="11" name="presdoc_cuilt" value="<?php echo ($es_modif) ? htmlspecialchars($filaprestador['presdoc_cuilt'],ENT_QUOTES):""; ?>" />
+							&nbsp;
+							<?php if (($operacion == "A" || $operacion == "M")) {?>
+								<input type="button" class="botones" value ="Verifique Existencia" onclick="<?php echo ($operacion!="V")?"javascript:VerificarExistenciaCUILT(formulario,formulario.presdoc_cuilt.value,".$codigo_unico.");":"return true;"; ?>">
+							<?php } ?>
+							</td>
+						</tr>
+					<?php if  ($operacion == "A") {?>                        
+                            <tr>
+                              <td valign="top" class='textoEtiqueta'>Contrase&ntilde;a</td>
+                              <td class="textoEtiquetaDatoResaltado"><input type="password" name="presdoc_password" id="presdoc_password" size="31" maxlength="30"  value="" class="textoInput" /></td>
+                              </tr>
+                            <tr>
+                              <td valign="top" class='textoEtiqueta'>Confirme contrase&ntilde;a</td>
+                              <td class="textoEtiquetaDatoResaltado"><input type="password" name="presdoc_password2" id="presdoc_password2" size="31" maxlength="30" value="" class="textoInput" /></td>
+                              </tr>
+							<?php } ?>
+                        
+						
+						<tr>
+							<td valign="top" width="35%" class='textoEtiqueta'>Tipo de Presentación</td>
+							<td class="textoEtiquetaDatoResaltado">
+								<input name="presdoc_presentacion" type="radio"  <?= $sDisabled ?> value="<?php echo PRESDOCINDIVIDUAL ?>"  onclick="SeleccionTipoPresentacion(formulario,'datos_tipopres_ind', 'datos_tipopres_ins')" <?php echo ($es_modif && $filaprestador["presdoc_presentacion"]==PRESDOCINDIVIDUAL)?"checked='checked'":"" ?>/>Individual
+								<input name="presdoc_presentacion" type="radio"  <?= $sDisabled ?> value="<?php echo PRESDOCINSTITUCIONAL ?>"  onclick="SeleccionTipoPresentacion(formulario,'datos_tipopres_ind', 'datos_tipopres_ins')" <?php echo ($es_modif && $filaprestador["presdoc_presentacion"]==PRESDOCINSTITUCIONAL)?"checked='checked'":"" ?>/>Docente Institucional							</td>				
+						</tr>					
+					</table>
+					
+			<?php 		$result=true;
+					$jurisdnom="";
+					$jurisdid="jurisdid_apn";
+					$tipoorg_codigo = ORGANISMO_APN;
+
+					if(!$jurisdicciones->BuscarRaizTipoOrg(TABGRALES_TIPOORG_NAC_EJ,array(),TABGRALES_TS_ARRAY,$nodo_jurisd,array(),$CodError))
+						FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"No se pudo obtener la raiz de jurisdicciones. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+									
+					if ($es_modif) {
+						if (isset($filaprestador['jurisdid_apn'])) {
+							$tipoorg_codigo = ORGANISMO_APN;
+							$jurisdid = 'jurisdid_apn';
+							if ($jurisdicciones->SelectJurisdxID($filaprestador['jurisdid_apn'],array(),TABGRALES_TS_ARRAY,$fila_jurisd,array(),$NumFilas,$CodError)) 
+								$jurisdnom=htmlspecialchars($fila_jurisd[$filaprestador['jurisdid_apn']]['jurisdnom'],ENT_QUOTES);
+							else {
+								$txt_sys_mail="Error al seleccionar el organismo público. \njurisdid_apn=".$filaprestador['jurisdid_apn'];
+								FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar el organismo público.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+								$result=false;
+							}
+						} else {				
+								if (isset($filaprestador['orgapub_codigo'])) {
+									$tipoorg_codigo = ORGANISMO_NO_APN;		
+									$jurisdid = 'orgapub_codigo';				
+									$spnombre = "sel_organismo_publico_xdatos";
+									$spparam = array("pxclave"=>"1","porgapub_codigo"=>$filaprestador["orgapub_codigo"],"pxdescripcion"=>"0","porgapub_nombre"=>"0","porgapub_nombre"=>"0","pxestado"=>"0","porgapub_estado"=>"0","porderby"=>"orgapub_nombre");
+									
+									if(!$conexion->BuscarRegistroxClave($spnombre,$spparam,array("orgapub_codigo"=>$filaprestador["orgapub_codigo"]),$resultado,$filaret,$numfilasmatcheo,$errno))							{
+										$txt_sys_mail="Error al seleccionar el organismo público. \norgapub_codigo=".$filaprestador['orgapub_codigo'];
+										FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al seleccionar el organismo público.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+										$result=false;
+									}				
+									if($numfilasmatcheo!=1) {
+										FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al seleccionar el organismo público. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+										$result=false;
+									}
+									$jurisdnom = $filaret['orgapub_nombre'];
+								}
+						}
+					}	// es_modif				
+
+					if($result) {		?> 	
+						<div id="datos_tipopres_ind" style="display:<?php echo (!$es_modif || ($es_modif && $filaprestador["presdoc_eventual"]=='N' && $filaprestador['presdoc_presentacion'] == PRESDOCINDIVIDUAL))?"":"none"; ?>">
+							<table width="100%" class="textoTablaDato" align="center">
+								<tr>
+									<td valign="top" width="35%" class='textoEtiqueta'>Trabaja en Organismo Público</td>
+									<td class="textoEtiquetaDatoResaltado">
+										<input name="tipo_individual_con_org" type="radio"  <?= $sDisabled ?> value="<?php echo SI ?>" onclick="SeleccionTieneOrganismo(formulario,'datos_cargo');" <?php echo ($es_modif && $filaprestador["presdoc_presentacion"]==PRESDOCINDIVIDUAL  && (isset($filaprestador['jurisdid_apn']) || isset($filaprestador['orgapub_codigo'])) )?"checked='checked'":"" ?>/>SI
+										<input name="tipo_individual_con_org" type="radio"  <?= $sDisabled ?> value="<?php echo NO ?>" onclick="SeleccionTieneOrganismo(formulario,'datos_cargo');LimpioOrganismoIndividual(window.document,'jurisdid','jurisdnom',this.value);" <?php echo ($es_modif && $filaprestador["presdoc_presentacion"]==PRESDOCINDIVIDUAL && !(isset($filaprestador['jurisdid_apn']) || isset($filaprestador['orgapub_codigo'])) )?"checked='checked'":"" ?>/>NO
+									</td>				
+								</tr>					
+		
+								<tr>
+									<td valign="middle" class="textoEtiqueta" width="35%">Organismo donde trabaja</td>
+									<?php if ($operacion != "V") { ?>
+									<td class="textoEtiquetaDatoResaltado">
+										<table cellpadding="1" cellspacing="0" width="100%">
+											<tr>
+												<td>
+													<input type="button" name="botonJurisd" 
+														value="Elegir" style="vertical-align:-2px" class="botones" 
+														onClick="Popup('organismo_selector_sincombo.dhtml?tipoorg_codigo='+formulario.tipoorg_codigo.value+'&amp;tipo_seleccionado=0&amp;tipo_organismo=T&amp;destino=<?php echo "jurisdid&amp;texto=jurisdnom&amp;&amp;inicio=".key($nodo_jurisd)?>','ventana_organismos',630,360,screen.availWidth-650,screen.availHeight-420,'yes');">                    
+												</td>
+												<td>
+													<input type="text" name="jurisdid" id="jurisdid" size="6" class="textoinput" readonly="" value="<?php echo ($es_modif)?$filaprestador[$jurisdid]:"" ?>">
+													<input type="hidden" name="tipoorg_codigo" id="tipoorg_codigo" value="<?php echo ($es_modif)?$tipoorg_codigo:"" ?>">                    
+												</td>
+												<td width="100%"><span id="jurisdnom" class="textoAclaraciones"><?php echo ($es_modif)? $jurisdnom:""?></span></td>
+											</tr>
+										</table>        
+									</td>
+								<?php  } else { ?>
+										<td class="textoEtiquetaDatoResaltado">
+										<?= $jurisdnom ?>
+										</td>
+								<?php	} ?>
+								</tr>					
+							</table>
+						<div id="datos_cargo" style="display: <?php echo (!$es_modif || ($es_modif && ($filaprestador["presdoc_presentacion"]==PRESDOCINDIVIDUAL)  && (isset($filaprestador['jurisdid_apn']) || isset($filaprestador['orgapub_codigo']))))?'':'none'; ?>">
+							<table width="100%" class="textoTablaDato" align="center">
+								<tr>
+									<td valign="top" width="35%" class='textoEtiqueta'>Cargo / Función</td>
+									<td class="textoEtiquetaDatoResaltado"><input type="text"  class="textoInput" <?= $sDisabled ?> size="45" maxlength="255" name="presdoc_cargo" value="<?php echo ($es_modif) ? htmlspecialchars($filaprestador['presdoc_cargo'],ENT_QUOTES):""; ?>"/></td>				
+								</tr>													
+							</table>
+						</div>
+							
+						</div>
+						<div id="datos_tipopres_ins" style="display: <?php echo (!$es_modif || ($es_modif && $filaprestador["presdoc_eventual"]=='N' && $filaprestador['presdoc_presentacion'] == PRESDOCINSTITUCIONAL))?'':'none'; ?>">
+							<table width="100%" class="textoTablaDato" align="center">
+								<tr>
+									<td valign="top" width="35%" class='textoEtiqueta'>Institución Prestadora</td>
+									<td class="textoEtiquetaDatoResaltado">
+									<?php		$spnombre = "sel_prestador_institucional_xestado";
+											$spparam = array("ppresins_estado"=>PRESINSACTIVO, "porderby"=>"presins_nombre");
+											FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","presins_codigo","presins_codigo","presins_nombre",($es_modif)? $filaprestador['presins_codigo']:"","-- Seleccione una Institución Prestadora",$filapres_inspres,$selepres_inspres,1,"","width:350px",false,false,"",$operacion=="V");
+									?><br />Solo para Instituciones fuera del Sistema Nacional de Capacitación - Formulario A		
+									</td>
+								</tr>
+							</table>
+						</div>		
+								
+<?php					} // fin result?>
+					</fieldset> 
+			</td>
+		</tr>	
+		</table>
+		
+<?php		if($result) { ?>
+		<table width="100%" class="textoTablaDato" align="center">
+			<tr>
+				<td colspan="2" >
+					<fieldset class="bordeDetalleRegistro">
+					<legend class="textoLeyendaDetalleRegistro"> Datos de Contacto </legend>
+					<table width="100%" class="textoTablaDato" align="center">
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Teléfono</td>
+						<td class="textoEtiquetaDatoResaltado"><input type="text"  class="textoInput"  <?= $sDisabled ?> size="23" maxlength="20" name="presdoc_telefono" value="<?php echo ($es_modif) ? htmlspecialchars($filaprestador['presdoc_telefono'],ENT_QUOTES):""; ?>"/></td>
+					</tr>
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Celular</td>
+						<td class="textoEtiquetaDatoResaltado"><input type="text"  class="textoInput"  <?= $sDisabled ?> size="23" maxlength="20" name="presdoc_celular" value="<?php echo ($es_modif) ? htmlspecialchars($filaprestador['presdoc_celular'],ENT_QUOTES):""; ?>"/></td>
+					</tr>
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Correo electrónico</td>
+						<td class="textoEtiquetaDatoResaltado"><input type="text"  class="textoInput"  <?= $sDisabled ?> size="43" maxlength="60" name="presdoc_email" value="<?php echo ($es_modif) ? htmlspecialchars($filaprestador['presdoc_email'],ENT_QUOTES):""; ?>"/></td>
+					</tr>
+
+					<tr>
+						<td colspan="2" valign="top" width="25%" class='textoEtiquetaDatoResaltado'>Domicilio</td>
+					</tr>
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Calle  </td>
+						<td class="textoEtiquetaDatoResaltado">
+					<?php 	if ($operacion == "V") {
+							echo htmlspecialchars($filaprestador['presdoc_calle'],ENT_QUOTES);
+						} else { 	?>
+							<textarea cols="100"  name="presdoc_calle" style="width:400px" class="textoInput" <?= $sDisabled ?>><?php echo ($es_modif) ? htmlspecialchars($filaprestador['presdoc_calle'],ENT_QUOTES):"" ?></textarea>
+							<br><span class="textoAclaraciones">Nota: La longitud del domicilio debe ser menor a 200 caracteres. </span>
+					<?php } ?>	
+						</td>
+					</tr>
+					<tr>
+						<td colspan="2">
+							<table width="100%" class="textoTablaDato" align="center">
+							<tr>
+								<td valign="top" width="25%" class='textoEtiqueta'>Nro.  </td>
+								<td class="textoEtiquetaDatoResaltado"> <input type="text"  class="textoInput"  <?= $sDisabled ?>  size="10" maxlength="10" name="presdoc_numero" value="<?php echo ($es_modif) ? htmlspecialchars($filaprestador['presdoc_numero'],ENT_QUOTES):""; ?>"/>	</td>
+								<td valign="top"  class='textoEtiqueta'>Piso </td>
+								<td class="textoEtiquetaDatoResaltado"><input type="text"  class="textoInput"  <?= $sDisabled ?> size="10" maxlength="8" name="presdoc_piso" value="<?php echo ($es_modif) ? htmlspecialchars($filaprestador['presdoc_piso'],ENT_QUOTES):""; ?>"/></td>
+							</tr>
+							</table>
+						</td>	
+					</tr>	
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Código Postal</td>
+						<td class="textoEtiquetaDatoResaltado">
+						<input type="text"  class="textoInput" size="10" maxlength="10" name="presdoc_cp"  <?= $sDisabled ?> value="<?php echo ($es_modif) ? htmlspecialchars($filaprestador['presdoc_cp'],ENT_QUOTES):""; ?>"/>						</td>
+					</tr>
+					</table>
+
+					<div id="datos_provincia" >
+					<table width="100%" class="textoTablaDato" align="center">
+						<tr>
+							<td valign="top"  width="25%"  class="textoEtiqueta">Provincia</td>
+							<td class="textoEtiquetaDatoResaltado">	
+							<?php	$oprovincia = new cProvincias($conexion);
+								$oprovincia->ProvinciasSP($spnombre,$spparam);
+								FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","presdoc_prov_codigo","provinciacod","provincianom",($es_modif)?$filaprestador['presdoc_prov_codigo']:PARTIDO_CAPITAL,"-- Seleccione una Provincia",$filaprespaisdom,$seleprespaisdom,1,"","width:300px",false,false,"",$operacion=="V");
+							?>
+							</td>
+						</tr> 
+						<tr>
+							<td valign="top"  width="25%"  class="textoEtiqueta">Partido / Localidad</td>
+							<td class="textoEtiquetaDatoResaltado">	
+							<?php 	if ($operacion == "V") {
+									echo htmlspecialchars($filaprestador['presdoc_part_loca_descripcion'],ENT_QUOTES);
+								} else {  ?>
+									<input type="text" class="textoInput"  <?= $sDisabled ?>  size="50" maxlength="100" name="presdoc_part_loca_descripcion" value="<?php echo ($es_modif) ? htmlspecialchars($filaprestador['presdoc_part_loca_descripcion'],ENT_QUOTES):""; ?>" />						
+							<?php } ?>									
+							</td>
+						</tr>
+					</table>
+					</div>
+					</fieldset> 
+				</td>
+			</tr>	
+
+			<tr>
+				<td colspan="2" >
+					<fieldset class="bordeDetalleRegistro">
+					<legend class="textoLeyendaDetalleRegistro"> Datos Curriculares </legend>
+					<table width="100%" class="textoTablaDato" align="center">
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Ud. se postula para capacitar como</td>
+						<td class="textoEtiquetaDatoResaltado">
+						<?php
+							$sparam=array('porderby' =>"tipopos_descricpcion");
+							$spnombre="sel_tipopostulacion_xorden";	
+							if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+							{
+								$error="Error al buscar los tipos de postulación.";
+								$errormail="Error al buscar en tabla tipo_postulacion. ".$errno;
+								FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+								$result = false;
+							}
+							
+							if ($result) {
+							
+								while ($fila_tipopos = mysqli_fetch_assoc($resultado)) {
+
+									$seleccionado = "";
+									if($es_modif) {	
+										$sparam=array(
+											'ppresdoc_codigo' =>$filaprestador['presdoc_codigo'],
+											'ptipopos_codigo' =>$fila_tipopos['tipopos_codigo']
+										);
+										$spnombre="sel_prestador_docente_tipo_postulacion_xpresdoc_tipopos";	
+										if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado_tipopos,$numfilas_tipopos,$errno))
+										{
+											$error="Error al buscar el tipo de postulación.";
+											$errormail="Error al buscar en tabla prestador_docente_tipo_postulacion. ".$errno;
+											FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+											$result = false;
+										}
+									
+										if ($numfilas_tipopos == 1) 
+											$seleccionado = "checked=checked";
+									}
+								
+								?>
+									<input type="checkbox"  <?= $sDisabled ?> name="tipopos_<?php echo $fila_tipopos['tipopos_codigo']?>" value="<?php echo $fila_tipopos['tipopos_codigo']?>" <?php echo $seleccionado?>  /> <?php echo $fila_tipopos['tipopos_descricpcion']?> <br />
+								<?php 
+								} // while
+							}
+							?> 						
+					</tr>
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Formación - Nivel de estudios</td>
+						<td class="textoEtiquetaDatoResaltado">
+						<?php
+							$sparam=array('porderby' =>"nivest_codigo");
+							$spnombre="sel_nivel_estudios_xorden";	
+							if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+							{
+								$error="Error al buscar los niveles de estudio.";
+								$errormail="Error al buscar en tabla nivel_estudio. ".$errno;
+								FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+								$result = false;
+							}
+							
+							if ($result) {
+								while ($fila_nivelest = mysqli_fetch_assoc($resultado)) {
+								?>
+									<input  type="radio"  <?= $sDisabled ?> name="nivest_codigo" value="<?php echo $fila_nivelest['nivest_codigo']?>" <?php echo ($es_modif && $filaprestador['presdoc_max_nivel_estudio'] == $fila_nivelest['nivest_codigo'] ) ? "checked=\"checked\"":""?> /> <?php echo $fila_nivelest['nivest_descricpcion']?> <br />
+								<?php }
+							}
+							?> 						
+					</tr>		
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Último título alcanzado</td>
+						<td class="textoEtiquetaDatoResaltado">
+						<?php if ($operacion == "V") {
+								echo htmlspecialchars($filaprestador['presdoc_ult_titulo'],ENT_QUOTES);
+							} else { ?>
+								<input type="text" class="textoInput"  <?= $sDisabled ?> size="40" maxlength="255" name="presdoc_ult_titulo" id="presdoc_ult_titulo" value="<?php echo ($es_modif) ? htmlspecialchars($filaprestador['presdoc_ult_titulo'],ENT_QUOTES):""; ?>" />						
+						<?php  } ?>								
+						</td>	
+					</tr>	
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Institución Educativa</td>
+						<td class="textoEtiquetaDatoResaltado">
+							<?php if ($operacion == "V") {
+								echo htmlspecialchars($filaprestador['presdoc_ult_titulo_institucion'],ENT_QUOTES);
+							} else { ?>
+								<input type="text"  class="textoInput"  <?= $sDisabled ?> size="40" maxlength="255" name="presdoc_ult_titulo_institucion" id="presdoc_ult_titulo_institucion" value="<?php echo ($es_modif) ? htmlspecialchars($filaprestador['presdoc_ult_titulo_institucion'],ENT_QUOTES):""; ?>" />						
+						<?php  } ?>								
+						</td>	
+					</tr>	
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Año de Egreso</td>
+						<td class="textoEtiquetaDatoResaltado">
+							<input type="text"  class="textoInput"  <?= $sDisabled ?> size="4" maxlength="4" name="presdoc_ult_titulo_ano" id="presdoc_ult_titulo_ano" value="<?php echo ($es_modif) ? htmlspecialchars($filaprestador['presdoc_ult_titulo_ano'],ENT_QUOTES):""; ?>" />						
+						</td>	
+					</tr>	
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Idoneidad</td>
+						<td class="textoEtiquetaDatoResaltado">
+							<?php if ($operacion == "V") {
+								echo "<strong>Indicar aquellas Competencias o Capacidades adquiridas por la experiencia en relación a la temática de capacitación que se postula: </strong>";
+								echo "<div>&nbsp;".htmlspecialchars($filaprestador['presdoc_ido_competencias'],ENT_QUOTES)."</div>";
+								echo "<strong>Institución / Organismo:</strong>";
+								echo "<div>&nbsp;".htmlspecialchars($filaprestador['presdoc_ido_instituciones'],ENT_QUOTES)."</div>";
+							} else  { ?>
+								Indicar aquellas Competencias o Capacidades adquiridas por la experiencia en relación a la temática de capacitación que se postula: <br />
+								<textarea cols="100"  <?= $sDisabled ?> name="presdoc_ido_competencias"  style="width:400px" class="textoInput"><?php echo ($es_modif) ? htmlspecialchars($filaprestador['presdoc_ido_competencias'],ENT_QUOTES):"" ?></textarea>
+								<br /><br />	
+								Institución / Organismo:<br />
+								<textarea cols="100"  <?= $sDisabled ?> name="presdoc_ido_instituciones"  style="width:400px" class="textoInput"><?php echo ($es_modif) ? htmlspecialchars($filaprestador['presdoc_ido_instituciones'],ENT_QUOTES):"" ?></textarea>
+						<?php  } ?>								
+						</td>	
+					</tr>	
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Resumen CV</td>
+						<td class="textoEtiquetaDatoResaltado"> 
+						<?php if ($operacion == "V") {
+								echo htmlspecialchars($filaprestador['presdoc_cv'],ENT_QUOTES);
+						   } else { ?>
+								<textarea  name="presdoc_cv" cols="100" rows="8" class="textoInput" style="width:400px" onKeyDown="ContarCaracteres(presdoc_cv,8000);"  <?= $sDisabled ?> ><?php echo ($es_modif) ? htmlspecialchars($filaprestador['presdoc_cv'],ENT_QUOTES):"" ?></textarea>
+						<?php } ?>	
+						</td>	
+					</tr>	
+					</table>
+					</fieldset>
+				</td>
+			</tr>					
+		</table>
+		</div>
+		
+	    <div id="datos_eventual" style="display:<?php echo ($es_modif && $filaprestador["presdoc_eventual"]=='S')?"":"none" ?>">
+		<table width="100%" class="textoTablaDato" align="center">
+			<tr>
+				<td colspan="2" >
+					<fieldset class="bordeDetalleRegistro">
+					<legend class="textoLeyendaDetalleRegistro"> Datos Presentación </legend>
+					<table width="100%" class="textoTablaDato" align="center">
+						<tr>
+							<td valign="top" width="35%" class='textoEtiqueta'>Organismo donde trabaja</td>
+							<td class="textoEtiquetaDatoResaltado"><input type="text"  class="textoInput"  <?= $sDisabled ?> size="45" maxlength="255" name="presdoc_eve_organismo" value="<?php echo ($es_modif) ? htmlspecialchars($filaprestador['presdoc_eve_organismo'],ENT_QUOTES):""; ?>"/></td>				
+						</tr>													
+						<tr>
+							<td valign="top" width="35%" class='textoEtiqueta'>Cargo / Función</td>
+							<td class="textoEtiquetaDatoResaltado"><input type="text"  class="textoInput"  <?= $sDisabled ?> size="45" maxlength="255" name="presdoc_eve_cargo" value="<?php echo ($es_modif) ? htmlspecialchars($filaprestador['presdoc_cargo'],ENT_QUOTES):""; ?>"/></td>				
+						</tr>													
+						<tr>
+							<td valign="top" width="35%" class='textoEtiqueta'>Correo electrónico</td>
+							<td class="textoEtiquetaDatoResaltado"><input type="text"  class="textoInput"  <?= $sDisabled ?> size="45" maxlength="60" name="presdoc_eve_email" value="<?php echo ($es_modif) ? htmlspecialchars($filaprestador['presdoc_email'],ENT_QUOTES):""; ?>"/></td>
+						</tr>
+						
+					</table>
+					</fieldset>
+				</td>
+			</tr>
+		</table>
+	</div>						
+<?php	
+	} // result
+	return $result;
+} 
+	
+	
+	
+//-----------------------------------------------------------------------------------------------------	
+function MostrarAreasPrestadorDocente($presdoc_codigo) {
+
+	// Selecciono todos los relacionados
+	$oPrestadorDocenteArea = new cPrestadorDocenteArea($this->conexion);
+	$ArregloDatos= array();
+	$ArregloDatos['presdoc_codigo']=$presdoc_codigo;
+	$ArregloDatos['orderby']="areagen_descripcion, areaesp_descripcion";
+		
+	if(!$oPrestadorDocenteArea->BuscarPrestadorDocentexArea($ArregloDatos,$numfilas,$resultado,$error,$errormail)) {
+		$txt_sys_mail="Error al seleccionar las áreas asociadas al prestador docente. error=".$error."\n presdoc=".$presdoc_codigo;
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar las áreas asociadas al prestador docente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;			
+	}
+
+	$arrayresult=array();
+	while ($fila=mysqli_fetch_assoc($resultado))	{
+		$this->conexion->TraerCampo("area_general","areagen_descripcion",array("areagen_codigo='",$fila['areagen_codigo'],"'"),$areagendesc,$numfilasdesc,$errorcod);
+		$this->conexion->TraerCampo("area_especifica","areaesp_descripcion",array("areagen_codigo='",$fila['areagen_codigo'],"' and areaesp_codigo='",$fila['areaesp_codigo'],"'"),$areaespdesc,$numfilasdesc,$errorcod);
+		$fila+=array('areagen_descripcion'=>$areagendesc);
+		$fila+=array('areaesp_descripcion'=>$areaespdesc);
+		$arrayresult[]=$fila;
+	}
+		
+	$opciones=array("FilasPagina"=>$numfilas);
+	
+	$oGrilla = new cGrilla($opciones);
+	$oGrilla->SetearTituloGrilla("Áreas Específicas del Prestador Docente");
+	$oGrilla->SetearAnchoGrilla('100%');
+	
+	$miColumna2 = $oGrilla->AddColumna('txt');
+	$oGrilla->Setear('titulo_columna',$miColumna2,"Area General");
+	$oGrilla->Setear('campo_grilla',$miColumna2,"areagen_descripcion");
+	$oGrilla->Setear('align_columna',$miColumna2,'left');
+
+	$miColumna3 = $oGrilla->AddColumna('txt');
+	$oGrilla->Setear('titulo_columna',$miColumna3,"Area Específica");
+	$oGrilla->Setear('campo_grilla',$miColumna3,"areaesp_descripcion");
+	$oGrilla->Setear('align_columna',$miColumna3,'left');
+
+	if (!$oGrilla->CargarGrilla($arrayresult))
+		return false;
+		
+	$oGrilla->MostrarGrilla();
+
+	return true;
+}
+
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosAltaPrestadorDocente($datos,&$datosvalidados)	{
+		
+		$datosvalidados=array();
+
+		if (!$this->_DatosValidosComunesPrestadorDocente($datos,$datosvalidados))
+		   return false; 
+
+
+		
+		
+
+
+		// valido que no exista el CUIT si es un prestador NO eventual	
+		if ($datos['presdoc_eventual'] == 'N') {
+
+			$ArregloDatos['presdoc_cuilt']=$datos["presdoc_cuilt"];
+			if(!$this->BuscarPrestadorDocente($ArregloDatos,$numfilas,$result,$error,$errormail)){
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando buscando prestador docente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;			
+			}
+
+			if($numfilas>=1) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha completado la operación, pues ya existe un prestador docente con CUIT/CUIL:".$datos["presdoc_cuilt"].".",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+
+			// contraseña
+			if ( (trim($datos['presdoc_password'])==''))
+			{
+				$arraymensajepantalla="Debe ingresar la contraseña";
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+	
+			if ( (trim($datos['presdoc_password2'])==''))
+			{
+				$arraymensajepantalla="Debe ingresar la confirmación de la contraseña";
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+	
+			if ( (trim($datos['presdoc_password'])!=trim($datos['presdoc_password2'])))
+			{
+				$arraymensajepantalla="Las contraseñas no coinciden";
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			
+			$datosvalidados["presdoc_password"]=md5($datos["presdoc_password"]);
+				
+		} else {
+	
+			
+			// No puede existir mas que el con ese nombre
+			$ArregloDatos['presdoc_nombre']=$datos["presdoc_nombre"];
+			$ArregloDatos['presdoc_apellido']=$datos["presdoc_apellido"];
+									
+			if(!$this->BuscarPrestadorDocente($ArregloDatos,$numfilas,$result,$error,$errormail)){
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando buscando prestador docente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;			
+			}				
+
+			if($numfilas>=1)	{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha completado la operación, pues ya existe un prestador docente eventual <br> con nombre:".$datos["presdoc_apellido"].",".$datos["presdoc_nombre"].".",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			
+			
+			$datosvalidados["presdoc_password"]="";
+			
+			
+
+				
+			}
+		
+		if($_SESSION['rolcod']==COORDINADORTECNICO || $_SESSION['rolcod']==USUORGANISMO)   
+			$datosvalidados['presdoc_estado'] = PRESDOCNUEVO;
+		elseif ($_SESSION['rolcod']==ADMICURSO || $_SESSION['rolcod']==USUCURSO) 
+			$datosvalidados['presdoc_estado'] = PRESDOCINACTIVO;
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosEliminarPrestadorDocente($presdoc_codigo,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		// El usuario tiene permiso de eliminar el prestador
+		if (!$this->TienePermisoBaja($presdoc_codigo,$_SESSION['rolcod'], $_SESSION['jurisdid_inap'])) {
+			return false; 
+		}
+		$datosvalidados+=array('presdoc_codigo'=>$presdoc_codigo);
+		
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosModifHistorialPrestadorDocente($datos,&$datosvalidados)	{
+	
+		$datosvalidados = array();
+		if(!$this->TraerDatosPrestadorDocente($datos['presdoc_codigo'],$filaprestador,$es_modif))  {
+			$error="Error al buscar el prestador docente.";
+			$errormail="Error al buscar el prestador docente en tabla presador_docente \n presdoc_codigo=".$presdoc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		if (!$es_modif) {
+			$error="Error no se encontró el prestador docente.";
+			$errormail="Error no se encontró el prestador docente \n presdoc_codigo=".$presdoc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		} 
+
+		$datosvalidados+=array('presdoc_codigo'=>$datos['presdoc_codigo']);
+		$datosvalidados+=array('presdoc_historial'=>$filaprestador['presdoc_historial']."\n----------- ".
+													date("Y/m/d H:i:s")." ----------\n\n".		
+													$datos['presdoc_historial']	);
+		
+		return true;
+
+	}	
+
+
+	
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosModifPrestadorDocente($datos,&$datosvalidados)	{
+
+		if (!$this->_DatosValidosComunesPrestadorDocente($datos,$datosvalidados))
+		   return false; 
+		
+		// El usuario tiene permiso de modificar el prestador
+		if (!$this->TienePermisoModificar($datos['presdoc_codigo'],$_SESSION['rolcod'], $_SESSION['jurisdid_inap'])) {
+			return false; 
+		}
+		$datosvalidados+=array('presdoc_codigo'=>$datos['presdoc_codigo']);
+
+		//-- Es un prestador eventual 
+		if ($datos['presdoc_eventual'] == 'S') {
+			// No puede existir mas que el con ese nombre
+			$ArregloDatos['presdoc_nombre']=$datos["presdoc_nombre"];
+			$ArregloDatos['presdoc_apellido']=$datos["presdoc_apellido"];
+									
+			if(!$this->BuscarPrestadorDocente($ArregloDatos,$numfilas,$result,$error,$errormail)){
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error buscando prestador docente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;			
+			}				
+			if ($numfilas>1) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha completado la operación, pues ya existe un prestador docente eventual <br> con nombre:".$datos["presdoc_apellido"].",".$datos["presdoc_nombre"],array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;			
+			} elseif ($numfilas==1) {	// hay un prestador que no es el que se esta modificando			   
+			   $filaprestador=mysqli_fetch_assoc($result);
+			   if ($filaprestador['presdoc_codigo']!= $datos['presdoc_codigo']) {
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha completado la operación, pues ya existe un prestador docente eventual <br> con nombre:".$datos["presdoc_apellido"].",".$datos["presdoc_nombre"],array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;							   
+			   }
+			}
+		} else {
+				// No puede existir mas que el con ese cuit
+				$ArregloDatos['presdoc_cuilt']=$datos["presdoc_cuilt"];
+				if(!$this->BuscarPrestadorDocente($ArregloDatos,$numfilas,$result,$error,$errormail)){
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando buscando prestador docente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;			
+				}
+				if ($numfilas>1) {		// hay un prestador que no es el que se esta modificando
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha completado la operación, pues ya existe un prestador docente con CUIT/CUIL: ".$datos["presdoc_cuilt"],array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				} elseif ($numfilas==1) {				   
+				   $filaprestador=mysqli_fetch_assoc($result);
+				   if ($filaprestador['presdoc_codigo']!= $datos['presdoc_codigo']) {
+						FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha completado la operación, pues ya existe un prestador docente con CUIT/CUIL: ".$datos["presdoc_cuilt"],array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+						return false;							   
+				   }
+				}
+		}
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosComunesPrestadorDocente($datos,&$datosvalidados)	{
+	
+		//-- datos comunes ---------------------------------------------------------------
+		if ( (trim($datos['presdoc_apellido'])=='') || !FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['presdoc_apellido'],"AlfabeticoPuro"))
+		{
+			$arraymensajepantalla="El apellido ingresado no es válido";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["presdoc_apellido"]=strtoupper ($datos["presdoc_apellido"]);
+
+		if ( (trim($datos['presdoc_nombre'])=='') || !FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['presdoc_nombre'],"AlfabeticoPuro"))
+		{
+			$arraymensajepantalla="El nombre ingresado no es válido";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["presdoc_nombre"]=$datos["presdoc_nombre"];
+
+		if ( (!isset($datos['presdoc_sexo'])) || (($datos['presdoc_sexo'] != SEXO_FEMENINO) && ($datos['presdoc_sexo'] != SEXO_MASCULINO))) {
+			$arraymensajepantalla="El sexo ingresado no es válido";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["presdoc_sexo"]=$datos["presdoc_sexo"];
+
+		// presdoc_origen_pais_codigo ----------------------
+		$this->PaisSP($spnombre,$spparam);
+		if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("paiscod"=>$datos["presdoc_origen_pais_codigo"]),$resultado,$filapais,$numfilasmatcheo,$errno))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar el pais de origen. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		
+		if($numfilasmatcheo!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar el pais de origen. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["presdoc_origen_pais_codigo"]=$datos['presdoc_origen_pais_codigo'];
+
+		if ($_SESSION['rolcod'] == ADMICURSO || $_SESSION['rolcod'] == USUCURSO  ) {
+			if ( (!isset($datos['presdoc_caracter_alta'])) ||  (($datos['presdoc_caracter_alta'] != PRESDOCPROVISORIO) && ($datos['presdoc_caracter_alta'] != PRESDOCDEFINITIVO))) {
+				$arraymensajepantalla="El caracter de alta ingresado no es válido";
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["presdoc_caracter_alta"]=$datos["presdoc_caracter_alta"];			
+		} else {
+			$datosvalidados["presdoc_caracter_alta"]=PRESDOCPENDIENTE;	
+		}
+
+		if ( (!isset($datos['presdoc_eventual'])) || (($datos['presdoc_eventual'] != 'S') && ($datos['presdoc_eventual'] != 'N'))) {
+			$arraymensajepantalla="El tipo de prestador ingresado no es válido";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["presdoc_eventual"]=$datos["presdoc_eventual"];
+
+
+		$datosvalidados["presdoc_falta_prov"]="NULL";
+		$datosvalidados["presdoc_falta_def"]="NULL";
+
+
+		if ($_SESSION['rolcod'] == ADMICURSO || $_SESSION['rolcod'] == USUCURSO  ) {
+
+			//-- Fecha de Alta Provisorio  -------------------------------------------------------------------------
+			if ($datos['presdoc_caracter_alta'] == PRESDOCPROVISORIO || $datos['presdoc_caracter_alta'] == PRESDOCDEFINITIVO) {
+				if (trim($datos['presdoc_falta_prov'])=="" || !FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['presdoc_falta_prov'],"FechaDDMMAAAA"))
+				{
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La fecha de Alta Provisorio no es válida.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+				$datosvalidados["presdoc_falta_prov"]=$datos["presdoc_falta_prov"];
+			}
+
+			//-- Fecha de Alta Definitivo-------------------------------------------------------------------------
+			if ($datos['presdoc_caracter_alta'] == PRESDOCDEFINITIVO) {
+				if (trim($datos['presdoc_falta_def'])=="" || !FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['presdoc_falta_def'],"FechaDDMMAAAA"))
+				{
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La fecha de Alta Definitivo no es válida.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+				
+				// La de inicio es menor que la de fin
+				$fechainicio_AAAAMMDD=FuncionesPHPLocal::ConvertirFecha($datos['presdoc_falta_prov'],'dd/mm/aaaa','aaaa-mm-dd');
+				$fechafin_AAAAMMDD=FuncionesPHPLocal::ConvertirFecha($datos['presdoc_falta_def'],'dd/mm/aaaa','aaaa-mm-dd');
+				if ($fechainicio_AAAAMMDD > $fechafin_AAAAMMDD) {
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La fecha de alta definitiva debe ser mayor o igual que la fecha de alta provisoria",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+
+				$datosvalidados["presdoc_falta_def"]=$datos["presdoc_falta_def"];
+			}
+
+		}
+
+		//-- Fecha de Carga  -------------------------------------------------------------------------
+		if (trim($datos['presdoc_falta'])=="" || !FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['presdoc_falta'],"FechaDDMMAAAA"))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La fecha de Carga no es vádida.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["presdoc_falta"]=$datos["presdoc_falta"];
+
+
+		
+		
+
+		//-- Es un prestador eventual ---------------------------------------------------------------
+		if ($datos['presdoc_eventual'] == 'S') {
+
+			$datosvalidados['presdoc_cuilt'] = "NULL";
+			$datosvalidados['presdoc_presentacion'] = "NULL";
+			$datosvalidados['presdoc_telefono'] = "NULL";
+			$datosvalidados['presdoc_celular'] = "NULL";			
+			$datosvalidados['presdoc_calle'] = "NULL";
+			$datosvalidados['presdoc_numero'] = "NULL";
+			$datosvalidados['presdoc_piso'] = "NULL";
+			$datosvalidados['presdoc_cp'] = "NULL";
+			$datosvalidados['presdoc_prov_codigo'] = "NULL";
+			$datosvalidados['presdoc_part_loca_descripcion'] = "NULL";
+			$datosvalidados['presins_codigo'] = "NULL";
+			$datosvalidados['jurisdid_apn'] = "NULL";
+			$datosvalidados['orgapub_codigo'] = "NULL";		
+			$datosvalidados["presdoc_cargo"]="NULL";
+
+			$datosvalidados["tipopos"]=array();
+			$datosvalidados["presdoc_max_nivel_estudio"]="NULL";
+			$datosvalidados["presdoc_ult_titulo"]="NULL";
+			$datosvalidados["presdoc_ult_titulo_institucion"]="NULL";
+			$datosvalidados["presdoc_ult_titulo_ano"]="NULL";
+			$datosvalidados["presdoc_ido_competencias"]="NULL";
+			$datosvalidados["presdoc_ido_instituciones"]="NULL";
+			$datosvalidados["presdoc_cv"]="NULL";
+			
+			
+			 
+			
+			// Organismo donde trabaja
+			if (trim($datos['presdoc_eve_organismo']) == "") {
+				$arraymensajepantalla="Debe ingresar un Organismo donde trabaja";
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["presdoc_eve_organismo"]=$datos["presdoc_eve_organismo"];
+
+			// Cargo
+			if (trim($datos['presdoc_eve_cargo']) == "") {
+				$arraymensajepantalla="Debe ingresar un cargo / función";
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["presdoc_cargo"]=$datos["presdoc_eve_cargo"];
+
+
+			// Email
+			if (!FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['presdoc_eve_email'],"Email"))
+			{
+				$arraymensajepantalla="El Email ingresado no es válido";
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["presdoc_email"]=$datos["presdoc_eve_email"];
+
+		
+		} else { // if ($datos['presdoc_eventual'] == 'S')
+		
+				$datosvalidados["presdoc_eve_organismo"]="NULL";		
+				$datosvalidados["presdoc_cargo"]="NULL";
+				//-- NO Es un prestador eventual --------
+				if (!FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['presdoc_cuilt'],"CUIT"))
+				{
+					$arraymensajepantalla="El CUIT/CUIL/CDI ingresado no es válido";
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+
+				$datosvalidados["presdoc_cuilt"]=$datos["presdoc_cuilt"];
+
+				
+				if ( (!isset($datos['presdoc_presentacion'])) || ($datos['presdoc_presentacion'] != PRESDOCINDIVIDUAL) && ($datos['presdoc_presentacion'] != PRESDOCINSTITUCIONAL)) {
+					$arraymensajepantalla="El tipo de presentación ingresado no es válido";
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+				$datosvalidados["presdoc_presentacion"]=$datos["presdoc_presentacion"];
+
+				//-- Es una presentación INDIVIDUAL-----------------------------
+				if (($datos['presdoc_presentacion'] == PRESDOCINDIVIDUAL) && $datos['tipo_individual_con_org']==SI) {
+
+					
+					if (trim($datos['presdoc_cargo']) == "") {
+						$arraymensajepantalla="Debe ingresar un cargo / función";
+						FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+						return false;
+					}
+					$datosvalidados["presdoc_cargo"]=$datos["presdoc_cargo"];
+					
+					
+					if ($datos['tipoorg_codigo'] == ORGANISMO_APN) { //-- seleccionó Organismo APN
+							
+						if (trim($datos['jurisdid']) == "") {
+							$arraymensajepantalla="El organismo ingresado no es válido";
+							FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+							return false;
+						}
+						$datosvalidados["jurisdid_apn"]=$datos["jurisdid"];
+						$datosvalidados["orgapub_codigo"]="NULL";
+						$datosvalidados["presins_codigo"]="NULL";						
+						
+					} else { 
+					
+						if ($datos['tipoorg_codigo'] == ORGANISMO_NO_APN) { //-- seleccionó otro organismo público
+					
+							$spnombre = "sel_organismo_publico_xestado_orden";
+							$spparam = array("porgapub_estado"=>ESTADOACTIVO, "porderby"=>"orgapub_nombre");
+				
+							if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("orgapub_codigo"=>$datos["jurisdid"]),$resultado,$filapais,$numfilasmatcheo,$errno))
+							{
+								FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar el organismo. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+								return false;
+							}
+							
+							if($numfilasmatcheo!=1)
+							{
+								FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar el organismo. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+								return false;
+							}
+							$datosvalidados["orgapub_codigo"]=$datos["jurisdid"];
+							$datosvalidados["jurisdid_apn"]="NULL";
+							$datosvalidados["presins_codigo"]="NULL";						
+							
+						} else { //-- seleccionó No corresponde Organismo
+						
+							$datosvalidados["orgapub_codigo"]="NULL";
+							$datosvalidados["jurisdid_apn"]="NULL";
+							$datosvalidados["presins_codigo"]="NULL";						
+						
+						}
+			
+					}
+					
+				
+				} else  { 
+				
+				if (($datos['presdoc_presentacion'] == PRESDOCINSTITUCIONAL)) {	 //-- Es una presentación INSTITUCIONAL-----------------------------
+				
+						$spnombre = "sel_prestador_institucional_xestado";
+						$spparam = array("ppresins_estado"=>PRESINSACTIVO, "porderby"=>"presins_nombre");
+			
+						if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("presins_codigo"=>$datos["presins_codigo"]),$resultado,$filapais,$numfilasmatcheo,$errno))
+						{
+							FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar la Institución prestadora. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+							return false;
+						}
+						
+						if($numfilasmatcheo!=1)
+						{
+							FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar la Institución prestadora. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+							return false;
+						}
+			
+						$datosvalidados["presins_codigo"]=$datos["presins_codigo"];
+						$datosvalidados["orgapub_codigo"]="NULL";
+						$datosvalidados["jurisdid_apn"]="NULL";				
+	
+				} else {
+						$datosvalidados["presins_codigo"]="NULL";
+						$datosvalidados["orgapub_codigo"]="NULL";
+						$datosvalidados["jurisdid_apn"]="NULL";	
+									
+				}
+				
+				}			
+			
+				if (trim($datos['presdoc_telefono']) == "") {
+					$arraymensajepantalla="El teléfono ingresado no es válido";
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+				$datosvalidados["presdoc_telefono"]=$datos["presdoc_telefono"];
+
+				if (!FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['presdoc_email'],"Email"))
+				{
+					$arraymensajepantalla="El Email ingresado no es válido";
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+				$datosvalidados["presdoc_email"]=$datos["presdoc_email"];
+
+				if (trim($datos['presdoc_calle']) == "") {
+					$arraymensajepantalla="La calle ingresada no es válido";
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+				$datosvalidados["presdoc_calle"]=$datos["presdoc_calle"];
+
+				if (trim($datos['presdoc_numero']) == "") {
+					$arraymensajepantalla="El número ingresado no es válido";
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+				$datosvalidados["presdoc_numero"]=$datos["presdoc_numero"];
+
+				if (trim($datos['presdoc_piso']) == "") {
+					$arraymensajepantalla="El piso ingresado no es válido";
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+				$datosvalidados["presdoc_piso"]=$datos["presdoc_piso"];
+
+				if (trim($datos['presdoc_cp']) == "") {
+					$arraymensajepantalla="El Código Postal ingresado no es válido";
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+				$datosvalidados["presdoc_cp"]=$datos["presdoc_cp"];
+
+				$oprovincia = new cProvincias($this->conexion);
+				$oprovincia->ProvinciasSP($spnombre,$spparam);
+				if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("provinciacod"=>$datos["presdoc_prov_codigo"]),$resultado,$filapais,$numfilasmatcheo,$errno))
+				{
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar la provincia del domicilio. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+				
+				if($numfilasmatcheo!=1)
+				{
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar la provincia del domicilio. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+				$datosvalidados["presdoc_prov_codigo"]=$datos['presdoc_prov_codigo'];
+
+				if (trim($datos['presdoc_part_loca_descripcion']) == "") {
+					$arraymensajepantalla="El Partido/Localidad ingresado no es válido";
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+				$datosvalidados["presdoc_part_loca_descripcion"]=$datos["presdoc_part_loca_descripcion"];
+
+				$datosvalidados["presdoc_celular"]=$datos["presdoc_celular"];
+
+
+				$datosvalidados["tipopos"]=array();
+				// cargar el array con todos los tipos de postulación seleccionados 
+				foreach ($_POST as $clave => $valor) {
+					if (substr($clave,0,8) == "tipopos_") 
+						$datosvalidados["tipopos"][] += $valor;
+				}			
+				
+				$spnombre = "sel_nivel_estudios_xorden";
+				$spparam = array("porderby"=>"nivest_descricpcion");
+	
+				if(!$this->conexion->BuscarRegistroxClave($spnombre,$spparam,array("nivest_codigo"=>$datos["nivest_codigo"]),$resultado,$filapais,$numfilasmatcheo,$errno))
+				{
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar el nivel de estudios. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+				
+				if($numfilasmatcheo!=1)
+				{
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar el nivel de estudios. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+
+				$datosvalidados["presdoc_max_nivel_estudio"]=$datos["nivest_codigo"];
+	
+	
+	
+				if (trim($datos['presdoc_ult_titulo']) == "") {
+					$arraymensajepantalla="El último título alcanzado educativa no es válido";
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+				$datosvalidados["presdoc_ult_titulo"]=$datos["presdoc_ult_titulo"];
+	
+	
+				if (trim($datos['presdoc_ult_titulo_institucion']) == "") {
+					$arraymensajepantalla="La institución educativa no es válida";
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+				$datosvalidados["presdoc_ult_titulo_institucion"]=$datos["presdoc_ult_titulo_institucion"];
+
+
+				if (trim($datos['presdoc_ult_titulo_ano']) == "") {
+					$arraymensajepantalla="El año de egreso no es válida";
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+				$datosvalidados["presdoc_ult_titulo_ano"]=$datos["presdoc_ult_titulo_ano"];
+	
+	
+				if (trim($datos['presdoc_ido_competencias']) == "") {
+					$arraymensajepantalla="La competencia no es válida";
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+				$datosvalidados["presdoc_ido_competencias"]=$datos["presdoc_ido_competencias"];
+			
+	
+				if (trim($datos['presdoc_ido_instituciones']) == "") {
+					$arraymensajepantalla="La Institución / Organismo no es válido";
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+				$datosvalidados["presdoc_ido_instituciones"]=$datos["presdoc_ido_instituciones"];
+
+
+				if (trim($datos['presdoc_cv']) == "") {
+					$arraymensajepantalla="El Resumen de CV no es válido";
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}
+				$datosvalidados["presdoc_cv"]=$datos["presdoc_cv"];
+
+		} //  if ($datos['presdoc_eventual'] == 'S')
+
+		$datosvalidados['jurisdid_origen'] = $_SESSION['jurisdid_inap'];					
+
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosRehabilitarPrestadorDocente($presdoc_codigo,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		// El usuario tiene permiso de rehabilitar el prestador
+		if (!$this->TienePermisoRehabilitar($presdoc_codigo,$_SESSION['rolcod'], $_SESSION['jurisdid_inap'])) {
+			return false; 
+		}
+		$datosvalidados+=array('presdoc_codigo'=>$presdoc_codigo);
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosActivarPrestadorDocente($presdoc_codigo,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		// El usuario tiene permiso de activar el prestador
+		if (!$this->TienePermisoActivar($presdoc_codigo,$_SESSION['rolcod'], $_SESSION['jurisdid_inap'])) {
+			return false; 
+		}
+		$datosvalidados+=array('presdoc_codigo'=>$presdoc_codigo);
+		return true;
+	}		
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosEvaluarPrestadorDocente($presdoc_codigo,$operacion,&$datos,&$datosvalidados)	{
+	
+		// El usuario tiene permiso de eliminar el prestador
+		if (!$this->TienePermisoEvaluar($presdoc_codigo,$_SESSION['rolcod'])) {
+			return false; 
+		}
+		
+		if ($operacion != "A" && $operacion != "R") {
+			return false; 
+		}
+		
+		if(!$this->TraerDatosPrestadorDocente($presdoc_codigo,$filaprestador,$es_modif))  {
+			$error="Error al buscar el prestador docente.";
+			$errormail="Error al buscar el prestador docente en tabla presador_docente \npresdoc_codigo=".$presdoc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		$datosvalidados= array();
+		$datosvalidados['jurisdid_origen'] = $filaprestador['jurisdid_origen'];
+		
+		if ($operacion == "A") {
+			if (($datos['presdoc_caracter_alta'] != PRESDOCPROVISORIO) && ($datos['presdoc_caracter_alta'] != PRESDOCDEFINITIVO)) {
+				$arraymensajepantalla="El caracter de alta ingresado no es válido";
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$datosvalidados["presdoc_caracter_alta"]=$datos["presdoc_caracter_alta"];			
+		} else {
+			$datosvalidados["presdoc_caracter_alta"]=$datos['presdoc_caracter_alta'];	
+		}
+		$datosvalidados["presdoc_falta_prov"]=(isset($datos["presdoc_falta_prov"]))?$datos["presdoc_falta_prov"]:"NULL";					
+		$datosvalidados["presdoc_falta_def"]=(isset($datos["presdoc_falta_def"]))?$datos["presdoc_falta_def"]:"NULL";							
+
+		// No debiera suceder, porque si se solicito la aprobación tiene que tener áreas especificas
+		// cargadas, se verifica de todas formas.
+		$ArregloDatos= array();
+		$ArregloDatos['presdoc_codigo']=$presdoc_codigo;
+	
+		$oPrestadorDocenteArea=new cPrestadorDocenteArea($this->conexion);
+		if(!$oPrestadorDocenteArea->BuscarPrestadorDocentexArea($ArregloDatos,$numfilas,$resultado,$error,$errormail)) {
+			$txt_sys_mail="Error al seleccionar las áreas asociadas al prestador docente. error=".$error." ";
+			$txt_sys_mail.='\npresdoc_codigo='.$presdoc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al evaluar el prestador.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;			
+		} 
+		if($numfilas<1) {		
+			$txt_sys_mail="Error al seleccionar las áreas asociadas al prestador docente. error=".$error." ";
+			$txt_sys_mail.='\npresdoc_codigo='.$presdoc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al evaluar el prestador.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosPedidoAprobacionPrestadorDocente($presdoc_codigo)	{
+	
+		// El usuario tiene permiso de pedir aprobación
+		if (!$this->TienePermisoPedirAprobacion($presdoc_codigo,$_SESSION['rolcod'],$_SESSION['jurisdid_inap'])) {
+			return false; 
+		}
+
+		// Tiene que tener por lo menos un área específica definida
+		$ArregloDatos= array();
+		$ArregloDatos['presdoc_codigo']=$presdoc_codigo;
+	
+		$oPrestadorDocenteArea=new cPrestadorDocenteArea($this->conexion);
+		if(!$oPrestadorDocenteArea->BuscarPrestadorDocentexArea($ArregloDatos,$numfilas,$resultado,$error,$errormail)) {
+			$txt_sys_mail="Error al seleccionar las áreas asociadas al prestador docente. error=".$error." ";
+			$txt_sys_mail.='\npresdoc_codigo='.$presdoc_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar las áreas asociadas al prestador docente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;			
+		} 
+		if($numfilas<1) {		
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"El Prestador Docente no tiene áreas específicas asignadas, <br> Deber&aacute; cargarlas antes de solicitar la aprobación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function BuscarPrestadorDocenteAvanzada($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		$sparam=array('pxpresdoc_cuilt'=>0);
+		$sparam+=array('pxcuilt_exacto'=>0);				
+		$sparam+=array('pxpresdoc_codigo'=>0);
+		$sparam+=array('pxpresdoc_nombre'=>0);
+		$sparam+=array('pxpresdoc_apellido'=>0);
+		$sparam+=array('pxpresdoc_estado'=>0);
+		$sparam+=array('pxpresins_codigo'=>0);
+		$sparam+=array('pxjurisdid_origen'=>0);
+		$sparam+=array('pxapeynom'=>0);
+		$sparam+=array('pxpresdoc_eventual'=>0);
+		$sparam+=array('pxpresdoc_caracter_alta'=>0);
+		$sparam+=array('pxpresdoc_falta_desde'=>0);
+		$sparam+=array('pxpresdoc_falta_hasta'=>0);
+		$sparam+=array('pxpresdoc_falta_prov_desde'=>0);
+		$sparam+=array('pxpresdoc_falta_prov_hasta'=>0);
+		$sparam+=array('pxpresdoc_falta_def_desde'=>0);
+		$sparam+=array('pxpresdoc_falta_def_hasta'=>0);
+		$sparam+=array('pxareacon_codigo'=>0);
+		$sparam+=array('pxareagen_codigo'=>0);
+		$sparam+=array('pxareaesp_codigo'=>0);		
+		$sparam+=array('pxpresdoc_localidad'=>0);
+		$sparam+=array('pxpresdoc_prov_codigo'=>0);		
+		
+		$sparam+=array('ppresdoc_cuilt' =>"");
+		$sparam+=array('pcuilt_exacto' =>"");		
+		$sparam+=array('ppresdoc_codigo' =>"");
+		$sparam+=array('ppresdoc_nombre' =>"");
+		$sparam+=array('ppresdoc_apellido' =>"");
+		$sparam+=array('ppresdoc_estado' =>"-1");
+		$sparam+=array('ppresins_codigo' =>"");		
+		$sparam+=array('pjurisdid_origen'=>"");
+		$sparam+=array('papeynom'=>"");
+		$sparam+=array('ppresdoc_eventual'=>"");
+		$sparam+=array('ppresdoc_caracter_alta'=>0);
+		$sparam+=array('ppresdoc_falta_desde'=>"");
+		$sparam+=array('ppresdoc_falta_hasta'=>"");
+		$sparam+=array('ppresdoc_falta_prov_desde'=>"");
+		$sparam+=array('ppresdoc_falta_prov_hasta'=>"");
+		$sparam+=array('ppresdoc_falta_def_desde'=>"");
+		$sparam+=array('ppresdoc_falta_def_hasta'=>"");
+		$sparam+=array('pareacon_codigo'=>"");
+		$sparam+=array('pareagen_codigo'=>"");
+		$sparam+=array('pareaesp_codigo'=>"");		
+		$sparam+=array('ppresdoc_prov_codigo'=>"");		
+		$sparam+=array('ppresdoc_localidad'=>"");
+
+
+		$sparam+=array('porderby' =>"presdoc_apellido");
+
+		if (isset ($ArregloDatos['presdoc_cuilt']))
+		{
+			if ($ArregloDatos['presdoc_cuilt']!="")
+			{	
+				$sparam['ppresdoc_cuilt']= $ArregloDatos['presdoc_cuilt'];
+				$sparam['pxpresdoc_cuilt']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['cuilt_exacto']))
+		{
+			if ($ArregloDatos['pcuilt_exacto']!="")
+			{	
+				$sparam['pcuilt_exacto']= $ArregloDatos['pcuilt_exacto'];
+				$sparam['pxcuilt_exacto']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['presdoc_codigo']))
+		{
+			if ($ArregloDatos['presdoc_codigo']!="")
+			{	
+				$sparam['ppresdoc_codigo']= $ArregloDatos['presdoc_codigo'];
+				$sparam['pxpresdoc_codigo']= 1;
+			}
+		}	
+		if (isset ($ArregloDatos['presdoc_nombre']))
+		{
+			if ($ArregloDatos['presdoc_nombre']!="")
+			{	
+				$sparam['ppresdoc_nombre']= $ArregloDatos['presdoc_nombre'];
+				$sparam['pxpresdoc_nombre']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['presdoc_apellido']))
+		{
+			if ($ArregloDatos['presdoc_apellido']!="")
+			{	
+				$sparam['ppresdoc_apellido']= $ArregloDatos['presdoc_apellido'];
+				$sparam['pxpresdoc_apellido']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['presdoc_estado']))
+		{
+			if ($ArregloDatos['presdoc_estado']!="")
+			{	
+				$sparam['ppresdoc_estado']= $ArregloDatos['presdoc_estado'];
+				$sparam['pxpresdoc_estado']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['jurisdid_origen']))
+		{
+			if ($ArregloDatos['jurisdid_origen']!="")
+			{	
+				$sparam['pjurisdid_origen']= $ArregloDatos['jurisdid_origen'];
+				$sparam['pxjurisdid_origen']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+			{	
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+		if (isset ($ArregloDatos['presins_codigo']))
+		{
+			if ($ArregloDatos['presins_codigo']!="")
+			{	
+				$sparam['ppresins_codigo']= $ArregloDatos['presins_codigo'];
+				$sparam['pxpresins_codigo']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['apeynom']))
+		{
+			if ($ArregloDatos['apeynom']!="")
+			{	
+				$sparam['papeynom']= $ArregloDatos['apeynom'];
+				$sparam['pxapeynom']=1;
+			}
+		}
+		if (isset ($ArregloDatos['presdoc_eventual']))
+		{
+			if ($ArregloDatos['presdoc_eventual']!="")
+			{	
+				$sparam['ppresdoc_eventual']= $ArregloDatos['presdoc_eventual'];
+				$sparam['pxpresdoc_eventual']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['presdoc_caracter_alta']))
+		{
+			if ($ArregloDatos['presdoc_caracter_alta']!="")
+			{	
+				$sparam['ppresdoc_caracter_alta']= $ArregloDatos['presdoc_caracter_alta'];
+				$sparam['pxpresdoc_caracter_alta']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['presdoc_falta_desde']))
+		{
+			if ($ArregloDatos['presdoc_falta_desde']!="")
+			{	
+				$sparam['ppresdoc_falta_desde']= $ArregloDatos['presdoc_falta_desde'];
+				$sparam['pxpresdoc_falta_desde']= 1;
+			}
+		}
+		
+		if (isset ($ArregloDatos['presdoc_falta_hasta']))
+		{
+			if ($ArregloDatos['presdoc_falta_hasta']!="")
+			{	
+				$sparam['ppresdoc_falta_hasta']= $ArregloDatos['presdoc_falta_hasta'];
+				$sparam['pxpresdoc_falta_hasta']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['presdoc_falta_prov_desde']))
+		{
+			if ($ArregloDatos['presdoc_falta_prov_desde']!="")
+			{	
+				$sparam['ppresdoc_falta_prov_desde']= $ArregloDatos['presdoc_falta_prov_desde'];
+				$sparam['pxpresdoc_falta_prov_desde']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['presdoc_falta_prov_hasta']))
+		{
+			if ($ArregloDatos['presdoc_falta_prov_hasta']!="")
+			{	
+				$sparam['ppresdoc_falta_prov_hasta']= $ArregloDatos['presdoc_falta_prov_hasta'];
+				$sparam['pxpresdoc_falta_prov_hasta']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['presdoc_falta_def_desde']))
+		{
+			if ($ArregloDatos['presdoc_falta_def_desde']!="")
+			{	
+				$sparam['ppresdoc_falta_def_desde']= $ArregloDatos['presdoc_falta_def_desde'];
+				$sparam['pxpresdoc_falta_def_desde']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['presdoc_falta_def_hasta']))
+		{
+			if ($ArregloDatos['presdoc_falta_def_hasta']!="")
+			{	
+				$sparam['ppresdoc_falta_def_hasta']= $ArregloDatos['presdoc_falta_def_hasta'];
+				$sparam['pxpresdoc_falta_def_hasta']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['areacon_codigo']))
+		{
+			if ($ArregloDatos['areacon_codigo']!="")
+			{	
+				$sparam['pareacon_codigo']= $ArregloDatos['areacon_codigo'];
+				$sparam['pxareacon_codigo']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['areagen_codigo']))
+		{
+			if ($ArregloDatos['areagen_codigo']!="")
+			{	
+				$sparam['pareagen_codigo']= $ArregloDatos['areagen_codigo'];
+				$sparam['pxareagen_codigo']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['areaesp_codigo']))
+		{
+			if ($ArregloDatos['areaesp_codigo']!="")
+			{	
+				$sparam['pareaesp_codigo']= $ArregloDatos['areaesp_codigo'];
+				$sparam['pxareaesp_codigo']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['presdoc_localidad']))
+		{
+			if ($ArregloDatos['presdoc_localidad']!="")
+			{	
+				$sparam['ppresdoc_localidad']= $ArregloDatos['presdoc_localidad'];
+				$sparam['pxpresdoc_localidad']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['presdoc_prov_codigo']))
+		{
+			if ($ArregloDatos['presdoc_prov_codigo']!="")
+			{	
+				$sparam['ppresdoc_prov_codigo']= $ArregloDatos['presdoc_prov_codigo'];
+				$sparam['pxpresdoc_prov_codigo']= 1;
+			}
+		}
+/*
+		echo "<br><br><br>PARAM------------------------------";
+		foreach($sparam as $i=>$valor) {
+			echo $i ."  =   ".$valor."<br>";
+		}
+		echo "<br><br><br>------------------------------------";
+*/
+		$spnombre="sel_prestador_docente_area_avanzada_xdatos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar el Prestador Docente.";
+			$errormail="Error al buscar el Prestador Docente.".$errno;
+			return false;
+		}
+
+		return true;
+	}
+	
+
+//----------------------------------------------------------------------------------------- 
+// Genera una password nueva para ser enviada al prestador
+
+// Parámetros de Entrada:
+//		usuariocuit/usuariomail: datos a buscar en la base
+
+// Retorna:
+//		nuevapwd: la clave nueva generada por el sistema
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+	
+	function OlvidoPassword($usuariocuit,$usuarioemail,&$nuevapwd)
+	{		
+	
+		$ArregloDatos= array();
+		$ArregloDatos['presdoc_cuilt']=$usuariocuit;
+	
+		if(!$this->BuscarPrestadorDocente($ArregloDatos,$numfilas,$resultado,$error,$errormail) || $numfilas != 1) {
+			$txt_sys_mail="\npresdoc_cuilt=".$usuariocuit."\nerror=".$error;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error buscando los prestadores docentes.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			echo "<br><br>";
+			echo "<div align='center'><a href='prestador_docente_web.dhtml' class='textoTablaDato linkFondoBlanco'>Volver a inicio</a></div>";
+			
+			return false;			
+		}
+		
+		$fila_prestador = mysqli_fetch_assoc($resultado);
+		
+		if ($fila_prestador["presdoc_email"] == $usuarioemail) { 
+	
+			if($fila_prestador["presdoc_estado"]>PRESDOCACTIVO)
+			{
+				echo "<br><br><br><br>";
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No se pudo enviar una contraseña nueva. Su usuario no se encuentra activo - '".htmlspecialchars($usuariocuit,ENT_QUOTES)."'/'".htmlspecialchars($usuarioemail,ENT_QUOTES)."'",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				echo "<br><br>";
+				echo "<div align='center'><a href='".$_SERVER['PHP_SELF']."' class='textoTablaDato linkFondoBlanco'>Volver a ingresar los datos</a></div>";
+				return false;
+			}
+			else
+			{ // se puede generar la nueva contraseña
+				$nuevapwd=FuncionesPHPLocal::GenerarPassword(6);
+				
+				$spnombreusu='upd_presatodpassword_xusuariocod';
+				$spparamusu=array('ppresdoc_password'=>md5($nuevapwd),'pultmodusuario'=>0,'pultmodfecha'=>date('Y/m/d H:i:s'),'ppresdoc_codigo'=>$fila_prestador["presdoc_codigo"]);
+			
+				if(!$this->conexion->ejecutarStoredProcedure($spnombreusu,$spparamusu,$nousar,$numfilas,$errno) || $numfilas!=1)
+				{
+					echo"<p>&nbsp;</p>";
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error en modificación de prestador docente. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}	
+				else
+				{
+					echo "<br><br><br><br>";
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_OK,"Se envió su nueva contraseña al mail. El envío puede demorar unos minutos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					echo "<br><br>";
+					echo "<div align='center'><a href='prestador_docente_web.dhtml' class='textoTablaDato linkFondoBlanco'>Volver a inicio</a></div>";
+					FuncionesPHPLocal::RegistrarAcceso($this->conexion,'023807',"presdoc_codigo=".$fila_prestador["presdoc_codigo"]." - presdoc_cuilt=".$fila_prestador["presdoc_cuilt"],0);	
+				}
+	
+			} // fin de se puede enviar la nueva contraseña
+		} else {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error buscando los prestadores docentes.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),"");
+			echo "<br><br>";
+			echo "<div align='center'><a href='prestador_docente_web.dhtml' class='textoTablaDato linkFondoBlanco'>Volver a inicio</a></div>";
+		
+			return false;
+		}
+		
+		return true;
+	}
+
+
+
+
+} // class
+?>

@@ -1,0 +1,239 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Nombre de la ventana</title>
+<link rel="stylesheet" type="text/css" href="estilos.css" />
+</head>
+<body>
+<script language="javascript" src="funcionesjs.js" type="text/javascript"></script>
+<?php 
+	require('./include.dhtml'); // incluye SysONTIGrilla.dhtml
+
+	$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+	$conexion->SeleccionBD(BASEDATOS);
+	
+	FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+	$conexion->SetearAdmiGeneral(ADMIONTI);
+	
+	// A fin de tener los resultados en un query  
+	$oArchivos=new cArchivosUpd($conexion);
+	$ArregloDatos=array();
+	if (!$oArchivos->BuscarArchivos ($ArregloDatos,$numfilas,$resultado,$error,$errormail))	{	
+		FuncionesPHPLocal::MostrarMensaje($conexion,GENERAL_MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>GENERAL_FMT_TEXTO));
+		$result=false;
+	}
+
+	// A fin de tener los resultados en un array
+	$mi_array_datos = 	array (
+			array('c1'=>'valor11','c2'=>'valor12','c3'=>'valor13','c4'=>10),
+			array('c1'=>'valor21','c2'=>'valor22','c3'=>'valor23','c4'=>13),
+			array('c1'=>'valor31','c2'=>'valor32','c3'=>'valor33','c4'=>6),
+			array('c1'=>'valor41','c2'=>'valor42','c3'=>'valor43','c4'=>4),
+			array('c1'=>'valor51','c2'=>'valor52','c3'=>'valor53','c4'=>10),
+			array('c1'=>'valor61','c2'=>'valor62','c3'=>'valor63','c4'=>15),
+			array('c1'=>'valor71','c2'=>'valor72','c3'=>'valor73','c4'=>2),
+			array('c1'=>'valor81','c2'=>'valor82','c3'=>'valor83','c4'=>1),
+			array('c1'=>'valor91','c2'=>'valor92','c3'=>'valor93','c4'=>2),
+			array('c1'=>'valor101','c2'=>'valor102','c3'=>'valor103','c4'=>15),
+			array('c1'=>'valor111','c2'=>'valor112','c3'=>'valor113','c4'=>20),
+			array('c1'=>'valor121','c2'=>'valor122','c3'=>'valor123','c4'=>5),
+			array('c1'=>'valor131','c2'=>'valor132','c3'=>'valor133','c4'=>21),
+			array('c1'=>'valor141','c2'=>'valor142','c3'=>'valor143','c4'=>12),
+			array('c1'=>'valor151','c2'=>'valor152','c3'=>'valor153','c4'=>1),
+			array('c1'=>'valor161','c2'=>'valor162','c3'=>'valor163','c4'=>4),
+			array('c1'=>'valor171','c2'=>'valor172','c3'=>'valor173','c4'=>2)
+
+	);
+
+	$querystring=$_SERVER['QUERY_STRING'];
+	$opciones=array(
+		"numPagina"=>isset($_GET['paginaG2'])?$_GET['paginaG2']:1,
+		"FilasPagina"=>10,
+		"NombrePaginaQuery"=>"paginaG2"
+	);
+	
+	if (isset($_GET['paginaG2']))	{
+		$querystring=FuncionesPHPLocal::ArmarQueryString("paginaG2","",false);
+		$opciones['QueryString']=$querystring;
+	}
+	
+	$oGrilla2 = new cGrilla($opciones);
+	$oGrilla2->SetearTituloGrilla('Este es el título de mi grilla 2');
+	
+	$miColumna1 = $oGrilla2->AddColumna('txt');
+	$oGrilla2->Setear('titulo_columna',$miColumna1,'Código');
+	$oGrilla2->Setear('campo_grilla',$miColumna1,'archivocod');
+	$oGrilla2->Setear('ancho_columna',$miColumna1,'10%');
+	
+	$miColumna2 = $oGrilla2->AddColumna('txt');
+	$oGrilla2->Setear('titulo_columna',$miColumna2,'Nombre');
+	$oGrilla2->Setear('campo_grilla',$miColumna2,'archivonom');
+	$oGrilla2->Setear('ancho_columna',$miColumna2,'90%');
+	
+
+	$opciones=array(
+		"numPagina"=>isset($_GET['paginaG1'])?$_GET['paginaG1']:1,
+		"FilasPagina"=>7,
+		"NombrePaginaQuery"=>"paginaG1",
+		"FormularioBotonera"=>"formulario_boton"		
+	);
+
+	if (isset($_GET['paginaG1']))	{
+		$querystring=FuncionesPHPLocal::ArmarQueryString("paginaG1","",false);
+		$opciones['QueryString']=$querystring;
+	}
+
+	$oGrilla = new cGrilla($opciones);
+	$oGrilla->SetearTituloGrilla('Este es el título de mi grilla 1');
+
+	$miColumna1 = $oGrilla->AddColumna('txt');
+	$oGrilla->Setear('titulo_columna',$miColumna1,'Leyenda c1');
+	$oGrilla->Setear('campo_grilla',$miColumna1,'c1');
+
+	$miColumna2 = $oGrilla->AddColumna('txt');
+	$oGrilla->Setear('titulo_columna',$miColumna2,'Leyenda c2');
+	$oGrilla->Setear('campo_grilla',$miColumna2,'c2');
+	
+	$miColumna3 = $oGrilla->AddColumna('link');
+	$oGrilla->Setear('titulo_columna',$miColumna3,'Enlace 2');
+	$oGrilla->Setear('url',$miColumna3,'enlace.dhtml');
+	$oGrilla->AddParametrosURL($miColumna3,"id","c3");
+	$oGrilla->AddParametrosURL($miColumna3,"cod2","c2");
+	$oGrilla->SetearLeyendaLink($miColumna3,"cte","ir a....");
+
+	$miColumna4 = $oGrilla->AddColumna('linkimg');
+	$oGrilla->Setear('titulo_columna',$miColumna4,'Imagen ');
+	$oGrilla->Setear('url',$miColumna4,'enlace.dhtml');
+	// Nuevo
+	$oGrilla->Setear('imagen',$miColumna4,'images/aprobar.gif');
+	$oGrilla->Setear('altImagen',$miColumna4,'Editar');						
+	$oGrilla->Setear('condicion_visualizar_columna',$miColumna4,'funcionMuestro');
+	$oGrilla->Setear('funcion_md5',$miColumna4,array("FuncionesPHPLocal","ArmarLinkMD5"));
+
+	$oGrilla->AddParametrosURL($miColumna4,"id2","c3");
+	$oGrilla->AddParametrosURL($miColumna4,"id","c2");
+
+	$miColumna5 = $oGrilla->AddColumna('popup');
+	$oGrilla->Setear('titulo_columna',$miColumna5,'PopUp 1');
+	$oGrilla->Setear('url',$miColumna5,'prueba_ventanatexto.dhtml');
+	$oGrilla->AddParametrosURL($miColumna5,"textopopup","c1");
+	$oGrilla->SetearLeyendaLink($miColumna5,"cte","popup cte.");
+	// Nuevo	
+	$oGrilla->Setear("ventanaAnchoPopup",$miColumna5,"700");
+	$oGrilla->Setear("ventanaAltoPopup",$miColumna5,"300");
+	$oGrilla->Setear("ventanaVarxPopup",$miColumna5,"screen.availWidth-720");
+	$oGrilla->Setear("ventanaVaryPopup",$miColumna5,"screen.availHeight-320");
+		
+	$miColumna7 = $oGrilla->AddColumna('popup');
+	$oGrilla->Setear('titulo_columna',$miColumna7,'PopUp 2');
+	$oGrilla->Setear('url',$miColumna7,'prueba_ventanatexto.dhtml');
+	$oGrilla->AddParametrosURL($miColumna7,"textopopup","c1");
+	$oGrilla->Setear('imagen',$miColumna7,'images/borrar.jpg');
+	$oGrilla->Setear('altImagen',$miColumna7,'Popup');						
+// 	Se puede poner una imagen o leyenda cte o leyenda variable	
+//	$oGrilla->SetearLeyendaLink($miColumna7,"var",c1);	
+//	$oGrilla->SetearLeyendaLink($miColumna7,"cte","leyenda");
+
+	$miColumna9 = $oGrilla->AddColumna('popup');
+	$oGrilla->Setear('titulo_columna',$miColumna9,'PopUp 3');
+	$oGrilla->Setear('url',$miColumna9,'prueba_ventanatexto.dhtml');
+	$oGrilla->AddParametrosURL($miColumna9,"textopopup","c1");
+	$oGrilla->SetearLeyendaLink($miColumna9,"var","c1");
+
+	$miColumna6 = $oGrilla->AddColumna('addValor');
+	$oGrilla->Setear('titulo_columna',$miColumna6,'Seleccionar Submit');
+	$oGrilla->Setear('imagen',$miColumna6,'images/editar.jpg');
+	$oGrilla->Setear('altImagen',$miColumna6,'Seleccionar');
+	$oGrilla->Setear('idtextboxAddValor',$miColumna6,'valor_input');
+	$oGrilla->Setear('submitAddValor',$miColumna6,'no');
+	$oGrilla->Setear('documentAddValor',$miColumna6,'window.document');
+	$oGrilla->Setear('nombreContenidoAddValor',$miColumna6,'c3');
+	$oGrilla->Setear('idtextoContenidoAddValor',$miColumna6,'valor_descri');
+	$oGrilla->AddParametrosAddValor($miColumna6,'c2');
+
+	$miColumna8 = $oGrilla->AddColumna('addValor');
+	$oGrilla->Setear('titulo_columna',$miColumna8,'Seleccionar2');
+	$oGrilla->Setear('imagen',$miColumna8,'images/aprobar.jpg');
+	$oGrilla->Setear('altImagen',$miColumna8,'Nada');
+	$oGrilla->Setear('idtextboxAddValor',$miColumna8,'valor_input_submit');
+	$oGrilla->Setear('submitAddValor',$miColumna8,'si');
+	$oGrilla->Setear('nombreContenidoAddValor',$miColumna8,'c3');
+	$oGrilla->Setear('documentAddValor',$miColumna8,'window.document');
+	$oGrilla->Setear('nombreFormularioSubmitAddValor',$miColumna8,'formulario');
+	$oGrilla->Setear('idtextoContenidoAddValor',$miColumna8,'valor_descri_submit');
+	$oGrilla->AddParametrosAddValor($miColumna8,'c2');
+
+	// Optativos valores por defecto
+	// $oGrilla->Setear('submitAddValor',$miColumna4,'no');
+	// $oGrilla->Setear('nombreContenidoAddValor',$miColumna4,'');
+	// $oGrilla->Setear('idtextoContenidoAddValor',$miColumna4,'');
+	// Si es submit
+	// $oGrilla->Setear('documentAddValor',$miColumna6,'window.opener.document');
+	
+	// Ultima columna 9
+?>
+<?php
+function funcionMuestro($fila){
+	if ($fila['c4']<10)
+		return true;
+	else 	
+		return false;
+} 
+?>
+<form action="#" method="post" name="formulario">
+<table>
+	<tr>
+		<td>Valor</td>
+		<td><input type="text" name="valor_input" id="valor_input" value=""/></td>
+		<td><div id="valor_descri"></div></td>
+	</tr>	
+	
+	<tr>
+		<td>Valor con Submit</td>
+		<td><input type="text" name="valor_input_submit" id="valor_input_submit" value=""/></td>
+		<td><div id="valor_descri_submit"></div></td>
+	</tr>	
+</table>
+</form>
+
+<?php if (isset($_POST['valor_input_submit'])) 
+		echo  "Se hizo un post, el valor que vino fue: ".$_POST['valor_input_submit']; 
+	else 
+		echo  "NO hay post"; 
+?>
+
+<table width="100%">
+	<tr>
+		<td colspan="2"> Este es todo el html </td>
+	</tr>	
+	<tr> 
+		<td colspan="2"> <?php
+			$oGrilla->CargarGrilla($mi_array_datos);
+			$oGrilla->MostrarGrilla();
+			?>		
+		</td>
+	</tr>	
+	
+	<tr>
+		<td colspan="2">&nbsp; 	</td>
+	</tr>	
+	
+	<tr> 
+		<td colspan="2"> <?php
+			$oGrilla2->CargarGrilla($resultado);
+			$oGrilla2->MostrarGrilla();
+			?>		
+		</td>
+	</tr >	
+	
+	<tr>
+		<td colspan="2">&nbsp; 	</td>
+	</tr>	
+	
+	<tr>
+		<td colspan="2"> fin de mi html </td>
+	</tr>	
+</table>
+</body>
+</html>

@@ -1,0 +1,101 @@
+<?php
+//----------------------------------------------------------------------------------------- 
+// Clase con la lógica para el manejo de Usuarios_Enlace_Jurisdiccion_Inap
+class cUsuarios_Enlace_Jurisdiccion_Inap 
+{
+
+	var $conexion;
+
+	public function __construct($conexion)
+	{
+		$this->conexion = &$conexion;
+	}
+//-----------------------------------------------------------------------------------------
+//							 PUBLICAS	
+//----------------------------------------------------------------------------------------- 
+
+//----------------------------------------------------------------------------------------- 
+// Retorna una consulta con todos los usuarios que cumplan con las condiciones
+
+// Parámetros de Entrada:
+//		ArregloDatos: array asociativo con los filtros. Claves: usuarionombre, usuarioapellido, usuariocuit, usuarioemail
+
+// Retorna:
+//		numfilas,resultado: cantidad de filas y query de resultado
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+
+	function BuscarDatos ($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)
+	{
+		$sparam=array('pusuariocod' =>$ArregloDatos['usuariocod']);
+		$sparam+=array('pjurisdid_inap' =>$ArregloDatos['jurisdid_inap']);
+		$sparam+=array('prolcod' =>USUACTJUR);
+	
+		$spnombre="sel_usuarios_enlace_jurisdiccion_inap_xusuariocod_rolcod_jurisdid_inap";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar el Usuario-Organismo.";
+			$errormail="Error al buscar el usuario_enlace_jurisdiccion_inap ".$errno;
+			return false;
+		}
+		return true;
+	}
+
+
+
+	function Insertar ($ArregloDatos, &$error, &$errormail)
+	{
+		if (!$this->BuscarDatos ($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+			return false;
+		if ($numfilas==1)
+		{
+			$error="Error, el Usuario ya se encuentra en la tabla de enlaces. ";
+			$errormail="Error, el Usuario_Jurisdiccion ya se encuentra en la tabla de Usuarios_Enlace_Jurisdiccion_Inap. ";
+			return false;
+		}
+		
+		$sparam =array("pusuariocod"=>$ArregloDatos['usuariocod']);
+		$sparam+=array("pjurisdid_inap"=>$ArregloDatos['jurisdid_inap']);
+		$sparam+=array("prolcod"=>$ArregloDatos['rolcod']);		
+		$sparam+=array("pultmodusuario"=>$_SESSION['usuariocod']);
+		$sparam+=array("pultmodfecha"=>date("Y/m/d H:i:s"));
+		
+		$spnombre="ins_usuarios_enlace_jurisdiccion_inap";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al insertar el Usuario-Organismo.";
+			$errormail="Error al insertar el Usuario_Enlace_Jurisdiccion_Inap".$errno;
+			return false;
+		}
+		return true;
+	}
+
+
+	function Eliminar ($ArregloDatos, &$error, &$errormail)
+	{
+		if (!$this->BuscarDatos ($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+			return false;
+
+		if ($numfilas!=1)
+		{
+			$error="Error, el Usuario no se encuentra en la tabla de enlaces. ";
+			$errormail="Error, el Usuario_Jurisdiccion no se encuentra en la tabla de Usuarios_Enlace_Jurisdiccion_Inap. ";
+			return false;
+		}
+		
+		
+		$sparam =array("pusuariocod"=>$ArregloDatos['usuariocod']);
+		$sparam+=array("pjurisdid_inap"=>$ArregloDatos['jurisdid_inap']);
+		$sparam+=array("prolcod"=>$ArregloDatos['rolcod']);		
+		$spnombre="del_usuarios_enlace_jurisdiccion_inap_xusuariocod_rolcod_jurisdid";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al eliminar el Organismo del enlace.";
+			$errormail="Error al eliminar usuarios_enlace_jurisdiccion_inap ".$errno;
+			return false;
+		}
+		return true;
+
+	}
+}
+
+?>

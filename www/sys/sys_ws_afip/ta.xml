@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<loginTicketResponse version="1">
+    <header>
+        <source>CN=wsaahomo, O=AFIP, C=AR, SERIALNUMBER=CUIT 33693450239</source>
+        <destination>SERIALNUMBER=CUIT 30680604572, EMAILADDRESS=onti@sgp.gov.ar, CN=onti, OU=onti, O=jefatura, ST=bs, C=ar</destination>
+        <uniqueId>713604005</uniqueId>
+        <generationTime>2007-08-15T12:46:45.273-03:00</generationTime>
+        <expirationTime>2007-08-16T00:46:45.273-03:00</expirationTime>
+    </header>
+    <credentials>
+        <token>PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9InllcyI/Pgo8c3NvIHZlcnNpb249IjIuMCI+CiAgICA8aWQgdW5pcXVlX2lkPSIyMTE2ODM1MTgiIHNyYz0iQ049d3NhYWhvbW8sIE89QUZJUCwgQz1BUiwgU0VSSUFMTlVNQkVSPUNVSVQgMzM2OTM0NTAyMzkiIGdlbl90aW1lPSIxMTg3MTkyNzQ1IiBleHBfdGltZT0iMTE4NzIzNjAwNSIgZHN0PSIgQ049cGFkcm9uLXB1Yy13cy1jb25zdWx0YS1uaXZlbDE5LE89QUZJUCxDPUFSIi8+CiAgICA8b3BlcmF0aW9uIHZhbHVlPSJncmFudGVkIiB0eXBlPSJsb2dpbiI+CiAgICAgICAgPGxvZ2luIHVpZD0iU0VSSUFMTlVNQkVSPUNVSVQgMzA2ODA2MDQ1NzIsIEVNQUlMQUREUkVTUz1vbnRpQHNncC5nb3YuYXIsIENOPW9udGksIE9VPW9udGksIE89amVmYXR1cmEsIFNUPWJzLCBDPWFyIiBzZXJ2aWNlPSJwYWRyb24tcHVjLXdzLWNvbnN1bHRhLW5pdmVsMTAiIHJlZ21ldGhvZD0iMjIiIGVudGl0eT0iMzM2OTM0NTAyMzkiIGF1dGhtZXRob2Q9ImNtcyI+CiAgICAgICAgICAgIDxyZWxhdGlvbnM+CiAgICAgICAgICAgICAgICA8cmVsYXRpb24gcmVsdHlwZT0iNCIga2V5PSIzMDY4MDYwNDU3MiIvPgogICAgICAgICAgICA8L3JlbGF0aW9ucz4KICAgICAgICA8L2xvZ2luPgogICAgPC9vcGVyYXRpb24+Cjwvc3NvPgoK</token>
+        <sign>CYtDPBT1i4Y5kDAzlpSjV3wppa4/MpCoJCeS5OE3xerHbPvHZjBOgsoqWSba77rn51HokG0bOv9IVSlC68lV6LjcH6gsPHOb2914oAyWEE4/JgHkkfX+K+VKLtliyAOycykQUgYtNQ4i9CcY6A2WbC9MiySGNk7zEfr2batjN94=</sign>
+    </credentials>
+</loginTicketResponse>
+

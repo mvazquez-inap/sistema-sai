@@ -1,0 +1,37 @@
+<?php
+require('./include.dhtml');
+header('Content-Type: text/html; charset=utf-8');
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+//--------------------------------------------------------------------------------------------------------------------------------------------------------
+$oTablaAreaGeneral= new cTablaAreaGeneral($conexion);
+$oTablaAreaEspecifica= new cTablaAreaEspecifica($conexion);
+
+// echo "//tienepermisos\n";
+// 1- tipo de area
+// 2- area_codigo sea un area posible segun el tipo ojo puede ser 0 - para vaciar el compo
+switch ($_POST['tipo_area']) {
+	case 1:
+		$oTablaAreaGeneral->AreaGeneralSP($_POST['area_codigo'],$spnombre,$spparam); 
+		FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario_filtros","areagen_codigo","areagen_codigo","areagen_descripcion","","-- Todas ",$fila,$selec,1,'ArmaComboArea(2,this.value,"id_areaesp_combo","idAguarde")',$style="width:430px",false,false);
+		break;
+	case 2:
+		$oTablaAreaEspecifica->AreaEspecificaSP($_POST['area_codigo'],$spnombre,$spparam); 
+		FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario_filtros","areaesp_codigo","areaesp_codigo","areaesp_descripcion","","-- Todas ",$fila,$selec,1,'',$style="width:430px",false,false);
+		break;
+}
+//--------------------------------------------------------------------------------------------------------------------------------------------------------
+?>

@@ -1,0 +1,270 @@
+<?php
+//----------------------------------------------------------------------------------------- 
+class cLogMensajes
+{
+	var $conexion;
+
+	public function __construct($conexion)
+	{
+		$this->conexion = &$conexion;
+	}
+//-----------------------------------------------------------------------------------------
+//							 PUBLICAS	
+//----------------------------------------------------------------------------------------- 
+
+//----------------------------------------------------------------------------------------- 
+// Retorna una consulta con todos los usuarios que cumplan con las condiciones
+
+// Parámetros de Entrada:
+//		ArregloDatos: array asociativo con los filtros. Claves: usuarionombre, usuarioapellido, usuariocuit, usuarioemail
+
+// Retorna:
+//		numfilas,resultado: cantidad de filas y query de resultado
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+
+
+
+	function BuscarDatos ($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)
+	{
+		$sparam=array('pestadocod' =>0);
+		$sparam+=array('pestadodesc' =>0);
+		$sparam+=array('pestadonivel' =>0);
+		$sparam+=array('pcodigo_mensaje' =>"");
+		$sparam+=array('pdescripcion' =>"");
+		$sparam+=array('pnivel' =>"");
+
+		$sparam+=array('porderby' =>"codigo_mensaje");
+
+		if (isset ($ArregloDatos['codigo_mensaje']))
+		{
+			if ($ArregloDatos['codigo_mensaje']!="")
+			{	
+				$sparam['pcodigo_mensaje']= $ArregloDatos['codigo_mensaje'];
+				$sparam['pestadocod']= 1;
+			}
+		}
+		
+		if (isset ($ArregloDatos['descripcion']))
+		{
+			if ($ArregloDatos['descripcion']!="")
+			{	
+				$sparam['pdescripcion']= $ArregloDatos['descripcion'];
+				$sparam['pestadodesc']= 1;
+			}
+		}	
+		
+		if (isset ($ArregloDatos['nivel']))
+		{
+			if ($ArregloDatos['nivel']!="")
+			{	
+				$sparam['pnivel']= $ArregloDatos['nivel'];
+				$sparam['pestadonivel']= 1;
+			}
+		}	
+		
+		if (isset ($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+				$sparam['porderby']= $ArregloDatos['orderby'];
+		}	
+		
+		$spnombre="sel_log_mensajes";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar el Log Mensaje.";
+			$errormail="Error al buscar el Log Mensaje ".$errno;
+			return false;
+		}
+
+		return true;
+	}
+
+
+
+	function Insertar ($ArregloDatos, &$error, &$errormail, &$codigoinsertado)
+	{
+		if (!$this->BuscarDatos ($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+			return false;
+		
+		if ($numfilas==1)
+		{
+			$error="Error, el Log Mensaje ya se encuentra en la tabla de LogMensajes. ";
+			$errormail="Error, el Log Mensaje ya se encuentra en la tabla de LogMensajes. ";
+			return false;
+		}
+		
+		$spnombre="ins_log_mensajes";
+		$sparam=array(
+			'pcodigo_mensaje'=> $ArregloDatos['codigo_mensaje'],
+			'pdescripcion'=> $ArregloDatos['descripcion'],
+			'pnivel'=> $ArregloDatos['nivel'],
+			'pultmodusuario'=> $_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+			);
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al insertar el Log Mensaje.";
+			$errormail="Error al insertar el Log Mensaje ".$errno;
+			return false;
+		}
+		$codigoinsertado=$this->conexion->UltimoCodigoInsertado();
+		return true;
+	}
+
+
+	function Modificar ($ArregloDatos, &$error, &$errormail)
+	{
+		$spnombre="upd_log_mensajes_xcodigo_mensaje";
+		$sparam=array(
+			'pdescripcion'=> $ArregloDatos['descripcion'],
+			'pnivel'=> $ArregloDatos['nivel'],
+			'pultmodusuario'=> $_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s"),
+			'pcodigo_mensaje'=> $ArregloDatos['codigo_mensaje']
+			);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al modificar el Log Mensaje.";
+			$errormail="Error al modificar el Log Mensaje ".$errno;
+			return false;
+		}
+		return true;
+	}
+
+	function Eliminar ($ArregloDatos, &$error, &$errormail)
+	{
+		if (!isset ($ArregloDatos['codigo_mensaje']) || ($ArregloDatos['codigo_mensaje']==""))
+		{
+			$error="Error Código de Log Mensaje Inexistente.";
+			$errormail="Error Código de Log Mensaje Inexistente.";
+			return false;
+		}
+		
+		if (!$this->BuscarDatos ($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+			return false;
+		
+		if ($numfilas!=1)
+		{
+			$error="Error Código de Log Mensaje Inexistente.";
+			$errormail="Error Código de Log Mensaje Inexistente. ";
+			return false;
+		}
+		$spnombre="del_log_mensajes_xcodigo_mensaje";
+		$sparam=array(
+			'pcodigo_mensaje'=>$ArregloDatos['codigo_mensaje'] 
+			);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al Eliminar el Log Mensaje.";
+			$errormail="Error al Eliminar el Log Mensaje ".$errno;
+			return false;
+		}
+		return true;
+	}
+
+
+
+
+	function VerificarExistencia ($palabrabuscar,$textoprincipal,$carpetas,&$error,&$errormail,&$encontrado,&$texto)
+		{			
+			$encontrado=false;
+			$texto="";
+			if ($textoprincipal!="")
+				$texto.="<span class='textoTablaDato'>".$textoprincipal."</span><br>";
+			foreach ($carpetas as $datos)
+			{
+				if (is_dir($datos))
+				{
+					$primeroencontradocarpeta=0;
+					$archivosdir=array();
+					chdir ($datos);
+					
+					if ($dh = opendir($datos)) 
+					{
+						while (($file = readdir($dh)) !== false) 
+						{
+							if($file!='.' && $file!='..' && array_pop(explode('.', $file))=="dhtml")
+								$archivosdir[]=$file;
+						} // fin while
+						closedir($dh);
+					}
+					natcasesort($archivosdir);
+					foreach ($archivosdir as $file)
+					{
+						$Textoarchivofile=file_get_contents($file,0);
+						$poslines = strpos($Textoarchivofile,$palabrabuscar);
+						
+						if ($poslines!="")
+						{	
+							$lineacodigo=file($file);
+							$comillasanteriores=$poslines-1;
+							$ok=false;
+							if (($Textoarchivofile[$comillasanteriores]=='"') || ($Textoarchivofile[$comillasanteriores]=="'"))
+							{	
+								$comilla=$Textoarchivofile[$comillasanteriores];
+								$cantidadletras=strlen($palabrabuscar);
+								$comillasposteriores=$poslines+$cantidadletras;
+								if ($Textoarchivofile[$comillasposteriores]==$comilla)
+									$ok=true;
+							}	
+							if ($ok)
+							{
+								for($i=1;$i<count($lineacodigo);$i++){
+									
+									if (strpos($lineacodigo[$i],$palabrabuscar))
+									{
+										$i++;
+										if(!$primeroencontradocarpeta)
+										{
+											$texto.="<br><span class='negrita'>".$datos."</span><br><br>";
+											$primeroencontradocarpeta=1;
+										}	
+										$texto.="<span class='textoEtiquetaClave'>'".$file."'</span> en la linea: <span class='textoEtiquetaClave'>".$i."</span><br>";
+										$encontrado=true;
+									}
+								}
+							}
+								
+						}
+						
+						
+					}
+					$texto.="<br>";	
+				}	
+			}	
+			return true;
+
+		}
+		
+		
+	function TraerTablas($bd,&$error,&$resultado) 
+	{
+		$sparam =array("pbd"=>$bd);
+		$spnombre="show_tables";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al Buscar Todas las Tablas.";
+			$errormail="Error al Buscar Todas las Tablas ".$errno;
+			return false;
+		}
+		return true;
+	}	
+	
+	
+	function TraerCampos($tabla,&$error,&$resultado) 
+	{
+		$sparam =array("tabla"=>$tabla);
+		$spnombre="buscar_campos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al Buscar Todos los campos de la Tabla '".$tabla."'";
+			return false;
+		}
+		return true;
+	}	
+		
+		
+}//FIN CLASE
+
+?>

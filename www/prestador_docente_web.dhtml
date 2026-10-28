@@ -1,0 +1,70 @@
+<?php 
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,true); // Inicia session y borra todo
+
+// ver constantes definidas	
+// print_r(get_defined_constants()); 
+
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados_Inscripcion($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+
+?>
+<SCRIPT LANGUAGE="JavaScript" type="text/javascript">
+function ValidarJS(formulario) 
+{
+	if (formulario.usuariocuit.value=="" || !ValidarContenido(formulario.usuariocuit.value,"CUIT"))
+	{
+		alert("El CUIT / CUIL / CDI no es valido");
+		formulario.usuariocuit.focus();
+		return false;
+	}
+	else if (formulario.usuarioclave.value=="")
+	{
+		alert("Debe ingresar su contrasena");
+		formulario.usuarioclave.focus();
+		return false;
+	}
+	else
+		return true;
+}
+</script>
+
+<form name="formulario" action="prestador_valida_ingreso.dhtml" method="post">
+<br><br>
+<div align='center'>
+	<div class="textoEtiqueta" style="margin-top:15px; font-weight:bold; color: #000000; align="center""> Ingreso del Prestador Docente </div><br>
+
+<table width="300"  border="0" cellpadding="2" cellspacing="3" class="textoTablaDato">
+  <tr>
+	<td width="45%" class="colorLineaMenuIzq">&nbsp;</td>
+	<td width="55%" align="center" class="colorTitulosGrupo"><span class="textoIngresoSistema">Ingreso al Sistema<br></span></td>
+  </tr>
+  <tr>
+	<td align="left" class="textoEtiqueta">CUIT / CUIL / CDI</td>
+	<td align="center" class="colorFondoSeleccion"><input name="usuariocuit" type="text" class="textoInput" style="text-align:left" size="12" maxlength="11" ><div style='font-size: 3px;'>&nbsp;</div></td>
+  </tr>  
+    <tr>
+	<td align="left" class="textoEtiqueta">Clave</td>
+	<td align="center" class="colorFondoSeleccion"><input name="usuarioclave" type="password" class="textoInput" style="text-align:left" size="12" maxlength="12"><div style='font-size: 3px;'>&nbsp;</div></td>
+  </tr>  
+</table>
+<br>
+<input type="submit" name="botoningresar" class="botones" value="Conectar" onClick="return ValidarJS(formulario)">
+<br><br><a  class="textoTablaDato linkFondoBlanco" href="docente_olvidopass.dhtml">Olvid&eacute; mi contrase&ntilde;a</a>
+</div>
+</form>
+<?php $oEncabezados->PieMenuEmergente(); ?>

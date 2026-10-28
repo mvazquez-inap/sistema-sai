@@ -1,0 +1,69 @@
+**************************
+ Image_Canvas - Changelog
+**************************
+Version 0.3.1 [2007-Jun-22] - Jesper Veggerby <pear.nosey@veggerby.dk>
+    * Modified GD canvas addText() method with TTF fonts - (x, y) parameters now specify the absolute lower-left corner of the text (if angle is 0) instead of the baseline of the first letter, making texts appear incorrectly. This however require fonts to have a steady baseline, like fx. Arial, Verdana, etc. unlike Comic
+    * Fixed Image_Canvas_PDF to display correctly
+    * Fixed Request #7285 "UTF-8 in SVGs"
+    * Fixed Bug #7454 "Vertical axis title is shifted 180 degrees between SVG and PNG output"
+    * Fixed Bug #8488 "wrong variable name" (thanks to troehr at php dot net)
+    * Fixed Bug #8556 "SVG.php contains typo" (thanks to troehr at php dot net)
+    * Fixed Bug #8776 "Fatal error: Call to undefined function: imageantialias()"
+    * Fixed Bug #9070 "factory method causes PHP error if no GD" (thanks to troehr at php dot net)
+    * Fixed Bug #9176 "UTF-8 in SVGs does not work (patch included)" (thanks to troehr at php dot net)
+    * Fixed Bug #10236 "Pie Chart Shading Error when datapoint has 0 value" (thanks to peter_wake at hotmail dot com)
+    * Fixed Request #11402 "Implement Image_Canvas_SVG::getData()" (thanks to troehr at php dot net)
+
+Version 0.3.0 [2006-Mar-02] - Jesper Veggerby <pear.nosey@veggerby.dk>
+    * Added clipping (GD uses Image_Canvas method involving ImageCopy(), until native support is available throught existing GD functions gdImageSetClip())
+    * Fixed the way SVG rotates text to now use transform
+    * Added public reset() method to Image_Canvas
+    * Fixed Bug #6406 "method _mapFont missing"
+    * Fixed Request #6632 "Style element assigned with = instead of :"
+    * Fixed Bug #6769 "ImageMap.php does not check for boolean false with strpos"
+    
+Version 0.2.4 [2005-Nov-08] - Jesper Veggerby <pear.nosey@veggerby.dk>
+    * Fixed a bug causing in Image_Canvas_SVG causing grouping to give a "Missing argument..." error (this rendered Image_Graph using SVG broken)
+    * Fixed a bug causing rectangles not being displayed, if points were given in the wrong order
+
+Version 0.2.3 [2005-Oct-28] - Jesper Veggerby <pear.nosey@veggerby.dk>
+    * Fixed Bug #5786 "Error in producing SVG"
+    * Fixed Bug #5805 "Canvas\Fonts\fontmap.txt is missing"    
+    
+Version 0.2.2 [2005-Sep-30] - Jesper Veggerby <pear.nosey@veggerby.dk>
+    * Added 'border' and 'cssclass' option to Image_Canvas_GD::toHtml()
+    * Added image support when using SVG (using embedded base64 encoding)
+    * Added link ("imagemap") support with SVG
+    * Made image loading in GD canvas use getimagesize() to determine type instead of relying on extension
+    * Fixed bug where 'htmltags' were not transferred to image mapping of polygon vertices
+    * Fixed bug in SVG where pie slices with some specific angles curled the wrong way
+    * Fixed bug in Image_Canvas_ImageMap::show() and Image_Canvas_ImageMap::save() calling non-existing method _toHtml()
+    * Fixed bug in Image_Canvas_SVG::polygon() not showing polygon if last point was a spline - addSpline()
+    * Fixed bug causing line ends not to show if color not exlicitly defined
+    * Fixed Bug #5066 "Reference Notices" (from Image_Graph)
+    * Fixed bug #5175 "Unable to define IMAGE_GRAPH_SYSTEM_FONT_PATH outside of Config.php"
+    * Fixed Bug #5325 "Image/Color.php compatibility with old PHP versions"
+
+Version 0.2.1 [2005-Aug-08] - Jesper Veggerby <pear.nosey@veggerby.dk>
+    * Added Request #4997 "HTML attributes and JS actions in imagemaps" - using 'htmltags' entry
+    * Fixed bug with fonts, now it's not required for the font to have a name
+    * Changed examples to use require_once instead of include/require
+    
+Version 0.2.0 [2005-Aug-01] - Jesper Veggerby <pear.nosey@veggerby.dk>
+    * First released package in PEAR
+    * Added support for image maps - a separate canvas (Image_Canvas_ImageMap) has been created to accomplish this
+    * Added support for antialiasing images when using GD (both using native GD method and Image_Graph own implementation)
+    * Added support for multi line texts    
+    * Added a toHtml() method for to easy facilitate including canvas in HTML (this includes the associated image map, if any)
+    * Added line ends - only supported in GD canvases currently and not on polygons (yet!)
+    
+Version 0.1.2 [2005-Jul-21] - Jesper Veggerby <pear.nosey@veggerby.dk>
+    * Changed write() to addText()
+    * Split done() into show() and save()
+    * Changed all methods with more than 1 parameter to use hashed array as parameters
+
+Version 0.1.1 [2005-Mar-21] - Jesper Veggerby <pear.nosey@veggerby.dk>
+    * Renamed package to Image_Canvas
+    
+Version 0.1.0 [2005-Feb-14] - Jesper Veggerby <pear.nosey@veggerby.dk>
+    * First "stand-alone" release ("outside" Image_Graph)

@@ -1,0 +1,156 @@
+<?php require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+//----------------------------------------------------------------------------------------- 
+?>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 TRANSITIONAL//EN"> 
+<html>
+<head>
+<title>Errores al certificar comisión</title>
+<link rel="stylesheet" type="text/css" href="estilos.css">
+</head>
+<body>
+<?php
+//-----------------------------------------------------------------------------
+function MostrarCursando($conexion, $array_datos) {
+	
+	
+	$opciones=array(
+//		"numPagina"=>isset($_GET['pagina_1'])?$_GET['pagina_1']:1,
+//		"NombrePaginaQuery"=>"pagina_1",
+//		"FormularioBotonera"=>"formulario_1",		
+		"FilasPagina"=>count($array_datos)		
+	);
+
+/*	
+	if (isset($_GET['pagina_1']))	{
+		$querystring=FuncionesPHPLocal::ArmarQueryString("pagina_1","",false);	
+		$opciones['QueryString']=$querystring;
+	}
+*/	
+
+	$array_datos_mostrar=array();
+	$oPersonas = new cPersonas($conexion);
+	foreach($array_datos as $i=>$pers_codigo) {
+		$oPersonas->TraerDatosPersona_xCod($pers_codigo,$datos_personales,$es_modif);
+		$array_datos_mostrar[]= array('pers_cuilt'=>$datos_personales['pers_cuilt'],
+									  'pers_codigo'=>$pers_codigo,
+									  'pers_apellido'=>htmlspecialchars($datos_personales['pers_apellido'],ENT_QUOTES),
+									  'pers_nombre'=>htmlspecialchars($datos_personales['pers_nombre'],ENT_QUOTES));
+	}				
+
+	$oGrilla = new cGrilla($opciones);
+	$oGrilla->SetearTituloGrilla('Personas Inscriptas en la comisión sin evaluación');	
+	$oGrilla->SetearAnchoGrilla('90%');
+	// Sacar despues de prueba		
+	$miColumna1 = $oGrilla->AddColumna('txt');
+	$oGrilla->Setear('titulo_columna',$miColumna1,'CUIT/CUIL/CDI');
+	$oGrilla->Setear('campo_grilla',$miColumna1,'pers_cuilt');
+	$oGrilla->Setear('align_columna',$miColumna1,'left');
+
+	$miColumna3 = $oGrilla->AddColumna('txt');
+	$oGrilla->Setear('titulo_columna',$miColumna3,'Apellido');
+	$oGrilla->Setear('campo_grilla',$miColumna3,'pers_apellido');
+	$oGrilla->Setear('align_columna',$miColumna3,'left');
+
+	$miColumna2 = $oGrilla->AddColumna('txt');
+	$oGrilla->Setear('titulo_columna',$miColumna2,'Nombre');
+	$oGrilla->Setear('campo_grilla',$miColumna2,'pers_nombre');
+	$oGrilla->Setear('align_columna',$miColumna2,'left');
+
+	if (!$oGrilla->CargarGrilla($array_datos_mostrar))
+		return false;
+		
+	$oGrilla->MostrarGrilla();
+
+	return true;
+} 		
+//-----------------------------------------------------------------------------
+function MostrarAcreditados($conexion,$array_datos) {
+
+	$opciones=array(
+//		"numPagina"=>isset($_GET['pagina_2'])?$_GET['pagina_2']:1,
+//		"NombrePaginaQuery"=>"pagina_2",
+//		"FormularioBotonera"=>"formulario_2",		
+		"FilasPagina"=>count($array_datos)
+	);
+	
+/*	if (isset($_GET['pagina_2']))	{
+		$querystring=FuncionesPHPLocal::ArmarQueryString("pagina_2","",false);	
+		$opciones['QueryString']=$querystring;
+	}
+*/
+
+	$oPersonas = new cPersonas($conexion);
+	$array_datos_mostrar = array();
+	foreach($array_datos as $i=>$fila) {
+
+		$oPersonas->TraerDatosPersona_xCod($fila['pers_codigo'],$datos_personales,$es_modif);
+		$array_datos_mostrar[]= array('pers_cuilt'=>$datos_personales['pers_cuilt'],
+									  'pers_codigo'=>$fila['pers_codigo'],
+									  'pers_apellido'=>htmlspecialchars($datos_personales['pers_apellido'],ENT_QUOTES),
+									  'pers_nombre'=>htmlspecialchars($datos_personales['pers_nombre'],ENT_QUOTES),
+									  'tipo_act_descripcion'=>$fila['tipoact_descripcion']
+									  );
+	}				
+	
+	$oGrilla = new cGrilla($opciones);
+	$oGrilla->SetearTituloGrilla('Personas que tienen acreditada la actividad');	
+	$oGrilla->SetearAnchoGrilla('90%');
+			
+	$miColumna1 = $oGrilla->AddColumna('txt');
+	$oGrilla->Setear('titulo_columna',$miColumna1,'CUIT/CUIL/CDI');
+	$oGrilla->Setear('campo_grilla',$miColumna1,'pers_cuilt');
+	$oGrilla->Setear('align_columna',$miColumna1,'left');
+
+	$miColumna3 = $oGrilla->AddColumna('txt');
+	$oGrilla->Setear('titulo_columna',$miColumna3,'Apellido');
+	$oGrilla->Setear('campo_grilla',$miColumna3,'pers_apellido');
+	$oGrilla->Setear('align_columna',$miColumna3,'left');
+
+	$miColumna2 = $oGrilla->AddColumna('txt');
+	$oGrilla->Setear('titulo_columna',$miColumna2,'Nombre');
+	$oGrilla->Setear('campo_grilla',$miColumna2,'pers_nombre');
+	$oGrilla->Setear('align_columna',$miColumna2,'left');
+
+	$miColumna4 = $oGrilla->AddColumna('txt');
+	$oGrilla->Setear('titulo_columna',$miColumna4,'Tipo Acreditado');
+	$oGrilla->Setear('campo_grilla',$miColumna4,'tipo_act_descripcion');
+	$oGrilla->Setear('align_columna',$miColumna4,'left');
+
+	if (!$oGrilla->CargarGrilla($array_datos_mostrar))
+		return false;
+
+	
+	$oGrilla->MostrarGrilla();
+
+	return true;
+} 		
+//-----------------------------------------------------------------------------
+$oComision= new cComision($conexion);
+$oComision->ObtenerErroresCertificacion($_GET['comi_codigo'],$array_errores, $array_tipo_errores);
+
+echo "<br>";
+if(isset($array_errores['inscriptos_cursando'])) {						
+	MostrarCursando($conexion,$array_errores['inscriptos_cursando']);
+}
+echo "<br><br><br>";	
+if(isset($array_errores['inscriptos_ya_acreditados'])) {
+	MostrarAcreditados($conexion,$array_errores['inscriptos_ya_acreditados']);
+}
+?>	
+</body>
+</html>

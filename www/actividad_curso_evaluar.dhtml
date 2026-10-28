@@ -1,0 +1,204 @@
+<?php require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+
+$oActividadCursoJurisdiccional = new cActividadCursoJurisdiccional($conexion);
+//-----------------------------------------------------------------------------------------------
+function MostrarGrillaSeleccion($conexion) {
+
+	$oActividadCursoJurisdiccional = new cActividadCursoJurisdiccional($conexion);
+	$ArregloDatos['actcur_estado']=ACTCURSOAPROBADO;
+	$ArregloDatos['jurisdid_inap']=$_SESSION['jurisdid_inap'];
+	$ArregloDatos['orderby']='act_nombre';
+			
+	$result = true;
+	if(!$oActividadCursoJurisdiccional->BuscarActividadCurso($ArregloDatos,$numfilas,$result,$error,$errormail)){
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando datos a mostrar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		$result = false;			
+	}
+
+	if(!$result) {
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar actividades. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		$error=true;											
+	} else {
+	
+		$opciones=array(
+			"numPagina"=>isset($_GET['pagina'])?$_GET['pagina']:1,
+			"FilasPagina"=>$numfilas,
+			"NombrePaginaQuery"=>"pagina"
+		);				
+		
+		$oGrilla = new cGrilla($opciones);
+		$oGrilla->SetearTituloGrilla('Actividades a Evaluar ');
+		$oGrilla->SetearAnchoGrilla('90%');
+
+		$miColumna0 = $oGrilla->AddColumna('txt');
+		$oGrilla->Setear('titulo_columna',$miColumna0,'Código');
+		$oGrilla->Setear('campo_grilla',$miColumna0,'act_codinap');
+		$oGrilla->Setear('align_columna',$miColumna0,'left');
+	
+		$miColumna1 = $oGrilla->AddColumna('txt');
+		$oGrilla->Setear('titulo_columna',$miColumna1,'Nombre Actividad');
+		$oGrilla->Setear('campo_grilla',$miColumna1,'act_nombre');
+		$oGrilla->Setear('align_columna',$miColumna1,'left');
+
+/*		$miColumna2 = $oGrilla->AddColumna('linkimg');
+		$oGrilla->Setear('titulo_columna',$miColumna2,'Aprobar');
+		$oGrilla->Setear('ancho_columna',$miColumna2,'60');
+		$oGrilla->Setear('url',$miColumna2,'actividad_curso_evaluar.dhtml');
+		$oGrilla->Setear('url_ancla',$miColumna2,'Edicion');
+		$oGrilla->Setear('imagen',$miColumna2,'images/aprobar.gif');
+		$oGrilla->Setear('altImagen',$miColumna2,'Aprobar');						
+		$oGrilla->AddParametrosURL($miColumna2,"act_codigo","act_codigo");
+		$oGrilla->AddParametrosURL($miColumna2,"operacion","A","cte");
+
+		$miColumna3 = $oGrilla->AddColumna('linkimg');
+		$oGrilla->Setear('titulo_columna',$miColumna3,'Rechazar');
+		$oGrilla->Setear('ancho_columna',$miColumna3,'60');
+		$oGrilla->Setear('url',$miColumna3,'actividad_curso_evaluar.dhtml');
+		$oGrilla->Setear('imagen',$miColumna3,'images/rechazar.gif');
+		$oGrilla->Setear('altImagen',$miColumna3,'Rechazar');
+		$oGrilla->AddParametrosURL($miColumna3,"act_codigo","act_codigo");
+		$oGrilla->AddParametrosURL($miColumna3,"operacion","R","cte");
+*/
+		$miColumna2 = $oGrilla->AddColumna('linkimg');
+		$oGrilla->Setear('titulo_columna',$miColumna2,'Seleccionar');
+		$oGrilla->Setear('ancho_columna',$miColumna2,'60');
+		$oGrilla->Setear('url',$miColumna2,'actividad_curso_evaluar.dhtml');
+		$oGrilla->Setear('url_ancla',$miColumna2,'Edicion');
+		$oGrilla->Setear('imagen',$miColumna2,'images/seleccionar.jpg');
+		$oGrilla->Setear('altImagen',$miColumna2,'Seleccionar');						
+		$oGrilla->AddParametrosURL($miColumna2,"act_codigo","act_codigo");
+		$oGrilla->AddParametrosURL($miColumna2,"operacion","S","cte");
+
+		if ($oGrilla->CargarGrilla($result)) {
+			$oGrilla->MostrarGrilla();					
+		} else {
+			$error=true;					
+			$txt_sys_mail = "Error Grilla='".$oGrilla->GetError();
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al mostrar actividades.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+
+		}		
+	}		
+	
+	return $result;
+}
+//-----------------------------------------------------------------------------------------------
+// Inicio de pantalla
+//-------------------
+$result = true;
+// Se define la acción
+if (!isset($_GET['operacion'])) {
+	$leyenda_operacion = "";
+	$boton_operacion = "";		
+	$operacion = "";
+} else {
+	switch ($_GET['operacion']) {		
+/*	case "A" :
+			$leyenda_operacion = "Aprobar";		
+			$boton_operacion = "Aprobar";		
+			$operacion = "A";				
+			break;
+	case "R" :
+			$leyenda_operacion = "Rechazar";		
+			$boton_operacion = "Rechazar";		
+			$operacion = "R";				
+			break;
+*/	case "S" :
+			$operacion = "E";				
+			break;
+
+	default:
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error de operación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		$result=false;
+	}
+}
+//------- GRILLA VALORES A MODIFICAR 
+if ($result)  { ?>
+	<table width="100%" class="textoTablaDato">
+		<tr> 
+			<td> 
+			<?php	// Muestra Actividades que son factibles de evaluacion			 	
+				if(!MostrarGrillaSeleccion($conexion))
+					$result=false;	
+			?>		
+			</td>
+		</tr>	
+	</table>	
+	<br>
+	<a name="Edicion"></a>
+<?php	
+} // result
+
+$ok = false;
+if (/*$operacion == "A" || $operacion == "R" || */$operacion == "E") {	// EVALUACIÓN
+	
+	if(!isset($_GET['act_codigo'])) {
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No se ha encontrado la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+	} else {
+
+		if ($oActividadCursoJurisdiccional->TienePermisoEvaluarExpediente($_GET['act_codigo'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap'] )) {
+			$oActividadCursoJurisdiccional->TraerDatosActividadCursoJurisdiccional($_GET['act_codigo'],$filacurso,$es_modif);
+			$ok = true;
+		}
+	}
+
+	if ($ok) { 
+	
+		$destino_formulario_upd="actividad_curso_evaluar_upd.dhtml"; 
+		// Si bien podia estar todo en el mismo formulario lo dejo en otro para que no haga post de datos innecesarios 
+?>	
+		<form action="#" method="post" name="formulario_mostrar">
+<?php		if(!$oActividadCursoJurisdiccional->MostrarDatosActividadCursoJurisdiccional($conexion,"V",$filacurso)){ 
+		 	$ok=false;
+		} 
+?>		</form>		
+		<br> 
+		<?php // Muestro los prestadores docentes de la actividad		
+		$oActividadCursoJurisdiccional->MostrarPrestadoresActividad($conexion,$filacurso['actividad']['act_codigo']); 
+		?>
+		<br>
+<?php		if($ok) { 
+
+			// Muestro Historial (como ya estan en el array mando el array)
+			$oActividadCursoJurisdiccional->MostrarHistorialEvaluacion($conexion,$filacurso); 
+?>
+			<form action="<?php echo $destino_formulario_upd ?>" method="post" name="formulario">
+				<table width="95%" class="textoTablaDato" align="center">
+					<tr>
+						<td valign="top"  width="25%" class='textoEtiqueta'>Motivo/Aclaración</td>
+						<td valign="top" class="textoEtiquetaDatoResaltado">  
+							<textarea cols="100" rows="3" class='textoInput' name="aclaracion_mail" style="width:400px"></textarea>
+						</td>
+					</tr>
+					<tr align="center">
+						<td colspan="2" valign="middle">
+							<input type="submit" name="boton_aprueba" class="botones" value="Aprobar" onClick="return confirm('¿Está seguro que desea Aprobar la Actividad?') &amp;&amp; ValidarFormActividadCursoEvaluar(formulario);">
+							<input type="submit" name="boton_rechaza" class="botones" value="Rechazar" onClick="return confirm('¿Está seguro que desea Rechazar la Actividad?') &amp;&amp; ValidarFormActividadCursoEvaluar(formulario);">
+							<input type="hidden" name="act_codigo" value="<?php echo ($es_modif)?htmlspecialchars($filacurso['actividad']['act_codigo'],ENT_QUOTES):""; ?>"/>
+						</td>
+					</tr>	
+				</table>
+			</form>
+			<br><br>
+	<?php } // ok
+	} // ok
+}
+$oEncabezados->PieMenuEmergente(); 
+?>

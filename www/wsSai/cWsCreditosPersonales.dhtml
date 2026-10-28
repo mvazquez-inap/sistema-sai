@@ -1,0 +1,336 @@
+<?php 
+//-----------------------------------------------------------------------------------------------------	
+// WebService de SAI
+//-----------------------------------------------------------------------------------------------------	
+// WebService => Créditos Personales (abalados por disposición).
+//-----------------------------------------------------------------------------------------------------	
+// - Implementa la interface del wsCreditosPersonales.php 
+//-----------------------------------------------------------------------------------------------------	
+class cWsCreditosPersonales {
+
+	var $conexion;
+	
+	private $error;				   // codigo de error
+	private $error_msg_detalle;    // amplia el detalle del error (según el caso)
+	
+	// Constantes de error	
+	const WS_NO_ERROR						=0;
+	const WS_ERROR							=-1;	const WS_ERROR_CREDITOS_OBT				=-2;
+	const WS_ERROR_CREDITOS_OBT_INT			=-3;	const WS_ERROR_ACT_CERTIFICADAS			=-4;
+	const WS_ERROR_PARAMETRO_FORMATO		=-6;	const WS_ERROR_PARAMETRO_CUIT			=-7;	const WS_ERROR_PARAMETRO_FECHA			=-8;
+	
+	// Descripcion de los errores
+	private $cte_ERROR = array ( 	WS_ERROR_CREDITOS_OBT			 =>array ("descError"=>'Error al obtener los créditos del agente'),
+					      			WS_ERROR_CREDITOS_OBT_INT		 =>array ("descError"=>'Error al obtener los créditos del agente'),
+									WS_ERROR_ACT_CERTIFICADAS		 =>array ("descError"=>'Error al obtener las actividades certificadas del agente') ,
+									WS_ERROR_PARAMETRO_FORMATO		 =>array ("descError"=>'Error en el formato enviado'),  
+									WS_ERROR_PARAMETRO_FECHA		 =>array ("descError"=>'Error en la fecha enviada'),
+									WS_ERROR_PARAMETRO_CUIT		 	 =>array ("descError"=>'Error en el cuit enviado') ,
+									WS_ERROR_DATOSP_OBT 			 =>array ("descError"=>'Error al obtener los datos pesonales') 
+								);
+//-----------------------------------------------------------------------------------------------------	
+	function __construct(){
+		$this->conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+		$this->conexion->SeleccionBD(BASEDATOS);
+		FuncionesPHPLocal::CargarConstantes($this->conexion,array("roles"=>"si","sistema"=>SISTEMA));			
+				
+		$this->error=WS_NO_ERROR;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function __destruct() {	
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	public function getError() {
+		return $this->error;
+	} 
+//-----------------------------------------------------------------------------------------------------	
+	public function getErrorDetalle($cod_error="") {
+		
+		if ($cod_error!="") {
+			if (isset($this->cte_ERROR[$cod_error]))
+				return $this->cte_ERROR[$cod_error]['descError'];
+			else 
+				return "Error indefinido";	
+		} else {
+			if ($this->getError()==0)
+				return "No ocurrio error";	
+			else 
+				return $this->cte_ERROR[$this->getError()]['descError'];
+		}		
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	private function setErrorDetalle($error_detalle) {
+		$this->error_msg_detalle=$error_detalle;		
+	}
+//-----------------------------------------------------------------------------------------------------	
+	public function getErrorDescripcion() {
+		return $this->error_msg_detalle;
+	} 
+//-----------------------------------------------------------------------------------------------------	
+	private function setError($error,$error_detalle="") {
+		$this->error=$error;
+		
+		if (isset($error_detalle) && $error_detalle!="") 
+			$this->setErrorDetalle($error_detalle) ;
+		
+		return (WS_ERROR);
+	} 
+//-----------------------------------------------------------------------------------------------------	
+	private function validarParametros($param, &$param_validados) {
+
+		$param_validados=array();
+
+		// Cuit válido	
+		if (!FuncionesPHPLocal::ValidarContenido($this->conexion,$param['pers_cuilt'],"CUIT")) {
+			return ($this->setError(WS_ERROR_PARAMETRO_CUIT,"El CUIT ".$param['pers_cuilt']." no es válido"));
+		}
+		$param_validados["pers_cuilt"]=$param["pers_cuilt"];
+	
+		// Fecha desde válida
+		if ($param['fecha_inicio']!="" && !FuncionesPHPLocal::ValidarContenido($this->conexion,$param['fecha_inicio'],"FechaDDMMAAAA")) 
+			return ($this->setError(WS_ERROR_PARAMETRO_FECHA,"La fecha de realización (desde) ".$param['fecha_inicio']." no es válida"));
+		$param_validados["fecha_inicio"]=FuncionesPHPLocal::ConvertirFecha($param['fecha_inicio'],'dd/mm/aaaa','aaaa-mm-dd');
+		
+		// Fecha hasta válida
+		if ($param['fecha_fin']!="" && !FuncionesPHPLocal::ValidarContenido($this->conexion,$param['fecha_fin'],"FechaDDMMAAAA"))  
+			return ($this->setError(WS_ERROR_PARAMETRO_FECHA,"La fecha de realización (fin) ".$param['fecha_fin']." no es válida"));
+		$param_validados["fecha_fin"]=FuncionesPHPLocal::ConvertirFecha($param['fecha_fin'],'dd/mm/aaaa','aaaa-mm-dd');
+
+		// La fecha desde debe ser menor que la hasta
+		if ($param['fecha_inicio']!="" && ($param_validados["fecha_fin"]<$param_validados["fecha_inicio"]))  
+			return ($this->setError(WS_ERROR_PARAMETRO_FECHA,"La fecha de realización (fin) ".$param['fecha_fin']." no es menor que la fecha de realización (desde)". $param['fecha_inicio']));
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	public function obtenerCreditos($array_param,$formact_codigo="") {
+
+		$this->error=WS_NO_ERROR;
+
+		if ($this->validarParametros($array_param, $array_param_validados)===WS_ERROR) 
+			return WS_ERROR ;
+
+		switch ($formact_codigo) {
+			case 0:
+				$oActividad=new cActividad($this->conexion);				
+				break;
+			case FORMATOCURSO:
+				$oActividad=new cActividadCurso($this->conexion);				
+				break;
+			case FORMATOEXT:
+				$oActividad=new cActividadExternaPersona($this->conexion);
+				break;
+			case FORMATOAUTO:
+				$oActividad=new cActividadAutodesarrolloPersona($this->conexion);				
+				break;
+			default: 
+				$this->setError(WS_ERROR_PARAMETRO_FORMATO);	
+				return WS_ERROR ;
+				break;
+		}		
+		
+		$numfilas=0; 
+		$sparam=array(	'pers_cuilt'=>$array_param_validados['pers_cuilt'],
+						'fecha_inicio'=>$array_param_validados['fecha_inicio'], 
+						'fecha_fin'=>$array_param_validados['fecha_fin']
+						);				
+		
+		if(!$oActividad->CreditosActividad_porPersona($sparam, $numfilas, $resultCreditos, $error, $errormail))  { // error
+			$this->setError(WS_ERROR_CREDITOS_OBT);	
+			return WS_ERROR;
+		}
+
+		if ($numfilas!=1) { // error
+			$this->setError(WS_ERROR_CREDITOS_OBT_INT);	
+			return WS_ERROR;
+		}
+		$fila = mysqli_fetch_assoc($resultCreditos);
+
+		return $fila['total_creditos'];
+		
+	}
+//-----------------------------------------------------------------------------------------------------	
+	public function obtenerDatosPersonales($array_param) {
+	
+		$this->error=WS_NO_ERROR;		
+		
+		// Ver si se valida el cuit
+		if (!FuncionesPHPLocal::ValidarContenido($this->conexion,$array_param['pers_cuilt'],"CUIT")) {
+			return ($this->setError(WS_ERROR_PARAMETRO_CUIT,"El CUIT ".$param['pers_cuilt']." no es válido"));
+		}
+		$array_param_validados['pers_cuilt']=$array_param['pers_cuilt'];
+		
+		$numfilas=0; 
+		$sparam=array('pers_cuilt'=>$array_param_validados['pers_cuilt']);				
+		
+		$oPersonas = new cPersonas($this->conexion);		
+		if(!$oPersonas->TraerDatosPersona($sparam['pers_cuilt'],$resultPersona,$esta_persona)) {
+			$this->setError(WS_ERROR_DATOSP_OBT);	
+			return WS_ERROR;	
+		}
+
+		$domDoc = new DOMDocument('1.0','utf-8');
+		$root = $domDoc->createElementNS(NAMESPACE,'resultado');
+		$root->setAttributeNS('http://www.w3.org/2000/xmlns/' ,'xmlns:xsi', DIRWS.'datosPersona.xsd');
+		$domResultado = $domDoc->appendChild($root);
+
+		if ($esta_persona)
+		{
+			$domElementRegistro = $domDoc->createElement('persona');
+			$domRegistro = $domDoc->appendChild($domElementRegistro);
+					
+			$domElementAtributo = $domDoc->createElement('cuit');
+			$domTextNode = $domRegistro->appendChild($domElementAtributo);
+			
+			$domTextNodeValue = $domDoc->createTextNode(htmlspecialchars($resultPersona['pers_cuilt'],ENT_QUOTES));
+			$domTextNode->appendChild($domTextNodeValue);
+		
+			$domElementAtributo = $domDoc->createElement('nombres');
+			$domTextNode = $domRegistro->appendChild($domElementAtributo);
+			
+			$domTextNodeValue = $domDoc->createTextNode(htmlspecialchars($resultPersona['pers_nombre'],ENT_QUOTES));
+			$domTextNode->appendChild($domTextNodeValue);
+	
+			$domElementAtributo = $domDoc->createElement('apellido');
+			$domTextNode = $domRegistro->appendChild($domElementAtributo);
+			
+			$domTextNodeValue = $domDoc->createTextNode(htmlspecialchars($resultPersona['pers_apellido'],ENT_QUOTES));
+			$domTextNode->appendChild($domTextNodeValue);
+		
+			$domElementAtributo = $domDoc->createElement('sexo');
+			$domTextNode = $domRegistro->appendChild($domElementAtributo);
+			
+			$domTextNodeValue = $domDoc->createTextNode(htmlspecialchars($resultPersona['pers_sexo'],ENT_QUOTES));
+			$domTextNode->appendChild($domTextNodeValue);
+				
+		}
+		
+		$domResultado = $domResultado->appendChild($domRegistro);
+		$domDoc->formatOutput = true;
+		$domDocXML = $domDoc->saveXML();
+		
+		return $domDocXML;
+		
+	}
+//-----------------------------------------------------------------------------------------------------	
+	public function obtenerDetalleCreditos($array_param,$formact_codigo="") {
+	
+		$this->error=WS_NO_ERROR;
+				
+		if ($this->validarParametros($array_param, $array_param_validados)===WS_ERROR) 
+			return WS_ERROR;
+	
+		switch ($formact_codigo) {
+			case  0: 
+				$oActividad=new cActividad($this->conexion);				
+				break;
+			case FORMATOCURSO:
+				$oActividad=new cActividadCurso($this->conexion);
+				break;
+			case FORMATOEXT:				
+				$oActividad=new cActividadExternaPersona($this->conexion);		
+				break;
+			case FORMATOAUTO:
+				$oActividad=new cActividadAutodesarrolloPersona($this->conexion);				
+				break;
+			default: 
+				$this->setError(WS_ERROR_PARAMETRO_FORMATO);	
+				return WS_ERROR ;
+				break;
+		}	
+
+		$sparam=array(	'pers_cuilt'=>$array_param_validados['pers_cuilt'],
+						'fecha_inicio'=>$array_param_validados['fecha_inicio'], 
+						'fecha_fin'=>$array_param_validados['fecha_fin'],
+						'orderby'=>'fecha_fin desc');
+
+		$numfilas=0;	
+		if(!$oActividad->ActividadCertificada_porPersona($sparam, $numfilas, $resultActividadCerfificada, $error, $errormail))   { // error
+			$this->setError(WS_ERROR_ACT_CERTIFICADAS);	
+			return WS_ERROR;
+		}
+
+		// Se arma el XML
+		$domDoc = new DOMDocument('1.0','utf-8');
+		$root = $domDoc->createElementNS(NAMESPACE,'resultado');
+		$root->setAttributeNS('http://www.w3.org/2000/xmlns/' ,'xmlns:xsi', DIRWS.'actividadCertificada.xsd');
+		$domResultado = $domDoc->appendChild($root);
+		$domElementActividades = $domDoc->createElement('actividades_certificadas');
+		$domElementColeccionRegistros = $domDoc->appendChild($domElementActividades);
+						
+		while ($fila = mysqli_fetch_assoc($resultActividadCerfificada))
+		{
+			$domElementRegistro = $domDoc->createElement('actividad_certificada');
+			$domRegistro = $domElementColeccionRegistros->appendChild($domElementRegistro);
+			
+			$domElementAtributo = $domDoc->createElement('act_codinap');
+			$domTextNode = $domRegistro->appendChild($domElementAtributo);
+			
+			$domTextNodeValue = $domDoc->createTextNode(htmlspecialchars($fila['act_codinap'],ENT_QUOTES));
+			$domTextNode->appendChild($domTextNodeValue);
+
+
+			$domElementAtributo = $domDoc->createElement('act_nombre');
+			$domTextNode = $domRegistro->appendChild($domElementAtributo);
+			
+			$domTextNodeValue = $domDoc->createTextNode(htmlspecialchars($fila['act_nombre'],ENT_QUOTES));
+			$domTextNode->appendChild($domTextNodeValue);
+
+
+			$domElementAtributo = $domDoc->createElement('tipoact_codigo');
+			$domTextNode = $domRegistro->appendChild($domElementAtributo);
+			
+			$domTextNodeValue = $domDoc->createTextNode(htmlspecialchars($fila['tipoact_codigo'],ENT_QUOTES));
+			$domTextNode->appendChild($domTextNodeValue);
+
+
+			$domElementAtributo = $domDoc->createElement('total_creditos');
+			$domTextNode = $domRegistro->appendChild($domElementAtributo);
+			
+			$domTextNodeValue = $domDoc->createTextNode(htmlspecialchars($fila['total_creditos'],ENT_QUOTES));
+			$domTextNode->appendChild($domTextNodeValue);
+
+
+			$domElementAtributo = $domDoc->createElement('fecha_inicio');
+			$domTextNode = $domRegistro->appendChild($domElementAtributo);
+			
+			$domTextNodeValue = $domDoc->createTextNode(htmlspecialchars($fila['fecha_inicio'],ENT_QUOTES));
+			$domTextNode->appendChild($domTextNodeValue);
+
+			
+			$domElementAtributo = $domDoc->createElement('fecha_fin');
+			$domTextNode = $domRegistro->appendChild($domElementAtributo);
+			
+			$domTextNodeValue = $domDoc->createTextNode(htmlspecialchars($fila['fecha_fin'],ENT_QUOTES));
+			$domTextNode->appendChild($domTextNodeValue);
+			
+			
+			$domElementAtributo = $domDoc->createElement('exp_numero');
+			$domTextNode = $domRegistro->appendChild($domElementAtributo);
+			
+			$domTextNodeValue = $domDoc->createTextNode(htmlspecialchars($fila['exp_numero'],ENT_QUOTES));
+			$domTextNode->appendChild($domTextNodeValue);
+
+
+			$domElementAtributo = $domDoc->createElement('dis_numero');
+			$domTextNode = $domRegistro->appendChild($domElementAtributo);
+			
+			$domTextNodeValue = $domDoc->createTextNode(htmlspecialchars($fila['dis_numero'],ENT_QUOTES));
+			$domTextNode->appendChild($domTextNodeValue);
+
+
+			$domElementAtributo = $domDoc->createElement('dis_fecha');
+			$domTextNode = $domRegistro->appendChild($domElementAtributo);
+			
+			$domTextNodeValue = $domDoc->createTextNode(htmlspecialchars($fila['dis_fecha'],ENT_QUOTES));
+			$domTextNode->appendChild($domTextNodeValue);
+		}
+		
+		$domResultado = $domResultado->appendChild($domElementColeccionRegistros);
+		$domDoc->formatOutput = true;
+		$domDocXML = $domDoc->saveXML();
+		
+		return $domDocXML;
+	}		
+}  // fin clase
+?>

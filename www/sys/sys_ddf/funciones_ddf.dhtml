@@ -1,0 +1,1635 @@
+<?php 
+require_once("SysONTIjurisdicciones2.dhtml");
+//----------------------------------------------------------------------------------------- 
+// Retorna: En caso de un password válido => True y 
+//											 msg_tipo ="OK" 
+//			En caso de un password válido => False y 
+//											 msg_tipo ="Descripcion de los errores detectados "
+//
+//----------------------------------------------------------------------------------------- 
+function ValidarNuevoPassword($clave,&$msg_err) {
+
+$valido = true;
+$msg_err = "";
+
+// Longitud de la clave
+if (strlen($clave)<7) {
+	$msg_err="debe ser de longitud mayor o igual a 7";
+	$valido = false;
+}
+
+// Ultimo error con "y" y "." final. 
+// No comience o termine con blancos
+if (substr($clave,0,1)==" " || substr($clave,strlen($clave)-1,1)==" ") {
+	$msg_err=($valido)?" ":$msg_err." y ";
+	$msg_err=$msg_err."no puede comenzar o terminar con blancos";
+	$valido = false;
+}
+
+// Ver si ponemos números y letras o no u otras validaciones!!!
+if ($valido)
+	$msg_err = "OK";
+else 	
+	$msg_err=$msg_err.".";
+
+return $valido;
+}
+//----------------------------------------------------------------------------------------- 
+// FUNCIONES PARA LA BUSQUEDA DE FUNCIONARIOS, ORGANISMOS Y CARGOS
+// ---------------------------------------------------------------------------------------------------------------- 
+// Busca los organismos, por nombre del organismo ordenando el resultado cualquiera de los criterios posibles
+// 		1) Se obtiene la cantidad de organismos que cumplen con el filtro seleccionado.
+//		2) Se obtiene todos los organismos que cumplan con el filtro seleccionado.
+//			Si el orden es por organismo se limitan y ordenan los registros de salida.
+// 		    en otro caso no se limita ni ordena.
+//		 4) A todas las jurisdicciones halladas en (2), les pega si existe
+//			a) los datos del cargo ( si esta activo o vacante).
+//			b) los datos del funcionario del cargo.  	
+//		 5) En caso de no ser el orden por jurisdicción, en otro caso ya esta ordenado.
+//			Se ordena (4) según el criterio deseado y limita la cantidad de registros de la salida.
+// ---------------------------------------------------------------------------------------------------------------- 
+function ObtenerOrganismosxJurisd($idconexion,$objJurisdicciones,$oper_campo,$valor_buscado,
+								  $orden,$inicio,$resu_x_pag,$numero_pagina,&$cant_total,&$array_func) {
+
+	$array_func=array();
+
+	// No debiera pero no tengo la funcionalidad para sacar la Raiz
+    //$arrayin=array_merge(array(' and '),InTipoOrgDepEjeNacional($objJurisdicciones));
+    //$arrayin=array_merge($arrayin,array(" and jurisdarboltiponodo != 'R'" ));
+
+	// todos los tipos de Organismo hasta Dirección Simple
+    //$arrayin=array_merge(array(' and '),InTipoOrgDepEjeNacional($objJurisdicciones));
+	$arrayin=array("and jurisdid!=".$objJurisdicciones->IdNodoNAC_EJ());
+	
+	// Saco la cantidad total de jurisdicciones que cumplen la condición sobre el nombre
+	if (!$objJurisdicciones->SelectCantJurisdxCampo("jurisdnom",$oper_campo,$valor_buscado,array('pjurisdestado'=>TABGRALES_JURISDACTIVA,'pjurisdwhere'=>$arrayin),$cant_total,$CodError))
+		return false;
+	
+	if ($cant_total==0) 
+		return true;
+	
+	// Saco los organismos segun el criterio 
+	//	si el orden es por organismo se ordena y limita los registros a los posibles en una pagina
+	//  en caso contrario no se ordena ni limita la salida.
+	if (trim(strtolower($orden)) == 'jurisdnom asc' || trim(strtolower($orden)) == 'jurisdnom desc')
+		$param_juris=array('pjurisdestado'=>TABGRALES_JURISDACTIVA,'pjurisdwhere'=>$arrayin,'pjurisdorden'=>$orden,'pjurisdlimit'=>$inicio.",".$resu_x_pag);
+	else
+		$param_juris=array('pjurisdestado'=>TABGRALES_JURISDACTIVA,'pjurisdwhere'=>$arrayin);
+	
+	if (!$objJurisdicciones->SelectJurisdxCampo("jurisdnom",$oper_campo,$valor_buscado,$param_juris,TABGRALES_TS_ARRAY,$array_jurisd,array(),$NumFilas,$CodError))
+		return false;
+
+	// Armo el arreglo de salida con todos los datos 
+	// organismo /cargo (de existir) / funcionario (de existir).
+	$array_func_local=array();
+	$i=0;
+	foreach($array_jurisd as $clave=>$valor) {
+
+		// Obtengo el cargo en caso de existir
+		$arrayin=ArrayToArray_Delimitado(array($valor['jurisdid'])," ", ","," " );	
+
+		$param=array('pcarg_estado'=>CARGO_ACT.",".CARGO_VACANTE, 'pjurisdid'=>$arrayin);
+		if( ($query_cargos=ejecutarStoredProcedure($idconexion,'sel_cargo_xjurisdid_estado',$param)) < 0 ) 
+			return false;
+
+		$array_dato_func=array();
+
+		if (mysqli_num_rows($query_cargos)==1) {
+			$fila_cargo=mysqli_fetch_assoc($query_cargos);
+			$array_dato_func[$fila_cargo['jurisdid']]=$fila_cargo;
+		}
+		
+		if (!ObtenerDatosFuncionarioBusq($idconexion,$array_dato_func[$clave]['carg_codigo'],$fila_func))
+			return false;
+
+		$fila_func+=array('jurisdnom'=>$valor['jurisdnom']);
+
+		if (array_key_exists($clave,$array_dato_func)) { 
+			$fila_func+=array('carg_codigo'=>$array_dato_func[$clave]['carg_codigo']);
+			$fila_func+=array('carg_nombre'=>$array_dato_func[$clave]['carg_nombre']);
+			$fila_func+=array('jurisdid'=>$array_dato_func[$clave]['jurisdid']);
+			$fila_func+=array('hay_cargo'=>true);
+		} else {
+		    // Para que sea el menor
+			$fila_func+=array('carg_nombre'=>'');
+			$fila_func+=array('hay_cargo'=>false);
+		}
+				
+		$array_func_local[$i]=$fila_func;		
+		$i++;
+	} 
+
+	// Ya esta limitado y ordenado si es orden es por jurisdiccion
+	if ( strtolower($orden) == 'jurisdnom asc' || strtolower($orden) == 'jurisdnom desc') {
+		$array_func=$array_func_local;		
+	} else {	    
+		// Ordeno el arreglo de salida.
+		$pos = strrpos(trim($orden), " "); 
+		if ($pos == false) { 
+			$orden_sentido="ASC";
+		} else {
+			$orden_sentido=substr(trim($orden),$pos+1,3);
+			$orden_campo=substr(trim($orden),0,$pos);
+		} 
+
+	
+		$sqlCreate = SqlCreateBusquedas('tmpBusquedas');	
+	    OrdenSql($idconexion,$sqlCreate,'tmpBusquedas',$array_func_local,$array_func,$orden,
+    		     $numero_pagina,$resu_x_pag,$CodError);	
+	    
+		if($CodError)
+			return false;
+			
+	    // Para el orden del multisort
+		/* $col_orden=array();
+		$i=0;
+		foreach($array_func_local as $clave=>$row) {
+			$col_orden[$i][$orden_campo]=$row[$orden_campo];
+			$i++;
+		} 
+	
+		if(strtoupper($orden_sentido)=="ASC") 
+			array_multisort($col_orden,SORT_ASC,$array_func_local);
+		else 
+			array_multisort($col_orden,SORT_DESC,$array_func_local);
+	
+		// Paginación sobre el arreglo	
+		// Limito el arreglo de salida según el limit y la pagina que se busca. FALTA	
+		$i=($numero_pagina-1)*$resu_x_pag;
+		$hasta=(($numero_pagina*$resu_x_pag)-1);
+	
+		while ($i<=$hasta && $i<count($array_func_local) ) {
+			$array_func[]=$array_func_local[$i]; 
+			$i++;
+		} 
+		*/
+	}
+	
+	return true;
+}
+
+// ---------------------------------------------------------------------------------------------------------------- 
+function SqlCreateBusquedas($nombretabla) {
+	
+	$sql="CREATE TEMPORARY TABLE IF NOT EXISTS ".$nombretabla." (";
+	$sql.="pers_nombre varchar(40),";
+	$sql.="pers_apellido varchar(60),";
+	$sql.="pers_cuilt varchar(11),";
+	$sql.="jurisdid mediumint(8) unsigned NOT NULL,";	
+	$sql.="carg_codigo mediumint(8) unsigned NOT NULL,";
+	$sql.="carg_nombre varchar(255) default '',";
+	$sql.="trat_codigo tinyint(1) unsigned NOT NULL default '0',";
+	$sql.="hay_funcionario tinyint(1) unsigned NOT NULL default '0',";
+	$sql.="hay_cargo smallint(1) unsigned NOT NULL,";
+	$sql.="jurisdnom varchar(150) NOT NULL default ''";
+  	$sql.=") TYPE=INNODB COMMENT='Salida Temporal';";
+
+	return $sql;
+}
+
+// ---------------------------------------------------------------------------------------------------------------- 
+function SqlCreateContactosCargo($nombretabla) {
+	
+	$sql="CREATE TEMPORARY TABLE IF NOT EXISTS ".$nombretabla." (";
+	$sql.="apeynom varchar(100),";
+	$sql.="apeynomorden varchar(100),";
+	$sql.="apeynom_cargo text,";
+	$sql.="jurisdid mediumint(8) unsigned NOT NULL,";	
+	$sql.="carg_codigo mediumint(8) unsigned NOT NULL,";
+	$sql.="carg_nombre varchar(255) default '',";
+	$sql.="hay_funcionario tinyint(1) unsigned NOT NULL default '0',";
+	$sql.="hay_cargo smallint(1) unsigned NOT NULL,";
+	$sql.="jurisdnom varchar(150) NOT NULL default ''";
+  	$sql.=") TYPE=INNODB COMMENT='Salida Temporal';";
+
+	return $sql;
+}
+
+// ---------------------------------------------------------------------------------------------------------------- 
+// Búsqueda de funcionarios por nombre,apellido o apellido y nombre, 
+// ordenando por cualquiera de los criterios que NO sea jurisdiccion.
+//		1) Se obtiene la cantidad de registros que cumplen con el criterio.
+// 		2) Se obtienen los funcionarios que cumplan con el filtro seleccionado, limitando la
+//          cantidad de elementos a los posibles en una pagina, y seleccionando lo de la pagina requerida.
+//			Aplica el orden final.
+// 		3) A todos los funcionarios hallados en (2) se les pega la informacion del organismo, e indicando
+//			que existe el funcionario.
+function ObtenerFuncionariosxCriterio($idconexion,$objJurisdicciones,$sp_nom_count,$param_count,
+                                       $sp_nom,$param,$nom_campo_jurisd,&$cant_total,&$array_func) {
+
+	$array_func=array();
+
+
+	// Saco cantidad total de funcionarios que cumplen con el criterio
+	if( ($query_count=ejecutarStoredProcedure($idconexion,$sp_nom_count,$param_count)) < 0 ) 
+		return  false;
+	else {
+		$cant_total = mysqli_num_rows($query_count);
+		mysqli_free_result($query_count);
+	}
+
+	if ($cant_total>0) {
+		// Obtengo los funcionarios que cumplen el criterio e imponiendo el limit.
+		if(($query_func=ejecutarStoredProcedure($idconexion,$sp_nom,$param)) < 0) 
+			return false;
+		else  {
+			// Genero el arreglo con los datos del funcionario, agregando el nombre de la jurisdiccion
+			$i=0;
+			while ($fila_func=mysqli_fetch_assoc($query_func)) {
+				$fila_func+=array('hay_funcionario'=>true);
+				$fila_func+=array('hay_cargo'=>true);
+				$array_func[$i]=$fila_func;
+				$i++;
+			}		
+	
+			// Armo un arreglo con los registros de las jurisdicciones de los funcionarios que cumplian,
+			// queda ordenado segun los registros de $query_funcionarios.
+			if (!Armo_array_jurisd_query($objJurisdicciones,$query_func,$nom_campo_jurisd,$array_jurisd,$array_asoc_jurisd))
+				return false;  
+	
+			//	Agrego el nombre de la jurisdiccion al arreglo de salida.		
+			$i=0;
+			foreach($array_func as $clave=>$valor) {
+				$array_func[$i]['jurisdnom']=$array_asoc_jurisd[$i]['jurisdnom'];
+				$array_func[$i]['jurisdid']=$array_asoc_jurisd[$i]['jurisdid'];
+
+				$i++;
+			} 
+		} 
+	}	
+
+	return true;
+} // fin - funcion
+// ---------------------------------------------------------------------------------------------------------------- 
+// Búsqueda de funcionarios por nombre,apellido o apellido y nombre, 
+// ordenando por jurisdicción.
+// 		1) Se obtienen los funcionarios que cumplan con el filtro seleccionado, 
+//          NO se limita la cantidad de elementos a los posibles en una pagina.
+//			Si no los hay entonces se retorna 0 en la cantidad de registros y true.	
+//			Se obtienen todos los que cumplen.	
+//		2) Se obtiene la cantidad de registros que cumplen con el criterio si el total .
+//		3) Se arma una lista con todas las jurisdicciones implicadas en (1).
+// 		4) Se obtienen todas las jurisdicciones de los funcionarios hallados en (3)
+//         limitando la cantidad a los posibles en una página, y según la página deseada.
+//		   Se obtienen ordenadas por jurisdiccion.         
+//		5) Se arma la salida con los datos hallados en (4) a los que se les pega 
+// 		   la información del funcionario se indica que hay funcionario.
+function ObtenerFuncionariosxCriterio_OrdenJurisd($idconexion,$objJurisdicciones,$sp_nom,$param,$nom_campo_jurisd,
+												  $orden,$inicio,$resu_x_pag,&$cant_total,&$array_func) {
+
+	$array_func=array();
+
+	// Saco todos funcionarios que cumplen con el criterio.
+	if(($query_func=ejecutarStoredProcedure($idconexion,$sp_nom,$param)) < 0) 
+		return false;
+	
+	if (mysqli_num_rows($query_func)==0)	 {
+		$cant_total=0;
+		return true;
+	}
+	$cant_total=mysqli_num_rows($query_func);
+	
+	// Obtengo los datos del funcionario.	
+	$i=0;
+	while ($fila_func=mysqli_fetch_assoc($query_func)) {
+			$array_jurisd_ids[$i]=$fila_func[$nom_campo_jurisd];
+			$fila_func+=array('hay_cargo'=>true);
+			$array_dato_func[$fila_func[$nom_campo_jurisd]]=$fila_func;
+			$i++;
+	}
+	
+	// Selecciono las jurisdicciones por nombre que tienen funcionarios, ordenando e imponiendo el limit.
+	if (!$objJurisdicciones->SelectJurisdxID($array_jurisd_ids,array('pjurisdestado'=>TABGRALES_JURISDACTIVA,'pjurisdorden'=>$orden,'pjurisdlimit'=>$inicio.",".$resu_x_pag),TABGRALES_TS_ARRAY,$array_jurisd,array(),$NumFilas,$CodError)) 
+			 return false;
+	
+	// Armo el array de salida con los datos del funcionario y el nombre de la jurisdiccion.	
+	$i=0;
+	foreach($array_jurisd as $clave=>$valor) {
+		$array_dato_func[$clave]+=array('hay_funcionario'=>true);
+		$array_func[$i]=$array_dato_func[$clave];
+		$array_func[$i]['jurisdnom']=$array_jurisd[$clave]['jurisdnom'];
+		$i++;
+	}
+
+	return true;
+}
+//---------------------------------------------------------------------------------------------------------------- 
+// Búsqueda filtrando por cargos ordenando por cargo.
+// 1) Obtengo la cantidad de elementos que cumplen con el criterio. 
+// 2) Se obtienen todos los cargos que cumplen con el criterio imponiendo el limit y el order.
+// 3) Para cada fila de (2) obtengo el funcionario de existir.
+// 4) Para cada fila de (2) obtengo la jurisdiccion.
+// 5) Se arma la salida con los datos de (2) (3) y (4)
+function ObtenerCargosxCriterio($idconexion,$objJurisdicciones,$sp_nom_count,$param_count,
+                                $sp_nom,$param,$nom_campo_jurisd,&$cant_total,&$array_func) {
+
+	$array_func=array();
+
+	// Saco cantidad total,tal vez convenga tener un stored especial para este count
+	if( ($query_count=ejecutarStoredProcedure($idconexion,$sp_nom_count,$param_count)) < 0 ) 
+		return  false;
+	else {
+		$cant_total = mysqli_num_rows($query_count);
+		mysqli_free_result($query_count);
+	}
+
+    if ($cant_total >0) {
+		// Obtengo los cargos que cumplen el criterio e imponiendo el limit.
+		if(($query_cargos=ejecutarStoredProcedure($idconexion,$sp_nom,$param)) < 0) 
+			return false;
+		else  {
+	
+			// Armo un arreglo con los registros de las jurisdicciones 
+			if (!Armo_array_jurisd_query($objJurisdicciones,$query_cargos,$nom_campo_jurisd,$array_jurisd,$array_asoc_jurisd))  
+				return false;  
+				
+			// Genero el arreglo con los datos del cargo y del funcionario si existiera, agregando el nombre de la jurisdiccion
+			$i=0;
+			while ($fila_cargo=mysqli_fetch_assoc($query_cargos)) {
+	
+				if (!ObtenerDatosFuncionarioBusq($idconexion,$fila_cargo['carg_codigo'],$fila_func))
+				   return false;
+	
+				$fila_func+=array('carg_codigo'=>$fila_cargo['carg_codigo']);
+				$fila_func+=array('carg_nombre'=>$fila_cargo['carg_nombre']);
+				$fila_func+=array('jurisdid'=>$fila_cargo['jurisdid']);
+				$fila_func+=array('jurisdnom'=>$array_asoc_jurisd[$i]['jurisdnom']);
+				$fila_func+=array('hay_cargo'=>true);
+				$array_func[$i]=$fila_func;
+				$i++;
+			}		
+		} 
+	} // fin - cant_total
+	return true;
+} // fin - funcion
+
+// ---------------------------------------------------------------------------------------------------------------- 
+// Búsqueda filtrando por cargo, ordenando nombre
+// 1) Obtengo los cargos que cumplen con el criterio, sin limitar la cantidad.
+// 2) Si NO hay cargos retorno la cantidad 0 y OK.
+// 3) Obtengo la cantidad todal de los funcionarios que cumplen el criterio.
+// 4) Para los cargos obtenidos en (1) obtengo las jurisdicciones.
+// 5) Armo un array con los cargos obtenidos en (1) con la jurisdicción y el funcionario en caso de existir.
+// 6) Ordeno el array (5) según el nombre del funcionario.
+// 7) Limito la cantidad de la salida a los requeridos por la paginación.
+function ObtenerCargosxCriterio_OrdenNombre($idconexion,$objJurisdicciones,$sp_nom_count,$param_count,
+                                            $sp_nom,$param,$nom_campo_jurisd,
+											$orden,$inicio,$resu_x_pag,$numero_pagina,&$cant_total,&$array_func) {
+
+	$array_func=array();
+
+	// Saco todos los cargos que cumplen con el criterio que no implica jurisdiccion, no se le aplica el limit ($param en la llamada es $param_count). 	    
+	if(($query_cargos=ejecutarStoredProcedure($idconexion,$sp_nom,$param)) < 0) 
+		return false;
+
+	// Si no hay cargos que cumplen con el criterio
+	if(mysqli_num_rows($query_cargos)==0) {
+		$cant_total=0;
+		return true;
+	}
+
+ 	// Obtengo el total de los funcionarios que cumplian con el criterio.
+	$cant_total	= mysqli_num_rows($query_cargos);
+
+	// Armo un arreglo con los registros de las jurisdicciones de los funcionarios que cumplian,
+	// queda ordenado segun los registros de $query_funcionarios.
+	if (!Armo_array_jurisd_query($objJurisdicciones,$query_cargos,$nom_campo_jurisd,$array_jurisd,$array_asoc_jurisd))
+		return false;  
+	
+	// Genero el arreglo con los datos del cargo y del funcionario si existiera, agregando el nombre de la jurisdiccion
+	$i=0;		
+	while ($fila_cargo=mysqli_fetch_assoc($query_cargos)) {
+		// Busco el funcionario si existe
+		if (!ObtenerDatosFuncionarioBusq($idconexion,$fila_cargo['carg_codigo'],$fila_func))
+		   return false;
+	
+		$fila_func+=array('carg_codigo'=>$fila_cargo['carg_codigo']);
+		$fila_func+=array('carg_nombre'=>$fila_cargo['carg_nombre']);
+		$fila_func+=array('jurisdid'=>$fila_cargo['jurisdid']);
+		$fila_func+=array('hay_cargo'=>true);
+		$fila_func+=array('jurisdnom'=>$array_asoc_jurisd[$i]['jurisdnom']);
+
+		$array_func_local[$i]=$fila_func;
+		
+		$i++;
+	}		
+
+    // Orden y Paginación
+	$pos = strrpos(trim($orden), " "); 
+	if ($pos == false) { 
+		$orden_sentido="asc";
+	} else {
+		$orden_sentido=substr(trim($orden),$pos+1,3);
+		$orden_campo=substr(trim($orden),0,$pos);
+	} 
+
+	$sqlCreate = SqlCreateBusquedas('tmpBusquedas');	
+    OrdenSql($idconexion,$sqlCreate,'tmpBusquedas',$array_func_local,$array_func,$orden,
+    		 $numero_pagina,$resu_x_pag,$CodError);	
+
+	if($CodError)
+		return false;
+
+/*  Para el orden del multisort
+	$col_orden=array();
+	$i=0;
+	foreach($array_func_local as $clave=>$row) {
+		$col_orden[$i][$orden_campo]=$row[$orden_campo];
+		$i++;
+	} 
+
+	if(strtoupper($orden_sentido)=="ASC") 
+		array_multisort($col_orden,SORT_ASC,$array_func_local);
+	else 
+		array_multisort($col_orden,SORT_DESC,$array_func_local);
+
+	// Paginación sobre el arreglo	
+	// Limito el arreglo de salida según el limit y la pagina que se busca. FALTA	
+	$i=($numero_pagina-1)*$resu_x_pag;
+	$hasta=(($numero_pagina*$resu_x_pag)-1);
+
+	while ($i<=$hasta && $i<count($array_func_local) ) {
+		$array_func[]=$array_func_local[$i]; 
+		$i++;
+	} 
+*/
+	return true;
+} // fin - funcion
+
+// ---------------------------------------------------------------------------------------------------------------- 
+// Búsqueda filtrando por cargo, ordenando por jurisdicción
+// 1) Obtengo los cargos que cumplen con el criterio, sin limitar la cantidad.
+// 2) Si NO hay cargos retorno la cantidad 0 y OK.
+// 3) Obtengo los funcionarios para los cargos de (1).
+// 4) Selecciono las jurisdicciones de los cargos obtenidos en (1),ordenando por jurisdicción e 
+//    imponiendo el limit. Ver!!!
+function ObtenerCargosxCriterio_OrdenJurisd($idconexion,$objJurisdicciones,$sp_nom,$param,
+											$nom_campo_jurisd,
+											$orden,$inicio,$resu_x_pag,&$cant_total,&$array_func) {
+
+	$array_func=array();
+	
+	// Saco todos los cargos que cumplen con el criterio que no implica jurisdiccion, no se le aplica el limit ($param en la llamada es $param_count). 	    
+	if(($query_cargos=ejecutarStoredProcedure($idconexion,$sp_nom,$param)) < 0) 
+		return false;
+
+	// Si no hay cargos que cumplen con el criterio
+	if(mysqli_num_rows($query_cargos)==0) {
+		$cant_total=0;
+		return true;
+	}
+
+	// Obtengo los datos del funcionario.	
+	$i=0;
+	while ($fila_cargo=mysqli_fetch_assoc($query_cargos)) {
+
+		$array_jurisd_ids[$i]=$fila_cargo[$nom_campo_jurisd];
+
+		// Busco el funcionario si existe
+   		if (!ObtenerDatosFuncionarioBusq($idconexion,$fila_cargo['carg_codigo'],$fila_func))
+		   return false;
+
+		$fila_func+=array('carg_codigo'=>$fila_cargo['carg_codigo']);
+		$fila_func+=array('carg_nombre'=>$fila_cargo['carg_nombre']);
+		$fila_func+=array('jurisdid'=>$fila_cargo['jurisdid']);
+		$fila_func+=array('hay_cargo'=>true);
+
+		$array_dato_func[$fila_cargo[$nom_campo_jurisd]]=$fila_func;
+		$i++;
+	}
+
+	// Nota: No se agrega el in
+	// Asumo que todos los funcionarios pertenecen a los tipos de organismo 
+	// del universo de interés.
+	// $arrayin=InTipoOrgDepEjeNacional($objJurisdicciones);
+	// echo "ObtenerFuncionariosxCriterio_OrdenJurisd no uso el in.<BR>";
+	
+	// Selecciono las jurisdicciones por nombre que tienen funcionarios, ordenando e imponiendo el limit.
+	if (!$objJurisdicciones->SelectJurisdxID($array_jurisd_ids,array('pjurisdestado'=>TABGRALES_JURISDACTIVA,'pjurisdorden'=>$orden,'pjurisdlimit'=>$inicio.",".$resu_x_pag),TABGRALES_TS_ARRAY,$array_jurisd,array(),$NumFilas,$CodError)) 
+		 return false;
+
+	// Armo el array de salida con los datos del funcionario y el nombre de la jurisdiccion.	
+	$i=0;
+	foreach($array_jurisd as $clave=>$valor) {
+		$array_func[$i]=$array_dato_func[$clave];
+		$array_func[$i]['jurisdnom']=$array_jurisd[$clave]['jurisdnom'];
+		$i++;
+	}
+	
+	// Saco cantidad total,tal vez convenga agregar funcionalidad en jurisdicciones para tener solo la cantidad.
+	if (!$objJurisdicciones->SelectJurisdxID($array_jurisd_ids,array('pjurisdestado'=>TABGRALES_JURISDACTIVA),TABGRALES_TS_ARRAY,$array_jurisd,array(),$cant_total,$CodError)) 
+		 return false;
+
+	return true;
+}
+//---------------------------------------------------------------------------------------------------------------- 
+// Dado un cargo obtiene el registro del funcionario o un registro en blanco 
+// uno de los campos indica si el funcionario encontrado o no.
+function ObtenerDatosFuncionarioBusq($idconexion,$carg_codigo,&$fila_func) {
+
+	$fila_func=array();
+	
+	// Busco el funcionario si existe, le pego los datos del funcionario asociado al cargo
+	$param_func=array('pcarg_codigo'=>$carg_codigo,'prol_codigo'=>FUNCIONARIO);
+	$param_func+=array('pusurolcar_estado'=>USUARIO_ROL_CARGO_ACT.",".USUARIO_ROL_CARGO_BLOQUEADO);  			
+
+	if (($query_func=ejecutarStoredProcedure($idconexion,"sel_func_xcarg_codigo",$param_func)) < 0) {
+		return false;
+	} elseif (mysqli_num_rows($query_func)>1) {
+		return false;
+	} elseif (mysqli_num_rows($query_func)==1) {
+			$fila_func=mysqli_fetch_assoc($query_func);
+			$fila_func+=array('hay_funcionario'=>true);
+	} else {
+			$fila_func=array();
+			$fila_func+=array('pers_nombre'=>"");
+			$fila_func+=array('pers_apellido'=>"");
+			$fila_func+=array('hay_funcionario'=>false);
+	}	
+	return true;
+}
+//---------------------------------------------------------------------------------------------------------------- 
+// Obtiene los datos básicos del funcionario asociados al cargo y en el estado requerido.
+// Retorna: false en caso de error o si no lo encuentra al funcionario. 
+// 		    En caso de error, muestra el mensaje por pantalla y envía el mail. 
+function ObtenerDatosFuncionario($idconexion,$carg_codigo,$func_estado,&$fila_func) {
+
+	$param=array('pcarg_codigo'=>$carg_codigo,'prol_codigo'=>FUNCIONARIO,'pusurolcar_estado'=>$func_estado);
+	$query_func=ejecutarStoredProcedure($idconexion,"sel_func_xcarg_codigo",$param);
+		
+	if($query_func<0 || mysqli_num_rows($query_func)>1)	{
+			$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+			$array_msg_pantalla+=array("texto" => "1Se ha producido un error al seleccionar el funcionario correspondiente al cargo.");
+			$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']."\n\n"."carg_codigo=".$_SESSION['carg_codigo']." - pusurolcar_estado=".$func_estado);
+			MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+			return false;
+	} elseif (mysqli_num_rows($query_func)==0) {
+				$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+				$array_msg_pantalla+=array("texto" => "Se ha producido un error al seleccionar el funcionario correspondiente al cargo.");
+				$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);
+				$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']."\n\n"."carg_codigo=".$_SESSION['carg_codigo']." - pusurolcar_estado=".$func_estado);
+				MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail); 
+				return false;
+		} else
+			$fila_func = mysqli_fetch_assoc($query_func);
+
+	return true;
+}
+// ---------------------------------------------------------------------------------------------------------------- 
+// Arma la cada columna de la primer fila de la tabla que muestra los funcionarios.
+function EncabezadoFuncionariosColumna($columna_mostrada,$valor_criterio,$valor_operacion,
+                                       $valor_buscado,$valor_pagina,$valor_resu_x_pag,$orden) { 
+
+	$nom_imagen_inv="";
+		
+	$pos = strrpos(trim($orden), " "); 
+	if ($pos == false) { 
+		$i_sentido="asc";
+		$orden_seleccionado=trim($orden);
+	} else {
+		$i_sentido=substr(trim($orden),$pos+1,3);
+		$orden_seleccionado=substr(trim($orden),0,$pos);
+	} 
+
+	$nom_imagen_inv="boton_".$i_sentido."_inv.gif";
+
+	$ordenado_por=false;
+	$campo_orden="";	
+
+	switch ($columna_mostrada){
+	case "nombre":
+		$campo_orden='pers_apellido';
+		$rotulo_columna='Nombre del Funcionario';
+		if($orden_seleccionado=='pers_apellido') {
+			$ordenado_por=true;
+		}	
+		break;
+
+	case "cargo":
+		$campo_orden='carg_nombre';
+		$rotulo_columna='Cargo';
+		if($orden_seleccionado=='carg_nombre')
+			$ordenado_por=true;
+		break;
+
+	case "jurisdiccion":						
+		$campo_orden='jurisdnom';
+		$rotulo_columna='Organismo';
+		if($orden_seleccionado=='jurisdnom')
+			$ordenado_por=true;
+			
+		break;
+	}
+?>	
+	<table style="width:100%" border="0">
+	<tr class="textoTablaPaginadaTitulo" >
+		<!-- Imagen del orden seleccionado, el nombre de las imagenes debe estar en minúscula -->
+		<td>
+		<?php if($ordenado_por) { ?>
+			<img src="images/<?php echo strtolower($nom_imagen_inv) ?>" width="18" height="17" alt="">
+		<?php } ?>		
+		</td>
+
+		<!-- Rotulo de la columna -->
+        <td> <?php echo $rotulo_columna; ?> </td>
+
+		<?php $querystring =  "?menusuperior=".$_GET['menusuperior']."&amp;"."menuizquierdo=".$_GET['menuizquierdo']; ?>	
+
+		<!-- Botones para ordenar por la columna -->
+        <td style="width:13px">
+			<table style="width:13px" border="0">	
+				<tr>
+					<td><a href="<?php echo $_SERVER['PHP_SELF'].$querystring."&amp;"."criterio=".$valor_criterio."&amp;"."operacion=".$valor_operacion."&amp;"."valor_buscado=".CnvStringUrl($valor_buscado)."&amp;"."pagina=".$valor_pagina."&amp;"."resu_x_pag=".$valor_resu_x_pag."&amp;"."orden=".$campo_orden."%20"."asc"."&amp;"."buscar=1" ?>"><img src="images/boton_asc.gif" style="width:13px;height:12px" border="0" alt="Ascendente"></a></td>
+			    </tr>
+				<tr>
+					<td><a href="<?php echo $_SERVER['PHP_SELF'].$querystring."&amp;"."criterio=".$valor_criterio."&amp;"."operacion=".$valor_operacion."&amp;"."valor_buscado=".CnvStringUrl($valor_buscado)."&amp;"."pagina=".$valor_pagina."&amp;"."resu_x_pag=".$valor_resu_x_pag."&amp;"."orden=".$campo_orden."%20"."desc"."&amp;"."buscar=1" ?>"><img src="images/boton_des.gif" style="width:13px;height:12px" border="0" alt="Descentente"></a></td>
+				</tr>
+			</table>
+		</td> 
+	</tr>
+</table>
+<?php } // fin - funcion 
+
+// ---------------------------------------------------------------------------------------------------------------- 
+// Arma la cada columna de la primer fila de la tabla que muestra los funcionarios.
+function EncabezadoFuncionariosColumnaArgentina($columna_mostrada,$valor_criterio,$valor_operacion,
+                                       $valor_buscado,$valor_pagina,$valor_resu_x_pag,$orden) { 
+
+	$nom_imagen_inv="";
+		
+	$pos = strrpos(trim($orden), " "); 
+	if ($pos == false) { 
+		$i_sentido="asc";
+		$orden_seleccionado=trim($orden);
+	} else {
+		$i_sentido=substr(trim($orden),$pos+1,3);
+		$orden_seleccionado=substr(trim($orden),0,$pos);
+	} 
+
+	$nom_imagen_inv="btn_".$i_sentido."_inv.gif";
+
+	$ordenado_por=false;
+	$campo_orden="";	
+
+	switch ($columna_mostrada){
+	case "nombre":
+		$campo_orden='pers_apellido';
+		$rotulo_columna='Nombre del Funcionario';
+		if($orden_seleccionado=='pers_apellido') {
+			$ordenado_por=true;
+		}	
+		break;
+
+	case "cargo":
+		$campo_orden='carg_nombre';
+		$rotulo_columna='Cargo';
+		if($orden_seleccionado=='carg_nombre')
+			$ordenado_por=true;
+		break;
+
+	case "jurisdiccion":						
+		$campo_orden='jurisdnom';
+		$rotulo_columna='Organismo';
+		if($orden_seleccionado=='jurisdnom')
+			$ordenado_por=true;
+			
+		break;
+	}
+?>	
+	<table style="width:100%" border="0">
+	<tr>
+		<!-- Imagen del orden seleccionado, el nombre de las imagenes debe estar en minúscula -->
+		<td>
+		<?php if($ordenado_por) { ?>
+			<img src="img/<?php echo strtolower($nom_imagen_inv) ?>" width="18" height="17" alt="">
+		<?php } ?>		
+		</td>
+
+		<!-- Rotulo de la columna -->
+        <td> <?php echo $rotulo_columna; ?> </td>
+
+		<!-- Botones para ordenar por la columna -->
+        <td style="width:13px">
+			<table style="width:13px" border="0">	
+				<tr>
+					<td><a href="<?php echo $_SERVER['PHP_SELF']."?criterio=".$valor_criterio."&amp;"."operacion=".$valor_operacion."&amp;"."valor_buscado=".CnvStringUrl($valor_buscado)."&amp;"."pagina=".$valor_pagina."&amp;"."resu_x_pag=".$valor_resu_x_pag."&amp;"."orden=".$campo_orden."%20"."asc"."&amp;"."buscar=1" ?>"><img src="img/btn_asc.gif" style="width:13px;height:12px" border="0" alt="Ascentente"></a></td>
+			    </tr>
+				<tr>
+					<td><a href="<?php echo $_SERVER['PHP_SELF']."?criterio=".$valor_criterio."&amp;"."operacion=".$valor_operacion."&amp;"."valor_buscado=".CnvStringUrl($valor_buscado)."&amp;"."pagina=".$valor_pagina."&amp;"."resu_x_pag=".$valor_resu_x_pag."&amp;"."orden=".$campo_orden."%20"."desc"."&amp;"."buscar=1" ?>"><img src="img/btn_des.gif" style="width:13px;height:12px" border="0" alt="Descendente"></a></td>
+				</tr>
+			</table>
+		</td> 
+	</tr>
+</table>
+<?php } // fin - funcion 
+// --------------------------------------------------------------------------------------
+// Dado un arreglo
+// 1-Creo una tabla temporal de resultado de la busqueda, con los datos que 
+//   vienen en el arreglo. 
+// 2-Ordeno (SQL) y limitando los registros a los requeridos
+// 3-Retorno un arreglo con el resultado obtenido en (2)
+function OrdenSql($idconexion,$sqlCreate,$nomTable,$array_entrada,&$array_salida,$orden,
+				  $numero_pagina,$resu_x_pag,&$CodError)	{
+
+	if ($numero_pagina <=0)
+	    return false;
+	
+	$array_salida=array();
+	
+	_CrearTableTemp($idconexion,$sqlCreate,$CodError);
+	
+	if (!$CodError) {
+		foreach ($array_entrada as $clave=>$valor) {
+			_InsertTablaTemp($idconexion,$nomTable,$valor,$CodError);
+			if ($CodError)
+				return false;
+		}
+	}
+
+   // Selecciono ordenado y limitado    
+   	$inicio=($numero_pagina-1)*$resu_x_pag;
+   
+   	$param=array('ptabla'=>$nomTable,'porderby'=>$orden, 'plimit' =>"limit ".$inicio.",".$resu_x_pag);
+   	$query=ejecutarStoredProcedure($idconexion,'sel_tabla_order_limit',$param);
+
+   	if($query<0) 
+		return false;
+
+	if (mysqli_num_rows($query)>0) {
+	   while ($fila_dato=mysqli_fetch_assoc($query)) {
+			$array_salida[]=$fila_dato;
+	   }
+	}   
+
+   return $CodError;
+}
+//---------------------------------------------------------------------------
+// Entrada:	datos_entrada (arrelgo): (valor1, valor2, .... )
+// 			estructura_datos_entrada (arrelgo):( (nombre_1, tipo_sql_1), (nombre_2, tipo_sql_2), ... )
+//			orden (string): como quiero el orden del arreglo.
+// Salida:  datos_salida (arrelgo)
+
+// La lognitud de cada uno de los registros de datos_entrada debería
+// ser igual que la longitud de estructura_datos_entrada.
+
+// Los campos de orden deben estar incluidos 
+// ---------------------------------------------------------------------------
+// 1- Creo una tabla temporal.
+// 2- Le agrego los datos de entrada.
+// 3- Ordeno la tabla.
+// 2- Limito la salida, a la pagina solicitada.
+function OrdenSql_2($idconexion,$datos_entrada,
+					$estructura_datos_entrada,
+					&$datos_salida,$orden,
+				    $numero_pagina=-1,$resu_x_pag=-1,&$CodError)	{
+	
+	$CodError=false;
+	// Debe tener por lo menos un campo.
+	if (count($estructura_datos_entrada)==0) {
+		$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+		$array_msg_pantalla+=array("texto" => "Se ha producido un error ordenando los datos de salida.");
+		$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+		$array_msg_mail+=array("texto" => $array_msg_pantalla['texto']."\r\n"."Estructura del sql temporal a crear");
+		MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+		$CodError=true;
+		return false;
+	}
+
+	// Creo la tabla
+	$nombretabla='tmpTabla';
+	$sqlCreate="CREATE TEMPORARY TABLE IF NOT EXISTS ".$nombretabla." (";;
+	foreach ($estructura_datos_entrada as $clave=>$valor) {
+		$sqlCreate.=$valor['campo_nombre'].' '.$valor['campo_tipo'].',';
+	}
+	$sqlCreate=substr($sqlCreate,0, strlen($sqlCreate)-1);
+	$sqlCreate.=") TYPE=INNODB COMMENT='Salida Temporal';";
+
+	if(!mysqli_query($idconexion, $sqlCreate))	{
+		$CodError=mysqli_errno($idconexion);
+		$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+		$array_msg_pantalla+=array("texto" => "Se ha producido un error ordenando los datos de salida.");
+		$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+		$array_msg_mail+=array("texto" => $array_msg_pantalla['texto']."\n\n"."Creando la tabla temporal: error=".$CodError);
+		MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+		return false;
+	} 
+	
+	// Inserta los datos en la tabla temporal
+	$array_salida=array();
+	foreach ($datos_entrada as $clave=>$valor) {
+		_InsertTablaTemp($idconexion,$nombretabla,$valor,$CodError);
+		if ($CodError)
+			return false;
+	}
+
+	// Si es < 0 asuma todas las páginas.
+	if ($numero_pagina<=0) 
+		$limit="";
+	else {
+	   	$inicio=($numero_pagina-1)*$resu_x_pag;
+		$limit="limit ".$inicio.",".$resu_x_pag;
+	}
+	
+    // Selecciono ordenado y limitado en caso necesario   
+   	$param=array('ptabla'=>$nombretabla,'porderby'=>$orden, 'plimit' =>$limit);
+   	$query=ejecutarStoredProcedure($idconexion,'sel_tabla_order_limit',$param);
+
+   	if($query<0) 
+		return false;
+
+	if (mysqli_num_rows($query)>0) {
+	   while ($fila_dato=mysqli_fetch_assoc($query)) {
+			$datos_salida[]=$fila_dato;
+	   }
+	}
+
+   return $CodError;
+}
+// --------------------------------------------------------------------------------------
+function _CrearTableTemp($conexion,$sqlCreate,&$CodError)	{
+
+	if(!mysqli_query($conexion, $sqlCreate))	{
+		$CodError=mysqli_errno($conexion);
+		$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+		$array_msg_pantalla+=array("texto" => "Se ha producido un error ordenando los datos de salida.");
+		$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+		$array_msg_mail+=array("texto" => $array_msg_pantalla['texto']."\n\n"."Creando la tabla temporal: error=".$CodError);
+		MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+	} 
+	return true;
+}
+//-----------------------------------------------------------------------------
+function _InsertTablaTemp($conexion,$nombretabla,$arraydatos,&$CodError){
+	
+	$sqlnombrecampo="";
+	$sqlvalorcampo="";
+	
+	foreach($arraydatos as $nombrecampo => $valorcampo)	{
+		$sqlnombrecampo.=$nombrecampo.",";
+		$sqlvalorcampo.="'".mysqli_real_escape_string($conexion, $valorcampo)."',";
+	}
+	
+	$sqlnombrecampo=substr($sqlnombrecampo,0,strlen($sqlnombrecampo)-1);
+	$sqlvalorcampo=substr($sqlvalorcampo,0,strlen($sqlvalorcampo)-1);
+	
+	$sql="INSERT INTO ".$nombretabla." (";
+	$sql.=$sqlnombrecampo;
+	$sql.=") VALUES (";
+	$sql.=$sqlvalorcampo;
+	$sql.=");";
+
+	if(!mysqli_query($conexion, $sql)) {
+		$CodError=mysqli_errno($conexion);
+		$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+		$array_msg_pantalla+=array("texto" => "Se ha producido ordenando la salida.");
+		$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+		$array_msg_mail+=array("texto" => $array_msg_pantalla['texto']."\n\n"."Insertando en la tabla temporal: error=".$CodError."sql=".$sql);
+		MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+		return false;
+	}
+	
+	return true;
+}
+// ---------------------------------------------------------------------------------------------------------------- 
+// Arma una lista in con los tipos de Organismo que dependen del poder 
+// Ejecutivo Nacional.
+function InTipoOrgDepEjeNacional($objJurisdicciones) {
+
+	$objJurisdicciones->BuscarRaizTipoOrg(TABGRALES_TIPOORG_NAC_EJ,array(),TABGRALES_TS_ARRAY,$nodo_jurisd,array(),$CodError);
+	// Resetea el puntero al primer elemento y retorna el primer elemento.
+	reset($nodo_jurisd); 
+	$jurisd_raiz = current($nodo_jurisd);
+
+	// Tipos de Organismo dependientes de Ejecutivo Nacional		
+	// $jurisd_raiz['jurisdid']
+	if (!$objJurisdicciones->BuscarTipoOrgSubArbolDependiente($jurisd_raiz['jurisdid'],JURISD_TODOSLOSNIVELES,array('pjurisdestado'=>TABGRALES_JURISDACTIVA),TABGRALES_TS_ARRAY,$array_tipo_org,array(),$NumFilas,$CodError) )
+		return false;
+
+	foreach ($array_tipo_org as $keyTipoOrg=>$valorTipoOrg) {
+		$array_tipoOrg_ids[] = $valorTipoOrg['tipoorgid'];
+	}
+
+	$in_tipo_org=array();
+	$in_tipo_org=ArrayToArray_Delimitado($array_tipoOrg_ids," tipoorgid in (",",",")");
+
+	return $in_tipo_org;
+}
+
+//----------------------------------------------------------------------------------------- 
+function VerificarEsDependiente ($idconexion,$jurisdlogeado,$result,&$error) {
+	$error = false;
+	$jurisdid="0";
+	
+	while ($fila_jurisdid=mysqli_fetch_assoc($result)) {
+		$jurisdid.=", ".$fila_jurisdid['jurisdid'];
+	}
+			
+	$param=array('pjurisdsafid'=>$jurisdlogeado,'pjurisdid'=>$jurisdid);
+	if (($result=ejecutarStoredProcedure($idconexion,"sel_jurisdiccion_ddf_x_jurisdid_jurisdsafid",$param))<0) {
+		MostrarMensaje_viejo($idconexion,MSG_ERRGRAVE,"Error seleccionando el organismo saf.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),FMT_TABLA,3);
+		$error = true;
+	}	
+
+	if (mysqli_num_rows($result)==0) 
+		return false;
+	else 
+		return true;
+}
+//------------------------------------------------------------------------------------------------
+// FUNCIONES PARA EL MANEJO DE GRUPOS
+//---------------------------------------------------------------------------
+ function Fila_inicial_grupo($idFila,$textoFila,$imagenFila,$abierto) { ?>
+<!-- Fila que permite la ampliacion para ver el contenido -->
+<?php	if ($abierto=="FIJO")  { // Es un grupo fijo 
+    	$grupo_fijo=true;
+		$funcion="1==1";
+	} else {
+		 $grupo_fijo=false;
+ 		 $funcion='javascript:'."Grupo_InvertirEstado('".$idFila."','".$idFila."');";
+    }
+?>
+  <tr class="textoGrupoTitulo" onclick="<?php echo $funcion ?>" style="cursor:pointer">
+    <td style="padding-left:10px">
+		<input type="hidden" name="hid_<?php echo $idFila ?>" value="<?php echo $abierto ?>" id="hid_<?php echo $idFila ?>"> 
+	<?php	if($imagenFila!="") { ?>
+		<img src="<?php echo $imagenFila ?>" border=0 style="width:15px" hspace="1" alt="">
+	<?php	} 
+	echo $textoFila 
+	?>
+	</td>
+<?php	if ($grupo_fijo)  { // Es un grupo fijo ?>
+		<td align=right style="padding-right:7px"></td> 
+<?php  } else { ?>
+		<td align=right style="padding-right:7px">
+		<?php	if ($abierto=="SI") { ;?>
+				<img id="img_<?php echo $idFila ?>_estado" name="img_<?php echo $idFila ?>_estado" src="images/boton_grupo_open.gif" style="width:15px" border=0 hspace="1" alt=""><br>
+		<?php	} else { ?>
+				<img id="img_<?php echo $idFila ?>_estado" name="img_<?php echo $idFila ?>_estado" src="images/boton_grupo_close.gif" style="width:15px" border=0 hspace="1" alt=""><br>
+		<?php } ?>				
+		</td> 
+<?php }  // grupo fijo - no se abre y cierra ?>				
+  </tr>
+<?php }  // Fila_inicial_grupo
+
+//------------------------------------------------------------------------------------------------
+function Fila_inicial_subgrupo($idFila,$textoFila,$imagenFila,$subgrupos,$abierto) { ?>
+  <!-- Fila que permite la ampliacion para ver el contenido -->
+  <tr class="textoGrupoTitulo" onclick="javascript:SubGrupo_InvertirEstado('<?php echo $idFila ?>','<?php echo $subgrupos ?>','<?php echo $idFila ?>');">
+    <td style="padding-left:10px">
+		<img src="<?php echo $imagenFila ?>" border=0 hspace="1" style="width:15px"><?php echo $textoFila ?>
+		<input type="hidden" name="hid_<?php echo $idFila ?>" value="<?php echo $abierto ?>" id="hid_<?php echo $idFila ?>"> 
+	</td>
+	<td align=right style="padding-right:7px">
+		<?php	if ($abierto=="SI") { ;?>
+				<img name="img_<?php echo $idFila?>_estado" src="images/boton_grupo_open.gif" border=0 hspace="1" style="width:15px" alt=""><br>
+		<?php	} else { ;?>
+				<img name="img_<?php echo $idFila?>_estado" src="images/boton_grupo_close.gif" border=0 hspace="1" style="width:15px" alt=""><br>
+		<?php } ?>				
+	</td> 
+ </tr>
+<?php } 
+/// Ojo nuevas para cambiar las de java
+//-----------------------------------------------------------------------------
+function Fila_contenido_grupo_final_php() {
+
+	ObtenerBrowser($browser);
+	if ($browser['browser']=="MSIE") {
+	   echo "</td>";
+	   echo "</tr>";
+	} else {
+	   echo "</div>";
+	   echo "</td>";
+	   echo "</tr>";
+	}
+}
+//-----------------------------------------------------------------------------
+function Fila_contenido_grupo_inicio_php($idFila,$visible) {
+
+	echo "<!-- Fila con datos contenido -->";
+	ObtenerBrowser($browser);
+	if ($browser['browser']=="MSIE") {
+		  if ($visible=="SI")
+			  echo "<tr id='".$idFila."' style='display:block';>";
+		  else	
+			  echo "<tr id='".$idFila."' style='display:none';>";	  
+	
+		  //  anterior: echo "<td colspan=2 style='padding:9px 10px 14px 10px;'>";
+		  echo "<td colspan=2>";
+
+	} else {
+
+	    echo "<tr>";
+
+		if ($visible=="SI")
+		   // anterior echo "<td colspan=2 style='padding:9px 10px 14px 10px;'><div id='".$idFila."' style=''>";
+		   echo "<td colspan=2><div id='".$idFila."' style=''>";
+		else   
+			// anterior echo "<td colspan=2 style='padding:9px 10px 14px 10px;'><div id='".$idFila."' style='visibility:hidden;position:absolute'>";
+	       echo "<td colspan=2><div id='".$idFila."' style='visibility:hidden;position:absolute'>";
+	}	
+}	   
+//-----------------------------------------------------------------------------
+function VerificaPermisoDatosCargo($idconexion,$carg_codigo,$cuit,$modulo,$emitir_mensaje=false) {
+
+	// Verifica que el cuit sea funcionario actual del cargo o que
+	// corresponda a un asistente del cargo y tenga permisos para acceder al móldulo
+	if (!ObtenerDatosFuncionario($idconexion,$carg_codigo,USUARIO_ROL_CARGO_ACT,$fila_func))  {
+		$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+		$array_msg_pantalla+=array("texto" => "Se ha producido un error al verificar los permisos de acceso.");
+		$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+		$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']."\n\n carg_codigo=".$carg_codigo);			
+		MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+		return false;
+	}
+
+	if ($fila_func['pers_cuilt']==$cuit ) { // Es el funcionario la persona logueada
+
+		return true;
+
+	} else { // Es un asistente la persona logueada
+		
+		$param=array('ppers_cuilt'=>$cuit,'prol_codigo'=>ASISTENTE); 		
+		$param+=array('pcarg_codigo'=>$carg_codigo);
+		$param+=array('pusurolcar_estado'=>USUARIO_ROL_CARGO_ACT);		
+		$spnombre = "sel_usuario_rol_cargo_xpers_cuilt_rol_codigo_carg_codigo_usurolcar_estado";
+
+		$query_usuario=ejecutarStoredProcedure($idconexion,$spnombre,$param);
+
+		if ($query_usuario<0)   { // No es asistente del cargo
+
+			if($emitir_mensaje) {
+				$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+				$array_msg_pantalla+=array("texto" => "Ud. no tiene permisos para realizar la operación seleccionada.");
+				$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+				$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']."\n\n pers_cuilt=".$cuit."\n\n carg_codigo=".$carg_codigo);			
+				MostrarMensaje($idconexion,MSG_ERRSOSP,$array_msg_pantalla,$array_msg_mail);
+			}
+
+			return false;
+			
+		} elseif (mysqli_num_rows($query_usuario!=1)) {
+
+			if($emitir_mensaje) {
+				$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+				$array_msg_pantalla+=array("texto" => "Ud. no tiene permisos para realizar la operación seleccionada.");
+				$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+				$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']."\n\n pers_cuilt=".$cuit."\n\n carg_codigo=".$carg_codigo);			
+				MostrarMensaje($idconexion,MSG_ERRSOSP,$array_msg_pantalla,$array_msg_mail);
+			}
+
+			return false;
+		
+		} else {
+
+			// Hay que verificar que tenga acceso a la pagina.
+			$archivonom=$modulo;
+			$spnombre="sel_rol_modulo_asistente";
+			$param=array('prol_codigo'=>$rol_codigo,'parch_nombre'=>$archivonom);
+			$param+=array('ppers_cuilt'=>$cuit,'pcarg_codigo'=>$carg_codigo);		
+			$query=ejecutarStoredProcedure($idconexion,$spnombre,$param);
+
+			if ($query<0)   { 	// No esta aurotizado a actualizar los datos privados
+
+				if($emitir_mensaje) {	
+					$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+					$array_msg_pantalla+=array("texto" => "Se ha producido un error al verificar los permisos de acceso.");
+					$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+					$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']."\n\n pers_cuilt=".$cuit."\n\n carg_codigo=".$carg_codigo);			
+					MostrarMensaje($idconexion,MSG_ERRSOSP,$array_msg_pantalla,$array_msg_mail);
+				}
+
+				return false;
+			} elseif(mysqli_num_rows($query)<1) {
+
+				if($emitir_mensaje) {
+					$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+					$array_msg_pantalla+=array("texto" => "Ud. no tiene permisos para realizar la operación seleccionada.");
+					MostrarMensaje($idconexion,MSG_INF,$array_msg_pantalla,array());
+				}
+
+				return false;
+			}
+		}
+	}
+return true;
+}
+
+//------------------------------------------------------------------------------------
+function VerificaPermisoVisualizarDP($idconexion,$cargo_visualizar,$rol_logueado,$cargo_logueado) {
+// El funcionario del cargo que se visualiza, le dio permisos para visualizar
+// sus datos logueados al 
+
+if ($rol_logueado!=FUNCIONARIO)
+	return false;
+
+if ($cargo_visualizar==$cargo_logueado) 
+	return true;
+	
+// Obtengo el grupo de confidencialidad del cargo a visualizar
+$param=array('pcarg_codigo'=>$cargo_visualizar);
+if (($query=ejecutarStoredProcedure($idconexion,'sel_grupo_confidencialidad_xcarg_codigo',$param))<0) {
+	$array_msg_pantalla+=array("texto" => "Se ha producido un error al seleccionar el Grupo de Confidencialidad." );
+	$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+	$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']."\n\n carg_codigo=".$cargo_visualizar);
+	MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+	return false;
+} elseif ( mysqli_num_rows($query) > 1 ) {
+		$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+		$array_msg_pantalla+=array("texto" => "Se ha producido un error, la cantidad de Grupo de Confidencialidad para el cargo incorrecta." );
+		$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+		$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']."\n\n carg_codigo=".$cargo_visualizar);
+		MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+		return false;
+	} elseif (mysqli_num_rows($query) == 0 ) {
+			return false;
+		} else 
+			$fila_grupo=mysqli_fetch_assoc($query);
+
+// Verifico que el cargo logueado pertenezca al grupo de confidencialidad
+$param=array('pgrucf_codigo'=>$fila_grupo['grucf_codigo'],'pcarg_codigo'=>$cargo_logueado);
+if (($query=ejecutarStoredProcedure($idconexion,'sel_cargo_grupo_confidencialidad_xgrucf_codigo_carg_codigo',$param))<0 ) {
+	$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+	$array_msg_pantalla+=array("texto" => "Se ha producido un error al seleccionar los miembros del grupo de confidencialidad." );
+	$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+	$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']."\n\n grucf_codigo=".$fila_grupo['grucf_codigo']."\n\n".$cargo_logueado);
+	MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+	return false;
+} elseif(mysqli_num_rows($query) == 0) {
+	return false;
+}
+
+return true;
+}
+//------------------------------------------------------------------------------------------
+function ObtenerDatosPrivadosDB($idconexion,$operacion,$opciones_detalle,$carg_codigo,&$fila_datos_privados,&$fila_dir_postal,&$fila_dir_legal,&$filas_telefonos) {
+
+	$fila_datos_privados=array();
+	$fila_dir_postal=array();
+	$fila_dir_legal=array();
+	$filas_telefonos=array();
+
+	$array_opciones_obtener=explode(",",$opciones_detalle); 
+
+	// Obtengo los datos basicos del funcionario asociado al cargo, para obtener el cuit de 
+	// dicha persona.
+	if (!ObtenerDatosFuncionario($idconexion,$carg_codigo,USUARIO_ROL_CARGO_ACT.",".USUARIO_ROL_CARGO_BLOQUEADO,$fila_func)) {
+		$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+		$array_msg_pantalla+=array("texto" => "Se ha producido un error al seleccionar los datos del funcionario.");
+		$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+		$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']."\n\n carg_codigo=".$carg_codigo);			
+		MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+		return false;
+	}
+	// Obtengo los datos de usuario_datos_privados	
+	if (in_array('dir_electronicas',$array_opciones_obtener) ) {
+		$param=array("ppers_cuilt"=>$fila_func['pers_cuilt']);			
+		if(($query=ejecutarStoredProcedure($idconexion,"sel_usuario_datos_privados_cuilt",$param))<0)	{
+			$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+			$array_msg_pantalla+=array("texto" => "Se ha producido un error al seleccionar los datos privados del funcionario.");
+			$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']."\n\n pers_cuilt=".$fila_func['pers_cuilt']);			
+			MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+			return false;
+		} elseif(mysqli_num_rows($query)>1)	{
+			$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+			$array_msg_pantalla+=array("texto" => "Se ha producido un error al seleccionar los datos privados del funcionario.");
+			$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']."\n\n Hay más de un registro \n\n pers_cuilt=".$fila_func['pers_cuilt']);			
+			MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+			return false;
+		 }	elseif (mysqli_num_rows($query)==1) {
+				$fila_datos_privados = mysqli_fetch_assoc($query);
+				$fila_datos_privados['_nuevo'] = false;
+			} else {
+				if ($operacion!="v") {
+					ObtenerNuevaDirElectronica($idconexion,$fila_datos_privados);
+					$fila_datos_privados['_nuevo'] = true;
+				}
+		}
+	}
+	
+	if (in_array('dp_personal',$array_opciones_obtener) ) {
+		
+		$param=array("ppers_cuilt"=>$fila_func['pers_cuilt'],"pdircp_tipo"=>DP_TIPO_PERSONAL);			
+		if(($query=ejecutarStoredProcedure($idconexion,"sel_usuario_dir_postal_xpers_cuilt_dircp_tipo",$param)) < 0) {
+			$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+			$array_msg_pantalla+=array("texto" => "Se ha producido un error al seleccionar la dirección personal del funcionario.");
+			$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']."\n\n pers_cuilt=".$fila_func['pers_cuilt']);			
+			MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+			return false;		 
+		}
+		$fila_dp_personal=mysqli_fetch_assoc($query);
+	
+		// Obtengo la dirección postal
+		$param=array('pdirp_codigo'=>$fila_dp_personal['dirp_codigo']);
+		if(($query=ejecutarStoredProcedure($idconexion,"sel_dir_postal_xdirp_codigo",$param)) < 0) {
+			$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+			$array_msg_pantalla+=array("texto" => "Se ha producido un error al seleccionar la dirección personal del funcionario.");
+			$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']."\n\n dirp_codigo=".$fila_dp_personal['dirp_codigo']);			
+			MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+			return false;		 
+		} elseif(mysqli_num_rows($query)>1)	{
+			$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+			$array_msg_pantalla+=array("texto" => "Se ha producido un error al seleccionar la dirección personal del funcionario.");
+			$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']."\n\n dirp_codigo=".$fila_dp_personal['dirp_codigo']);			
+			MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+			return false;
+		 }	elseif (mysqli_num_rows($query)==1) {
+				$fila_dir_postal = mysqli_fetch_assoc($query);
+				$fila_dir_postal['_nuevo'] = false;
+			} else {
+				if ($operacion!="v") {
+					ObtenerNuevaDirPostal($idconexion,$fila_dir_postal);
+					$fila_dir_postal['_nuevo'] = true;
+				}
+			}
+	}	
+	
+	// Obtengo la dicección legal
+	if (in_array('dp_legal',$array_opciones_obtener) ) {
+		$param=array("ppers_cuilt"=>$fila_func['pers_cuilt'],"pdircp_tipo"=>DP_TIPO_LEGAL);			
+		if(($query=ejecutarStoredProcedure($idconexion,"sel_usuario_dir_postal_xpers_cuilt_dircp_tipo",$param)) < 0) {
+			$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+			$array_msg_pantalla+=array("texto" => "Se ha producido un error al seleccionar la dirección personal del funcionario.");
+			$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']."\n\n pers_cuilt=".$fila_func['pers_cuilt']);			
+			MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+			return false;		 
+		}
+	
+		$fila_dp_legal=mysqli_fetch_assoc($query);
+		$param=array('pdirp_codigo'=>$fila_dp_legal['dirp_codigo']);
+		if(($query=ejecutarStoredProcedure($idconexion,"sel_dir_postal_xdirp_codigo",$param)) < 0) {
+			$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+			$array_msg_pantalla+=array("texto" => "Se ha producido un error al seleccionar la dirección legal del funcionario.");
+			$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']."\n\n dirp_codigo=".$fila_dp_legal['dirp_codigo']);			
+			MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+			return false;		 
+		} elseif(mysqli_num_rows($query)>1)	{
+			$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+			$array_msg_pantalla+=array("texto" => "Se ha producido un error al seleccionar la dirección legal del funcionario.");
+			$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']."\n\n dirp_codigo=".$fila_dp_legal['dirp_codigo']);			
+			MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+			return false;
+		 }	elseif (mysqli_num_rows($query)==1) {
+				$fila_dir_legal = mysqli_fetch_assoc($query);
+				$fila_dir_legal['_nuevo'] = false;
+			} else {
+				if ($operacion!="v") {
+					ObtenerNuevaDirPostal($idconexion,$fila_dir_legal);
+					$fila_dir_legal['_nuevo'] = true;
+				}
+		}
+	}
+
+	// Obtengo los teléfonos
+	if (in_array('telefonos',$array_opciones_obtener) ) {
+
+		$param=array('ppers_cuilt'=>$fila_func['pers_cuilt']);
+		if(($filas_usuario_telefono=ejecutarStoredProcedure($idconexion,"sel_usuario_telefono_xpers_cuilt",$param)) < 0) {
+			$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+			$array_msg_pantalla+=array("texto" => "Se ha producido un error al seleccionar los teléfonos privados del funcionario.");
+			$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']."\n\n pers_cuilt=".$fila_func['pers_cuilt']);			
+			MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+		 	return false;		 
+		} 	
+
+		$cant_telefonos = mysqli_num_rows($filas_usuario_telefono);
+		if($cant_telefonos > MAX_TELEFONOS_USUARIO)	{
+			$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+			$array_msg_pantalla+=array("texto" => "Se ha producido un error al seleccionar los teléfonos privados del funcionario.");
+			$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']."\n\n pers_cuilt=".$fila_func['pers_cuilt']);			
+			MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+			return false;
+		} 
+	
+		$i=0;
+		$filas_telefonos=array();
+		while ($fila_telefono=mysqli_fetch_assoc($filas_usuario_telefono) ) {
+			$param=array('ptele_codigo'=>$fila_telefono['tele_codigo']);
+		
+			if (($una_fila_telefono=ejecutarStoredProcedure($idconexion,"sel_telefono_xtele_codigo",$param)) < 0) {
+				$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+				$array_msg_pantalla+=array("texto" => "Se ha producido un error al seleccionar los teléfonos privados del funcionario.");
+				$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+				$array_msg_mail+=array("texto" =>$array_msg_pantalla['texto']."\n\n ptele_codigo=".$fila_telefono['tele_codigo']);			
+				MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+				return false;		 
+			} 
+			$filas_telefonos[$i]=mysqli_fetch_assoc($una_fila_telefono);
+			$filas_telefonos[$i]['_nuevo'] = false;
+			$i++;
+	   }
+	   
+	   if (count($filas_telefonos)==0 && $operacion!="v") {
+		  ObtenerNuevoTelefono($idconexion,$filas_telefonos);
+		  $filas_telefonos[0]['_nuevo'] = true;   
+	   }
+	}   
+
+	if($operacion!="v") {
+		$_SESSION['dp_nuevo'] = array();	
+		$_SESSION['dp_nuevo']['dir_electronicas']=$fila_datos_privados['_nuevo'] ;;
+		$_SESSION['dp_nuevo']['dp_personal']=$fila_dir_postal['_nuevo'] ;;
+		$_SESSION['dp_nuevo']['dp_legal'] = $fila_dir_legal['_nuevo'] ;
+	}
+   return true;
+}
+//------------------------------------------------------------------------------------------
+function ListaTelefonos($idconexion,$filas_telefono,&$no_error,$titulo="") {
+$no_error = true;
+?>
+<table border=0 cellpadding=0 cellspacing=0 style="width:100%" class="textoTablaDato">
+<?php if ($titulo!="") { ?>
+	<tr class="textoGrupoTitulo">
+	<td colspan="6"><?php echo $titulo ?></td>
+	</tr>	
+
+<?php	} ?>
+
+<?php if (count($filas_telefono)>0){ ?>
+	<tr class="textoGrupoTituloChico">
+	<td style="width:50px">Tipo</td>
+	<td>DDI</td>	
+	<td>DDN</td>
+	<td>Número</td>
+	<td>Interno</td>	
+	<td style="width:150px">Horario</td>
+	</tr>	
+<?php	} ?>
+
+<?php for($i=0;$i<count($filas_telefono);$i++) { ?>
+	<tr style="height:20px" class="textoTablaDato">
+	  <td style="width:50px">
+		  <?php echo htmlspecialchars(TraerCampo($idconexion,"telefono_tipo","telt_descripcion",array("telt_codigo='",$filas_telefono[$i]['telt_codigo'],"'")),ENT_QUOTES);?>
+	  </td>	  
+	  <td>
+		<?php	echo htmlspecialchars($filas_telefono[$i]['tele_ddi'],ENT_QUOTES); ?>
+	  </td>
+	  <td>
+		<?php	echo htmlspecialchars($filas_telefono[$i]['tele_ddn'],ENT_QUOTES); ?>		
+	  </td>	
+	  <td >
+   	   <?php 	echo htmlspecialchars($filas_telefono[$i]['tele_numero'],ENT_QUOTES); ?>
+	  </td>	  
+	  <td>
+	  <?php echo htmlspecialchars($filas_telefono[$i]['tele_interno'],ENT_QUOTES); ?>
+	  </td>
+	  <td  style="width:150px">
+		  <?php echo htmlspecialchars($filas_telefono[$i]['tele_horario'],ENT_QUOTES); ?>
+	  </td>
+	</tr>
+<?php 	} // fin telefono ?>
+
+</table> <?php
+}  // fin -- funcion Telefonos Lista
+//------------------------------------------------------------------------------------------------
+function ListarDatosPrivados($idconexion,$opciones_mostrar,$fila_cargo,$fila_datos_privados,$fila_dir_postal,$fila_dir_legal,$filas_telefonos) {
+
+	$no_error=true;
+	$array_opciones_mostrar=explode(",",$opciones_mostrar); 
+?>
+  <table style="width:100%" align="center"  border=0 cellpadding=0 cellspacing=0 class="textoTablaDato"> 
+<?php	 if (in_array('dp_personal',$array_opciones_mostrar) && count($fila_dir_postal)!=0) {?>
+		  <tr> 
+			<td> 
+			<?php ListarDireccionPostal($idconexion,"Dirección Personal",$fila_dir_postal,$no_error); ?> 
+			</td> 
+		  </tr> 
+	<?php  } ?>
+	<?php	if (in_array('dp_legal',$array_opciones_mostrar) && count($fila_dir_legal)!=0) {?>
+		  <tr> 
+			<td> <?php 
+			ListarDireccionPostal($idconexion,"Dirección Legal",$fila_dir_legal,$no_error); ?> 
+			</td> 
+		  </tr> 
+	<?php } ?>
+	<?php if (in_array('telefonos',$array_opciones_mostrar) && count($filas_telefonos)!=0) {?>
+		  <tr>  
+			<td> 
+			<?php ListaTelefonos($idconexion,$filas_telefonos,$no_error,"Teléfonos");	?> 
+			</td> 
+		  </tr> 
+	<?php } ?>
+	<?php if (in_array('dir_electronicas',$array_opciones_mostrar) && count($fila_datos_privados)!=0) {?> 
+		  <tr>  
+			<td> 
+			<?php LitarDireccionElectronicaDP($idconexion,"Direcciones Electrónicas",$fila_datos_privados,$no_error); ?> 
+			</td> 
+		  </tr> 
+	<?php } ?>	  	
+</table> 
+<?php 
+} 
+//-----------------------------------------------------------------------------
+function ListarDireccionPostal($idconexion,$titulo,$fila_dir_postal,$no_error) {
+$no_error=true;
+?>
+  <table border=0 cellpadding=0 cellspacing=7 style="width:100%" class="textoTablaDato">
+
+	<tr class="textoGrupoTitulo">
+	  <td colspan="3"> <?php echo $titulo; ?>
+	  </td>
+	</tr>
+
+	<tr>
+	  <td nowrap class="textoEtiqueta">Domicilio: </td>
+	  <td colspan="2" class="textoEtiquetaDato">
+		<?php echo htmlspecialchars($fila_dir_postal["dirp_domicilio"] ,ENT_QUOTES); ?>
+	  </td>
+	</tr>	
+
+	<tr>
+		<td nowrap class="textoEtiqueta">País:</td>
+		<td class="textoEtiquetaDato"><?php echo htmlspecialchars(TraerCampo($idconexion,"pais","pais_nombre",array("pais_codigo='",$fila_dir_postal['pais_codigo'],"'")),ENT_QUOTES); ?>	</td>
+		<td>
+			  <table border=0 cellpadding=0 cellspacing=0 width="100%" class="textoTablaDato">
+					<tr>
+					  <td nowrap class="textoEtiqueta">Código Postal:</td>
+					  <td class="textoEtiquetaDato">
+						<?php  echo htmlspecialchars($fila_dir_postal['dirp_CP'],ENT_QUOTES); ?>
+					  </td>
+					</tr>
+			  </table>
+		</td>
+	</tr>
+
+<?php	if ($fila_dir_postal['pais_codigo']==ARGENTINA ) { ?>
+	<tr>
+		<td nowrap class="textoEtiqueta">Provincia:</td>
+		<td class="textoEtiquetaDato" colspan="2">
+			<?php	echo htmlspecialchars(TraerCampo($idconexion,"provincia","denominacion",array("cod_provincia='",$fila_dir_postal['cod_provincia'],"'")),ENT_QUOTES); ?>
+		</td>
+	</tr>
+
+	<tr>
+	  <td nowrap class="textoEtiqueta">Localidad:</td>
+	  <td class="textoEtiquetaDato" colspan="2">
+			<?php echo htmlspecialchars(TraerCampo($idconexion,"localidad","denominacion",array("cod_localidad='",$fila_dir_postal['cod_localidad'],"'")),ENT_QUOTES); ?>
+	  </td>		  
+	</tr>
+
+<?php	} //  fila_dir_postal['pais_codigo']!=ARGENTINA ?>
+
+<?php	if (!$fila_dir_postal['pais_codigo']==ARGENTINA) { ?>
+	<tr <?php echo (($fila_dir_postal['pais_codigo']==ARGENTINA)?" disabled ":" "); ?>>
+	  <td nowrap class="textoEtiqueta">Ciudad:</td>
+	  <td class="textoEtiquetaDato" colspan="2">
+		<?php	echo htmlspecialchars($fila_dir_postal['dirp_ciudad'],ENT_QUOTES); ?>
+	  </td>
+	</tr>		
+<?php	} // !$fila_dir_postal['pais_codigo']==ARGENTINA ?>
+</table>
+<?php
+}
+//-----------------------------------------------------------------------------
+function LitarDireccionElectronicaDP($idconexion,$titulo,$fila_datos_privados,$no_error) {
+$no_error=true;
+?>
+<table border=0 cellpadding=0 cellspacing=7 style="width:100%" class="textoTablaDato">
+	<tr class="textoGrupoTitulo">
+	  <td colspan="3"> <?php echo $titulo; ?>  </td>
+	</tr>
+
+	<?php for ($i=1;$i<=3;$i++) {
+		if($fila_datos_privados["usudp_email".$i]!="") {
+	?>	<tr>
+			<td nowrap class="textoEtiqueta">Email:</td>
+			<td><?php echo htmlspecialchars($fila_datos_privados["usudp_email".$i],ENT_QUOTES); ?></td>	
+		</tr>
+	<?php } 
+	 } 
+	 if($fila_datos_privados['usudp_web1']!="") {
+	?>	<tr>
+		  <td nowrap class="textoEtiqueta">Web:</td>
+		  <td><?php echo "<a href='".$fila_datos_privados['usudp_web1']."' class='linkTablaDatoChico'>".$fila_datos_privados['usudp_web1']."</a>"?> </td>
+		</tr>
+	<?php } ?>
+</table>
+<?php } 
+//---------------------------------------------------------------------------
+// Lo usa ventana texto y funciones cargo
+//---------------------------------------------------------------------------
+// Muestra la estructura jerárquica inferior a jurisdactual, sin incluirse a si misma
+function MostrarJerarquiaDescendente($objJurisdicciones,$operacion,$jurisdactual){
+?>
+	<table style="width:100%" class="textoTablaDato" cellpadding="0" cellspacing="0"> 
+<?php	if ($objJurisdicciones->SubArbolDependiente($jurisdactual['jurisdid'],1,array('pjurisdestado'=>TABGRALES_JURISDACTIVA,'porderby'=>'jurisdarbolorden'),TABGRALES_TS_ARRAY,$subArbolDep,array(),$NumFilas,$CodError)) {?>	
+		<tr>
+			<td> 		
+<?php			    if ($NumFilas > 1) { // Siempre da por lo menos la jurisdicción que se busca ?>
+				  <p><?php echo "Organismos dependientes:"; ?> </p> 
+<?php			    } ?>
+				<ul style="border:0"> 
+		<?php		foreach ($subArbolDep as $clave => $valor) {
+					if ($jurisdactual['jurisdid'] != $valor['jurisdid']) {
+					  if (isset($_GET['menuizquierdo'])) { // para el portal
+						$link="menuizquierdo=".$_GET['menuizquierdo'];
+						$link.="&amp;"."jurisdid=".$valor['jurisdid'];
+					  }	else 
+  						$link="jurisdid=".$valor['jurisdid'];
+ 					  
+					  
+					  if ($operacion=="v") { ?> 		 
+								<li style="vertical-align:middle;" class="itemListaLinkEstructura"><a href="<?php echo "buscar_estructura.dhtml?".$link; ?>" class="linkEstructura"><?php echo htmlspecialchars($valor['jurisdnom'],ENT_QUOTES) ?></a> 
+					<?php 	} else {  ?>
+								<li style="vertical-align:middle;" class="itemListaEstructura"><?php echo htmlspecialchars($valor['jurisdnom'],ENT_QUOTES); 
+						} ?>	
+		<?php			}	
+				} ?>		
+				</ul> 	
+			</td>
+		</tr>
+<?php	} else { ?>						
+		<tr>
+			<td><?php MostrarMensaje_viejo($idconexion,MSG_ERRSOSP,"Error en el código de organismo enviado.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),FMT_TEXTO);	?> </td>
+		</tr>
+<?php	}		?>
+	
+	</table>
+<?php
+} // fin - MostrarJerarquiaDescendente
+
+//---------------------------------------------------------------------------
+// Muestra la estructura jerárquica superior a jurisdactual, sin incluirse a si misma
+function MostrarJerarquiaAscendente($objJurisdicciones,$operacion,$jurisdactual,$cant_niveles,$titulo=""){
+?>
+	<table width="100%" class="textoTablaDato" cellpadding="0" cellspacing="0"> 
+<?php		
+	if ($objJurisdicciones->RamaAscendente($jurisdactual['jurisdid'],$cant_niveles,array('pjurisdestado'=>TABGRALES_JURISDACTIVA,'porderby'=>'jurisdarbolorden'),TABGRALES_TS_ARRAY,$RamaAsc,array(),$NumFilas,$CodError)) {
+		if ($NumFilas > 1) { // Siempre da por lo menos la jurisdicción que se busca
+?>			<tr align="left">
+				<td class="textoEtiqueta"><?php echo $titulo; ?></td>
+			</tr>		
+<?php		} ?>		
+		<tr>
+		<td align="left"> <?php
+		$i=0;
+		foreach ($RamaAsc as $clave=>$valor) {
+			$i++;			
+			if ($jurisdactual['jurisdid'] != $valor['jurisdid']) {				
+				  if (isset($_GET['menuizquierdo'])) {
+					$querystring="menuizquierdo=".$_GET['menuizquierdo'];
+					$querystring.="&amp;"."jurisdid=".$valor['jurisdid'];
+				 } else 		
+					$querystring="jurisdid=".$valor['jurisdid'];
+
+				if ($operacion=="v") {			
+					echo "<ul><li style='margin-left:-25px;vertical-align:middle' class='itemListaLinkEstructuraSuperior'>".$i.".";
+			?> 		<a class="linkEstructura" href="<?php echo "buscar_estructura.dhtml?".$querystring ?>"> <?php echo htmlspecialchars($valor['jurisdnom'],ENT_QUOTES) ?></a>
+			<?php 	} else {
+					echo "<ul><li style='margin-left:-25px;vertical-align:middle' class='itemListaLinkEstructuraSuperior'>".$i.".";
+					echo htmlspecialchars($valor['jurisdnom'],ENT_QUOTES)?> 
+			<?php  }
+		}	
+	} 		
+    $j=0;	
+	for ($j;$j<$i-1;$j++) // Tiene la jurisdicción actual
+		echo "</li></ul>";
+
+?>		</td>
+	</tr>
+
+<?php	} else { ?>						
+		<tr>
+			<td><?php	MostrarMensaje_viejo($idconexion,MSG_ERRSOSP,"Error en el código de organismo enviado.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),FMT_TEXTO); ?> </td>
+		</tr>
+<?php	}		?>
+	</table>
+<?php
+} // fin - MostrarJerarquiaAscendente
+
+//---------------------------------------------------------------------------
+// Carga en la sesión la versión actual de Jurisdicciones
+function CargarVersionJurisdicciones($idconexion){
+
+		$param=array();
+		if (($result=ejecutarStoredProcedure($idconexion,"sel_jurisdiccion_version",$param))<0
+		|| mysqli_num_rows($result)!=1 ) {
+			$array_msg_pantalla=array("formato" => FMT_TEXTO);	
+			$array_msg_pantalla+=array("texto" => "Se ha producido un error al seleccionar las jurisdicciones.");
+			$array_msg_mail=array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
+			$array_msg_mail+=array("texto" =>"Se ha producido un error al seleccionar la versión de jurisdicciones.");			
+			MostrarMensaje($idconexion,MSG_ERRGRAVE,$array_msg_pantalla,$array_msg_mail);
+			return false;
+		}	
+		
+
+		$fila_version = mysqli_fetch_assoc($result);
+		$_SESSION['jurisversion_actual'] = $fila_version['jurisversion_actual'];
+
+		return true;
+
+
+}
+
+
+?>

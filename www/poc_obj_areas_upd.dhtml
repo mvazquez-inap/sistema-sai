@@ -1,0 +1,196 @@
+<?php
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+$oPocPocObjetivoPocArea = new cPocPocObjetivoPocArea($conexion);
+$oPocArea = new cPocArea($conexion);
+$oPocObjetivo = new cPocObjetivo($conexion);
+$oPoc = new cPoc($conexion);
+
+/*echo "/// POST ///<br>";
+print_r ($_POST);
+echo "<br>/// GET ///<br>";
+print_r ($_GET);*/
+//----------------------------------------------------------------------------------------- 	
+function Validarphp($conexion,&$datosvalidados,$oPocPocObjetivoPocArea,$oPocArea,$oPocObjetivo,$oPoc)
+{
+	if(isset($_POST['botonalta']) || isset($_POST['botonbaja'])) {
+		$datosvalidados=array();
+		/////Valido el poc_codigo
+		if($_POST['poc_codigo']=="")
+		{
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error en la selección del Poc. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		
+		$oPoc->PocSP($_SESSION['rolcod'],$_SESSION['jurisdid_inap'],$spnombre,$spparam);
+		if(!$conexion->BuscarRegistroxClave($spnombre,$spparam,array("poc_codigo"=>$_POST['poc_codigo']),$resultado,$filaret,$numfilasmatcheo,$errno))
+		{
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al seleccionar el Poc. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		
+		if($numfilasmatcheo!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al seleccionar el Poc. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["poc_codigo"]=$_POST['poc_codigo'];
+		
+		/////Valido el pocobj_codigo
+		if($_POST['pocobj_codigo']=="")
+		{
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error en la selección del Objetivo. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$oPocObjetivo->ObjetivosSP($_SESSION['jurisdid_inap'],$spnombre,$spparam);
+		if(!$conexion->BuscarRegistroxClave($spnombre,$spparam,array("pocobj_codigo"=>$_POST['pocobj_codigo']),$resultado,$filaret,$numfilasmatcheo,$errno))
+		{
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al seleccionar el Objetivo. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		
+		if($numfilasmatcheo!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al seleccionar el Objetivo. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["pocobj_codigo"]=$_POST['pocobj_codigo'];
+		/////
+		
+	if(isset($_POST['botonalta'])) {
+		if(isset($_POST['listaareasder'])) {
+			$arrayfinal=$_POST['listaareasder'];
+			////for each de arrayfinal
+				foreach($arrayfinal as $file)
+				{
+					$oPocArea->AreasSP($_SESSION['jurisdid_inap'],$spnombre,$spparam);
+					if(!$conexion->BuscarRegistroxClave($spnombre,$spparam,array("pocarea_codigo"=>$file),$resultado,$filaret,$numfilasmatcheo,$errno))
+					{
+						FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al seleccionar Áreas. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+						return false;
+					}
+				}
+			////fin de: for each de arrayfinal
+		}
+		else
+			$arrayfinal=array();
+			
+		$ArregloDatos= array();
+		$ArregloDatos['poc_codigo']=$datosvalidados["poc_codigo"];
+		$ArregloDatos['pocobj_codigo']=$datosvalidados["pocobj_codigo"];
+		if(!$oPocPocObjetivoPocArea->BuscarPocPocObjetivoPocArea($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+		{
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar las Áreas. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$arrayinicial=array();
+		while($filaareas=mysqli_fetch_assoc($resultado))
+			$arrayinicial[]=$filaareas['pocarea_codigo'];
+	
+		$arraysacar=array_diff($arrayinicial,$arrayfinal);
+		$arrayponer=array_diff($arrayfinal,$arrayinicial);
+	
+		$datosvalidados["areassacar"]=$arraysacar;
+		$datosvalidados["areasponer"]=$arrayponer;
+	  }//fin de: if(isset($_POST['botonalta'])) {
+	}//fin de: if(isset($_POST['botonbaja'])
+	//if(isset($_POST['botonbaja']) && (!isset($_POST['listaareasder']))) {
+	//echo"HACERRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR";
+	//}
+	return true;
+}
+//----------------------------------------------------------------------------------------- 	
+	$result=true;
+	$datosvalidados=$_POST;
+	///////Cuando viene por el boton Baja
+	if(isset($_POST['botonbaja']) && (!isset($_POST['listaareasder'])) && !Validarphp($conexion,$datosvalidados,$oPocPocObjetivoPocArea,$oPocArea,$oPocObjetivo,$oPoc))
+	{
+		FuncionesPHPLocal::RegistrarAcceso($conexion,"040099","",$_SESSION['usuariocod']);	
+		$result=false;
+	}
+	if($result && isset($_POST['botonbaja']) && (!isset($_POST['listaareasder'])))
+	{
+		$conexion->ManejoTransacciones("B");
+		if (!$oPocPocObjetivoPocArea->EliminarDatosPocPocObjetivoPocAreaXPocXObj ($_POST['poc_codigo'],$_POST['pocobj_codigo']))
+		{	
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$result=false;
+			break;
+		}
+		FuncionesPHPLocal::RegistrarAcceso($conexion,'037802',$datosvalidados['poc_codigo']."-".$datosvalidados['pocobj_codigo'],$_SESSION['usuariocod']);
+	
+		if($result)
+		{
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se han eliminado las relaciones Poc-Objetivo-Área ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$conexion->ManejoTransacciones("C");
+		}
+		else
+			$conexion->ManejoTransacciones("R");
+	}
+	
+	
+	
+	///////Cuando viene por el boton Actualizar
+	if(isset($_POST['botonalta']) && !Validarphp($conexion,$datosvalidados,$oPocPocObjetivoPocArea,$oPocArea,$oPocObjetivo,$oPoc))
+	{
+		FuncionesPHPLocal::RegistrarAcceso($conexion,"040099","",$_SESSION['usuariocod']);	
+		$result=false;
+	}
+	if($result && isset($_POST['botonalta']))
+	{
+		$conexion->ManejoTransacciones("B");
+		foreach($datosvalidados["areasponer"] as $areacod)
+		{
+			$ArregloDatos=array('poc_codigo'=>$datosvalidados['poc_codigo'],'pocobj_codigo'=>$datosvalidados['pocobj_codigo'],'pocarea_codigo'=>$areacod);
+			//if (!$oModulosArchivos->Insertar ($ArregloDatos,$error,$errormail))
+			if (!$oPocPocObjetivoPocArea->Insertar ($ArregloDatos,$error,$errormail))
+			{	
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				$result=false;
+				break;
+			}
+			FuncionesPHPLocal::RegistrarAcceso($conexion,'037801',$datosvalidados['poc_codigo']."-".$datosvalidados['pocobj_codigo']."-".$areacod,$_SESSION['usuariocod']);
+		}
+		if($result)
+		{
+			foreach($datosvalidados["areassacar"] as $areacod)
+			{
+				$ArregloDatos=array('poc_codigo'=>$datosvalidados['poc_codigo'],'pocobj_codigo'=>$datosvalidados['pocobj_codigo'],'pocarea_codigo'=>$areacod);
+				if (!$oPocPocObjetivoPocArea->Eliminar ($ArregloDatos,$error,$errormail))
+				{	
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					$result=false;
+					break;
+				}
+				FuncionesPHPLocal::RegistrarAcceso($conexion,'037802',$datosvalidados['poc_codigo']."-".$datosvalidados['pocobj_codigo']."-".$areacod,$_SESSION['usuariocod']);
+			}
+		}
+		
+		if($result)
+		{
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se actualizó la relación Poc-Objetivo-Área ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$conexion->ManejoTransacciones("C");
+		}
+		else
+			$conexion->ManejoTransacciones("R");
+	}
+?>
+	<br><br><br><div align="center"><a href="poc_obj_areas.dhtml<?php echo isset($datosvalidados['poc_codigo'])?"?poc_codigo=".$datosvalidados['poc_codigo']:""; ?>" class="linkFondoBlanco">Volver</a></div>
+<?php $oEncabezados->PieMenuEmergente(); ?>

@@ -1,0 +1,199 @@
+<?php require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+$oDictamen = new cDictamen($conexion);
+//----------------------------------------------------------------------------------------- 
+?>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 TRANSITIONAL//EN"> 
+<html>
+<head>
+<title>Detalle de la Disposición &nbsp;</title>
+<link rel="stylesheet" type="text/css" href="estilos.css">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+</head>
+<body>
+<br><div class="textoTitulo" align="left"> Detalle de la Disposición &nbsp;&nbsp;&nbsp;
+<?php $export="download_tablas_excel.dhtml?tabla=dictamen_de_dispo&amp;dis_codigo=".$_GET['dis_codigo'];?>
+	<a href="<?=$export ?>"  class="linkFondoBlanco textoAclaraciones"> 
+		<img alt="Bajar en Formato .xls" title="Bajar en Formato .xls" src="./images/iconoexcel.jpg" border="0">
+	</a>
+</div>	
+<br>
+
+<?php 
+//	Ver que deberia validar que la disposición pueda ser vista por el usuario logueado
+	ListarDictamenDeDisposicion($conexion, $_GET["dis_codigo"]); 
+?>
+
+<!-- <br><br><div align="center"><a href="javascript:window.close()" class="linkFondoBlanco">Cerrar ventana</a></div>	-->
+</body>
+</html>
+<?php
+//----------------------------------------------------------------------------------------- 
+ 	function ListarDictamenDeDisposicion($conexion,$dis_codigo) {
+
+ 	// Verifico que este la disposición
+	$oDisposicion = new cDisposicion($conexion);
+	
+	if (!$oDisposicion->TraerDatosDisposicion($dis_codigo,$fila_disposicion,$es_modif)) {
+		$txt_sys_mail="Error buscando los datos de la disposición.\ndis_codigo=".$dis_codigo;
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al mostrar detalles de la disposición.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;		
+	}
+	if (!$es_modif) {
+		$txt_sys_mail="\ndis_codigo=".$dis_codigo;
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"No se ha encontrado la disposición.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;		
+	}
+	// Obtengo los dictamenes de los cursos asosciados a la disposicion (actividad_curso + actividad_programacion + disposicion + expediente)
+	$numfilas_DicActCurso = 0;
+	$oActividadCurso = new cActividadCurso($conexion);
+	$ArregloDatos = array('dis_codigo'=>$dis_codigo,'orderby'=>'tipoact_codigo,actprog_fecha_inicio,act_nombre');
+	if (!$oActividadCurso->BuscarActividadDictaminada($ArregloDatos,$numfilas_DicActCurso,$resultActCurso,$error,$errormail)) {
+		$txt_sys_mail="Error al mostrar detalles de la disposición de actividad Curso.\ndis_codigo=".$dis_codigo;
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al mostrar detalles de la disposición.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;		
+	} 
+	
+	// Obtengo dictamenes de las actividades extenas asociados a la disposicion (Asistencia a actividad externa) 
+	// (actividad_externa + actividad_programacion + disposicion + expediente)
+	$numfilas_DicActExt = 0;
+	$oActividadDicExt = new cActividadExterna($conexion);
+	$ArregloDatos = array('dis_codigo'=>$dis_codigo,'orderby'=>'actprog_fecha_inicio,act_nombre');
+	if (!$oActividadDicExt->BuscarActividadDictaminada($ArregloDatos,$numfilas_DicActExt,$resultDicActExt,$error,$errormail)) {
+		$txt_sys_mail="Error al mostrar detalles de la disposición de actividad Externa.\ndis_codigo=".$dis_codigo;
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al mostrar detalles de la disposición.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;		
+	} 	
+	
+	// Obtengo los dictamenes de las actividades de autodesarrollo asociaddas a la disposición (actividad_autodesarrollo_dictamen + disposicion )
+	// Participación Eventos (actividad_autodesarrollo_evento)
+			// Actividad 
+				// Si Mero Asistente 
+					// Créditos (actautoeven_creditos_asistencia) - Estado del Dictamen (actividad_autodesarrollo_evento) 				
+				// Si Participante activo
+					//  Persona (cuit + nombre + apellido)- Prestador(*) - Créditos - Estado del Dictamen (actividad_autodesarrollo_persona)
+			
+	// Otra actividad de autodesarrollo
+		//  Actividad - Persona (cuit + nombre + apellido)- Prestador(*) - Créditos - Estado del Dictamen (actividad_autodesarrollo_persona)
+	$numfilas_DicActAuto = 0;		
+	$oActividadDicAuto= new cActividadAutodesarrollo($conexion);
+	$ArregloDatos = array('dis_codigo'=>$dis_codigo,'orderby'=>'tipoact_codigo,act_nombre');
+	if (!$oActividadDicAuto->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas_DicActAuto,$resultDicActAuto,$error,$errormail)) {
+		$txt_sys_mail="Error al mostrar detalles de la disposición de actividad de Autodesarrollo\ndis_codigo=".$dis_codigo;
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al mostrar detalles de la disposición.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;		
+	} 
+	
+	$oDictamen = new cDictamen($conexion);	
+			
+	if($numfilas_DicActCurso==0 && $numfilas_DicActExt==0 && $numfilas_DicActAuto ==0) {
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"La disposición no fue asociada a ningún dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return true;		
+	} else {
+
+			// Armo Arrays con los dictamenes obtenidos y descripciones necesarias para listar según
+			// el tipo de dictamen
+			$array_DictamenesActCursoInap=array();
+			$array_DictamenesActCursoInstitucional=array();
+			$array_DictamenesActCursoJurisdiccional=array();
+
+			if (!$oDictamen->AgregarDetalleDictamenActCurso($resultActCurso,$array_DictamenesActCursoInap,
+													 	$array_DictamenesActCursoInstitucional,
+														$array_DictamenesActCursoJurisdiccional))  
+				return false;													
+			//--------------------------- Actividades CURSO ---------------------------------
+			if (count($array_DictamenesActCursoInap)>0)  { 			?>
+				<table width="98%" class="textoTablaDato" align="center" cellpadding="0" cellspacing="0" border="0">
+					<tr>
+						<td class="textoEtiquetaDatoResaltado">Acreditación de Actividades Formato Curso INAP</td>					
+					</tr>		
+					<tr>
+						<td><?php $oDictamen->ListarDictamenActCurso($array_DictamenesActCursoInap); ?></td>					
+					</tr>		
+					<tr>
+						<td>&nbsp;</td>					
+					</tr>				
+				</table>
+			<?php } // count($array_DictamenesActCursoInap) >0 ?>
+			<?php if (count($array_DictamenesActCursoJurisdiccional)>0)  { ?>
+					<table width="98%" class="textoTablaDato" align="center" cellpadding="0" cellspacing="0" border="0">
+						<tr>
+							<td class="textoEtiquetaDatoResaltado">Acreditación de Actividades Formato Curso Jurisdiccional</td>					
+						</tr>		
+						<tr>
+							<td><?php $oDictamen->ListarDictamenActCurso($array_DictamenesActCursoJurisdiccional);?></td>					
+						</tr>		
+						<tr>
+							<td>&nbsp;</td>					
+						</tr>		
+					</table>
+			<?php } // count($array_DictamenesActCursoJurisdiccional) >0 ?>
+			<?php if (count($array_DictamenesActCursoInstitucional)>0)  { ?>
+					<table width="98%" class="textoTablaDato" align="center" cellpadding="0" cellspacing="0" border="0">
+						<tr>
+							<td class="textoEtiquetaDatoResaltado">Acreditación de Actividades Formato Curso Institucional</td>					
+						</tr>		
+						<tr>
+							<td><?php $oDictamen->ListarDictamenActCurso($array_DictamenesActCursoInstitucional); ?></td>					
+						</tr>		
+						<tr>
+							<td>&nbsp;</td>					
+						</tr>		
+					</table>
+			<?php } // count($array_DictamenesActCursoInstitucional) >0 
+		} // $numfilas_DicActCurso==0
+
+		//--------------------------- Actividades EXTERNAS ---------------------------------
+		if($numfilas_DicActExt>0)  { 
+			$array_DictamenesActExt=array();
+			if (!$oDictamen->AgregarDetalleDictamenActExterna($resultDicActExt,$array_DictamenesActExt)) 
+				return false;											
+		?>
+			<table width="98%" class="textoTablaDato" align="center" cellpadding="0" cellspacing="0" border="0">
+				<tr>
+					<td class="textoEtiquetaDatoResaltado">Acreditación de Actividades Externas	</td>					
+				</tr>				
+				<tr> 
+					<td><?php $oDictamen->ListarDictamenActExterna($array_DictamenesActExt); ?></td>					
+				</tr>
+				<tr>
+					<td>&nbsp;</td>					
+				</tr>					
+			</table>
+	<?php } ?>
+	<?php //--------------------------- Actividades de AUTODESARROLLO ---------------------------------
+		if($numfilas_DicActAuto>0)  { 
+			$array_DictamenesActAuto=array();
+			if (!$oDictamen->AgregarDetalleDictameActAutodesarrollo($resultDicActAuto,$array_DictamenesActAuto)) 
+				return false;					
+		?>
+			<table width="98%" class="textoTablaDato" align="center" cellpadding="0" cellspacing="0" border="0">
+				<tr>
+					<td class="textoEtiquetaDatoResaltado">Acreditación de Actividades de Autodesarrollo </td>					
+				</tr>	
+				<tr>
+					<td ><?php $oDictamen->ListarDictamenActAutodesarrollo($array_DictamenesActAuto); ?></td>					
+				</tr>
+				<tr>
+					<td>&nbsp;</td>					
+				</tr>					
+			</table>	
+<?php 		} // ($numfilas_DicActAuto>0) 
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+?>

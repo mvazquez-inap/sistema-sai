@@ -1,0 +1,478 @@
+<?php require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+$oDictamen=new cDictamen($conexion);
+?>
+<script type="text/javascript">
+//----------------------------------------------------------------------------------------- 
+var max_fila_seleccionados = 0;   	// Cantidad de seleccionados en cada momento
+var MAX_SELECCIONADOS = 30;			// Cantidad máxima permitida de Seleccionados
+//----------------------------------------------------------------------------------------- 
+function newNodoFilaTitulos(idTabla){	
+	var newFila=document.getElementById(idTabla).insertRow(-1);
+	newFila.name='id_titulos';
+	newFila.id='id_titulos';
+
+//	newFila.style.backgroundColor="#3D005F";
+//	alert(newFila.className);
+//	newFila.style.setAtribute('backgroundColor',"#3D005F");
+	newFila.className='colorTitulosGrupo textoTituloGrupo';
+	newFila.align="center";
+
+	newFila.appendChild(document.createElement("td"));	
+	var theText = document.createTextNode('Expediente');
+	newFila.lastChild.appendChild(theText);
+
+	newFila.appendChild(document.createElement("td"));	
+	var theText = document.createTextNode('Código INAP');
+	newFila.lastChild.appendChild(theText);
+
+	newFila.appendChild(document.createElement("td"));	
+	var theText = document.createTextNode('Actividad');
+	newFila.lastChild.appendChild(theText);
+
+	if(idTabla=='tabla_seleccionados_programacion') {
+		newFila.appendChild(document.createElement("td"));	
+		var theText = document.createTextNode('Vigencia Desde');
+		newFila.lastChild.appendChild(theText);
+	
+		newFila.appendChild(document.createElement("td"));	
+		var theText = document.createTextNode('Vigencia Hasta');
+		newFila.lastChild.appendChild(theText);
+	} else {
+		newFila.appendChild(document.createElement("td"));	
+		var theText = document.createTextNode('Tipo');
+		newFila.lastChild.appendChild(theText);
+
+		newFila.appendChild(document.createElement("td"));	
+		var theText = document.createTextNode('Destinatario');
+		newFila.lastChild.appendChild(theText);
+	}
+	newFila.appendChild(document.createElement("td"));	
+	var theText = document.createTextNode('');
+	newFila.lastChild.appendChild(theText);
+
+}
+//---------------------------------------------------------------------
+function newNodoFila(idTabla,dic_codigo){	
+
+	if(max_fila_seleccionados+1>MAX_SELECCIONADOS) {
+		alert('La cantidad máxima de dictámenes a seleccionar es de '+MAX_SELECCIONADOS);
+		return;
+	}
+
+	var fila = EncontrarObjeto("id_fila_dic_seleccionada_"+dic_codigo);
+	if(fila != null) {
+		alert('Ya se encontraba seleccionado el dictamen.');
+	} else { 
+	
+		var item_obj = EncontrarObjeto("id_fila_dic_seleccionable_"+dic_codigo);
+		var exp_numero=item_obj.cells[1].innerHTML;
+		var act_codinap=item_obj.cells[2].innerHTML;
+		var act_nombre=item_obj.cells[3].innerHTML;
+		var actprog_fecha_inicio=item_obj.cells[4].innerHTML;
+		var actprog_fecha_fin=item_obj.cells[5].innerHTML;
+			
+		var newFila=document.getElementById(idTabla).insertRow(-1);
+		max_fila_seleccionados++;
+		newFila.name='id_fila_dic_seleccionada_'+dic_codigo;
+		newFila.id='id_fila_dic_seleccionada_'+dic_codigo;		
+
+		newFila.appendChild(document.createElement("td"));	
+		var theText = document.createTextNode(exp_numero);
+		newFila.lastChild.appendChild(theText);
+	
+		newFila.appendChild(document.createElement("td"));	
+		var theText = document.createTextNode(act_codinap);
+		newFila.lastChild.appendChild(theText);
+	
+		newFila.appendChild(document.createElement("td"));	
+		var theText = document.createTextNode(act_nombre);
+		newFila.lastChild.appendChild(theText);
+	
+		newFila.appendChild(document.createElement("td"));	
+		var theText = document.createTextNode(actprog_fecha_inicio);
+		newFila.lastChild.appendChild(theText);
+	
+		newFila.appendChild(document.createElement("td"));	
+		var theText = document.createTextNode(actprog_fecha_fin);
+		newFila.lastChild.appendChild(theText);
+	
+		newFila.appendChild(document.createElement("td"));	
+		var theButton = document.createElement('input');
+		theButton.type='image';
+		theButton.name='eliminar_'+dic_codigo;
+		theButton.src='images/menos.jpg';	
+		theButton.alt='Eliminar Selección';	
+		theButton.value='Eliminar Selección';
+		theButton.onclick=function(){deleteFila('id_fila_dic_seleccionada_'+dic_codigo) };
+		newFila.lastChild.appendChild(theButton);
+	}	
+	return;
+}
+//-----------------------------------------------------------------
+function newAllFila(formulario,idTabla ) {
+
+	var item_name,item_obj,i;
+	var len=eval('window.document.'+formulario+'.length');	
+	for(i=0;i<len;i++) {
+		item_name=eval('window.document.'+formulario+'.elements[i].name');
+		if (item_name.substr(0,9)=='checkbox_') {
+			item_obj = EncontrarObjeto(item_name);
+			if (item_obj.checked==true) {		
+				newNodoFila(idTabla,item_name.substr(9,item_name.length-1));
+			} // if - item_obj.checked
+		}	// if - item_name.substr(0,9)=='checkbox_'
+	} // for
+}
+//-----------------------------------------------------------------
+function cambiarChecks(formulario,idCheck) {
+	var item_name,item_obj,i,objChequeados;
+	var len=eval('window.document.'+formulario+'.length');	
+	for(i=0;i<len;i++) {
+		item_name=eval('window.document.'+formulario+'.elements[i].name');
+		if (item_name.substr(0,9)=='checkbox_') {
+			item_obj = EncontrarObjeto(item_name);
+			objChequeados = EncontrarObjeto(idCheck);
+			item_obj.checked=objChequeados.checked;
+			//item_obj.checked=window.document.formulario.checkbox_todos.checked;
+		}	//if
+	} // for
+}
+//-----------------------------------------------------------------
+function deleteFila(idFila) {
+	var objFila  = EncontrarObjeto(idFila);
+	objFila.parentNode.removeChild(objFila);
+	max_fila_seleccionados--;		
+}
+//-----------------------------------------------------------------
+function deleteAllFila(idTabla) {
+	var objTabla = EncontrarObjeto(idTabla);	
+	if (objTabla != null) {
+		var cant_filas=objTabla.rows.length;	
+		for (i=1;i<cant_filas ;i++) {			// En la 0 esta el titulo
+			deleteFila(objTabla.rows[1].id);
+		}	
+	}	
+}
+//-----------------------------------------------------------------
+function newFila(idTabla, dic_codigo) {
+	var objFila = EncontrarObjeto(idTabla);
+	newNodoFila(idTabla, dic_codigo);
+}
+//-----------------------------------------------------------------
+function buscarSeleccionables(formulario,divlistaSeleccionables,exp_numero,	act_codinap,act_nombre,formact_codigo,tipoact_codigo,con_dispo,dis_numero) {
+		
+	var item_obj = EncontrarObjeto(divlistaSeleccionables);
+	var objAguarde = EncontrarObjeto('idAguarde');	
+	objAguarde.innerHTML='Aguarde ...';	
+	item_obj.innerHTML="";
+
+	var ajax=nuevoAjax();
+	var datos="exp_numero="+trim(exp_numero)+"&act_codinap="+trim(act_codinap);
+		datos=datos+"&con_dispo="+con_dispo+"&dis_numero="+trim(dis_numero);
+	    datos=datos+"&act_nombre="+trim(act_nombre)+"&formact_codigo="+formact_codigo+"&tipoact_codigo="+tipoact_codigo;
+
+	var archivo = "actividad_dictamen_visualiz_ajax.dhtml";
+//	var direccion= archivo+"?"+datos;  x GET
+
+	ajax.open("POST",archivo,true);
+//	ajax.open("GET",direccion,true); x GET
+	ajax.onreadystatechange=function() {
+		if (ajax.readyState==4) {	
+			objAguarde.innerHTML='';	
+			item_obj.innerHTML=ajax.responseText;	
+			return true;
+		}
+	}	
+//	ajax.send(null);	x GET
+	ajax.setRequestHeader('Content-Type','application/x-www-form-urlencoded'); // x GET NO VA
+	ajax.send(datos);		
+
+	objAguarde.innerHTML='';	
+	return false;
+}
+//------------------------------------------------------------------------------
+function armarListaDictamenes(){
+	var objTabla = EncontrarObjeto('tabla_seleccionados_programacion');	
+	var i, cadena ;
+	cadena="";
+	for (i=1;i<objTabla.rows.length;i++) {
+		cadena = cadena + objTabla.rows[i].id.substr(25)+"_";
+	}	
+	
+	objTabla = EncontrarObjeto('tabla_seleccionados_autodesarrollo');	
+	if (objTabla!=null) {
+		for (i=1;i<objTabla.rows.length;i++) {
+			cadena = cadena + objTabla.rows[i].id.substr(25)+"_";
+		}	
+	}	
+ 	return cadena.substr(0,+(cadena.length-1));
+}
+//------------------------------------------------------------------------------------------------
+var vec_tipo = new Array();
+cargarTipoActividad(); // Carga arreglo con tipos.	vec_tipo
+//------------------------------------------------------------------------------------------------
+function cargarTipoActividad() {	<?php 
+	if(!$conexion->ejecutarStoredProcedure("sel_tipo_actividad_orden",array('porderby'=>"tipoact_descripcion"),$resultado,$numfilas,$errno))	{
+		$txt_sys_mail="Error al buscar el formato.";
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al buscar el Formato de Actividades.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;
+	}
+
+	echo "vec_tipo[0]=new Array('".FORMATOAUTO."','".TIPOACTAUTODOCENTE.",".TIPOACTAUTOEVACT.",".TIPOACTAUTOPUBLI.",".TIPOACTAUTOASISTEC.",".TIPOACTAUTOAAUTOFORM."','Todos los dictámentes por Persona');\n\t";			
+	echo "vec_tipo[1]=new Array('".FORMATOAUTO."','".TIPOACTAUTOEVASIS."','Todos los dictámentes por Actividad');\n\t";			
+	$i=2;	
+	while ($fila_tipo = mysqli_fetch_assoc($resultado)){
+			echo "vec_tipo[".$i."]=new Array('".$fila_tipo['formact_codigo']."','".$fila_tipo['tipoact_codigo']."','".htmlspecialchars($fila_tipo['tipoact_descripcion'],ENT_QUOTES)."');\n\t";			
+		$i++;
+	}
+	
+?>
+}
+//------------------------------------------------------------------------------------------------
+function CambioFormato(formact_codigo,tipoact_codigo)	{
+
+	var objTipo = EncontrarObjeto(tipoact_codigo);	
+	var i;
+
+	while(objTipo.length>0)
+		objTipo[0] = null;
+		
+	objTipo.options[0] = new Option("-- Seleccione Tipo de Actividad",'');
+
+	for(i = 0; i < vec_tipo.length; i++)
+		if (vec_tipo[i][0] == formact_codigo)
+			objTipo.options[objTipo.options.length] = new Option(vec_tipo[i][2], vec_tipo[i][1]);
+
+	objTipo.options[0].selected=true	
+}
+
+</script>
+
+
+<a name="ancla_arriba"></a>
+<fieldset class="bordeDetalleRegistro">
+<legend class="textoLeyendaDetalleRegistro">Dictámenes Seleccionados</legend>
+<form action="#" method="post" name="formulario_seleccionados">
+<table width="100%" class="textoTablaDato" align="center" border="0">
+	<tr>	
+		<td class="textoTitulo"> Dict&aacute;menes por Actividad </td>
+	</tr>
+	<tr>	
+		<td>
+			<table class="textoTablaDato" id="tabla_seleccionados_programacion" border="1" width="100%">
+			</table> 
+		</td>
+	</tr>
+	<?php if($_SESSION['rolcod']==USUCONSULTA || $_SESSION['rolcod'] == USUAUTODESARROLLO) { ?>
+		<tr>	
+			<td class="textoTitulo"> Dict&aacute;menes por Persona </td>
+		</tr>
+		<tr>
+			<td>
+				<table class="textoTablaDato" id="tabla_seleccionados_autodesarrollo" border="1" width="100%">
+				</table> 
+			</td>
+		</tr>
+	<?php } // if($_SESSION['rolcod']==USUCONSULTA) ?>
+	
+	<tr>
+		<td align="center">		
+		<input type="button" name="boton_eliminar_seleccion" class="botones" value="Limpiar Selección" onClick="deleteAllFila('tabla_seleccionados_programacion'); deleteAllFila('tabla_seleccionados_autodesarrollo');">
+		&nbsp;&nbsp;&nbsp;&nbsp;
+		<input type="button" name="boton_listar" class="botones" value="Listar Dictámenes Seleccionados" onClick="
+														if(max_fila_seleccionados > MAX_SELECCIONADOS)  
+															alert ('Debe seleccionar menos de '+MAX_SELECCIONADOS+' dictámenes'); 
+														else 
+															if (max_fila_seleccionados == 0)
+																alert ('No seleccionó ningún dictámen');
+															else 
+																Popup('actividad_dictamen_visualiz_lst.dhtml?lstDic='+armarListaDictamenes(),'ventana_descripciones',720,450,50,50,'yes');"></td>
+	</tr>
+</table>
+<script type="text/javascript">  newNodoFilaTitulos('tabla_seleccionados_programacion'); </script>
+<?php if($_SESSION['rolcod']==USUCONSULTA || $_SESSION['rolcod'] == USUAUTODESARROLLO) { ;?>
+	<script type="text/javascript">  newNodoFilaTitulos('tabla_seleccionados_autodesarrollo'); </script>
+<?php } // if($_SESSION['rolcod']==USUCONSULTA) ?>
+</form>	
+</fieldset> 	
+<br>
+<div class="textoAtencion" id="idAguarde" style="text-align:center; margin-top:10px;"></div>	
+
+<form action="#" method="post" name="formulario_filtros" id="formulario_filtros">
+<table width="100%" class="textoTablaDato" align="center" border="1">
+	<tr class="colorTitulosGrupo textoTituloGrupo">
+		<td colspan="2" align="left">Búsqueda de Dictámenes</td>
+	</tr>	
+
+	<tr>
+		<td class="textoEtiqueta">Expediente</td>
+		<td class="textoEtiquetaDatoResaltado"><input name="exp_numero" type="text" size="31" maxlength="30" class="textoInput"></td>
+	</tr>	
+	<tr>
+		<td class="textoEtiqueta">Código INAP</td>
+		<td class="textoEtiquetaDatoResaltado"><input name="act_codinap" type="text" size="21" maxlength="20" class="textoInput"></td>
+	</tr>	
+	<tr>
+		<td class="textoEtiqueta">Nombre Actividad</td>
+		<td class="textoEtiquetaDatoResaltado"><input name="act_nombre" type="text" size="51" maxlength="50"class="textoInput"></td>
+	</tr>		
+	<tr>
+		<td class="textoEtiqueta">Formato</td>
+		<td class="textoEtiquetaDatoResaltado">
+			<?php  $formato_sel="";
+				$tipoact_codigo="";
+			    $combo_formato_disabled=true;
+				$combo_tipo_disabled=true;
+				$formato_select_default="";
+				switch ($_SESSION['rolcod']) {
+					case SUPERUSUARIO:
+						$formato_select_default=FORMATOCURSO;
+						$tipoact_codigo=TIPOACTCURSOINAP;
+						break;
+					case USUCURSOINAP:
+						$formato_select_default=FORMATOCURSO;
+						$tipoact_codigo=TIPOACTCURSOINAP;
+						break;
+					case USUACTINS:
+						$formato_select_default=FORMATOCURSO;
+						$tipoact_codigo=TIPOACTCURSOINST;
+						break;
+					case USUACTJUR:
+						$formato_select_default=FORMATOCURSO;
+						$tipoact_codigo=TIPOACTCURSOJURISD;
+						break;
+					case USUACTEXT:
+						$formato_select_default=FORMATOEXT;
+						$tipoact_codigo=TIPOACTEXTASIS;
+						break;	
+					case USUAUTODESARROLLO:
+						$formato_select_default=FORMATOAUTO;
+						$combo_tipo_disabled=false;									
+						break;	
+					case USUCONSULTA:
+						$formato_select_default=FORMATOCURSO;
+						$combo_formato_disabled=false;		
+						$combo_tipo_disabled=false;									
+						break;	
+				}				
+				$spnombre = "sel_formato_actividad_orden";
+				$spparam = array("porderby"=>"formact_descripcion");
+				FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario_filtros","formact_codigo","formact_codigo","formact_descripcion",$formato_select_default,"-- Seleccione Formato",$filaformato,$selformato,1,"CambioFormato(formact_codigo.value,\"tipoact_codigo\")","width:200px",false,false,"",$combo_formato_disabled);
+			?>		
+		</td>
+	</tr>		
+	<tr>
+		<td class="textoEtiqueta">Tipo Actividad</td>
+		<td class="textoEtiquetaDatoResaltado">
+		<?php if ($_SESSION['rolcod'] == USUCONSULTA || $_SESSION['rolcod'] == USUAUTODESARROLLO) { 
+			$spnombre = "sel_tipo_actividad_xformact_codigo_orden";
+			$spparam = array("pformact_codigo"=>$formato_select_default,"porderby"=>"tipoact_descripcion");
+			$valores_combo = array();
+			if ($_SESSION['rolcod'] == USUAUTODESARROLLO) { 			
+				$valores_combo[] = array (	'tipoact_codigo'=> TIPOACTAUTODOCENTE.",".TIPOACTAUTOEVACT.",".TIPOACTAUTOPUBLI.",".TIPOACTAUTOASISTEC.",".TIPOACTAUTOAAUTOFORM, 
+											'tipoact_descripcion'=> "Todos los dictámentes por Persona"
+											);
+				$valores_combo[] = array (	'tipoact_codigo'=> TIPOACTAUTOEVASIS, 
+											'tipoact_descripcion'=> "Todos los dictámentes por Actividad"
+											);
+			}			
+		} else	{
+			
+			if ($_SESSION['rolcod'] == SUPERUSUARIO) { 	
+				$spnombre = "sel_tipo_actividad_xformact_codigo_orden";
+				$spparam = array("pformact_codigo"=>$formato_select_default,"porderby"=>"tipoact_descripcion");
+			/*	$valores_combo = array();
+	
+				$valores_combo[] = array (	'tipoact_codigo'=> TIPOACTCURSOINAP.",".TIPOACTCURSOJURISD, 
+											'tipoact_descripcion'=> "Todos los dictámentes por Persona"
+											);
+			*/											
+			} else {
+
+			
+			$spnombre = "sel_tipo_actividad_xtipoact_codigo";
+			$spparam = array("ptipoact_codigo"=>$tipoact_codigo);
+			$valores_combo = array();			
+		}
+		}
+		$ok = true;
+		if(!$conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado_tipo,$numfilas,$errno)) {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar los tipos de la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),"");
+			$ok = false;
+		}
+		if ($ok) {
+										 
+			while ($fila_tipo = mysqli_fetch_assoc($resultado_tipo)) {
+				$valores_combo[] = array('tipoact_codigo'=> $fila_tipo['tipoact_codigo'],
+										'tipoact_descripcion'=> $fila_tipo['tipoact_descripcion'],
+										);
+			}
+	//		FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario_filtros","tipoact_codigo","tipoact_codigo","tipoact_descripcion",$tipoact_codigo,"-- Seleccione Tipo de Actividad ",$filatipo,$seltipo,1,"",$style="width:350px",false,false,"",$combo_tipo_disabled); 
+			FuncionesPHPLocal::ArmarCombo_SinSalto_deArray($valores_combo, "formulario_filtros","tipoact_codigo","tipoact_codigo","","tipoact_descripcion","","-- Seleccione Tipo de Actividad",$filatipo,$seltipo,1,"",$style="width:350px",false, false, "",$combo_tipo_disabled);
+		}		
+		?>	
+		</td>
+	</tr>
+		
+    <tr>
+		<td width="130" class="textoEtiqueta">Disposición</td>
+			<td class="textoEtiquetaDatoResaltado"> 
+	          <label><input name="con_dispo" type="radio" value="NO" onclick="javascript:dis_numero.value='';dis_numero.disabled=true;">SIN</label>
+	          <label><input name="con_dispo" type="radio" value="SI" onclick="javascript:dis_numero.disabled=false;">CON</label>
+			   &nbsp; &nbsp;<input name="dis_numero"  id="dis_numero"  type="text" size="21" maxlength="20" class="textoInput" disabled value =""> 
+	          <label><input name="con_dispo" id="con_dispo" type="radio" value="TODAS"  checked="checked" onclick="javascript:dis_numero.value='';dis_numero.disabled=true; ">Todas</label>
+		</td>
+	</tr>
+               
+	<tr align="center">
+		<td colspan="2">
+		<input type="button" name="boton_filtrar" class="botones" value="Buscar" onClick="
+																if (formulario_filtros.formact_codigo[formulario_filtros.formact_codigo.selectedIndex].value=='')
+																	alert ('Debe seleccionar un Formato de Actividad');
+																else if (formulario_filtros.tipoact_codigo[formulario_filtros.tipoact_codigo.selectedIndex].value=='')	
+																		alert ('Debe seleccionar un Tipo de Actividad');
+																	else  {		
+																	    for (i=0;i<document.formulario_filtros.con_dispo.length;i++){
+																	       if (document.formulario_filtros.con_dispo[i].checked)
+																	          break;
+																		} 
+																		var scon_dispo=document.formulario_filtros.con_dispo[i].value;                                                                        
+																		buscarSeleccionables(formulario,'listaSeleccionables',
+                                                                        					exp_numero.value,act_codinap.value,act_nombre.value,
+                                                                                            formact_codigo.value,tipoact_codigo.value,
+                                                                                            scon_dispo,dis_numero.value); }">
+		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;						
+		<input type="reset" name="boton_limpiar" class="botones" value="Limpiar" >
+	</td>
+	</tr>			
+</table>
+</form>	
+<form action="#" method="post" name="formulario" id="formulario">
+	<div id="listaSeleccionables" style="margin-top:10px;"></div>	
+	<table width="100%" class="textoTablaDato" align="center" border="0">
+		<tr>
+			<td align="right">
+				<a href="#ancla_arriba" class="linkFondoBlanco">Ir a Arriba</a>
+			</td>
+		</tr>	
+	</table>
+</form>	
+<?php $oEncabezados->PieMenuEmergente(); ?>

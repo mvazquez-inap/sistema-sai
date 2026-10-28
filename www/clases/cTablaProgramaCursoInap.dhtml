@@ -1,0 +1,21 @@
+<?php class cTablaProgramaCursoInap extends cTablaSysDesc {
+
+	public function __construct($conexion) {
+		
+		$array_campos=array('clave'=> 'progcur_codigo',
+							'estado'=>'progcur_estado',
+							'descripcion'=>array('nombre_campo'=>'progcur_descripcion', 'long_campo'=>40 ,'titulo_campo'=>'Programa'),
+							'fecha_alta'=>'progcur_falta',
+							'fecha_baja'=>'progcur_fbaja');
+
+		parent::__construct($conexion,"programa_curso_inap",$array_campos);
+		$this->SetearTituloTabla('Programa de las actividades INAP');
+	
+		// Array con los cógigos de operaciones a ser registradas
+		$array_log=array('ins'=>'35101', 'upd'=>'35103', 'del'=>'35102','chg_estado'=>'35104');
+		$this->SetearLogs($array_log);
+
+		// Array con las tablas en las que se busca para determinar si la baja es física o lógica.
+		$this->SetearTablasTipoBaja(array(array('nom_tabla'=>'actividad_curso_diseno_inap','campo_tabla'=>'progcur_codigo')));
+	}		
+} ?>

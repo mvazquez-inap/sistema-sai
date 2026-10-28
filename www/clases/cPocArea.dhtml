@@ -1,0 +1,264 @@
+<?php
+//----------------------------------------------------------------------------------------- 
+class cPocArea 
+{
+	var $conexion;
+
+	public function __construct($conexion) {
+		$this->conexion = &$conexion;
+	}
+//-----------------------------------------------------------------------------------------
+	function AreasSP($pocareajuris,&$spnombre,&$spparam)
+	{
+		$spnombre="sel_pocareas_xjurisdid_inap";
+		$spparam =array('porderby'=>"pocarea_descripcion",'pjurisdid_inap'=>$pocareajuris);
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function AltaPoc_Area($datos) {
+	
+		if(!$this->_DatosValidosAltaPoc_Area($datos,$datosvalidados))
+			return false;
+		
+		$spnombre="ins_poc_area";
+		$spparam=array(
+			'ppocarea_descripcion'=>$datosvalidados["pocarea_descripciones"] ,
+			'pjurisdid_inap'=>$_SESSION["jurisdid_inap"] ,			
+			'pultmodusuario'=>$_SESSION['usuariocod'] ,
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+			);			
+	
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al agregar el poc_area.";
+			$errormail="Error al insertar en la tabla poc_area".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		return true;
+	}		
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosAltaPoc_Area($datos,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		
+		if(!$this->_DatosValidosComunesPoc_Area($datos,$datosvalidados))
+			return false;
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ModifDatosPoc_Area($datos)	{
+
+		$ArregloDatos=array();
+		$ArregloDatos['pocarea_descripcion']= $datos['pocarea_descripcion'];
+		$ArregloDatos['jurisdid_inap']= $_SESSION['jurisdid_inap'];
+		if(!$this->BuscarPocArea($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_OK,"El código no corresponde a un área.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		else
+			$datospoc=mysqli_fetch_assoc($resultado);
+			$datospoc['pocarea_descripciones']=$datos['pocarea_descripciones'];
+
+		//Debo verificar q no este asignada a ningun Poc para poder modificarlo!!!!
+		//para esto verifico q el area no se encuentre en la tabla PocPocObjetivoPocArea
+		
+		$ArregloDatos=array();
+		$ArregloDatos['pocarea_codigo']= $datospoc['pocarea_codigo'];
+		$oPocPocObjetivoPocArea=new cPocPocObjetivoPocArea($this->conexion);
+	
+		if (!$oPocPocObjetivoPocArea->BuscarPocPocObjetivoPocArea($ArregloDatos,$numfilas,$resultado,$error,$errormail)) 
+			return false;
+
+		if($numfilas==0) {
+		
+			if(!$this->_DatosValidosModifPocArea($datospoc,$datosvalidados))
+				return false;
+	
+			$spnombre="upd_poc_area";
+			$spparam=array(
+				'ppocarea_codigo'=> $datosvalidados['pocarea_codigo'], 
+				'ppocarea_descripcion'=> $datosvalidados['pocarea_descripciones'],
+				'pultmodusuario'=>$_SESSION['usuariocod'],
+				'pultmodfecha'=> date("Y/m/d H:i:s")
+			);
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)
+			{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al actualizar el área. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+		}
+		else
+		{
+			$error="Imposible modificar el Área. Existen relaciones con el Poc.";
+			$errormail="Imposible modificar el Área. Existen relaciones con el Poc. ";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+			
+			
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosModifPocArea($datos,&$datosvalidados)	{
+
+		if(!$this->_DatosValidosComunesPoc_Area($datos,$datosvalidados))
+			return false;
+
+		$datosvalidados=$datos;
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function EliminarDatosPoc_Area($datos) { //$pocarea_codigo
+	
+		$ArregloDatos=array();
+		$ArregloDatos['pocarea_descripcion']= $datos['pocarea_descripciones'];
+		$ArregloDatos['jurisdid_inap']= $_SESSION['jurisdid_inap'];
+		if(!$this->BuscarPocArea($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_OK,"El código no corresponde a un área.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		else
+			$datospoc=mysqli_fetch_assoc($resultado);
+		//Debo verificar q no este asignada a ningun Poc para poder borrarlo!!!!
+		//para esto verifico q el area no se encuentre en la tabla PocPocObjetivoPocArea
+		
+		$ArregloDatos=array();
+		$ArregloDatos['pocarea_codigo']= $datospoc['pocarea_codigo'];
+		$oPocPocObjetivoPocArea=new cPocPocObjetivoPocArea($this->conexion);
+	
+		if (!$oPocPocObjetivoPocArea->BuscarPocPocObjetivoPocArea($ArregloDatos,$numfilas,$resultado,$error,$errormail)) 
+			return false;
+		
+		if($numfilas==0) {
+		
+		$spnombre="del_poc_area";
+		$spparam=array('ppocarea_codigo'=> $datospoc['pocarea_codigo']);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod)) 
+			return false;					  	 	
+		}
+		else
+		{
+			$error="Imposible eliminar el Área. Existen relaciones con el Poc.";
+			$errormail="Imposible eliminar el Área. Existen relaciones con el Poc. ";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosComunesPoc_Area($datos,&$datosvalidados)	{
+
+		// Valido la descripcion	  
+		$datosvalidados=array();
+		if (trim($datos['pocarea_descripciones']) == "") {
+			$arraymensajepantalla="Debe ingresar la descripción del Área";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		// Valido q no se repita la descripcion para esa jurisd.
+		$sparam=array(  'ppocarea_descripcion'=>$datos['pocarea_descripciones'],
+						'pjurisdid_inap'=>$_SESSION['jurisdid_inap']);
+
+		$spnombre="sel_poc_area_xpocarea_descripcion_jurisdid_inap";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))				{
+			$error="Error al buscar áreas del poc.";
+			$errormail="Error al buscar áreas del poc. ".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		if($numfilas==1){
+			$fila = mysqli_fetch_assoc($resultado);
+			if ($fila['pocarea_codigo'] != $datos['pocarea_codigo']) {
+				$error="Ya existe un Área con esa descripción.";
+				$errormail="Imposible actualizar el área. Ya existe un área con esa descripción. ".$errno;
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+				return false;
+			}
+		}
+		
+		$datosvalidados=$datos;
+
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function BuscarPocArea($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		$sparam=array('pxpocarea_descripcion'=>0);
+		$sparam+=array('pxpocarea_codigo'=>0);
+		$sparam+=array('pxjurisdid_inap'=>0);
+		
+		$sparam+=array('ppocarea_descripcion' =>"");
+		$sparam+=array('ppocarea_codigo' =>"");
+		$sparam+=array('pjurisdid_inap' =>"");
+		$sparam+=array('porderby' =>"pocarea_descripcion");
+
+		if (isset ($ArregloDatos['pocarea_descripcion']))
+		{
+			if ($ArregloDatos['pocarea_descripcion']!="")
+			{	
+				$sparam['ppocarea_descripcion']= $ArregloDatos['pocarea_descripcion'];
+				$sparam['pxpocarea_descripcion']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['pocarea_codigo']))
+		{
+			if ($ArregloDatos['pocarea_codigo']!="")
+			{	
+				$sparam['ppocarea_codigo']= $ArregloDatos['pocarea_codigo'];
+				$sparam['pxpocarea_codigo']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['jurisdid_inap']))
+		{
+			if ($ArregloDatos['jurisdid_inap']!="")
+			{	
+				$sparam['pjurisdid_inap']= $ArregloDatos['jurisdid_inap'];
+				$sparam['pxjurisdid_inap']= 1;
+			}
+		}
+		
+		if (isset ($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+			{	
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+	
+		$spnombre="sel_poc_area_xdatos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			
+			$error="Error al buscar el Área.";
+			$errormail="Error al buscar el Área.".$errno;
+			return false;
+		}
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function ValidarFormAltaPocArea()
+	{
+?>		function ValidarFormAltaPocArea(formulario,operacion) {
+
+			if ((trim(formulario.pocarea_descripciones.value)=="")){
+				alert("Debe ingresar la descripción del área");
+				formulario.pocarea_descripciones.focus();
+				return false;
+			}	
+
+			return true;
+		}
+<?php }
+//-----------------------------------------------------------------------------------------------------	
+
+} // class
+?>

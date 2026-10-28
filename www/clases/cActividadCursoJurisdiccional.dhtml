@@ -1,0 +1,1905 @@
+<?php
+//-----------------------------------------------------------------------------------------
+class cActividadCursoJurisdiccional extends cActividadCurso {
+
+	public function __construct($conexion) {
+		parent::__construct($conexion);
+	}
+//-----------------------------------------------------------------------------------------
+	function TraerDatosActividadDetalles($act_codigo,$tipoact_codigo,&$datosresult,&$es_modif) {
+
+		if (!$this->TraerDatosActividadCursoJurisdiccional($act_codigo,$datosresult_detalle,$es_modif)) {
+			return false;
+		} else {
+			$datosresult['act_codigo']=$datosresult_detalle['actividad']['act_codigo'];
+			$datosresult['act_formato']=FORMATOCURSO;
+			$datosresult['tipoact_codigo']=TIPOACTCURSOJURISD;
+			$datosresult['act_nombre']=$datosresult_detalle['actividad']['act_nombre'];
+			$datosresult['act_codinap']=$datosresult_detalle['actividad']['act_codinap'];
+			$datosresult['act_duracionhs']=$datosresult_detalle['actividad_curso_jurisdiccional']['actdisjurisd_duracionhs'];
+			$datosresult['act_estado']=$datosresult_detalle['actividad_curso']['actcur_estado'];
+			$datosresult['act_creditos']=$datosresult_detalle['actividad_curso']['actcur_creditos'];
+			$datosresult['jurisdid_inap']=$datosresult_detalle['actividad_curso']['jurisdid_inap'];
+			return true;
+		}
+	}
+//-----------------------------------------------------------------------------------------
+	function TraerDatosActividadCursoJurisdiccional($act_codigo,&$datosresult,&$es_modif) {
+
+		// Si se hay error al ejecutar algún SQL retorna error, sino si no encuentra
+		// la actividad o la actividad curso no es Curso Jurisdiccional, retorna que es_modif=false
+		// pues no se encontro una actividad curso inap con el codigo enviado
+
+		$datosresult=array();
+		$es_modif = false;
+
+		if (!$this->TraerDatosActividad($act_codigo,$result_actividad,$es_modif_act))
+			return false;
+
+		if ($es_modif_act) {
+
+			$datosresult['actividad']=$result_actividad; // Datos de la actividad
+
+			if (!$this->TraerDatosActividadCurso($act_codigo,$result_actividad_curso,$es_modif_act_curso))
+				return false;
+
+			if ($es_modif_act_curso) { // Datos de la actividad curso
+
+				$datosresult['actividad_curso']=$result_actividad_curso;
+
+				// Verifico que sea una actividad curso Institucional
+				if ($datosresult['actividad_curso']['tipoact_codigo'] != TIPOACTCURSOJURISD) {
+					$es_modif=false;
+				}
+
+				$sparam=array('pact_codigo'=>$act_codigo);
+				$spnombre="sel_actividad_curso_diseno_jurisdiccional_xact_codigo";
+				if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+				{
+					$errormail="\nact_codigo".$act_codigo;
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+					return false;
+				}
+				if ($numfilas == 1)	{
+					$datosresult['actividad_curso_jurisdiccional']= mysqli_fetch_assoc($resultado);
+					$es_modif = true;
+				}
+			} // $es_modif_act_curso
+		} // $es_modif_act
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function AltaDatosActividadCursoJurisdiccional($datos,&$act_codigo_nuevo,&$act_codinap) {
+
+		$datosvalidados=array();
+		$this->_AguparDatosPost($datos,$datos_agrup,false);
+
+		$datoscurso['actividad']=$datos_agrup['actividad'];
+		$datoscurso['actividad_curso']=$datos_agrup['actividad_curso'];
+
+		if(!$this->AltaDatosActividadCurso($datoscurso,$act_codigo_nuevo,$act_codinap))
+			return false;
+		FuncionesPHPLocal::RegistrarAcceso($this->conexion,"38101","act_codigo=".$act_codigo_nuevo,$_SESSION['usuariocod']);
+
+		if(!$this->_DatosValidosAltaActividadCursoJurisdiccional($datos_agrup['actividad_curso_jurisdiccional'],$datosvalidados))
+			return false;
+
+		$spnombre="ins_actividad_curso_diseno_jurisdiccional";
+		$spparam=array('pact_codigo'=>$act_codigo_nuevo,
+					  'pactdisjurisd_fundamentacion'=>$datosvalidados['actdisjurisd_fundamentacion'],
+					  'pactdisjurisd_contribucion'=>$datosvalidados['actdisjurisd_contribucion'],
+					  'pactdisjurisd_perfil'=>$datosvalidados['actdisjurisd_perfil'],
+					  'pactdisjurisd_objetivos'=>$datosvalidados['actdisjurisd_objetivos'],
+					  'pactdisjurisd_contenido'=>$datosvalidados['actdisjurisd_contenido'],
+					  'pactdisjurisd_modaldesc'=>$datosvalidados['actdisjurisd_modaldesc'],
+					  'pactdisjurisd_eval'=>$datosvalidados['actdisjurisd_eval'],
+					  'pactdisjurisd_evalinstru'=>$datosvalidados['actdisjurisd_evalinstru'],
+					  'pactdisjurisd_requiaprobacion'=>$datosvalidados['actdisjurisd_requiaprobacion'],
+					  'pactdisjurisd_duracionhs'=>$datosvalidados['actdisjurisd_duracionhs'],
+					  'pactdisjurisd_duraciondetalle'=>$datosvalidados['actdisjurisd_duraciondetalle'],
+					  'pactdisjurisd_cronogramatentativo'=>$datosvalidados['actdisjurisd_cronogramatentativo'],
+					  'pactdisjurisd_lugar'=>$datosvalidados['actdisjurisd_lugar'],
+
+  					  'pactdisjurisd_metodologia'=>$datosvalidados['actdisjurisd_metodologia'],
+					  'pactdisjurisd_bibliografia'=>$datosvalidados['actdisjurisd_bibliografia'],
+					  'pactdisjurisd_perfil_instructor'=>$datosvalidados['actdisjurisd_perfil_instructor'],
+
+					  'pactdisjurisd_planrecursos'=>$datosvalidados['actdisjurisd_planrecursos'],
+					  'pactdisjurisd_plancontenidos'=>$datosvalidados['actdisjurisd_plancontenidos'],
+					  'pactdisjurisd_planestrategias'=>$datosvalidados['actdisjurisd_planestrategias'],
+
+					  'pactdisjurisd_origen'=>$datosvalidados['actdisjurisd_origen'],
+
+		  			  'pultmodusuario'=>$_SESSION['usuariocod'],
+  			          'pultmodfecha'=> date("Y/m/d H:i:s")
+		);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al insertar la Actividad Curso Jurisdiccional.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function EliminarDatosActividadCursoJurisdiccional($act_codigo) {
+
+		if(!$this->_DatosValidosEliminarActividadCursoJurisdiccional($act_codigo,$datosvalidados))
+			return false;
+
+		if(!$this->_BajaCascada($datosvalidados['act_codigo']))
+				return false;
+
+		$spnombre="del_actividad_curso_diseno_jurisdiccional";
+		$spparam=array('pact_codigo'=>$act_codigo);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			$txt_sys_mail="\nact_codigo=".$act_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al eliminar la Actividad Curso Jurisdiccional.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		if(!$this->EliminarDatosActividadCurso($act_codigo))
+			return false;
+		FuncionesPHPLocal::RegistrarAcceso($this->conexion,"38102","act_codigo=".$act_codigo,$_SESSION['usuariocod']);
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function ModifDatosActividadCursoJurisdiccional($datos)	{
+
+		$this->_AguparDatosPost($datos,$datos_agrup,true);
+
+		$datoscurso['actividad']=$datos_agrup['actividad'];
+		$datoscurso['actividad_curso']=$datos_agrup['actividad_curso'];
+
+		if(!$this->ModifDatosActividadCurso($datoscurso))
+			return false;
+		FuncionesPHPLocal::RegistrarAcceso($this->conexion,"38103","act_codigo=".$datos_agrup['actividad']['act_codigo'],$_SESSION['usuariocod']);
+
+		if(!$this->_DatosValidosModifActividadCursoJurisdiccional($datos_agrup['actividad_curso_jurisdiccional'],$datosvalidados))
+			return false;
+
+		$spnombre="upd_actividad_curso_diseno_jurisdiccional";
+		$spparam=array('pact_codigo'=>$datosvalidados['act_codigo'],
+					  'pactdisjurisd_fundamentacion'=>$datosvalidados['actdisjurisd_fundamentacion'],
+					  'pactdisjurisd_contribucion'=>$datosvalidados['actdisjurisd_contribucion'],
+					  'pactdisjurisd_perfil'=> $datosvalidados['actdisjurisd_perfil'],
+					  'pactdisjurisd_objetivos'=>$datosvalidados['actdisjurisd_objetivos'],
+					  'pactdisjurisd_contenido'=>$datosvalidados['actdisjurisd_contenido'],
+					  'pactdisjurisd_modaldesc'=>$datosvalidados['actdisjurisd_modaldesc'],
+					  'pactdisjurisd_eval'=>$datosvalidados['actdisjurisd_eval'],
+					  'pactdisjurisd_evalinstru'=>$datosvalidados['actdisjurisd_evalinstru'],
+					  'pactdisjurisd_requiaprobacion'=>$datosvalidados['actdisjurisd_requiaprobacion'],
+					  'pactdisjurisd_duracionhs'=>$datosvalidados['actdisjurisd_duracionhs'],
+					  'pactdisjurisd_duraciondetalle'=>$datosvalidados['actdisjurisd_duraciondetalle'],
+					  'pactdisjurisd_cronogramatentativo'=>$datosvalidados['actdisjurisd_cronogramatentativo'],
+					  'pactdisjurisd_lugar'=>$datosvalidados['actdisjurisd_lugar'],
+   					  'pactdisjurisd_metodologia'=>$datosvalidados['actdisjurisd_metodologia'],
+					  'pactdisjurisd_bibliografia'=>$datosvalidados['actdisjurisd_bibliografia'],
+					  'pactdisjurisd_perfil_instructor'=>$datosvalidados['actdisjurisd_perfil_instructor'],
+
+					  'pactdisjurisd_planrecursos'=>$datosvalidados['actdisjurisd_planrecursos'],
+					  'pactdisjurisd_plancontenidos'=>$datosvalidados['actdisjurisd_plancontenidos'],
+					  'pactdisjurisd_planestrategias'=>$datosvalidados['actdisjurisd_planestrategias'],
+
+					  'pactdisjurisd_origen'=>$datosvalidados['actdisjurisd_origen'],
+
+					  'pultmodusuario'=>$_SESSION['usuariocod'],
+  			          'pultmodfecha'=> date("Y/m/d H:i:s")
+		);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
+			$txt_sys_mail='\nact_codigo='.$datosvalidados['act_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al modificar la Actividad Curso Jurisdiccional.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------
+	function _BajaCascada($act_codigo) {
+
+		// elimino todas las relaciones ActPoc / Act
+
+		// busco todas las relaciones
+		$oPocActividadActividad = new cPocActividadActividad($this->conexion);
+		$filtro = array('act_codigo'=>$act_codigo,
+						'orderby'=>'poc_codigo'
+						);
+
+		if (!$oPocActividadActividad->BuscarPocActividadActividad($filtro,$numfilas,$result_act_asignadas,$error,$errormail)) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		// por cada relación -> la elimino
+		while ($fila_act = mysqli_fetch_assoc($result_act_asignadas)) {
+
+			if($oPocActividadActividad->BajaDatosPocActividadActividad($fila_act)) {
+				FuncionesPHPLocal::RegistrarAcceso($this->conexion,"37402","operacion=baja"."\npocact_codigo=".$fila_act['pocact_codigo']."\nact_codigo=".$fila_act['act_codigo'],$_SESSION['usuariocod']);
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_OK,"Se ha eliminado la asignación de la Actividad Curso a la Actividad POC ".$fila_act['pocact_nombre_tentativo'],array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} else
+				return false;
+
+		}
+
+		return true;
+	}
+
+
+//-----------------------------------------------------------------------------------------------------
+	function ValidarFormAltaActividadCursoJurisdiccional() {
+
+	// Incluir las validaciones javascript de las 3 tablas.
+	$this->ValidarFormAltaActividad();
+	$this->ValidarFormAltaActividadCurso();
+?>
+	function ValidarFormAltaActividadCursoJurisdiccional(formulario,operacion) {
+
+			// Fundamentación 					- [actdisjurisd_fundamentacion] 	- [OBLIG]
+			if ((trim(formulario.actdisjurisd_fundamentacion.value)=="")) {
+				alert("Debe ingresar la fundamentación");
+				formulario.actdisjurisd_fundamentacion.focus();
+				return false;
+			}
+
+			// Contribución esperada 			- [actdisjurisd_contribucion] 	- [OBLIG]
+			if ((trim(formulario.actdisjurisd_contribucion.value)=="")) {
+				alert("Debe ingresar la contribución esperada");
+				formulario.actdisjurisd_contribucion.focus();
+				return false;
+			}
+
+			// Perfil del participante 			- [actdisjurisd_perfil] 			- [OBLIG]
+			if ((trim(formulario.actdisjurisd_perfil.value)=="")) {
+				alert("Debe ingresar el perfil del participante");
+				formulario.actdisjurisd_perfil.focus();
+				return false;
+			}
+
+			// Objetivos 						- [actdisjurisd_objetivos] 		- [OBLIG]
+			if ((trim(formulario.actdisjurisd_objetivos.value)=="")) {
+				alert("Debe ingresar los objetivos");
+				formulario.actdisjurisd_objetivos.focus();
+				return false;
+			}
+
+			// Contenido 						- [actdisjurisd_contenido] 		- [OBLIG]
+			if ((trim(formulario.actdisjurisd_contenido.value)=="")) {
+				alert("Debe ingresar el contenido");
+				formulario.actdisjurisd_contenido.focus();
+				return false;
+			}
+
+			// Metodologia							- [actdisjurisd_metodologia] 			- [OBLIG]
+			if ((trim(formulario.actdisjurisd_metodologia.value)=="")) {
+				alert("Debe ingresar las estrategias metodológicas y recursos didácticos.");
+				formulario.actdisjurisd_metodologia.focus();
+				return false;
+			}
+
+			// Descripción de la modalidad 		- [actdisjurisd_modaldesc] 		- [OBLIG]
+			if ((trim(formulario.actdisjurisd_modaldesc.value)=="")) {
+				alert("Debe ingresar la modalidad");
+				formulario.actdisjurisd_modaldesc.focus();
+				return false;
+			}
+
+			// Bibliografia							- [actdisjurisd_bibliografia] 			- [OBLIG]
+			if ((trim(formulario.actdisjurisd_bibliografia.value)=="")) {
+				alert("Debe ingresar la bibliografía");
+				formulario.actdisjurisd_bibliografia.focus();
+				return false;
+			}
+
+			// Evaluación de los aprendizajes 	- [actdisjurisd_eval] 			- [OBLIG]
+			if ((trim(formulario.actdisjurisd_eval.value)=="")) {
+				alert("Debe ingresar la evaluación de los aprendizajes");
+				formulario.actdisjurisd_eval.focus();
+				return false;
+			}
+
+			// Instrumentos para la evaluación 	- [actdisjurisd_evalinstru] 		- [OPCIONAL]
+
+			// Requisitos de Asistencia y aprobación			- [actdisjurisd_requiaprobacion] 	- [OBLIG]
+			if ((trim(formulario.actdisjurisd_requiaprobacion.value)=="")) {
+				alert("Debe ingresar los requierimientos de aprobación");
+				formulario.actdisjurisd_requiaprobacion.focus();
+				return false;
+			}
+
+			// Duración	en hs. - [actdisjurisd_duracionhs] 	- [OBLIG]
+			if (!ValidarContenido(formulario.actdisjurisd_duracionhs.value,'NumericoEntero') ) {
+				alert("La duración en hs. debe ser un número entero");
+				formulario.actdisjurisd_duracionhs.focus();
+				return false;
+			}
+			if (formulario.actdisjurisd_duracionhs.value<=0) {
+				alert("La duración en hs. debe ser mayor que cero");
+				formulario.actdisjurisd_duracionhs.focus();
+				return false;
+			}
+
+			// Detalle sobre la duración	 	- [actdisjurisd_duraciondetalle] 	- [OBLIG]
+			if ((trim(formulario.actdisjurisd_duraciondetalle.value)=="")) {
+				alert("Debe ingresar la duración");
+				formulario.actdisjurisd_duraciondetalle.focus();
+				return false;
+			}
+
+			// Cronograma tentativo	 	- [actdisjurisd_cronogramatentativo] 	- [OBLIG]
+			if ((trim(formulario.actdisjurisd_cronogramatentativo.value)=="")) {
+				alert("Debe ingresar el Cronograma tentativo");
+				formulario.actdisjurisd_cronogramatentativo.focus();
+				return false;
+			}
+
+			// Lugar 							- [actdisjurisd_lugar] 			- [OBLIG]
+			if ((trim(formulario.actdisjurisd_lugar.value)=="")) {
+				alert("Debe ingresar el lugar");
+				formulario.actdisjurisd_lugar.focus();
+				return false;
+			}
+
+			// Perfil del instructor				- [actdisjurisd_perfil_instructor] 			- [OBLIG]
+			if ((trim(formulario.actdisjurisd_perfil_instructor.value)=="")) {
+				alert("Debe ingresar el perfil del instructor");
+				formulario.actdisjurisd_perfil_instructor.focus();
+				return false;
+			}
+
+            /*
+			// Plan de Clase - Recursos				- [actdisjurisd_planrecursos] 			- [OBLIG]
+			if ((trim(formulario.actdisjurisd_planrecursos.value)=="")) {
+				alert("Debe ingresar el Plan de Clase - Recursos");
+				formulario.actdisjurisd_planrecursos.focus();
+				return false;
+			}
+
+			// Plan de Clase - Contenidos				- [actdisjurisd_plancontenidos] 			- [OBLIG]
+			if ((trim(formulario.actdisjurisd_plancontenidos.value)=="")) {
+				alert("Debe ingresar el Plan de Clase - Contenidos");
+				formulario.actdisjurisd_plancontenidos.focus();
+				return false;
+			}
+
+			// Plan de Clase - Estrategias				- [actdisjurisd_planestrategias] 			- [OBLIG]
+			if ((trim(formulario.actdisjurisd_planestrategias.value)=="")) {
+				alert("Debe ingresar el Plan de Clase - Estrategias");
+				formulario.actdisjurisd_planestrategias.focus();
+				return false;
+			}
+			*/
+
+			// Origen				- [actdisjurisd_origen] 			- [OBLIG]
+			if ((trim(formulario.actdisjurisd_origen.value)=="")) {
+				alert("Debe ingresar el Origen de la demanda");
+				formulario.actdisjurisd_origen.focus();
+				return false;
+			}
+			return true;
+		}
+<?php }
+//-----------------------------------------------------------------------------------------------------
+	function BuscarActividadCursoJurisdiccional($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+		echo "(Falta) Funcion: BuscarActividadCursoJurisdiccional <br>";
+	}
+
+//-----------------------------------------------------------------------------------------------------
+	function BuscarActividadResumen($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		$sparam=array('pxact_codinap'=>0);
+		$sparam+=array('pxpoc_ano_desde'=>0);
+		$sparam+=array('pxpoc_ano_hasta'=>0);
+		$sparam+=array('pxdic_estado'=>0);
+
+		$sparam+=array('pact_codinap'=>"");
+		$sparam+=array('ppoc_ano_desde'=>"");
+		$sparam+=array('ppoc_ano_hasta'=>"");
+		$sparam+=array('pdic_estado'=>"");
+
+
+		if (isset ($ArregloDatos['act_codinap']))
+		{
+			if ($ArregloDatos['act_codinap']!="")
+			{
+				$sparam['pact_codinap']= $ArregloDatos['act_codinap'];
+				$sparam['pxact_codinap']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['poc_ano_desde']))
+		{
+			if ($ArregloDatos['poc_ano_desde']!="")
+			{
+				$sparam['ppoc_ano_desde']= $ArregloDatos['poc_ano_desde'];
+				$sparam['pxpoc_ano_desde']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['poc_ano_hasta']))
+		{
+			if ($ArregloDatos['poc_ano_hasta']!="")
+			{
+				$sparam['ppoc_ano_hasta']= $ArregloDatos['poc_ano_hasta'];
+				$sparam['pxpoc_ano_hasta']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['jurisdid_inap']))
+		{
+			if ($ArregloDatos['jurisdid_inap']!="")
+			{
+				$sparam['pjurisdid_inap']= $ArregloDatos['jurisdid_inap'];
+				$sparam['pxjurisdid_inap']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['dic_estado']))
+		{
+			if ($ArregloDatos['dic_estado']!="")
+			{
+				$sparam['pdic_estado']= $ArregloDatos['dic_estado'];
+				$sparam['pxdic_estado']= 1;
+			}
+		}
+		$spnombre="sel_resumen_actividad_poc_xdatos";
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar el Actividad Resumen.";
+			$errormail="Error al buscar el Actividad Resumen.".$errno;
+			return false;
+		}
+		return true;
+	}
+
+
+//-----------------------------------------------------------------------------------------------------
+	function BuscarActividadResumenPoc($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		$sparam=array('pxact_codigo'=>0);
+		$sparam+=array('pxpoc_ano_desde'=>0);
+		$sparam+=array('pxpoc_ano_hasta'=>0);
+		$sparam+=array('pxdic_estado'=>0);
+		$sparam+=array('pxjurisdid_inap'=>0);
+
+
+
+		$sparam+=array('pact_codigo'=>"");
+		$sparam+=array('ppoc_ano_desde'=>"");
+		$sparam+=array('ppoc_ano_hasta'=>"");
+		$sparam+=array('pdic_estado'=>"");
+		$sparam+=array('pjurisdid_inap'=>"");
+
+
+
+		if (isset ($ArregloDatos['act_codigo']))
+		{
+			if ($ArregloDatos['act_codigo']!="")
+			{
+				$sparam['pact_codigo']= $ArregloDatos['act_codigo'];
+				$sparam['pxact_codigo']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['poc_ano_desde']))
+		{
+			if ($ArregloDatos['poc_ano_desde']!="")
+			{
+				$sparam['ppoc_ano_desde']= $ArregloDatos['poc_ano_desde'];
+				$sparam['pxpoc_ano_desde']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['poc_ano_hasta']))
+		{
+			if ($ArregloDatos['poc_ano_hasta']!="")
+			{
+				$sparam['ppoc_ano_hasta']= $ArregloDatos['poc_ano_hasta'];
+				$sparam['pxpoc_ano_hasta']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['jurisdid_inap']))
+		{
+			if ($ArregloDatos['jurisdid_inap']!="")
+			{
+				$sparam['pjurisdid_inap']= $ArregloDatos['jurisdid_inap'];
+				$sparam['pxjurisdid_inap']= 1;
+			}
+		}
+
+
+		if (isset ($ArregloDatos['dic_estado']))
+		{
+			if ($ArregloDatos['dic_estado']!="")
+			{
+				$sparam['pdic_estado']= $ArregloDatos['dic_estado'];
+				$sparam['pxdic_estado']= 1;
+			}
+		}
+
+		$spnombre="sel_poc_resumen_actividad_poc_xdatos";
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar el POC de la Actividad Resumen.";
+			$errormail="Error al buscar el POC de la Actividad Resumen.".$errno;
+			return false;
+		}
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------
+	function TienePermisoPedirAprobacion($act_codigo,$rolcod,$jurisdid) {
+
+		// Valida el estado con rol y la jurisdicción
+		if (!$this->TraerDatosActividadCurso($act_codigo,$fila_actividad_curso,$es_modif_act_curso))
+			return false;
+
+		$txt_sys_mail="\nact_codigo=".$act_codigo;
+		if (!$es_modif_act_curso)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error, no existe la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		if ($rolcod == COORDINADORTECNICO  ||  $rolcod ==  USUORGANISMO) {
+			 if ($fila_actividad_curso['jurisdid_inap'] == $jurisdid) {
+					if ($fila_actividad_curso['actcur_estado'] == ACTCURSONUEVO || $fila_actividad_curso['actcur_estado'] == ACTCURSORECHAZADO)
+						return true;
+					else {
+						$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","ACTCURSOESTADO","' and constantecod='",$fila_actividad_curso['actcur_estado'],"'"),$descri,$numfilas,$errorcod);
+						FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado de la Actividad Curso (".$descri."), <br> no le permite realizar la operacion.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+						return false;
+					}
+			 } else {
+ 				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene acceso a la Actividad Curso.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			}
+		}
+
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para pedir la aprobación de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function PedirAprobacionActividadCursoJurisdiccional($act_codigo) {
+
+		// Es la unica validación que se hace por eso no va a un Validar
+		if (!$this->TienePermisoPedirAprobacion($act_codigo,$_SESSION['rolcod'],$_SESSION['jurisdid_inap']))
+			return false;
+
+		$spnombre="upd_actividad_curso_cambio_estado_xact_codigo";
+		$spparam=array(
+			'pactcur_estado'=>ACTCURSOPENDIENTEAPROBACION,
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s"),
+			'pact_codigo'=> $act_codigo
+			);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al ejecutar el pedido de aprobación de la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function  ArmarMensajePedidoAprobacion($datos,&$mensaje) {
+
+		$result = true;
+		if(!$this->TraerDatosActividadCursoJurisdiccional($datos['act_codigo'],$filacurso,$es_modif))  {
+			$errormail="\nact_codigo=".$datos['act_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			$result =  false;
+		}
+		if ($result) {
+			$mensaje = " Se ha solicitado la aprobación del Diseño de la siguiente actividad:\n";
+			$mensaje .= " Nombre:   ".$filacurso['actividad']['act_nombre']."\n";
+			$mensaje .= " Código INAP:   ".$filacurso['actividad']['act_codinap']."\n";	;
+			$this->conexion->TraerCampo("jurisdiccion_inap","jurisdnom",array("jurisdid='",$filacurso['actividad_curso']['jurisdid_inap'],"'"),$jurisdnom,$numfilas,$errno);
+			$mensaje .= " Organismo:   ".$jurisdnom."\n";
+			$mensaje .= " Aclaraciones:   ".$datos['aclaracion_mail']."\n";	;
+		}
+
+		return $result;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function TienePermisoEvaluar($act_codigo,$rolcod,$jurisdid) {
+
+		// Valida el estado con rol y la jurisdicción
+		if (!$this->TraerDatosActividadCurso($act_codigo,$fila_actividad_curso,$es_modif_act_curso))
+			return false;
+
+		$txt_sys_mail="\nact_codigo=".$act_codigo;
+		if (!$es_modif_act_curso)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error no existe la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		if ($rolcod == USUACTJUR) {
+			 if ($fila_actividad_curso['jurisdid_inap'] == $jurisdid) {
+				if ($fila_actividad_curso['actcur_estado'] == ACTCURSOPENDIENTEAPROBACION)
+					return true;
+				else {
+					$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","ACTCURSOESTADO","' and constantecod='",$fila_actividad_curso['actcur_estado'],"'"),$descri,$numfilas,$errorcod);
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado de la Actividad Curso (".$descri."), <br>  no le permite realizar la operacion.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+					return false;
+				}
+			} else {
+ 				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene acceso a la Actividad Curso.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			}
+		}
+
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para evaluar la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function EvaluarActividadCursoJurisdiccional($act_codigo,$operacion,$datos,&$datosvalidados) {
+
+		// Es la unica validación que se hace por eso no va a un Validar
+		if (!$this->TienePermisoEvaluar($act_codigo,$_SESSION['rolcod'],$_SESSION['jurisdid_inap']))
+			return false;
+
+		if ($operacion == "A") {
+			$estado = ACTCURSOAPROBADO;
+		} else {
+			$estado = ACTCURSORECHAZADO;
+		}
+
+		$spnombre="upd_actividad_curso_cambio_estado_xact_codigo";
+		$spparam=array(
+			'pactcur_estado'=>$estado,
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s"),
+			'pact_codigo'=> $act_codigo
+			);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al ejecutar la evaluación de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		if( trim($datos['aclaracion_mail']) != "") {
+
+			// ver si cambio por traer solo historial
+			if (!$this->TraerDatosActividadCursoJurisdiccional($act_codigo, $fila_actividad, $es_modif) )
+				return false;
+
+			$txt_sys_mail="\nact_codigo=".$act_codigo;
+			if (!$es_modif)	{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error, no existe la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			}
+
+			$spnombre="upd_actividad_curso_diseno_jurisdiccional_hist_evaluacion";
+			$spparam=array(
+				'pactdisjurisd_hist_evaluacion'=>($fila_actividad['actividad_curso_jurisdiccional']['actdisjurisd_hist_evaluacion']."\n----------- ".
+										date("Y/m/d H:i:s")." ----------\n\n".
+										$datos['aclaracion_mail']."\n"),
+				'pultmodusuario'=>$_SESSION['usuariocod'],
+				'pultmodfecha'=> date("Y/m/d H:i:s"),
+				'pact_codigo'=>$act_codigo
+			);
+
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+			{
+				$txt_sys_mail="Actualizando el historial de evaluaciones de \nact_codigo=".$act_codigo;
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al actualizar el historial de la actividad jurisdiccional. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			}
+		}	// if hay datos aclaratorios
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function  ArmarMensajeEvaluar($datos,$operacion,&$mensaje) {
+
+		$result = true;
+		if(!$this->TraerDatosActividadCursoJurisdiccional($datos['act_codigo'],$filacurso,$es_modif))  {
+			$errormail="\nact_codigo=".$datos['act_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			$result =  false;
+		}
+		if ($result) {
+
+			if ($operacion=="A")
+				$mensaje = " El diseño cumple con los requisitos establecidos por el INAP \n";
+			else
+				$mensaje = " El diseño no cumple con los requisitos establecidos por el INAP \n";
+
+			$mensaje .= " Nombre:   ".$filacurso['actividad']['act_nombre']."\n";
+			$mensaje .= " Código INAP:   ".$filacurso['actividad']['act_codinap']."\n";	;
+			$this->conexion->TraerCampo("jurisdiccion_inap","jurisdnom",array("jurisdid='",$filacurso['actividad_curso']['jurisdid_inap'],"'"),$jurisdnom,$numfilas,$errno);
+			$mensaje .= " Organismo:   ".$jurisdnom."\n";
+			$mensaje .= " Aclaraciones:   ".$datos['aclaracion_mail']."\n";
+		}
+
+		return $result;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function TienePermisoEvaluarExpediente($act_codigo,$rolcod,$jurisdid) {
+
+		// Valida el estado con rol y la jurisdicción
+		if (!$this->TraerDatosActividadCurso($act_codigo,$fila_actividad_curso,$es_modif_act_curso))
+			return false;
+
+		$txt_sys_mail="\nact_codigo=".$act_codigo;
+		if (!$es_modif_act_curso)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error no existe la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+		if ($rolcod == USUACTJUR) {
+			 if ($fila_actividad_curso['jurisdid_inap'] == $jurisdid) {
+				if ($fila_actividad_curso['actcur_estado'] == ACTCURSOAPROBADO)
+					return true;
+				else {
+					$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","ACTCURSOESTADO","' and constantecod='",$fila_actividad_curso['actcur_estado'],"'"),$descri,$numfilas,$errorcod);
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El estado de la Actividad Curso (".$descri."), <br> no le permite realizar la operacion.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+					return false;
+				}
+			} else {
+ 				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene acceso a la Actividad Curso.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			}
+		}
+
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para evaluar la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		return false;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function EvaluarExpedienteActividadCursoJurisdiccional($act_codigo,$operacion,$datos,&$datosvalidados) {
+
+		// Es la unica validación que se hace por eso no va a un Validar
+		if (!$this->TienePermisoEvaluarExpediente($act_codigo,$_SESSION['rolcod'],$_SESSION['jurisdid_inap']))
+			return false;
+
+		// Nota: la carga del expediente lo dejamos para que lo ingrese cuando dictamine.
+		if ($operacion == "A") {
+			$estado = ACTCURSOACTIVO;
+		} else {
+			$estado = ACTCURSORECHAZADO;
+		}
+
+		$spnombre="upd_actividad_curso_cambio_estado_xact_codigo";
+		$spparam=array(
+			'pactcur_estado'=>$estado,
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s"),
+			'pact_codigo'=> $act_codigo
+			);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)	{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al ejecutar la evaluación del expediente con la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		if( trim($datos['aclaracion_mail']) != "") {
+
+			// Ver si cambio por traer solo historial
+			if (!$this->TraerDatosActividadCursoJurisdiccional($act_codigo, $fila_actividad, $es_modif) )
+				return false;
+
+			$txt_sys_mail="\nact_codigo=".$act_codigo;
+			if (!$es_modif)	{
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error, no existe la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			}
+
+			$spnombre="upd_actividad_curso_diseno_jurisdiccional_hist_evaluacion";
+			$spparam=array(
+				'pactdisjurisd_hist_evaluacion'=>($fila_actividad['actividad_curso_jurisdiccional']['actdisjurisd_hist_evaluacion']."\n----------- ".
+										date("Y/m/d H:i:s")." ----------\n\n".
+										$datos['aclaracion_mail']."\n"),
+				'pultmodusuario'=>$_SESSION['usuariocod'],
+				'pultmodfecha'=> date("Y/m/d H:i:s"),
+				'pact_codigo'=>$act_codigo
+			);
+
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)
+			{
+				$txt_sys_mail="Actualizando el historial de evaluaciones de \nact_codigo=".$act_codigo;
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al actualizar el historial de la actividad. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			}
+		}	// if hay datos aclaratorios
+
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------
+	function  ArmarMensajeExpedienteActividadCursoJurisdiccional($datos,$operacion,&$mensaje) {
+
+		$result = true;
+		if(!$this->TraerDatosActividadCursoJurisdiccional($datos['act_codigo'],$filacurso,$es_modif))  {
+			$errormail="\nact_codigo=".$datos['act_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			$result =  false;
+		}
+		if ($result) {
+			if ($operacion=="A")
+				$mensaje = " El diseño cumple con los requisitos establecidos por el INAP \n";
+			else
+				$mensaje = " El diseño no cumple con los requisitos establecidos por el INAP \n";
+
+			$mensaje .= " Nombre:   ".$filacurso['actividad']['act_nombre']."\n";
+			$mensaje .= " Código INAP:   ".$filacurso['actividad']['act_codinap']."\n";	;
+			$this->conexion->TraerCampo("jurisdiccion_inap","jurisdnom",array("jurisdid='",$filacurso['actividad_curso']['jurisdid_inap'],"'"),$jurisdnom,$numfilas,$errno);
+			$mensaje .= " Organismo:   ".$jurisdnom."\n";
+			$mensaje .= " Aclaraciones:   ".$datos['aclaracion_mail']."\n";
+		}
+
+		return $result;
+	}
+
+//-----------------------------------------------------------------------------------------------------
+	function MostrarDatosActividadCursoJurisdiccional($conexion,$operacion,$filacurso=array()) {
+
+	// si queda esta opcion no mandar la conexion
+	if ($operacion=="A") {
+	   $es_modif = false;
+	} elseif ($operacion=="M" || $operacion=="V") {
+	   	$es_modif = true;
+	   } else {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error en la llamada, operación inválida.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+	   }
+	?>
+	<!-- Datos comunes de actividad -->
+	<table width="100%" class="textoTablaDato" align="center" cellpadding="2">
+		<tr>
+			<td colspan="2" >
+				<fieldset class="bordeDetalleRegistro">
+				<legend class="textoLeyendaDetalleRegistro">Datos Actividad </legend>
+				<table width="100%" class="textoTablaDato" align="center">
+				<tr>
+					<td valign="top" width="15%" class='textoEtiqueta'>Nombre</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="2" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> onblur="PasarAMayusculas('act_nombre')" id="act_nombre"  name="act_nombre" style="width:400px" ><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad']['act_nombre'],ENT_QUOTES):""; ?></textarea>
+				<?php  if (!$es_modif) { ?>
+				 		<input type="hidden" name="act_codinap" id="act_codinap" size="21" maxlength="20" value="##">
+				<?php  } ?>
+					</td>
+				</tr>
+
+				<?php  if ($es_modif) { ?>
+					<tr>
+						<td valign="top" width="15%" class='textoEtiqueta'>Código INAP</td>
+						<td class="textoEtiquetaDatoResaltado">
+							<input type="text" name="act_codinap" id="act_codinap" class="inputReadonly" readonly="readonly" size="21" maxlength="20" value="<?=htmlspecialchars($filacurso['actividad']['act_codinap'],ENT_QUOTES)?>">
+						</td>
+					</tr>
+				<?php  } ?>
+
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Observación</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="5" name="act_obs"  id="act_obs" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?>  style="width:400px" ><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad']['act_obs'],ENT_QUOTES):"" ?></textarea>
+					</td>
+				</tr>
+				</table>
+				</fieldset>
+			</td>
+		</tr>
+	</table>
+
+	<!-- Varia según el formato -->
+	<table width="100%" class="textoTablaDato" align="center" cellpadding="2">
+		<tr>
+			<td colspan="2">
+				<fieldset class="bordeDetalleRegistro">
+				<legend class="textoLeyendaDetalleRegistro">Datos Actividad Curso </legend>
+				<table width="100%" class="textoTablaDato" align="center">
+					<tr>
+						<td valign="top" width="25%" class='textoEtiqueta'>Observación </td>
+						<td class="textoEtiquetaDatoResaltado">
+						<textarea  rows="5" cols="100" name="actcur_obs" id="actcur_obs" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso']['actcur_obs'],ENT_QUOTES):"" ?></textarea>
+						</td>
+					</tr>
+				</table>
+				</fieldset>
+			</td>
+		</tr>
+	</table>
+
+	<!-- Varia según el formato (Formato curso - Jurisdiccional)-->
+	<table width="100%" class="textoTablaDato" align="center" cellpadding="2">
+		<tr>
+			<td colspan="2" >
+				<fieldset class="bordeDetalleRegistro">
+				<legend class="textoLeyendaDetalleRegistro">Datos Actividad Curso Jurisdiccional </legend>
+				<table width="100%" class="textoTablaDato" align="center">
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Fundamentación</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="5" name="actdisjurisd_fundamentacion" id="actdisjurisd_fundamentacion" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?>  style="width:400px"><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_fundamentacion'],ENT_QUOTES):"" ?></textarea>
+					</td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Contribución esperada</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="5" name="actdisjurisd_contribucion" id="actdisjurisd_contribucion" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_contribucion'],ENT_QUOTES):"" ?></textarea>
+					</td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Perfil del participante</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="5" name="actdisjurisd_perfil"  id="actdisjurisd_perfil" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?>  style="width:400px" ><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_perfil'],ENT_QUOTES):"" ?></textarea>
+					</td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Objetivos</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="5" name="actdisjurisd_objetivos"  id="actdisjurisd_objetivos" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?>  style="width:400px" ><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_objetivos'],ENT_QUOTES):"" ?></textarea>
+					</td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Contenido</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="5" name="actdisjurisd_contenido"  id="actdisjurisd_contenido" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_contenido'],ENT_QUOTES):"" ?></textarea>
+					</td>
+				</tr>
+       			<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Estrategias metodológicas y recursos didácticos</td>
+					<td class="textoEtiquetaDatoResaltado">	<textarea cols="100" rows="5" name="actdisjurisd_metodologia"  id="actdisjurisd_metodologia" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_metodologia'],ENT_QUOTES):"" ?></textarea></td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Descripción de la modalidad</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="2" name="actdisjurisd_modaldesc"  id="actdisjurisd_modaldesc" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_modaldesc'],ENT_QUOTES):"" ?></textarea>
+					</td>
+				</tr>
+                <tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Bibliografía</td>
+					<td class="textoEtiquetaDatoResaltado"><textarea cols="100" rows="5" name="actdisjurisd_bibliografia"  id="actdisjurisd_bibliografia" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_bibliografia'],ENT_QUOTES):"" ?></textarea></td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Evaluación de los aprendizajes</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="5" name="actdisjurisd_eval" id="actdisjurisd_eval" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px" ><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_eval'],ENT_QUOTES):"" ?></textarea>
+					</td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Instrumentos para la evaluación</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="5" name="actdisjurisd_evalinstru"  id="actdisjurisd_evalinstru" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px" ><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_evalinstru'],ENT_QUOTES):"" ?></textarea>
+					</td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Requisitos de Asistencia y aprobación</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="5" name="actdisjurisd_requiaprobacion" id="actdisjurisd_requiaprobacion" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_requiaprobacion'],ENT_QUOTES):"" ?></textarea>
+					</td>
+				</tr>
+
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Duración</td>
+					<td class="textoEtiquetaDatoResaltado"><input type="text" name="actdisjurisd_duracionhs" id="actdisjurisd_duracionhs" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> size="3" maxlength="3" value="<?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_duracionhs'],ENT_QUOTES):""; ?>">&nbsp;&nbsp;hora/s</td>
+				</tr>
+
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Detalle sobre la duración</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="5" name="actdisjurisd_duraciondetalle"  id="actdisjurisd_duraciondetalle" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px" ><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_duraciondetalle'],ENT_QUOTES):"" ?></textarea>
+					</td>
+				</tr>
+
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Cronograma tentativo</td>
+					<td class="textoEtiquetaDatoResaltado">
+					<textarea cols="100" rows="5" name="actdisjurisd_cronogramatentativo"  id="actdisjurisd_cronogramatentativo" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px" ><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_cronogramatentativo'],ENT_QUOTES):"" ?></textarea>
+					</td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Lugar</td>
+					<td class="textoEtiquetaDatoResaltado"><textarea cols="100" rows="2" name="actdisjurisd_lugar"  id="actdisjurisd_lugar" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_lugar'],ENT_QUOTES):"" ?></textarea></td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Perfil del instructor</td>
+					<td class="textoEtiquetaDatoResaltado"><textarea cols="100" rows="5" name="actdisjurisd_perfil_instructor"  id="actdisjurisd_perfil_instructor" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_perfil_instructor'],ENT_QUOTES):"" ?></textarea></td>
+				</tr>
+				<!--
+				<tr>
+				  <td colspan="2" valign="top" class='textoEtiquetaDatoResaltado'>Plan de Clases</td>
+				  </tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Recursos</td>
+					<td class="textoEtiquetaDatoResaltado"><textarea cols="100" rows="5" name="actdisjurisd_planrecursos"  id="actdisjurisd_planrecursos" class=<?php //echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php //echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_planrecursos'],ENT_QUOTES):"" ?></textarea></td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Contenido</td>
+					<td class="textoEtiquetaDatoResaltado"><textarea cols="100" rows="5" name="actdisjurisd_plancontenidos"  id="actdisjurisd_plancontenidos" class=<?php //echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php //echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_plancontenidos'],ENT_QUOTES):"" ?></textarea></td>
+				</tr>
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Estrategias</td>
+					<td class="textoEtiquetaDatoResaltado"><textarea cols="100" rows="5" name="actdisjurisd_planestrategias"  id="actdisjurisd_planestrategias" class=<?php //echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php //echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_planestrategias'],ENT_QUOTES):"" ?></textarea></td>
+				</tr>
+				 -->
+				<tr>
+					<td valign="top" width="25%" class='textoEtiqueta'>Origen de la demanda</td>
+					<td class="textoEtiquetaDatoResaltado"><textarea cols="100" rows="5" name="actdisjurisd_origen"  id="actdisjurisd_origen" class=<?php echo ($operacion=="V")?"'inputReadonly' readonly='true'":"'textoInput'" ?> style="width:400px"><?php echo ($es_modif)?htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_origen'],ENT_QUOTES):"" ?></textarea></td>
+				</tr>
+
+				<tr>
+					<td colspan=2 >
+					<input type="hidden" name="actdisjurisd_planrecursos" id="actdisjurisd_planrecursos" value="---" />
+					<input type="hidden" name="actdisjurisd_plancontenidos" id="actdisjurisd_plancontenidos" value="---" />
+					<input type="hidden" name="actdisjurisd_planestrategias" id="actdisjurisd_planestrategias" value="---" />
+					</td>
+				</tr>
+				</table>
+				</fieldset>
+			</td>
+		</tr>
+	</table>
+<?php return true;
+}
+
+//-----------------------------------------------------------------------------------------------------
+	function MostrarHistorialEvaluacion($conexion,$filacurso) {
+?>	<table class="textoTablaDato" align="center" width="95%">
+		<tr>
+			<td valign="top" class="textoEtiquetaDatoResaltado" colspan="2">
+				<a class="linkListadoMenu" href='javascript:void(0)' onClick="InvertirEstado_Visibilidad('fila_detalle_historial');">
+					Ver/Ocultar Historial Evaluaciones
+				</a>
+			</td>
+		</tr>
+		<tr id="fila_detalle_historial" >
+			<td valign="top" class="textoEtiquetaDatoResaltado" colspan="2">
+				<strong>Historial Evaluaciones </strong>
+				<br />
+				<textarea cols="100" rows="10" style="width:100%" class='inputReadonly' readonly='readonly'>
+					<?= htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_hist_evaluacion'],ENT_QUOTES);?>
+				</textarea>
+			</td>
+		</tr>
+	</table>
+	<script type="text/javascript" language="javascript">CambiarEstado_Visibilidad('fila_detalle_historial','invisible');</script>
+<?php	}
+//-----------------------------------------------------------------------------------------------------
+	function PedirActividad($codinap,$formularioName,$inputName,$accion,$submit=true) {
+?>	<table width="100%" class="textoTablaDato" align="center">
+		<tr>
+			<td valign="middle" width="15%" class='textoEtiqueta'>Código INAP</td>
+			<td class="textoEtiquetaDato" valign="middle" align="left" width="50">
+				<input type="text" size="21" maxlength="20" name="<?php echo $inputName ?>" id="<?php echo $inputName ?>" onblur="PasarAMayusculas('<?php echo $inputName ?>')" value="<?php echo trim($codinap) ;?>">
+			</td>
+			<td class="textoEtiquetaDato" align="center" width="7%">
+				<a href='javascript:void(0)' onClick="Popup('actividad_selector.dhtml?formulario=<?php echo $formularioName ?>&amp;destino=<?php echo $inputName."&amp;submit=".$submit."&amp;tipoact_codigo=".TIPOACTCURSOJURISD."&amp;accion=".$accion ?>&amp;volver=1','ventana_descripciones',630,360,screen.availWidth-650,screen.availHeight-420,'yes');"><img src="images/searchsai.jpg" alt="Buscar" border="0" style="vertical-align:-5px"></a>
+			</td>
+			<td class="textoEtiquetaDato"  valign="middle" align="left">
+				<input type="submit" name="Confirma" value="Confirma" class="botones" />
+			</td>
+
+		</tr>
+	</table>
+<?php	unset($_SESSION['array_busqueda_basica_actividad']);
+	unset($_SESSION['filtro_busqueda']);
+	}
+//-----------------------------------------------------------------------------------------------------
+	function PidoActividadProgramacion($formularioName,$inputNameAct,$inputNameFormato,$inputNameTipo,$inputNameSec,$accion,$submit=true) {
+?>		<table width="100%" class="textoTablaDato" align="center" cellpadding="0" cellspacing="0" border="0" >
+			<tr>
+				<td class="textoEtiquetaClave" align="left">
+					Seleccione Actividad/Programación  &nbsp;&nbsp;&nbsp;
+					<a href='javascript:void(0)' onClick="Popup('actividad_asignable_selector.dhtml?formulario=<?php echo $formularioName."&amp;submit=".$submit."&amp;accion=".$accion."&amp;act_codigo_seleccion=".$inputNameAct."&amp;formact_codigo_seleccion=".$inputNameFormato."&amp;tipoact_codigo_seleccion=".$inputNameTipo."&amp;actprog_sec_seleccion=".$inputNameSec ?>&amp;volver=1','ventana_descripciones',700,500,screen.availWidth-710,screen.availHeight-550,'yes');"><img src="images/searchsai.jpg" alt="Buscar" border="0" style="vertical-align:-5px"></a>
+					<input type="hidden" name="<?php echo $inputNameAct?>" id="<?php echo $inputNameAct?>" value="" />
+					<input type="hidden" name="<?php echo $inputNameFormato?>" id="<?php echo $inputNameFormato?>" value="" />
+					<input type="hidden" name="<?php echo $inputNameTipo?>" id="<?php echo $inputNameTipo?>" value="" />
+					<input type="hidden" name="<?php echo $inputNameSec?>" id="<?php echo $inputNameSec?>" value="" />
+				</td>
+			</tr>
+		</table>
+<?php		unset($_SESSION['array_busqueda_basica_actividad']);
+		unset($_SESSION['filtro_busqueda']);
+?>
+<?php	}
+
+//-----------------------------------------------------------------------------------------------------
+	function ListarDisenoActividadPDF($act_codigo) {
+
+		function GenerarActividadDiseno(&$pdf,$filacurso,$prestadores) {
+
+			$pdf->AddAcividadDiseno();
+			$pdf->Set('datos_actividad',$filacurso);
+			$pdf->Set('datos_actividad_prestador',$prestadores);
+			$pdf->Set('formact_codigo',FORMATOCURSO);
+			$pdf->Set('tipoact_codigo',$filacurso['actividad_curso']['tipoact_codigo']);
+
+		} // GenerarActa
+
+
+		if (!$this->TraerDatosActividadCursoJurisdiccional($act_codigo,$filacurso,$es_modif))  {
+			$txt_sys_mail="\nact_codigo=".$act_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error, buscando la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		} elseif (!$es_modif) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha encontrado la Actividad con el formato buscado.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		$descri="";
+		if ($this->conexion->TraerCampo("jurisdiccion_inap","jurisdnom",array("jurisdid='",$filacurso['actividad_curso']['jurisdid_inap'],"'"),$descri,$numfilascaracter,$errorcod))
+			$filacurso['actividad_curso'] += array('jurisdnom'=>$descri);
+
+		$descri="";
+		if ($this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","ACTCURSOESTADO","' and constantecod='",$filacurso['actividad_curso']['actcur_estado'],"'"),$descri,$numfilas,$errorcod))
+			$filacurso['actividad_curso'] += array('actcur_estado_desc'=>$descri);
+
+
+		// Selecciono todos los prestadores asociados a la actividad.
+		$oPrestadorDocente = new cPrestadorDocente($this->conexion);
+		$ArregloDatos = array();
+		$ArregloDatos['act_codigo']=$act_codigo;
+
+		if(!$oPrestadorDocente->BuscarPrestadorDocentexActividad($ArregloDatos,$numfilas,$prestadores,$error,$errormail)) {
+			$txt_sys_mail="\nact_codigo=".$act_codigo."\nerror=".$error;
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error buscando los prestadores docentes de la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;
+		}
+
+
+		$pdf = new cActividadDisenoPDF();
+		GenerarActividadDiseno($pdf,$filacurso,$prestadores);
+		$pdf->MostrarActividadDiseno($this->conexion);
+		$pdf->Output("disenoActividad.pdf","I");
+
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------------------
+	function ListarDisenoActividad($act_codigo) {
+
+	$ok=true;
+ 	if (!$this->TraerDatosActividadCursoJurisdiccional($act_codigo,$filacurso,$es_modif))  {
+		$txt_sys_mail="\nact_codigo=".$act_codigo;
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error, buscando la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		$ok=false;
+	} elseif (!$es_modif) {
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se ha encontrado la Actividad con el formato buscado.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		$ok=false;
+	}
+
+	if (!$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","ACTCURSOESTADO","' and constantecod='",$filacurso['actividad_curso']['actcur_estado'],"'"),$descri_estado,$numfilas,$errorcod)){
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar el estado de la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		$ok=false;
+	}
+
+
+?>
+	<br><div class="textoTitulo" align="left">Detalle de la Actividad Curso Jurisdiccional <?php echo ($filacurso['actividad_curso']['actcur_estado'] != ACTCURSOACTIVO)?"(Estado ".$descri_estado.")":""?></div><br>
+<?php
+	if ($ok) {	?>
+		<table width="100%" class="textoTablaDatoBorde" align="center" border="1" cellpadding="4" cellspacing="0">
+			<tr>
+				<td width="30%" class='textoTablaDato'>Nombre</td>
+				<td class='textoEtiquetaDatoResaltado'><?= htmlspecialchars($filacurso['actividad']['act_nombre'],ENT_QUOTES); ?></td>
+			</tr>
+			<tr>
+				<td class='textoTablaDato'>Organismo</td>
+				<td class='textoEtiquetaDatoResaltado'>
+					<?php $this->conexion->TraerCampo("jurisdiccion_inap","jurisdnom",array("jurisdid='",$filacurso['actividad_curso']['jurisdid_inap'],"'"),$descri,$numfilascaracter,$errorcod);
+					   echo $descri;
+					?>
+				</td>
+			</tr>
+			<tr>
+				<td class='textoTablaDato'>Código INAP</td>
+				<td class='textoEtiquetaDatoResaltado'><?= htmlspecialchars($filacurso['actividad']['act_codinap'],ENT_QUOTES); ?></td>
+			</tr>
+			<tr>
+				<td class='textoTablaDato'>Fundamentación</td>
+				<td class='textoEtiquetaDatoResaltado'><?= nl2br(htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_fundamentacion'],ENT_QUOTES)); ?></td>
+			</tr>
+<?php			if (isset($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_contribucion'])) { ?>
+				<tr>
+					<td class='textoTablaDato'>Contribución esperada</td>
+					<td class='textoEtiquetaDatoResaltado'><?= htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_contribucion'],ENT_QUOTES); ?></td>
+				</tr>
+<?php			} ?>
+<?php			if (isset($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_perfil'])) { ?>
+				<tr>
+					<td class='textoTablaDato'>Perfil del participante</td>
+					<td class='textoEtiquetaDatoResaltado'><?= nl2br(htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_perfil'],ENT_QUOTES)); ?></td>
+				</tr>
+<?php			} ?>
+<?php			if (isset($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_objetivos'])) { ?>
+				<tr>
+					<td class='textoTablaDato'>Objetivos</td>
+					<td class='textoEtiquetaDatoResaltado'><?= nl2br(htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_objetivos'],ENT_QUOTES)); ?></td>
+				</tr>
+<?php			} ?>
+<?php			if (isset($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_contenido'])) { ?>
+				<tr>
+					<td class='textoTablaDato'>Contenido</td>
+					<td class='textoEtiquetaDatoResaltado'><?= nl2br(htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_contenido'],ENT_QUOTES)); ?>	</td>
+				</tr>
+<?php			} ?>
+
+<?php			if (isset($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_metodologia'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Estrategias metodológicas y recursos didácticos</td>
+				<td class='textoEtiquetaDatoResaltado'><?= nl2br(htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_metodologia'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?php			} ?>
+
+<?php			if (isset($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_modaldesc'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Descripción de la modalidad</td>
+				<td class='textoEtiquetaDatoResaltado'><?= nl2br(htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_modaldesc'],ENT_QUOTES)); ?></td>
+			</tr>
+<?php			} ?>
+<?php			if (isset($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_bibliografia'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Bibliografía</td>
+				<td class='textoEtiquetaDatoResaltado'><?= nl2br(htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_bibliografia'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?php			} ?>
+<?php			if (isset($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_eval'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Evaluación de los aprendizajes</td>
+				<td class='textoEtiquetaDatoResaltado'><?= nl2br(htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_eval'],ENT_QUOTES)); ?></td>
+			</tr>
+<?php			} ?>
+<?php			if (isset($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_evalinstru'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Instrumentos para la evaluación</td>
+				<td class='textoEtiquetaDatoResaltado'><?= nl2br(htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_evalinstru'],ENT_QUOTES)); ?></td>
+			</tr>
+<?php			} ?>
+<?php			if (isset($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_requiaprobacion'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Requisitos de Asistencia y aprobación</td>
+				<td class='textoEtiquetaDatoResaltado'><?= nl2br(htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_requiaprobacion'],ENT_QUOTES)); ?></td>
+			</tr>
+<?php			} ?>
+<?php			if (isset($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_duracionhs'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Duración (Hs.)</td>
+				<td class='textoEtiquetaDatoResaltado'><?= htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_duracionhs'],ENT_QUOTES); ?></td>
+			</tr>
+<?php			} ?>
+<?php			if (isset($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_duraciondetalle'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Duración (detalle) </td>
+				<td class='textoEtiquetaDatoResaltado'><?= nl2br(htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_duraciondetalle'],ENT_QUOTES)); ?></td>
+			</tr>
+<?php			} ?>
+<?php			if (isset($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_cronogramatentativo'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Cronograma tentativo</td>
+				<td class='textoEtiquetaDatoResaltado'><?= nl2br(htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_cronogramatentativo'],ENT_QUOTES)); ?></td>
+			</tr>
+<?php			} ?>
+<?php			if (isset($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_lugar'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Lugar</td>
+				<td class='textoEtiquetaDatoResaltado'><?= nl2br(htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_lugar'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?php			} ?>
+<?php			if (isset($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_perfil_instructor'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Perfil de Instructor</td>
+				<td class='textoEtiquetaDatoResaltado'><?= nl2br(htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_perfil_instructor'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?php			} ?>
+
+<?php /*			if (isset($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_planrecursos'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Recursos</td>
+				<td class='textoEtiquetaDatoResaltado'><?= nl2br(htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_planrecursos'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?			} ?>
+
+
+<?			if (isset($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_plancontenidos'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Contenidos</td>
+				<td class='textoEtiquetaDatoResaltado'><?= nl2br(htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_plancontenidos'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?			} ?>
+
+
+<?			if (isset($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_planestrategias'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Estrategias</td>
+				<td class='textoEtiquetaDatoResaltado'><?= nl2br(htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_planestrategias'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?			}
+
+*/?>
+<?php			if (isset($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_origen'])) { ?>
+			<tr>
+				<td class='textoTablaDato'>Origen de la Demanda</td>
+				<td class='textoEtiquetaDatoResaltado'><?= nl2br(htmlspecialchars($filacurso['actividad_curso_jurisdiccional']['actdisjurisd_origen'],ENT_QUOTES)); ?>
+				</td>
+			</tr>
+<?php			} ?>
+		</table>
+		<br />
+		<br />
+
+
+<?php 		// Muestro los prestadores docentes de la actividad
+			$this->MostrarPrestadoresActividad($this->conexion,$act_codigo);
+?>
+		<br />
+		<br />
+        <ul>
+		   <li>
+				<a class="linkListadoMenu" href='javascript:void(0)' onClick="Popup('actividad_diseno_poc_lst.dhtml?act_codigo=<?php echo $act_codigo ?>','ventana_descripciones_poc',650,450,screen.availWidth-700,screen.availHeight-500,'yes');">
+				  Ver Relaciones con Objetivos y Areas de POC
+				</a>
+		</li>
+        </ul>
+		<br />
+		<br />
+
+
+<?php		}	// ok
+	return $ok;
+}
+
+//-----------------------------------------------------------------------------------------------------
+	function MostrarActPoc($conexion, $act_codigo) {
+
+		// busco los POC en los que se encuentra asociada la ACT
+		// la relación tiene que estar APROBADA
+		$spnombre="sel_poc_poc_actividad_actividad_xact_codigo";
+		$sparam = array( 'pact_codigo'=>$act_codigo,
+						 'ppocactact_estado'=>POCACTIVIDADACTIVIDADNUEVA.",".POCACTIVIDADACTIVIDADAPROBADA.",".POCACTIVIDADACTIVIDADPEDAPROB.",".POCACTIVIDADACTIVIDADRECHAZADA,
+						 'porderby'=>'poc_ano'
+						 );
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado_poc,$numfilas_poc,$errno))
+		{
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al buscar los POCs asociados a la Actividad \nact_codigo=".$act_codigo,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		?>
+		<br><div class="textoTitulo" align="left">Objetivos y Areas relacionados con la Actividad</div><br>
+
+		<?php
+		while ($fila_poc = mysqli_fetch_assoc($resultado_poc)) { ?>
+			<br />
+			<table width="100%" class="textoTablaDatoBorde" align="center" border="1" cellpadding="4" cellspacing="0">
+			<tr>
+				<td class='textoEtiquetaDatoResaltado'><?= htmlspecialchars($fila_poc['poc_ano'],ENT_QUOTES)."  -  ".htmlspecialchars($fila_poc['poc_obs'],ENT_QUOTES);; ?> </td>
+			</tr>
+
+			<?php
+			// busco las ActPoc de un POC asociadas a la Actividad
+			$oPocActividadActividad = new cPocActividadActividad($conexion);
+			$filtro = array( 'act_codigo'=>$act_codigo,
+							 'poc_codigo'=>$fila_poc['poc_codigo'],
+							 'ppocactact_estado'=>POCACTIVIDADACTIVIDADNUEVA.",".POCACTIVIDADACTIVIDADAPROBADA.",".POCACTIVIDADACTIVIDADPEDAPROB.",".POCACTIVIDADACTIVIDADRECHAZADA,
+
+		//					 'pocactact_estado'=>POCACTIVIDADACTIVIDADAPROBADA
+							 );
+
+
+			if (!$oPocActividadActividad->BuscarPocActividadActividad($filtro,$numfilas,$result_act_asignadas,$error,$errormail)) {
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+				return false;
+			}
+
+?>
+			<tr>
+				<td>
+				<br><div class="textoTitulo" align="left">Actividades POC</div><br>
+				<table width="90%" class="textoTablaDatoBorde" align="right" border="1" cellpadding="4" cellspacing="0">
+<?php
+				while ($fila_act = mysqli_fetch_assoc($result_act_asignadas)) {
+
+
+					if(($conexion->TraerCampo("poc_actividad","pocact_nombre_tentativo",array("pocact_codigo='",$fila_act['pocact_codigo'],"'"),$descri,$numfilas,$errno))
+			        && ($conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","POCACTIVIDADACTIVIDADESTADO","' and constantecod='",$fila_act['pocactact_estado'],"'"),$descri_estado,$numfilas_estado,$errno)))
+					{
+						?>
+						<tr>
+							<td class='textoEtiquetaDato'><?= htmlspecialchars($descri,ENT_QUOTES); ?> </td>
+							<td class='textoEtiquetaDatoResaltado' width="100"><?= htmlspecialchars($descri_estado,ENT_QUOTES); ?> </td>
+						</tr>
+
+					<?php
+					} else
+						return false;
+
+					// busco todos los objetivos asociados a la actividad poc
+					$oPocActividadPocObjetivo = new cPocActividadPocObjetivo($this->conexion);
+
+					$ArregloDatos['pocact_codigo']=$fila_act['pocact_codigo'];
+					$ArregloDatos['poc_codigo']=$fila_poc['poc_codigo'];
+					if (!$oPocActividadPocObjetivo ->BuscarPocActividadDatos($ArregloDatos,$numfilas_act,$result_obj,$error,$errormail))
+					{
+						FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"Error en la búsqueda de los Objetivos de la Actividad Poc. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+						return false;
+					}
+
+					$array_objetivos = array();
+					while ($fila_obj = mysqli_fetch_assoc($result_obj)) {
+						$array_objetivos[] = $fila_obj;
+					}
+
+		?>
+					<tr> <td colspan="2">
+						<br><div class="textoTitulo" align="left">Objetivos Asociados</div><br>
+						<table width="90%" class="textoTablaDato" align="right" border="0" cellpadding="4" cellspacing="0">
+							<?php
+							foreach ($array_objetivos as $i=>$valor) {
+
+								// obtengo las áreas del objetivo
+								$ArregloDatos=array();
+								$ArregloDatos['poc_codigo']= $fila_poc['poc_codigo'];
+								$ArregloDatos['pocobj_codigo']= $valor['pocobj_codigo'];
+								$oPocPocObjetivoPocArea=new cPocPocObjetivoPocArea($conexion);
+
+								if (!$oPocPocObjetivoPocArea->BuscarPocPocObjetivoPocArea($ArregloDatos,$numfilas_area,$result_area,$error,$errormail)) {
+									FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"Error en la búsqueda de relaciones entre el Poc y el Objetivo. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+									return false;
+								}
+
+								?>
+								<tr>
+									<td class='textoEtiquetaDato'><?= htmlspecialchars($valor['pocobj_descripcion'],ENT_QUOTES); ?> </td>
+								</tr>
+
+								<tr>
+									<td class='textoEtiquetaDato'>
+											<table width="90%" class="textoTablaDato" align="right" border="0" cellpadding="4" cellspacing="0">
+											<?php
+											while ($fila_area = mysqli_fetch_assoc($result_area)){
+												?>
+												<tr>
+													<td class='textoEtiquetaDato'><?= htmlspecialchars($fila_area['pocarea_descripcion'],ENT_QUOTES); ?> </td>
+												</tr>
+												<?php
+											}
+											?>
+										</table>
+									</td>
+								</tr>
+
+
+						<?php } ?>
+						</table>
+						</td>
+					</tr>
+	<?php
+				} // while fila_act
+				?>
+				</table>
+				</td>
+			</tr>
+		</table>
+		<?php }	// while poc
+
+}
+//-----------------------------------------------------------------------------------------------------
+	function DescargarExcelDisenoActividad($act_codigo, &$oExcel, $nuevo_excel=true) {
+
+		 if (!$this->TraerDatosActividadCursoJurisdiccional($act_codigo,$filacurso,$es_modif)) {
+		 	FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se pueden obtener los datos de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		 }
+
+		if ($nuevo_excel) {
+			$nombrearchivo="actividad.xls";
+			$oExcel= new cEscribirExcel($nombrearchivo);
+		}
+
+		$oExcel->AddHoja('Actividad');
+		$ancho_columna['leyenda']=30;
+		$ancho_columna['valor']=70;
+
+		$oExcel->FormatoColumna (0,$ancho_columna['leyenda']);
+		$oExcel->FormatoColumna (1,$ancho_columna['valor']);
+
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",12);
+		$oExcel->AddFormato ("Color","azul");
+		$oExcel->AddFormato ("FgColor",22);
+		$oExcel->CargarDatosVariasCeldas (0,0,0,1,'Detalle de la Actividad Curso Jurisdiccional',true);
+
+		// Titulos de las columnas
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("TextWrap","");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",12);
+		$oExcel->AddFormato ("Color","negro");
+		$oExcel->AddFormato ("FgColor","gris");
+
+		$arrayclaves=array('leyenda','valor');
+
+		$array_datos[]  = array('leyenda' => "Actividad",
+								'valor' => $filacurso['actividad']['act_nombre']);
+
+		$array_datos[] = array('leyenda' => "Código de Actividad",
+								'valor' => $filacurso['actividad']['act_codinap']);
+
+		$oExcel->BorrarFormato("");
+		$oExcel->AddFormato ("Tamaño",8);
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("TextWrap","");
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Color","negro");
+		$oExcel->AddFormato ("FgColor","gris");
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("VAlign","vcenter");
+		$formato_leyenda=$oExcel->GetFormato();
+
+		$oExcel->BorrarFormato("");
+		$oExcel->AddFormato ("Tamaño",8);
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("TextWrap","");
+		$oExcel->AddFormato ("FgColor","blanco");
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("VAlign","vcenter");
+		$formato_dato=$oExcel->GetFormato();
+
+		foreach ($arrayclaves as $clave => $valor) {
+			if ($valor == 'leyenda')
+	 			$arrayformato[$valor]=$formato_leyenda;
+			else
+	 			$arrayformato[$valor]=$formato_dato;
+		}
+
+		if (!$this->conexion->TraerCampo("jurisdiccion_inap","jurisdnom",array("jurisdid='",$filacurso['actividad_curso']['jurisdid_inap'],"'"),$descri_organismo,$numfilascaracter,$errorcod))  {
+				 	FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se pueden obtener los datos del Organismo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		 }
+
+		$array_datos[] = array('leyenda' => "Organismo",
+								'valor' => $descri_organismo);
+		$array_datos[] = array('leyenda' => "Fundamentación",
+								'valor' => $filacurso['actividad_curso_jurisdiccional']['actdisjurisd_fundamentacion']);
+		$array_datos[] = array('leyenda' => "Contribución esperada",
+								'valor' => $filacurso['actividad_curso_jurisdiccional']['actdisjurisd_contribucion']);
+		$array_datos[] = array('leyenda' => "Perfil del participante",
+								'valor' => $filacurso['actividad_curso_jurisdiccional']['actdisjurisd_perfil']);
+		$array_datos[] = array('leyenda' => "Objetivos",
+								'valor' => $filacurso['actividad_curso_jurisdiccional']['actdisjurisd_objetivos']);
+		$array_datos[] = array('leyenda' => "Contenido",
+								'valor' => $filacurso['actividad_curso_jurisdiccional']['actdisjurisd_contenido']);
+		$array_datos[] = array('leyenda' => "Metodología",
+								'valor' => $filacurso['actividad_curso_jurisdiccional']['actdisjurisd_metodologia']);
+		$array_datos[] = array('leyenda' => "Descripción de la modalidad",
+								'valor' => $filacurso['actividad_curso_jurisdiccional']['actdisjurisd_modaldesc']);
+		$array_datos[] = array('leyenda' => "Bibliografía",
+								'valor' => $filacurso['actividad_curso_jurisdiccional']['actdisjurisd_bibliografia']);
+		$array_datos[] = array('leyenda' => "Evaluación de los aprendizajes",
+								'valor' => $filacurso['actividad_curso_jurisdiccional']['actdisjurisd_eval']);
+		$array_datos[] = array('leyenda' => "Instrumentos para la evaluación",
+								'valor' => $filacurso['actividad_curso_jurisdiccional']['actdisjurisd_evalinstru']);
+		$array_datos[] = array('leyenda' => "Requisitos de Asistencia y aprobación",
+								'valor' => $filacurso['actividad_curso_jurisdiccional']['actdisjurisd_requiaprobacion']);
+		$array_datos[] = array('leyenda' => "Duración (Hs.)",
+								'valor' => $filacurso['actividad_curso_jurisdiccional']['actdisjurisd_duracionhs']);
+		$array_datos[] = array('leyenda' => "Detalle sobre la duración",
+								'valor' => $filacurso['actividad_curso_jurisdiccional']['actdisjurisd_duraciondetalle']);
+		$array_datos[] = array('leyenda' => "Cronograma tentativo",
+								'valor' => $filacurso['actividad_curso_jurisdiccional']['actdisjurisd_cronogramatentativo']);
+		$array_datos[] = array('leyenda' => "Lugar",
+								'valor' => $filacurso['actividad_curso_jurisdiccional']['actdisjurisd_lugar']);
+		$array_datos[] = array('leyenda' => "Perfil Instructor",
+								'valor' => $filacurso['actividad_curso_jurisdiccional']['actdisjurisd_perfil_instructor']);
+/*		$array_datos[]  = array('leyenda' => "Recursos",
+								'valor' => $filacurso['actividad_curso_jurisdiccional']['actdisjurisd_planrecursos']);
+		$array_datos[]  = array('leyenda' => "Contenidos",
+								'valor' => $filacurso['actividad_curso_jurisdiccional']['actdisjurisd_plancontenidos']);
+		$array_datos[]  = array('leyenda' => "Estrtegias",
+								'valor' => $filacurso['actividad_curso_jurisdiccional']['actdisjurisd_planestrategias']);
+*/
+		$array_datos[]  = array('leyenda' => "Origen de la demanda",
+								'valor' => $filacurso['actividad_curso_jurisdiccional']['actdisjurisd_origen']);
+		$fila_datos = array();
+
+		foreach ($array_datos as $i => $valor) {
+			$fila_datos['leyenda'] = $array_datos[$i]['leyenda'];
+			$fila_datos['valor'] = $array_datos[$i]['valor'];
+			// Saco los /r que no se lo banca el excel.
+			$fila_datos['valor']=str_replace("\r\n","\n", $array_datos[$i]['valor']);
+			$oExcel->CargarGrilla ($fila_datos,2+$i,0,$arrayclaves,$arrayformato);
+		}
+		if ($nuevo_excel)
+			$oExcel->Enviar();
+	}
+
+//-----------------------------------------------------------------------------------------------------
+	function _AguparDatosPost($datos,&$datos_agrup,$es_modif)	{
+
+		//-----------------------------------------------------------
+		$datos_agrup['actividad']=array('act_codinap'=>$datos['act_codinap'],
+										'act_nombre'=>$datos['act_nombre'],
+										'act_obs'=>$datos['act_obs']);
+		if ($es_modif)
+			$datos_agrup['actividad']+=array('act_codigo'=>$datos['act_codigo']);
+		else
+			$datos_agrup['actividad']+=array('formact_codigo'=>FORMATOCURSO);
+
+		//-------------------------------------------------------------
+		$datos_agrup['actividad_curso']=array('actcur_obs'=>$datos['actcur_obs']);
+		if ($es_modif)
+			$datos_agrup['actividad_curso']+=array('act_codigo'=>$datos['act_codigo']);
+		else {
+		 	$datos_agrup['actividad_curso']+=array('tipoact_codigo'=>TIPOACTCURSOJURISD);
+		 	$datos_agrup['actividad_curso']+=array('actcur_creditos'=>0);
+			$datos_agrup['actividad_curso']+=array('jurisdid_inap'=>$_SESSION['jurisdid_inap']);
+			$datos_agrup['actividad_curso']+=array('actcur_estado'=>ACTCURSONUEVO);
+		}
+		//--------------------------------------------------------------
+		$datos_agrup['actividad_curso_jurisdiccional']=array(
+						  'actdisjurisd_fundamentacion'=>$datos['actdisjurisd_fundamentacion'],
+						  'actdisjurisd_contribucion'=>$datos['actdisjurisd_contribucion'],
+						  'actdisjurisd_perfil'=>$datos['actdisjurisd_perfil'],
+						  'actdisjurisd_objetivos'=>$datos["actdisjurisd_objetivos"],
+						  'actdisjurisd_contenido'=>$datos['actdisjurisd_contenido'],
+						  'actdisjurisd_modaldesc'=>$datos['actdisjurisd_modaldesc'],
+						  'actdisjurisd_eval'=>$datos['actdisjurisd_eval'],
+						  'actdisjurisd_evalinstru'=>$datos['actdisjurisd_evalinstru'],
+						  'actdisjurisd_requiaprobacion'=>$datos['actdisjurisd_requiaprobacion'],
+  						  'actdisjurisd_duracionhs'=>$datos['actdisjurisd_duracionhs'],
+						  'actdisjurisd_duraciondetalle'=>$datos['actdisjurisd_duraciondetalle'],
+						  'actdisjurisd_cronogramatentativo'=>$datos['actdisjurisd_cronogramatentativo'],
+						  'actdisjurisd_lugar'=>$datos['actdisjurisd_lugar'],
+						  'actdisjurisd_metodologia'=>$datos['actdisjurisd_metodologia'],
+						  'actdisjurisd_bibliografia'=>$datos['actdisjurisd_bibliografia'],
+						  'actdisjurisd_perfil_instructor'=>$datos['actdisjurisd_perfil_instructor'],
+						  'actdisjurisd_planrecursos'=>$datos['actdisjurisd_planrecursos'],
+						  'actdisjurisd_plancontenidos'=>$datos['actdisjurisd_plancontenidos'],
+						  'actdisjurisd_planestrategias'=>$datos['actdisjurisd_planestrategias'],
+						  'actdisjurisd_origen'=>$datos['actdisjurisd_origen']
+		);
+		if ($es_modif)
+			$datos_agrup['actividad_curso_jurisdiccional']+=array('act_codigo'=>$datos['act_codigo']);
+		else {
+		 	$datos_agrup['actividad_curso_jurisdiccional']+=array('actdisjurisd_duracionhs'=>0);
+		}
+	}
+//-----------------------------------------------------------------------------------------------------
+	function _DatosValidosAltaActividadCursoJurisdiccional($datos,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		if (!$this->_DatosValidosComunesActividadCursoJurisdiccional($datos,$datosvalidados))
+		   return false;
+
+		return true;
+	}
+	
+//-----------------------------------------------------------------------------------------------------
+	function _DatosValidosEliminarActividadCursoJurisdiccional($act_codigo,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		if (!$this->TienePermisoBaja($act_codigo,$_SESSION['rolcod'],$_SESSION['jurisdid_inap'])) {
+			return false;
+		}
+
+		$tipook=$this->EsActividadCursoTipo($act_codigo,TIPOACTCURSOJURISD,$error,$errormsg);
+		if ($error) {
+			$errormail="\nact_codigo=".$act_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$errormsg,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		} elseif(!$tipook) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se ha encontrado la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		$datosvalidados['act_codigo'] = $act_codigo;
+
+		// Verificar que la actividad no tenga dictamen.
+		// En el caso de las actividades jurisdiccionales que no se eliminan
+		// cuando estan activas, no va haber dictamen porque se dictamina sobre activas
+		$oDictamen = new cDictamen($this->conexion);
+		$ArregloDatos=array();
+		$ArregloDatos=array('act_codigo'=>$act_codigo);
+		$oDictamen->BuscarDictamen($ArregloDatos,$numfilas,$array_resultado,$error,$errormail);
+		if ($error)  {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		} elseif ($numfilas>0 && $_SESSION['rolcod']!=SUPERUSUARIO ) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La actividad no puede ser modificada, pues tiene dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function _DatosValidosModifActividadCursoJurisdiccional($datos,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		if (!$this->TienePermisoModificar($datos['act_codigo'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap'])) {
+			return false;
+		}
+
+		if (!$this->_DatosValidosComunesActividadCursoJurisdiccional($datos,$datosvalidados))
+		   return false;
+
+		$tipook=$this->EsActividadCursoTipo($datos['act_codigo'],TIPOACTCURSOJURISD,$error,$errormsg);
+		if ($error) {
+			$errormail="\nact_codigo=".$datos['act_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$errormsg,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		} elseif(!$tipook) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se ha encontrado la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		$datosvalidados+=array('act_codigo'=>$datos['act_codigo']);
+
+		// Verificar que la actividad no tenga dictamen.
+		$oDictamen = new cDictamen($this->conexion);
+		$ArregloDatos=array();
+		$ArregloDatos=array('act_codigo'=>$datos['act_codigo']);
+		$oDictamen->BuscarDictamen($ArregloDatos,$numfilas,$array_resultado,$error,$errormail);
+		if ($error)  {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		} elseif ($numfilas>0 && $_SESSION['rolcod']!=SUPERUSUARIO) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La actividad no puede ser modificada, pues tiene dictamen.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------
+	function _DatosValidosComunesActividadCursoJurisdiccional($datos,&$datosvalidados)	{
+
+		$datosvalidados=array();
+
+		// Fundamentación 					- [actdisjurisd_fundamentacion] 	- [OBLIG]
+		if (trim($datos['actdisjurisd_fundamentacion']) == "") {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar la fundamentación de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["actdisjurisd_fundamentacion"]=$datos["actdisjurisd_fundamentacion"];
+
+		// Contribución esperada 			- [actdisjurisd_contribucion] 	- [OBLIG]
+		if (trim($datos['actdisjurisd_contribucion']) == "") {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar la contribución esperada de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["actdisjurisd_contribucion"]=$datos["actdisjurisd_contribucion"];
+
+		// Perfil del participante 			- [actdisjurisd_perfil] 			- [OBLIG]
+		if (trim($datos['actdisjurisd_perfil']) == "") {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar el perfil de los participantes de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["actdisjurisd_perfil"]=$datos["actdisjurisd_perfil"];
+
+		// Objetivos 						- [actdisjurisd_objetivos] 		- [OBLIG]
+		if (trim($datos['actdisjurisd_objetivos']) == "") {
+			$mensajepantalla="Debe ingresar los Objetivos de la actividad.";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$mensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["actdisjurisd_objetivos"]=$datos["actdisjurisd_objetivos"];
+
+		// Contenido 						- [actdisjurisd_contenido] 		- [OBLIG]
+		if (trim($datos['actdisjurisd_contenido']) == "") {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar los contenido de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["actdisjurisd_contenido"]=$datos["actdisjurisd_contenido"];
+
+		// Metodologia							- [actdisjurisd_metodologia] 			- [OBLIG]
+		if (trim($datos['actdisjurisd_metodologia']) == "") {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar las estrategias metodológicas y recursos didácticos",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["actdisjurisd_metodologia"]=$datos["actdisjurisd_metodologia"];
+
+		// Descripción de la modalidad 		- [actdisjurisd_modaldesc] 		- [OBLIG]
+		if (trim($datos['actdisjurisd_modaldesc']) == "") {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar la modalidad de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["actdisjurisd_modaldesc"]=$datos["actdisjurisd_modaldesc"];
+
+		// Bibliografia 							- [actdisjurisd_bibliografia] 			- [OBLIG]
+		if (trim($datos['actdisjurisd_bibliografia']) == "") {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar la Bibliografía.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["actdisjurisd_bibliografia"]=$datos["actdisjurisd_bibliografia"];
+
+		// Evaluación de los aprendizajes 	- [actdisjurisd_eval] 			- [OBLIG]
+		if (trim($datos['actdisjurisd_eval']) == "") {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar la evaluación de los aprendizajes de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["actdisjurisd_eval"]=$datos["actdisjurisd_eval"];
+
+		// Instrumentos para la evaluación 	- [actdisjurisd_evalinstru] 		- [OPCIONAL]
+		$datosvalidados["actdisjurisd_evalinstru"]=$datos["actdisjurisd_evalinstru"];
+
+		// Requisitos de Asistencia y aprobación			- [actdisjurisd_requiaprobacion] 	- [OBLIG]
+		if (trim($datos['actdisjurisd_requiaprobacion']) == "") {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar los requisitos de Asistencia y aprobación de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["actdisjurisd_requiaprobacion"]=$datos["actdisjurisd_requiaprobacion"];
+
+		// Duración	en horas 		- [actdisjurisd_duracionhs] 	- [OBLIG]
+		if (!FuncionesPHPLocal::ValidarContenido($this->conexion, $datos['actdisjurisd_duracionhs'],'NumericoEntero') || $datos['actdisjurisd_duracionhs'] <=0 ) {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La duración en hs. de la Actividad debe ser un número entero mayor que cero.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["actdisjurisd_duracionhs"]=$datos["actdisjurisd_duracionhs"];
+
+		// Detalle sobre la duración	 	- [actdisjurisd_duraciondetalle] 	- [OBLIG]
+		if (trim($datos['actdisjurisd_duraciondetalle']) == "") {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar la duración de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["actdisjurisd_duraciondetalle"]=$datos["actdisjurisd_duraciondetalle"];
+
+		// Cronograma tentativo - [actdisjurisd_cronogramatentativo] 	- [OBLIG]
+		if (trim($datos['actdisjurisd_cronogramatentativo']) == "") {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar el Cronograma tentativo de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["actdisjurisd_cronogramatentativo"]=$datos["actdisjurisd_cronogramatentativo"];
+
+		// Lugar 							- [actdisjurisd_lugar] 			- [OBLIG]
+		if (trim($datos['actdisjurisd_lugar']) == "") {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar el lugar de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["actdisjurisd_lugar"]=$datos["actdisjurisd_lugar"];
+
+		// Perfil del Instructor 							- [actdisjurisd_perfil_instructor] 			- [OBLIG]
+		if (trim($datos['actdisjurisd_perfil_instructor']) == "") {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar el perfil del instructor de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["actdisjurisd_perfil_instructor"]=$datos["actdisjurisd_perfil_instructor"];
+
+		/*
+		// Plan de Clases - Recursos 							- [actdisjurisd_planrecursos] 			- [OBLIG]
+		if (trim($datos['actdisjurisd_planrecursos']) == "") {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar el Plan de Clases - Recursos 	 de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["actdisjurisd_planrecursos"]=$datos["actdisjurisd_planrecursos"];
+
+		// Plan de Clases - contenidos 							- [actdisjurisd_plancontenidos] 			- [OBLIG]
+		if (trim($datos['actdisjurisd_plancontenidos']) == "") {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar el Plan de Clases - contenidos de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["actdisjurisd_plancontenidos"]=$datos["actdisjurisd_plancontenidos"];
+
+		// Plan de Clases - Estretegias						- [actdisjurisd_planestrategias] 			- [OBLIG]
+		if (trim($datos['actdisjurisd_planestrategias']) == "") {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar el Plan de Clases - Estretegias de la Actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["actdisjurisd_planestrategias"]=$datos["actdisjurisd_planestrategias"];
+		*/
+
+		$datosvalidados["actdisjurisd_plancontenidos"]="";
+		$datosvalidados["actdisjurisd_planrecursos"]="";
+		$datosvalidados["actdisjurisd_planestrategias"]="";
+
+		// Origen 						- [actdisjurisd_origen] 			- [OBLIG]
+		if (trim($datos['actdisjurisd_origen']) == "") {
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Debe ingresar Origen de la demanda.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$datosvalidados["actdisjurisd_origen"]=$datos["actdisjurisd_origen"];
+
+
+
+		return true;
+	}
+} // class
+?>

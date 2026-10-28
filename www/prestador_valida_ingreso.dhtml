@@ -1,0 +1,271 @@
+<?php
+ob_start();
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session 
+
+$_SESSION['sistema']=SISTEMA;
+$_SESSION['mostrarmsgbloqueo'] ="NO";
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados_Inscripcion($conexion);
+$oEncabezados->EncabezadoMenuEmergente("","","");
+
+$usuarios=new cUsuarios($conexion);
+
+// echo "<br> run actual = ".RUN_ACTUAL;
+
+//----------------------------------------------------------------------------------------- 
+function ValidarDatosLogin($conexion,&$datosvalidados) {
+
+	$datosbien=true;
+	
+	if (!FuncionesPHPLocal::ValidarContenido($conexion,$_POST['usuariocuit'],"NumericoEntero"))
+		$datosbien=false;
+		
+	if ($datosbien)
+	{
+		$clavemd5 = md5($_POST['usuarioclave']);
+		
+		$spnombreusuario='sel_prestador_docente_xpresdoc_password_presdoc_cuilt';
+		$spparamusuario=array('ppresdoc_cuilt'=>$_POST['usuariocuit'],'ppresdoc_password'=>$clavemd5);
+		if(!$conexion->ejecutarStoredProcedure($spnombreusuario,$spparamusuario,$queryusuario,$numfilas,$errno) || $numfilas!=1)
+			$datosbien=false;
+		
+	}
+
+
+	if(!$datosbien)
+	{
+		FuncionesPHPLocal::RegistrarAcceso($conexion,'013801',"usuariocuit=".$_POST['usuariocuit'],$_SESSION['usuariocod']);
+		echo "<br><br><br><br>";
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Usuario y/o Clave no válidos - '".htmlspecialchars($_POST['usuariocuit'],ENT_QUOTES)."'",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),"",true,false);
+		echo "<br><br>";
+		return false;
+	}
+	else
+	{
+		
+		$filausuario=mysqli_fetch_assoc($queryusuario);
+		//asignacion de variables de session		
+		$datosvalidados['usuariocod'] = $filausuario['presdoc_codigo'];
+
+		$datosvalidados['resetpass']=false;
+		switch ($filausuario['presdoc_estado'])
+		{
+			case USUARIONUEVO :
+				$datosvalidados['resetpass']=true;
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Bienvenido al Sistema '".htmlspecialchars($filausuario['presdoc_apellido'].",".$filausuario['presdoc_nombre'],ENT_QUOTES)."'<br>Ud. Deber&aacute; modificar su Clave",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				break;
+	
+			case USUARIOACT :
+				
+				$datosvalidados["cantroles"]=1;
+				
+				break;			
+				
+			case USUARIOBAJA :
+				echo "<br><br><br>";
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"No tiene acceso al Sistema.<br>El usuario '".htmlspecialchars($filausuario['presdoc_apellido'].",".$filausuario['presdoc_nombre'],ENT_QUOTES)."' ha sido dado de baja",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				echo "<p>&nbsp;</p>";
+				return false;
+				
+				break;
+			default:
+				echo "<br><br><br>";
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Imposible acceder.  Estado del usuario indefinido:'".htmlspecialchars($filausuario['presdoc_apellido'].",".$filausuario['presdoc_nombre'],ENT_QUOTES)."' indefinido.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				
+				return false;
+		}
+	}
+	
+	return true;
+}
+//----------------------------------------------------------------------------------------- 
+function ValidarDatosCambiaPass($conexion,&$datosvalidados)
+{
+	$commit=true;
+	$conexion->ManejoTransacciones("B");
+	
+	$clave_actual = md5($_POST['clave1']);
+	$clave_nueva = md5($_POST['clave2']);
+	$clave_confirma = md5($_POST['clave3']);
+
+	$spnombre='sel_prestador_docente_xpresdoc_codigos';
+	$spparam=array('presdoc_codigo'=>$_SESSION['presdoc_codigo']);
+	if(!$conexion->ejecutarStoredProcedure($spnombre,$spparam,$queryusuario,$numfilas,$errno) || $numfilas!=1)
+	{
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error en acceso a prestador docente. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;
+	}
+	$filausuario=mysqli_fetch_assoc($queryusuario);
+
+	if($filausuario["usuariopassword"] !=$clave_actual || $clave_nueva!=$clave_confirma)
+	{
+		echo"<p>&nbsp;</p>";
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Los datos ingresados son erróneos. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;
+	}
+
+	if($commit && !FuncionesPHPLocal::ValidarPassword($_POST['clave2'],$_POST['clave1'],$filausuario["usuarioCUIT"],6))
+	{
+		echo"<p>&nbsp;</p>";
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"La nueva contraseña no es válida. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;
+	}
+	$datosvalidados["clavenueva"]=$_POST['clave2'];
+	$datosvalidados["usuariocuit"]=$filausuario["usuarioCUIT"];
+
+	return true;
+}
+//----------------------------------------------------------------------------------------- 
+$datosvalidados=array();
+$accion="NADA";
+
+if(isset($_POST["botoningresar"]))
+{
+
+	if(ValidarDatosLogin($conexion,$datosvalidados))
+	{ 
+
+		$_SESSION['usuariocod'] = $datosvalidados['usuariocod'];
+		if($datosvalidados["resetpass"])
+		{
+			$accion="CAMBIARPASS";
+			$usuariocuit=$_POST["usuariocuit"];
+		}
+		else
+		{
+			ob_end_clean();
+			header("Location:prestador_docente_ingreso.dhtml");
+			die();
+		} 
+	}
+	else
+	{ // error al validar los datos
+		$_SESSION['usuariocod']=0;
+		echo "<div align='center'><a href='prestador_docente_web.dhtml' class='textoTablaDato linkFondoBlanco'>Volver al Inicio</a></div>";
+		$accion="NADA";
+	} 
+} // fin botoningresar
+elseif(isset($_POST["botoncambiapass"]))
+{
+	if(ValidarDatosCambiaPass($conexion,$datosvalidados))
+	{
+		$commit=true;
+		$conexion->ManejoTransacciones("B");
+		
+		if($usuarios->CambiarPwd($_SESSION["usuariocod"],$_POST['clave1'],$_POST['clave2'],$_POST['clave3'])) 
+		{		
+			FuncionesPHPLocal::RegistrarAcceso($conexion,'023804',"usuariocod=".$_SESSION['usuariocod']." - usuariocuit=".$datosvalidados["usuariocuit"],$_SESSION['usuariocod']);	
+			$conexion->ManejoTransacciones("C");
+			echo"<p>&nbsp;</p>";
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se actualiz&oacute; la nueva contrase&ntilde;a",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			echo"<p>&nbsp;</p>";
+			echo"<div align='center'><a href='index.dhtml' class='linkFondoBlanco textoAclaraciones'>Deber&aacute; volver ingresar al sistema con la nueva contraseña</a></div>";
+			$_SESSION['usuariocod']=0;
+			$accion="NADA";
+	
+		} // si realizó el cambio
+		else 
+		{  // si se produjo un error en los datos
+			$conexion->ManejoTransacciones("R");
+			echo"<p>&nbsp;</p>";
+			echo"<div align='center'><span class='linkFondoBlanco textoAclaraciones'>Ingrese nuevamente</span></div>";
+
+			$accion="CAMBIARPASS";
+		} // commit
+	}
+	else
+	{ // error al validar los datos
+		echo "<div align='center'><a href='index.dhtml' class='textoTablaDato linkFondoBlanco'>Volver al Inicio</a></div>";
+		$_SESSION['usuariocod']=0;
+		$accion="NADA";
+	}
+} // fin botoncambiapass	
+
+
+switch ($accion)
+{
+	case "CAMBIARPASS":
+?>		
+<SCRIPT LANGUAGE="JavaScript" type="text/javascript">
+<!--
+function Validarjs(formulario) 
+{
+	if (formulario.clave2.value=="")
+	{
+		alert("Debe ingresar una contraseña");
+		formulario.clave2.focus();
+		return false;
+	}
+	if (!ValidarPassword(formulario.clave2.value,formulario.clave1.value,'<?php echo $usuariocuit ?>',6))
+	{
+		alert("La contraseña no cumple los requerimientos");
+		formulario.clave2.focus();
+		return false;
+	}
+	if (formulario.clave2.value!=formulario.clave3.value)
+	{
+		alert("Las contraseña de confirmación no coincide");
+		formulario.clave3.focus();
+		return false;
+	}		
+
+	return true;
+}
+//-->
+</script>
+<br><div align="center">
+<form method="POST" action="<?php echo $_SERVER['PHP_SELF'] ?>" name="formulario">
+<table width="70%" class="textoTablaDato">
+    <tr> 
+      <td width="50%">Contraseña Actual</td>
+      <td width="50%" class="colorFondoSeleccion"><input type="password" name="clave1" size="13" maxlength="12" class='textoInput' ><div style='font-size: 3px;'>&nbsp;</div></td>
+    </tr>
+    <tr> 
+      <td>Nueva Contraseña</td>
+      <td class="colorFondoSeleccion"><input type="password" name="clave2" size="13" maxlength="12" class='textoInput'><div style='font-size: 3px;'>&nbsp;</div></td>
+    </tr>
+    <tr> 
+      <td>Confirmar Contraseña</td>
+      <td class="colorFondoSeleccion"><input type="password" name="clave3" size="13" maxlength="12" class='textoInput'><div style='font-size: 3px;'>&nbsp;</div></td>
+    </tr>
+    <tr>
+      <td colspan="2">&nbsp;</td>
+    </tr>
+    <tr> 
+      <td colspan="2" align="center">
+	  	<input name="botoncambiapass" type="submit" class="botones" value="Cambiar Contrase&ntilde;a"  onClick="return Validarjs(formulario)"> 
+		&nbsp;&nbsp;&nbsp;<input type="reset" class="botones" value="Limpiar formulario" name="B2">
+	  </td>
+    </tr>
+  </table>
+  <p>&nbsp;</p>  
+  </form></div>
+  <blockquote>
+  <span class="textoAclaraciones">La contrase&ntilde;a nueva debe cumplir los siguientes requerimientos:<br>
+- Debe contener sólo letras (mayúsculas y/o minúsculas) y números.<br>
+- Como mínimo debe tener un largo de 6 carácteres.<br>
+- No puede tener el mismo carácter consecutivo mas de 4 veces.<br>
+- No puede ser parecida a la contraseña anterior.<br></span></blockquote>
+  <p>&nbsp;</p>  
+<?php
+		break;
+}
+
+	ob_end_flush();
+
+	$oEncabezados->PieMenuEmergente();
+?>

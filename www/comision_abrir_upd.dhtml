@@ -1,0 +1,41 @@
+<?php
+require('./include.dhtml');
+ 	
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+
+$oComision= new cComision($conexion);
+//----------------------------------------------------------------------------------------- 	
+$conexion->ManejoTransacciones("B");
+
+if($oComision->AbrirComision($_POST)) {
+	FuncionesPHPLocal::RegistrarAcceso($conexion,"50104","comi_codigo=".$_POST['comi_codigo'],$_SESSION['usuariocod']);
+	FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se ha abierto la comisión. <br> A partir de este momento podrá emitir el acta de la misma.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+	$conexion->ManejoTransacciones("C");
+?>	
+	<br><div align="center"><a href="comision_abrir.dhtml?comi_codigo=<?= $_POST['comi_codigo'] ?>" class="linkFondoBlanco">Volver</a></div>
+<?php
+} else {
+	$conexion->ManejoTransacciones("R"); 
+?>	
+	<br><div align="center"><a href="comision_abrir.dhtml?comi_codigo=<?= $_POST['comi_codigo'] ?>" class="linkFondoBlanco">Volver</a></div>
+<?php
+}
+ 
+$oEncabezados->PieMenuEmergente();
+?>

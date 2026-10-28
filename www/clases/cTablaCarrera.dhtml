@@ -1,0 +1,21 @@
+<?php class cTablaCarrera extends cTablaSysDesc {
+
+	public function __construct($conexion) {
+		
+		$array_campos=array('clave'=> 'carr_codigo',
+							'estado'=>'carr_estado',
+							'descripcion'=>array('nombre_campo'=>'carr_descripcion', 'long_campo'=>40 ,'titulo_campo'=>'Carrera'),
+							'fecha_alta'=>'carr_falta',
+							'fecha_baja'=>'carr_fbaja');
+
+		parent::__construct($conexion,"carrera",$array_campos);
+		$this->SetearTituloTabla('Carreras para Actividades Becas');
+	
+		// Array con los cógigos de operaciones a ser registradas
+		$array_log=array('ins'=>'39401', 'upd'=>'39403', 'del'=>'39402','chg_estado'=>'39404');
+		$this->SetearLogs($array_log);
+
+		// Array con las tablas en las que se busca para determinar si la baja es física o lógica.
+		$this->SetearTablasTipoBaja(array(array('nom_tabla'=>'universidad_carrera','campo_tabla'=>'carr_codigo')));
+	}		
+} ?>

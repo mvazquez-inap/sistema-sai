@@ -1,0 +1,445 @@
+/*
+
+modified:   www/calendar/calendar.css
+modified:   www/clases/cEncabezados.dhtml
+modified:   www/clases/cEncabezados_Inscripcion.dhtml
+modified:   www/estilos.css
+
+/estilos.css
+/calendar/calendar.css
+
+Base de datos:
+
+COLOR_MENU
+color:#E0C2EF;
+color:#afafaf;
+
+COLOR_MENU_SEL
+color: #663399;
+color: #252C4F;
+
+COLOR_TABLA_FILA_OVER
+color:#E0C2EF;
+color:#afafaf;
+
+COLOR_TEXTO_MENU
+color: #663399;
+color: #252C4F;
+
+INSERT INTO `constantes_grales` (`sistemanom`, `constantetipo`, `constantecod`, `constantenom`, `constantedesc`, `ultmodusuario`, `ultmodfecha`)
+VALUES
+	('SAI', 'COLOR_MENU', '#afafaf', 'COLOR_MENU_N2', 'Color de fondo del menu emergente', 0, NULL),
+	('SAI', 'COLOR_MENU_SEL', '#252C4F', 'COLOR_MENU_N2_SELECTED', 'Color de fondo del menu emergente cuando esta sele', 0, NULL),
+	('SAI', 'COLOR_TABLA_FILA_OVER', '#afafaf', 'COLOR_FILA_OVER', 'Color de fila over', 0, NULL),
+	('SAI', 'COLOR_TEXTO_MENU', '#252C4F', 'COLOR_TEXTO_MENU_N2', 'Color del texto en el menu emergente', 0, NULL);
+
+
+UPDATE constantes_grales SET constantecod = '#afafaf' WHERE constantetipo = 'COLOR_MENU';
+UPDATE constantes_grales SET constantecod = '#252C4F' WHERE constantetipo = 'COLOR_MENU_SEL';
+UPDATE constantes_grales SET constantecod = '#afafaf' WHERE constantetipo = 'COLOR_TABLA_FILA_OVER';
+UPDATE constantes_grales SET constantecod = '#252C4F' WHERE constantetipo = 'COLOR_TEXTO_MENU';
+
+
+/sistema-acreditacion-inap/www/clases/cEncabezados_Inscripcion.dhtml
+/sistema-acreditacion-inap/www/clases/cEncabezados.dhtml
+
+	color:#E0C2EF; -> #eeeeee
+	color:#BB8BDF; -> #afafaf
+
+*/
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
+/* CSS Document */
+body {
+	color: #000000;
+	background-color:#FFF;
+	font-family: "Montserrat", Verdana, Arial, Helvetica,sans-serif !important;
+	font-size: 14px;
+	margin-left: 0px;
+	margin-top: 0px;
+
+
+}
+#div_top #logo {	background-image:url(images/top.jpg);	height:104px;	width:980px;	background-repeat: no-repeat;	background-position: 15% center;	background-color: #FFF;}
+#div_top #ambiente1 { display:none}
+#div_top #ambiente2 { text-align:right; font-size:14px; font-weight:bold; color: #006600; padding:5px; margin:20px; text-transform:uppercase; background-color:#9F9; float:right}
+#div_top #ambiente3 { text-align:right; font-size:14px; font-weight:bold; color: #D8000C; padding:5px; margin:20px; text-transform:uppercase; background-color:#FCC;; float:right}
+
+#divContenido{ width:980px; margin-left:auto; margin-right:auto; margin-top:10px; /*border:10px #A9A9A9 solid;*/ }
+/* 
+ // gris oscuro se usa en el fondo de segundo nivel del menu izquierdo del menu emergente (_MenuEmergenteJS) 
+.color_menu_n2 {BACKGROUND-COLOR:#666666}
+ // gris m�s oscuro se usa en el fondo de segundo nivel del menu emergente cuando se selecciona (_MenuEmergenteJS) 
+.color_menu_n2_selected {BACKGROUND-COLOR:#333333}
+ // gris claro fondo del menu emergente cuando se selecciona  (_MenuEmergenteJS) 
+.color_texto_menu_n2 {BACKGROUND-COLOR:#CCCCCC}
+ // blanco de la letra cuando se selecciona en el menu (_MenuEmergenteJS) 
+ // tambi�n se usa en otra oportunidades 
+.color_texto_menu_n2_select {BACKGROUND-COLOR:#FFFFFF}
+ //  azul fondo principal 
+.color_n7 {BACKGROUND-COLOR:#337599}
+ //  azul que se usa en el fondo de la opcion seleccionada en el primer nivel del menu 
+.color_n6 {BACKGROUND-COLOR:#006897}
+ //  azul celeste entre el la parte superior y el menu izquierdo 
+.color_n5 {BACKGROUND-COLOR:#3380FF}
+ // celeste del menu izquierdo 
+.color_n6 {BACKGROUND-COLOR:#99CCFF}
+*/
+
+/* ----------------------- Colores ----------------------------- */
+.colorTitulosGrupo {
+	background-color: #252C4F;
+}
+.colorTitulosGrupoClaro  {
+ 	background-color:#eeeeee; 
+}
+.colorTitulosGrupoIzq {
+	background-color: #45658d;
+	color:#FFFFFF
+}
+.colorFondoSeleccion {
+ 	background-color:#eeeeee; 
+}
+/* ex #337599 fondo principal superior e izq */
+.colorMenuPrincipal   {
+/*	BACKGROUND-COLOR:#60008F;*/
+	BACKGROUND-COLOR:#252C4F;
+}
+/* ex #99CCFF color de fondo del menu izq primer nivel*/
+.colorMenuN1 		  {
+	BACKGROUND-COLOR:#eeeeee;  
+}
+/* ex #337599 color de fondo del menu izq primer nivel seleccionado */
+.colorMenuN1Selected {
+	BACKGROUND-COLOR:#eeeeee
+}
+/* ex #333366 color de la l�nea del menu superior */
+.colorLineaMenu  {
+	BACKGROUND-COLOR:#252C4F;
+}
+/* ex #3380FF  color de la linea izq arriba del menu izq */
+.colorLineaMenuIzq   {
+	BACKGROUND-COLOR:#45658d;
+}
+/* ----------------------- Links ----------------------------- */
+A { text-decoration:none; }
+A:link {
+	color:#252C4F;
+	font-family: "Montserrat", Verdana, Arial, Helvetica,sans-serif !important;
+}
+A:visited {
+	color:#252C4F;
+}
+A:hover {
+	color:#000000;
+	text-decoration:underline;
+	background-color: #FFFFFF;
+}
+
+.linkEncabezado {
+		BACKGROUND-COLOR:#252C4F;COLOR:#d2d2d2;FONT-SIZE:10px; 
+		font-weight:bold;TEXT-DECORATION:none;
+}
+.linkEncabezado:link {
+		COLOR:#d2d2d2;
+		FONT-FAMILY:"Montserrat", Verdana, Arial, Helvetica,sans-serif !important;
+}
+.linkEncabezado:visited {COLOR:#d2d2d2}
+.linkEncabezado:hover {
+		BACKGROUND-COLOR:#252C4F;;
+		TEXT-DECORATION: underline
+}
+
+.linkMenuEmergente { text-decoration:none; }
+.linkMenuEmergente:link {
+	color:#000000;
+	font-family: "Montserrat", Verdana, Arial, Helvetica,sans-serif !important;
+}
+.linkMenuEmergente:visited { color:#000000; }
+.linkMenuEmergente:hover {
+	color:#252C4F;
+	text-decoration:underline;
+	background-color: #eeeeee;
+}
+.linkFondoBlanco { text-decoration:none; }
+.linkFondoBlanco:link {
+	color:#000000;
+	font-family: "Montserrat", Verdana, Arial, Helvetica,sans-serif !important;
+}
+.linkFondoBlanco:visited {
+	color:#252C4F;
+}
+.linkFondoBlanco:hover {
+	color:#252C4F;
+	text-decoration:underline;
+}
+
+.linkOrden { text-decoration:none;}
+.linkOrden:link {
+	color:#eeeeee;
+	font-family: "Montserrat", Verdana, Arial, Helvetica,sans-serif !important;
+}
+.linkOrden:visited {
+	color:#eeeeee;
+}
+.linkOrden:hover {
+	color:#EFEFEF;
+	text-decoration:none;
+	background-color:#252C4F; 
+}
+.linkOrdenSel {
+	color:#FF0000;
+}
+
+/* ----------------------- Textos  ----------------------------- */
+.textoIngresoSistema {
+	COLOR:#eeeeee; FONT-SIZE:12px;
+	FONT-FAMILY:"Montserrat", Verdana, Arial, Helvetica,sans-serif !important;
+	FONT-WEIGHT:bold; height:20px 
+}
+.textoMenuInferior {
+	FONT-SIZE: 10px;
+	COLOR: #000000;
+	FONT-FAMILY: "Montserrat", Verdana, Arial, Helvetica,sans-serif !important;
+	line-height: normal;
+}
+.textonombreclave {
+	FONT-SIZE: 10px;
+	COLOR: #000000;
+	font-weight: bold;
+	font-size: 12px;
+	
+}
+.textonombreclavemin {
+FONT-SIZE: 10px;
+COLOR: #666666;
+	font-weight: bold;
+	font-size: 10px;
+}
+.textoUsuariosCuit {
+FONT-SIZE: 10px;
+COLOR: #999999;
+	font-weight: bold;
+	font-size: 11px;
+}
+.textoTituloTablas {
+FONT-SIZE: 10px;
+COLOR: #666666;
+	font-weight: bold;
+	font-size: 11px;
+}
+
+.textoTitulosGrilla {
+	color: #252C4F;
+	background-color:#FFFFFF;
+    font-weight:bold  
+}
+.textoTitulo {
+	color: #252C4F;
+	background-color:#FFFFFF;
+    font-weight:bold  
+}
+.textoAclaraciones {
+	font-size: 10px;
+}
+.textoTituloGrupo {
+	COLOR:#eeeeee; FONT-SIZE:12px;
+	FONT-FAMILY:"Montserrat", Verdana, Arial, Helvetica,sans-serif !important;
+	FONT-WEIGHT:bold; 
+}
+.textoTituloGrupoGrande {
+	COLOR:#eeeeee; FONT-SIZE:14px;
+	FONT-FAMILY:"Montserrat", Verdana, Arial, Helvetica,sans-serif !important;
+	FONT-WEIGHT:bold; 
+}
+.textoEtiqueta {
+	FONT-SIZE:12px; COLOR:#808080;
+}
+.textoEtiquetaDato {
+	FONT-SIZE:12px;COLOR:#000000; 
+}
+.textoEtiquetaDatoBold {
+	FONT-SIZE:12px;COLOR:#000000; 
+	FONT-WEIGHT:bold; 
+}
+.textoEtiquetaChico {
+	FONT-SIZE:10px; COLOR:#808080;
+}
+.textoEtiquetaDatoResaltado {
+	BACKGROUND-COLOR:#eeeeee;
+	COLOR:#000000;FONT-SIZE:12px
+}
+.textoEtiquetaDatoBold {
+	FONT-SIZE:12px;COLOR:#808080; 
+	FONT-WEIGHT:bold; 
+}
+.textoEtiquetaClave {
+	FONT-SIZE:12px;COLOR:#808080; 
+	FONT-WEIGHT:bold; 
+}
+.textoTablaDato, .textoTablaDatoBorde {
+	font-family: "Montserrat", Verdana, Arial, Helvetica,sans-serif !important;
+	font-size: 12px;
+	text-align:left
+}
+.textoTablaDatoBorde {
+    border:double;
+	border-style:double;	
+}
+
+.textoTablaDatoChico {
+	font-family: "Montserrat", Verdana, Arial, Helvetica,sans-serif !important;
+	font-size: 10px;
+}
+.textoTablaDatoResaltado {
+	BACKGROUND-COLOR:#eeeeee;
+	FONT-SIZE:12px;
+	FONT-FAMILY:"Montserrat", Verdana, Arial, Helvetica,sans-serif !important;
+}
+.textoDatoBold {
+	FONT-SIZE:12px; 
+	font-weight:bold;
+	FONT-FAMILY:"Montserrat", Verdana, Arial, Helvetica,sans-serif !important;
+}
+.textoInput {
+	color: #000000;
+	font-family: "Montserrat", Verdana, Arial, Helvetica,sans-serif !important;
+	font-size: 13px;
+	border: 1px solid;	
+	border-color: #252C4F;	
+}
+.textoMenuIzquierdo {
+	color: #000000;
+	font-family: "Montserrat", Verdana, Arial, Helvetica,sans-serif !important;
+	font-size: 11px;
+	background-color: #eeeeee;
+	padding-left:5px;
+}
+.textoTituloModulo {
+	background-color:#252C4F;
+	color:#eeeeee;
+	font-family:"Montserrat", Verdana, Arial, Helvetica,sans-serif !important;
+	font-size:11px;
+	font-weight:bold;
+	padding: 1px;
+}
+.textoLeyendaDetalleRegistro {
+	color:#252C4F;
+	font-style:italic;
+	font-weight:bold;
+	font-size:11px;
+}
+.textoEtiquetaDatosUsuario {
+	FONT-SIZE:12px;COLOR:#808080; 
+	font-style:italic;
+}
+.textoDatosUsuario {
+	FONT-SIZE:12px;
+	font-style:italic;
+}
+.textoLeyendaDetalleUsuario{
+	color:#252C4F;
+	font-style:italic;
+	font-weight:bold;
+	font-size:11px;
+}
+.textoTituloListado {
+	font-family: "Montserrat", Verdana, Arial, Helvetica,sans-serif !important;
+	font-size: 14px;
+	text-align:left;
+	color:#252C4F;
+	font-weight:bold;
+
+}
+.textoDatoListado {
+	font-family: "Montserrat", Verdana, Arial, Helvetica,sans-serif !important;
+	font-size: 12px;
+	text-align:left
+}
+.textoEtiquetaListado {
+	background-color:#eeeeee;
+	font-size:12px;
+	color:#252C4F;
+	font-weight:bold;
+	font-family:"Montserrat", Verdana, Arial, Helvetica,sans-serif !important;
+}
+
+.textoAtencion{
+	COLOR:#FF0000;
+	FONT-SIZE:12px;
+	FONT-FAMILY:"Montserrat", Verdana, Arial, Helvetica,sans-serif !important;
+	font-weight:bold;
+}
+
+.inputReadonly {
+	background-color: #dce1fa;
+	color:#000000;
+}
+.menuIzquierdoTitulo {
+	background-color: #3380FF;
+}
+.styling {
+	background-color:#252C4F;
+	color:#eeeeee;
+	font-family:"Montserrat", Verdana, Arial, Helvetica,sans-serif !important;
+	font-size:12px;
+	font-weight:bold;
+	padding: 1px;
+}
+.linea {BACKGROUND-COLOR:#eeeeee;COLOR:#eeeeee;
+	    border-top-style:none;border-right-style:none;
+		border-bottom-style:none;border-left-style:none;
+}
+.combos {
+	color: #000000;
+	font-family: "Montserrat", Verdana, Arial, Helvetica,sans-serif !important;
+	font-size: 13px;
+	border: 1px solid;	
+	outline-color: #33FF00;	
+}
+.botones {
+	background-color: #eeeeee;
+	border-top: 2px solid;
+	border-top-color: #FFFFFF;
+	border-right: 2px solid;
+	border-right-color: #252C4F;
+	border-bottom: 2px solid;
+	border-bottom-color: #252C4F;
+	border-left: 2px solid #FFFFFF;
+	border-left-color: #FFFFFF;
+}
+.bordeTabla {
+	border-top: 2px solid;
+	border-top-color: #FFFFFF;
+	border-right: 2px solid;
+	border-right-color: #252C4F;
+	border-bottom: 2px solid;
+	border-bottom-color: #252C4F;
+	border-left: 2px solid #FFFFFF;
+	border-left-color: #FFFFFF;
+}
+.celdaSinBorde {border-left-style:none;border-right-style:none;
+				border-bottom-style:none;border-top-style:none
+}  
+.bordeDetalleRegistro { 
+	border-style:outset; border-left-width:3px;
+	border-bottom-width:3px;border-top-width:3px;
+	border-right-width:3px;
+	padding:5px;
+	border-color:#eeeeee;
+}
+.bordeDetalleUsuario { 
+	border-style:outset; border-left-width:1px;
+	border-bottom-width:1px;border-top-width:1px;
+	border-right-width:1px;
+	padding:2px;
+	border-color:#eeeeee;
+}
+.linkListadoMenu {COLOR:#252C4F;TEXT-DECORATION:none;FONT-SIZE:12px;FONT-WEIGHT:bold;
+}
+.linkListadoMenu:link {COLOR:#252C4F;FONT-FAMILY:"Montserrat", Verdana, Arial, Helvetica,sans-serif !important;
+}
+.linkListadoMenu:visited {COLOR:#252C4F; TEXT-DECORATION: underline; 
+}
+.linkListadoMenu:hover {COLOR:#eeeeee;TEXT-DECORATION: underline; 
+}
+

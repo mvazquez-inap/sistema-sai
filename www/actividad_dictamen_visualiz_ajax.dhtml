@@ -1,0 +1,191 @@
+<?php 
+require('./include.dhtml');
+header('Content-Type: text/html; charset=utf-8');
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// Sesion 
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+//------------------------------------------------------------------------------------------------
+$ArregloDatos = array();
+if (isset ($_POST['exp_numero']))
+	$ArregloDatos['exp_numero']=$_POST['exp_numero'];
+if (isset ($_POST['act_codinap']))
+	$ArregloDatos['act_codinap']=$_POST['act_codinap'];
+if (isset ($_POST['act_nombre']))
+	$ArregloDatos['act_nombre']=$_POST['act_nombre'];
+
+
+switch ($_SESSION['rolcod']) {
+	case SUPERUSUARIO:
+		$oActividad= new cActividadCurso($conexion);
+		$tipoact_codigo=$_POST['tipoact_codigo'];
+		$formact_codigo=FORMATOCURSO;		
+		break;
+	case USUCURSOINAP:
+		$oActividad= new cActividadCurso($conexion);
+		$tipoact_codigo=TIPOACTCURSOINAP;
+		$formact_codigo=FORMATOCURSO;		
+		break;
+	case USUACTINS:
+		$oActividad= new cActividadCurso($conexion);
+		$tipoact_codigo=TIPOACTCURSOINST;
+		$formact_codigo=FORMATOCURSO;
+		break;
+	case USUACTJUR:
+		$oActividad= new cActividadCurso($conexion);
+		$tipoact_codigo=TIPOACTCURSOJURISD;
+		$formact_codigo=FORMATOCURSO;
+		$ArregloDatos['jurisdid_inap'] = $_SESSION['jurisdid_inap'];
+		break;
+	case USUACTEXT:
+		$oActividad= new cActividadExterna($conexion);
+		$formact_codigo=FORMATOEXT;
+		$tipoact_codigo=TIPOACTEXTASIS;
+		break;	
+	case USUAUTODESARROLLO:
+		$oActividad= new cActividadAutodesarrollo($conexion);
+		$formact_codigo=$_POST['formact_codigo'];
+		$tipoact_codigo=$_POST['tipoact_codigo'];
+		break;	
+	case USUCONSULTA :
+		$formact_codigo=$_POST['formact_codigo'];
+		$tipoact_codigo=$_POST['tipoact_codigo'];
+
+		if ($formact_codigo==FORMATOCURSO)
+			$oActividad= new cActividadCurso($conexion);
+	
+		if ($formact_codigo==FORMATOEXT)
+			$oActividad= new cActividadExterna($conexion);
+
+		if ($formact_codigo==FORMATOAUTO)
+			$oActividad= new cActividadAutodesarrollo($conexion);
+	
+		break;	
+}
+
+if ($formact_codigo==FORMATOCURSO || $formact_codigo==FORMATOEXT || ($formact_codigo==FORMATOAUTO && $tipoact_codigo==TIPOACTAUTOEVASIS))
+	$tabla_seleccionados = "tabla_seleccionados_programacion";	
+else 
+	$tabla_seleccionados = "tabla_seleccionados_autodesarrollo";
+
+// Se agrega con o sin disposición 
+if (isset($_POST['con_dispo'])) {
+	if ($_POST['con_dispo']=='SI') {
+		$ArregloDatos['con_disposicion']=1;
+		if (isset($_POST['dis_numero'])) 
+			$ArregloDatos['dis_numero']=trim($_POST['dis_numero']);
+	} elseif ($_POST['con_dispo']=='NO') {
+		$ArregloDatos['sin_disposicion']=1;
+	}	
+}
+
+// Obtengo los dictamenes
+$ArregloDatos['formact_codigo'] = $formact_codigo;			
+$ArregloDatos['orderby'] = "exp_numero,act_nombre";
+//if ($_SESSION['rolcod']!=SUPERUSUARIO )
+	$ArregloDatos['tipoact_codigo'] = $tipoact_codigo;			
+
+
+$ok =false;			
+?>	<table width="100%" class="textoTablaDato" align="center">
+		<tr align="center">
+			<td valign="top">
+			<?php if(MostrarDictamenesSeleccionables($conexion,$oActividad,$formact_codigo,$ArregloDatos,$numfilas)) 
+					$ok =true;			
+			?>
+			</td>
+		</tr>
+	<?php if ($ok && $numfilas>0) { ?>
+			<tr valign="middle"> 
+				<td>
+					<table width="100%" class="textoTablaDato" align="center">
+						<tr align="center" valign="middle">
+							<td align="left" width="15%"> <input type="checkbox" id="check_todos" name="check_todos" onclick="cambiarChecks('formulario','check_todos');"> <label for="check_todos"> Todos </label>	</td>		
+							<td><input type="button" name="boton_seleccionar" class="botones" value="Agregar Dict&aacute;menes Seleccionados" onClick="newAllFila('formulario','<?=$tabla_seleccionados?>');"></td>
+						</tr>	
+						<tr align="center">
+							<td  colspan="2">&nbsp; </td>
+						</tr>	
+					</table>
+				</td>
+			</tr>
+	<?php	}	?>
+</table>
+<?php			
+//-------------------------------------------------------------------------------------
+function MostrarDictamenesSeleccionables($conexion,$oActividad,$formact_codigo,$ArregloDatos,&$numfilas) {
+
+	if (!$oActividad->BuscarActividadDictaminadaAvanzada($ArregloDatos,$numfilas,$resultDictamenes,$error,$errormail)) 
+		return false;		
+
+	if($numfilas>LIMITE_BUSQUEDA_CHICO) {
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"La b&uacute;squeda retorn&oacute; más de 40 dict&aacute;menes, deber&aacute; acotarla.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;		
+	}
+	
+	if($numfilas>0) {  ?>
+		<table width="100%" class="textoTablaDato" align="center" border="1">
+				<tr class="colorTitulosGrupo textoTituloGrupo" align="center">
+					<td>&nbsp; </td>
+					<td> Expediente </td>
+					<td> C&oacute;digo INAP</td>
+					<td> Actividad </td>
+					<?php if($formact_codigo != FORMATOAUTO  || ($formact_codigo==FORMATOAUTO && $ArregloDatos['tipoact_codigo']==TIPOACTAUTOEVASIS)) { ?>
+						<td width="15%" align="center"> Vigencia Desde</td>
+						<td width="15%" align="center"> Vigencia Hasta</td>
+					<?php } else { ?>
+						<td align="center"> Tipo de Actividad </td>
+						<td align="center"> Destinatario </td>
+					<?php }  ?>
+					<td>&nbsp;</td>
+				</tr>
+	<?php		while ($fila_dictamen = mysqli_fetch_assoc($resultDictamenes)) {  ?>
+				<tr align="left" id="id_fila_dic_seleccionable_<?=$fila_dictamen["dic_codigo"] ?>">
+					<td> 
+						<input type="checkbox" id="checkbox_<?=$fila_dictamen["dic_codigo"]?>" name="checkbox_<?=$fila_dictamen["dic_codigo"]?>">
+					</td>
+					<td> <?=htmlspecialchars($fila_dictamen['exp_numero'],ENT_QUOTES);?></td>
+					<td> <?=htmlspecialchars($fila_dictamen['act_codinap'],ENT_QUOTES)?></td>
+					<td> <?=htmlspecialchars($fila_dictamen['act_nombre'],ENT_QUOTES)?></td>
+					<?php if($formact_codigo != FORMATOAUTO || ($formact_codigo==FORMATOAUTO && $ArregloDatos['tipoact_codigo']==TIPOACTAUTOEVASIS)) { 
+							$tabla_seleccionados = 'tabla_seleccionados_programacion'; ?>
+							<td width="15%" align="center"> <?=htmlspecialchars($fila_dictamen['actprog_fecha_inicio_ddmmaaaa'],ENT_QUOTES)?></td>
+							<td width="15%" align="center"> <?=htmlspecialchars($fila_dictamen['actprog_fecha_fin_ddmmaaaa'],ENT_QUOTES)?></td>
+					<?php } else { 
+							$tabla_seleccionados = 'tabla_seleccionados_autodesarrollo';?>
+							<td align="left"> <?php
+								$norma="";
+								$conexion->TraerCampo("tipo_actividad","tipoact_descripcion",array("tipoact_codigo='",$fila_dictamen['tipoact_codigo'],"'"),$norma,$numfilas,$errorcod); 
+								echo $norma	?> 
+							</td>
+							<td align="left"> <?php
+									$oPersonas = new cPersonas($conexion);
+									$oPersonas->TraerDatosPersona_xCod($fila_dictamen["pers_codigo"],$datos_personales,$es_modif);
+									$destinatario =htmlspecialchars($datos_personales['pers_apellido'],ENT_QUOTES).", ".htmlspecialchars($datos_personales['pers_nombre'],ENT_QUOTES)." (".htmlspecialchars($datos_personales['pers_cuilt'],ENT_QUOTES).")";
+									echo $destinatario; ?> 
+							</td>
+					<?php } ?>
+					<td> <a href="#" onclick="newFila('<?=$tabla_seleccionados?>','<?=$fila_dictamen["dic_codigo"]?>');">
+							<img src="images/mas.jpg" alt="Agregar Selecci&oacute;n" border="0" />
+						</a>
+					</td>
+				</tr>
+		<?php	} ?>
+		</table>	
+<?php	}  else 
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No se encontraron dict&aacute;menes.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+
+	return true;
+} 
+//----------------------------------------------------------------------------------------
+?>

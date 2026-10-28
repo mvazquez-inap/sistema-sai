@@ -1,0 +1,100 @@
+<?php 
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+//----------------------------------------------------------------------------------------- 	
+$oUsuario=new cUsuarios($conexion);
+?>
+<script language="javascript" type="text/javascript">
+function Validar(formulario)
+	{
+		if(formulario.usuarioemail.value!="")
+		{
+			if(!ValidarContenido(formulario.usuarioemail.value,"Email"))
+			{
+				alert("Debe ingresar el eMail y debe tener un formato válido");
+				formulario.usuarioemail.focus();
+				return false;	
+			}
+		}	
+		if (confirm('¿Está seguro de que desea habilitar al Usuario?'))
+			return true;
+		else
+			return false;
+	}
+</script>
+<?php
+$filausuario=array();
+$filausuario['usuarioCUIT']=(isset($_POST['usuarioCUIT']))?$_POST['usuarioCUIT']:"";
+$filausuario['usuariocod']=(isset($_GET['usuariocod']))?$_GET['usuariocod']:"";
+
+if (isset($_POST['usuarioCUIT']) ) {
+	if($conexion->TraerCampo("usuarios","usuariocod",array("usuariocuit='",$_POST['usuarioCUIT'],"'"),$usuariocod,$numfilas,$errno))
+		$filausuario['usuariocod']=htmlspecialchars($usuariocod,ENT_QUOTES);
+}
+if (isset($_GET['usuariocod']) ) {
+	if($conexion->TraerCampo("usuarios","usuariocuit",array("usuariocod='",$_GET['usuariocod'],"'"),$usuariocuit,$numfilas,$errno))
+		$filausuario['usuarioCUIT']=htmlspecialchars($usuariocuit,ENT_QUOTES);
+} ?>
+<form action="usuario_rehabilitar.dhtml" method="post" name="formulario_cuit">
+	<table width="100%" class="textoTablaDato" align="center">
+	<tr>
+		<td><?php $oUsuario->PedirCuit($filausuario['usuarioCUIT'],'formulario_cuit','usuarioCUIT','botoningresoCUIT'); ?></td>
+	</tr>
+	</table>
+</form>	
+<?php 
+if ($filausuario['usuariocod']=="") {
+	if (isset($_GET['usuariocod']) || isset($_POST['usuarioCUIT']))
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"El usuario no se encuentra en el sistema.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+} else {
+	$oUsuario->TraerDatosUsuario($filausuario['usuariocod'],$filausuario,false);
+	if( !($filausuario['usuarioestado'] == USUARIOBAJA))
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"El usuario no esta dado de baja en el sistema.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));				
+	else {
+	
+?>		<form  name="formulario" action="usuario_rehabilitar_upd.dhtml?usuariocod=<?php echo $filausuario['usuariocod'];?>" method="post">
+			<table width="100%" class="textoTablaDato">
+				<tr>
+					<td colspan="2"> <?php $oUsuario->MostrarDatosBasicosUsuarios($filausuario); ?></td> 
+				</tr>
+				<tr>
+					<td colspan="2" class="textoDatoBold">
+						<div align="left">En caso de que el usuario haya cambiado su E-mail, aqui podrá modificarlo.</div>
+						<div align="left">Si el usuario no cambió su E-mail, deje la casilla en blanco.</div>
+						<br />
+					</td>
+				</tr>
+				<tr>
+					<td valign="top" width="20%">Modificar eMail</td>
+					<td>
+						<input type="text" name="usuarioemail" class="textoInput" maxlength="100" size="41" value="<?php if(isset($_GET["usuarioemail"])) echo htmlspecialchars($_GET["usuarioemail"],ENT_QUOTES) ?>">
+						<div style='font-size: 7px;'>&nbsp;</div>
+					</td>
+				<tr>
+					<td valign="top" colspan="2" height="20"></td>
+				</tr>
+			</table>
+			<div align="center">
+					<input type="submit" name="boton_rehabilitar" value="Rehabilitar Usuario" class="botones" onClick="return Validar(formulario);">
+			</div>
+		</form>
+<?php }
+}
+$oEncabezados->PieMenuEmergente(); ?>

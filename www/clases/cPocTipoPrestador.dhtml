@@ -1,0 +1,416 @@
+<?php
+//----------------------------------------------------------------------------------------- 
+class cPocTipoPrestador 
+{
+	var $conexion;
+
+	public function __construct($conexion) {
+		$this->conexion = &$conexion;
+	}
+//-----------------------------------------------------------------------------------------
+//Ver de modificar esta funcion para borrar el PocObjetivo!!!!!!!!!!!!!!!!!!!!!!
+/*	
+	function EliminarDatosPocTipoPrestadorTodas($poc_codigo) {
+
+			$spnombre="del_poc_tipo_prestador_xpoc_codigo";
+			$spparam=array(
+				'ppoc_codigo'=> $poc_codigo
+			);
+
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod)) 
+				return false;					  	 	
+	
+			FuncionesPHPLocal::RegistrarAcceso($this->conexion,"37902","Global / poc_codigo=".$poc_codigo,$_SESSION['usuariocod']);
+
+		return true;
+	}
+*/
+
+
+
+
+
+
+
+	
+//-----------------------------------------------------------------------------------------------------	
+/*	function TraerDatosDocenteArea($presdoc_codigo,&$datosresult,&$es_modif){
+		echo "<br>Falta implementar.";
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function AltaDatosPrestadorDocenteArea($datos) {
+		
+		if(!$this->_DatosValidosAltaPrestadorDocenteArea($datos,$datosvalidados))
+			return false;
+	
+		$oPrestadorDocente=new cPrestadorDocente($this->conexion);
+		
+		if(!$oPrestadorDocente->TraerDatosPrestadorDocente($datosvalidados['presdoc_codigo'],$filaprestador,$es_modif))  {
+			$error="Error al buscar el prestador docente.";
+			$errormail="Error al buscar el prestador docente en tabla presador_docente \n presdoc_codigo=".$datosvalidados['presdoc_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		// Si el prestador tiene estado inactivo (no tenia areas) tiene que pasar a activo.
+		if($filaprestador['presdoc_estado']==PRESDOCINACTIVO) { 
+			if (!$oPrestadorDocente->ActivarDatosPrestadorDocente($datosvalidados['presdoc_codigo'])) 
+				return false;
+			else 
+				FuncionesPHPLocal::RegistrarAcceso($this->conexion,"36109","\npresdoc_codigo=".$datosvalidados['presdoc_codigo'],$_SESSION['usuariocod']);
+		}
+				
+		$spnombre="ins_prestador_docente_area_especifica";
+		$spparam=array(
+			'ppresdoc_codigo'=>$datosvalidados['presdoc_codigo'],
+			'pareacon_codigo'=>$datosvalidados['areacon_codigo'],
+			'pareagen_codigo'=>$datosvalidados['areagen_codigo'],
+			'pareaesp_codigo'=>$datosvalidados['areaesp_codigo'],
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+		);
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se pudo agregar el área específica al prestador docente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+	
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function EliminarDatosPrestadorDocenteArea($datos) {
+	
+		if(!$this->_DatosValidosEliminarPrestadorDocenteArea($datos,$datosvalidados))
+			return false;
+
+		$spnombre="del_prestador_docente_area_especifica";
+		$spparam=array(
+			'ppresdoc_codigo'=>$datosvalidados['presdoc_codigo'],
+			'pareacon_codigo'=>$datosvalidados['areacon_codigo'],
+			'pareagen_codigo'=>$datosvalidados['areagen_codigo'],
+			'pareaesp_codigo'=>$datosvalidados['areaesp_codigo'],
+		);
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod)) 
+			return false;					  	 	
+
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function EliminarDatosPrestadorDocenteAreaTodas($presdoc_codigo) {
+
+			$spnombre="del_prestador_docente_area_especifica_xpresdoc_codigo";
+			$spparam=array(
+				'ppresdoc_codigo'=> $presdoc_codigo
+			);
+
+			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod)) 
+				return false;					  	 	
+	
+			FuncionesPHPLocal::RegistrarAcceso($this->conexion,"36202","Global / presdoc_codigo=".$presdoc_codigo,$_SESSION['usuariocod']);
+
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function ValidarFormAltaPrestadorDocenteArea()	{
+?>		
+		function ValidarFormAltaPrestadorDocenteArea(formulario,operacion) {
+			if ((trim(formulario.area_con_gen_esp.value)=="")){
+				alert("Debe ingresar un área específica válida");
+				return false;
+			}				
+			return true;
+		}			
+<? }
+//-----------------------------------------------------------------------------------------------------	
+	function BuscarPrestadorDocentexArea($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		$sparam=array('pxpresdoc_codigo'=>0);
+		$sparam+=array('pxareacon_codigo'=>0);
+		$sparam+=array('pxareagen_codigo'=>0);
+		$sparam+=array('pxareaesp_codigo'=>0);
+
+		$sparam+=array('ppresdoc_codigo' =>"");
+		$sparam+=array('pareacon_codigo' =>"");
+		$sparam+=array('pareagen_codigo' =>"");
+		$sparam+=array('pareaesp_codigo' =>"");
+		$sparam+=array('porderby' =>"areacon_descripcion, areagen_descripcion, areaesp_descripcion");
+
+		if (isset ($ArregloDatos['presdoc_codigo']))
+		{
+			if ($ArregloDatos['presdoc_codigo']!="")
+			{	
+				$sparam['ppresdoc_codigo']= $ArregloDatos['presdoc_codigo'];
+				$sparam['pxpresdoc_codigo']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['areacon_codigo']))
+		{
+			if ($ArregloDatos['areacon_codigo']!="")
+			{	
+				$sparam['pareacon_codigo']= $ArregloDatos['areacon_codigo'];
+				$sparam['pxareacon_codigo']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['areagen_codigo']))
+		{
+			if ($ArregloDatos['areagen_codigo']!="")
+			{	
+				$sparam['pareagen_codigo']= $ArregloDatos['areagen_codigo'];
+				$sparam['pxareagen_codigo']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['areaesp_codigo']))
+		{
+
+			if ( !isset($ArregloDatos['areacon_codigo'])  || !isset($ArregloDatos['areagen_codigo'])  ) {
+				$error="Error al buscar el Áreas del Prestador Docente.";
+				$errormail="Error en la llamada a la búsqueda de Prestador Docente x áreas éspecifica";
+				return false;
+			
+			}
+			
+			if ($ArregloDatos['areaesp_codigo']!="")
+			{	
+				$sparam['pareaesp_codigo']= $ArregloDatos['areaesp_codigo'];
+				$sparam['pxareaesp_codigo']= 1;
+			}
+		}
+
+		if (isset ($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+			{	
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+
+		$spnombre="sel_prestador_docente_area_especifica_xdatos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar el Áreas del Prestador Docente .";
+			$errormail="Error al buscar Áreas del Prestador Docente".$errno;
+			return false;
+		}
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosAltaPrestadorDocenteArea($datos,&$datosvalidados)	{
+
+		// ver si va a validación comun
+		list($areacon,$areagen,$areaesp)=explode("_",$datos['area_con_gen_esp']);
+
+		// verifico que el prestador no tenga ya el área seleccionada
+		$ArregloDatos= array();
+		$ArregloDatos['presdoc_codigo']=$datos['presdoc_codigo'];
+		$ArregloDatos['areacon_codigo']=$areacon;
+		$ArregloDatos['areagen_codigo']=$areagen;
+		$ArregloDatos['areaesp_codigo']=$areaesp;
+				
+		if(!$this->BuscarPrestadorDocentexArea($ArregloDatos,$numfilas,$resultado,$error,$errormail)) {
+			$txt_sys_mail="Error al buscar área específica. error=".$error."\npresdoc_codigo=".$datos['presdoc_codigo'];
+			$txt_sys_mail.="\nareacon_codigo=".$areacon."\nareagen_codigo=".$areagen."\nareaesp_codigo=".$areaesp;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar un área específica del prestador docente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;			
+		}
+		
+		if ($numfilas>0) {
+			$txt_sys_mail="Error al buscar área específica. error=".$error."\n presdoc_codigo=".$datos['presdoc_codigo'];
+			$txt_sys_mail.="\nareacon_codigo=".$areacon."\nareagen_codigo=".$areagen."\nareaesp_codigo=".$areaesp;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"El prestador docente ya tiene el área seleccionada.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;			
+		}
+
+		$datosvalidados=array('areacon_codigo'=>$areacon);
+		$datosvalidados+=array('areagen_codigo'=>$areagen);
+		$datosvalidados+=array('areaesp_codigo'=>$areaesp);
+		$datosvalidados+=array('presdoc_codigo'=>$datos['presdoc_codigo']);
+		
+		// El usuario tiene permiso de modificar el prestador
+		$oPrestadorDocente=new cPrestadorDocente($this->conexion);
+		if (!$oPrestadorDocente->TienePermisoModificar($datos['presdoc_codigo'],$_SESSION['rolcod'], $_SESSION['jurisdid_inap'])) {
+			return false; 
+		}
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosEliminarPrestadorDocenteArea($datos,&$datosvalidados)	{
+	
+		// El usuario tiene permiso de modificar el prestador
+		$oPrestadorDocente=new cPrestadorDocente($this->conexion);
+		if (!$oPrestadorDocente->TienePermisoModificar($datos['presdoc_codigo'],$_SESSION['rolcod'], $_SESSION['jurisdid_inap'])) 
+			return false; 
+
+		// Si no sea el último área especifica del prestador docente ACTIVO se elimina (verificando que exista).
+		// Selecciono todos los relacionados
+		$ArregloDatos= array();
+		$ArregloDatos['presdoc_codigo']=$datos['presdoc_codigo'];
+
+		if(!$this->BuscarPrestadorDocentexArea($ArregloDatos,$numfilas,$resultado,$error,$errormail)) {
+			$txt_sys_mail="Error al seleccionar las áreas asociadas al prestador docente. error=".$error." ";
+			$txt_sys_mail.='\npresdoc_codigo='.$datos['presdoc_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al seleccionar las áreas asociadas al prestador docente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;			
+		} 
+		if($numfilas==0) {			
+			$txt_sys_mail="Error al seleccionar las áreas del prestador docente.";
+			$txt_sys_mail.='\npresdoc_codigo='.$datos['presdoc_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error al seleccionar las áreas del prestador docente.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			return false;			
+		} elseif($numfilas==1) {		
+			if(!$oPrestadorDocente->TraerDatosPrestadorDocente($datos['presdoc_codigo'],$filaprestador,$es_modif))  {
+				$error="Error al buscar el prestador docente.";
+				$txt_sys_mail="Error al buscar el prestador docente en tabla presador_docente";
+				$txt_sys_mail.='\npresdoc_codigo='.$datos['presdoc_codigo'];
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			}
+			if (!$es_modif) {
+				$error="Error no se encontró el prestador docente.";
+				$txt_sys_mail="Error no se encontró el prestador docente.";
+				$txt_sys_mail.='\npresdoc_codigo='.$datos['presdoc_codigo'];
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				return false;
+			} 
+			if($filaprestador['presdoc_estado']==PRESDOCACTIVO) {
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"No se puede eliminar el área. No puede quedar un prestador docente registrado <br> sin ningún área definida.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+		} 
+				
+		$datosvalidados['presdoc_codigo']=$datos['presdoc_codigo'];
+		$datosvalidados['areacon_codigo']=$datos['areacon_codigo'];
+		$datosvalidados['areagen_codigo']=$datos['areagen_codigo'];
+		$datosvalidados['areaesp_codigo']=$datos['areaesp_codigo'];
+		
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function DescargarExcel()	{
+	
+		$nombrearchivo="prestador_docente_area.xls";  
+		
+		$oExcel= new cEscribirExcel($nombrearchivo);
+		$oExcel->AddHoja('prestador_docente');
+		$oExcel->EsconderGrillas();
+		$oExcel->PaginaHorizontal();
+		$oExcel->FormatoColumna (0,5); // Columna de identación Area Contextual
+		$oExcel->FormatoColumna (1,5); // Columna de identación Area General
+		$oExcel->FormatoColumna (2,20); // cuilt
+		$oExcel->FormatoColumna (3,30); // apellido
+		$oExcel->FormatoColumna (4,30); // nombre
+		$oExcel->FormatoColumna (5,10); // caracter
+		$oExcel->FormatoColumna (6,20); // fecha de alta
+
+		// Formato titulo del listado	
+		$oExcel->AddFormato ("Align","left");
+		$oExcel->AddFormato ("Border",1);
+		$oExcel->AddFormato ("Font","Times New Roman");
+		$oExcel->AddFormato ("Tamaño",12);
+		$oExcel->AddFormato ("Color","azul");
+		$oExcel->AddFormato ("FgColor",22);
+
+		// Titulo del Listado
+		$oExcel->CargarDatosVariasCeldas (0,0,0,6,'Prestadores Docentes por área',true);
+		$oExcel->BorrarFormato();
+	
+		$sparam=array('ppresdoc_estado' =>PRESDOCACTIVO,'porderby' =>"areacon_descripcion,areagen_descripcion,areaesp_descripcion,presdoc_apellido,presdoc_nombre");
+		$spnombre="sel_prestador_docente_areas_especificas_asignadas";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado_titulos,$numfilas,$errno)) 	{
+			$error="Error al buscar prestadores docentes.";
+			$errormail="Error al buscar prestadores docentes.".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			return false;
+		}
+		
+		
+		if($numfilas>0) 	{
+			
+			$fila_excel=1;
+			
+			while ($fila_titulo=mysql_fetch_assoc($resultado_titulos))	{
+
+				$oExcel->AddFormato ("Align","left");
+				$oExcel->AddFormato ("Font","Times New Roman");
+				$oExcel->AddFormato ("Tamaño",10);
+				$oExcel->AddFormato ("Color","azul");
+			
+				// Filas Titulo : 	Area Contextual
+				//						Area General
+				//							Area Específica
+				$oExcel->CargarDatosVariasCeldas ($fila_excel,0,$fila_excel,5,$fila_titulo['areacon_descripcion'],true);
+				$fila_excel++;
+				$oExcel->CargarDatosVariasCeldas ($fila_excel,1,$fila_excel,5,$fila_titulo['areagen_descripcion'],true);
+				$fila_excel++;
+				$oExcel->CargarDatosVariasCeldas ($fila_excel,2,$fila_excel,5,$fila_titulo['areaesp_descripcion'],true);
+				$fila_excel++;
+				
+				// Docentes del Área Especifica 
+				$sparam=array(  'ppresdoc_estado'=>PRESDOCACTIVO,
+								'pxareacon_codigo'=>1,
+								'pxareagen_codigo'=>1,
+								'pxareaesp_codigo'=>1,
+							    'pareacon_codigo'=>$fila_titulo['areacon_codigo'],
+								'pareagen_codigo'=>$fila_titulo['areagen_codigo'],
+								'pareaesp_codigo'=>$fila_titulo['areaesp_codigo'],
+								'porderby' =>"areacon_descripcion,areagen_descripcion,areaesp_descripcion,presdoc_apellido,presdoc_nombre");
+
+				$spnombre="sel_prestador_docente_prestador_docente_area_xestado_area";	
+				if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))				{
+					$error="Error al buscar prestadores docentes.";
+					$errormail="Error al buscar prestadores docentes. ".$errno;
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+					return false;
+				}
+				
+				if($numfilas>0)	{
+					$i=1;					
+					while ($fila=mysql_fetch_assoc($resultado))	
+					{
+						$arrayresult[$i]['presdoc_cuilt']= $fila['presdoc_cuilt'];
+						$arrayresult[$i]['presdoc_apellido']= $fila['presdoc_apellido'];
+						$arrayresult[$i]['presdoc_nombre']= $fila['presdoc_nombre'];
+						$this->conexion->TraerCampo("constantes_grales","constantedesc",array("constantetipo='","PRESDOCCARACTER","' and constantecod='",$fila['presdoc_caracter_alta'],"'"),$caracterdesc,$numfilascaracter,$errorcod);
+						$arrayresult[$i]['presdoc_caracter_alta']= $caracterdesc;
+						$arrayresult[$i]['presdoc_falta'] = FuncionesPHPLocal::ConvertirFecha($fila['presdoc_falta'],'aaaa-mm-dd','dd/mm/aaaa');
+						$i++;
+					}
+
+					// Titulo Apellido - Nombre - Caracter - Fecha Alta
+					$oExcel->AddFormato ("Align","left");
+					$oExcel->AddFormato ("TextWrap","");
+					$oExcel->AddFormato ("Border",1);
+					$oExcel->AddFormato ("Font","Times New Roman");
+					$oExcel->AddFormato ("Tamaño",10);
+					$oExcel->AddFormato ("Color","negro");
+					$oExcel->AddFormato ("FgColor","gris");
+					$oExcel->CargarDatos ($fila_excel,2,"CUIT/CUIL",true);
+					$oExcel->CargarDatos ($fila_excel,3,"Apellido",true);
+					$oExcel->CargarDatos ($fila_excel,4,"Nombre",true);
+					$oExcel->CargarDatos ($fila_excel,5,"Caracter",true);
+					$oExcel->CargarDatos ($fila_excel,6,"Fecha de Alta",true);
+
+					$oExcel->BorrarFormato();
+					
+					$fila_excel++;
+					$arrayclaves=array(	'presdoc_cuilt','presdoc_apellido','presdoc_nombre','presdoc_caracter_alta','presdoc_falta');
+
+					// Datos de los prestadores docentes en ese área específica
+					foreach ($arrayresult as $datos) {
+						$oExcel->CargarGrilla ($datos,$fila_excel,2,$arrayclaves,array());	
+						$fila_excel++;
+					}
+				} // $numfilas>0
+				
+			} // while
+			$oExcel->Enviar();
+			
+		} // $numfilas>0
+	}
+*/	
+} // class
+?>

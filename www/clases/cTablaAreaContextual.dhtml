@@ -1,0 +1,41 @@
+<?php class cTablaAreaContextual extends cTablaSysDesc {
+
+	public function __construct($conexion) {
+		
+		$array_campos=array('clave'=> 'areacon_codigo',
+							'descripcion'=>array('nombre_campo'=>'areacon_descripcion', 'long_campo'=>100 ,'titulo_campo'=>'Area Contextual'),
+							'fecha_alta'=>'areacon_falta');
+
+		parent::__construct($conexion,"area_contextual",$array_campos);
+		$this -> SetearTituloTabla('Area Contextual de Prestadores Docentes');
+	
+		// Array con los cógigos de operaciones a ser registradas
+		$array_log=array('ins'=>'35901', 'upd'=>'35903', 'del'=>'35902');
+		$this->SetearLogs($array_log);
+	}			
+//---------------------------------------------------------------
+	function __PosibleBaja($valor_campo,&$error,&$errormail) {
+
+		return true;	
+	}
+//---------------------------------------------------------------
+	function __BajaCascada($valor_campo) {
+	
+		$oTablaAreaEspecifica = new cTablaAreaEspecifica($this->conexion);
+	
+		if (!$oTablaAreaEspecifica->BorrarEspecificaxAreaContextual($valor_campo))
+			return false;
+		
+		return true;
+	}
+//---------------------------------------------------------------
+	function AreaContextualAsignableSP(&$spnombre, &$spparam) {
+		$spnombre="sel_area_contextual_validas";
+		$spparam=array('porderby'=>'areacon_descripcion');
+	}
+//---------------------------------------------------------------
+	function AreaContextualSP(&$spnombre, &$spparam) {
+		$spnombre="sel_area_contextual_validas";
+		$spparam=array('porderby'=>'areacon_descripcion');
+	}
+} ?>

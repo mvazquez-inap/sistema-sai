@@ -1,0 +1,235 @@
+<?php  require('grilla.inc.dhtml'); ?>
+<?php
+if(!function_exists("grilla_tpl_botonera")) {
+	function grilla_tpl_botonera($this,$glb_grilla) {
+		if (($this->DeshabilitarBtsAdelante!="disabled") || ($this->DeshabilitarBtsAtras!="disabled")) { ?>		
+			<table width="<?php $this->_($this->ancho)?>" border="0" cellpadding="0" cellspacing="0" align="center">
+				<tr>
+					<td class='<?php echo $glb_grilla['estilo']['textoFilaPaginado'] ?>'> 
+						<?php	include $this->loadTemplate($glb_grilla['tpl_botones']); ?> 
+					</td> 
+				</tr>
+			</table>
+<?php	
+		}
+	} 
+}
+
+if(!function_exists("ArmarQueryString")) {
+	// $row_dato: fila con los datos de la BD o del array a mostrar en la grilla
+	// $url: es el url del enlace, se usa en caso del md5
+	// $array_parametros: array con el que se armará el querystring
+	// $funcion_md5: funcion con la que se calculará el md5
+	// $enlace: parametro de salida con el querystring. Si no está vacio, concatena con lo que viene
+	function ArmarQueryString($row_dato,$url,$array_parametros,$url_ancla,$funcion_md5,&$enlace) {
+		$querystring=array();
+		$array_querystring=array();
+	
+		foreach ($array_parametros as $parametro) {
+			$array_querystring[$parametro["para_nombre"]]=($parametro["para_tipo"]=="cte")?$parametro["para_dato"]:$row_dato[$parametro["para_dato"]];
+			$querystring[]=$parametro["para_nombre"]."=".(($parametro["para_tipo"]=="cte")?$parametro["para_dato"]:$row_dato[$parametro["para_dato"]]);
+		}
+	
+		$querystring=implode("&amp;",$querystring);
+		if($querystring!="" && $enlace!="")
+			$querystring="?".$querystring;
+			
+		$enlace.=$querystring;
+		
+		if(!is_null($funcion_md5))
+		{
+			if (count($funcion_md5) == 1) { // La funcion con el md5 no se encuentra en una clase
+				$funcion_md5=$funcion_md5[0];
+			}	
+			call_user_func_array($funcion_md5, array($url, $array_querystring, &$querystring_nousar, &$md5 ));
+			$enlace .= (($enlace=="")?"?":"&amp;")."md5=".$md5;
+		}	
+		$enlace.=($url_ancla!="")?"#".$url_ancla:"";
+	}
+}
+?>
+<div align="center">
+<table width="<?php $this->_($this->ancho)?>" class="<?php echo $glb_grilla['estilo']['textoTablaDato'] ?>" border="0" cellpadding="0" cellspacing="0" align="center">
+	<tr>
+	    <td class='<?php echo $glb_grilla['estilo']['textoTitulo'] ?>' align="left">
+			<?php  $this->_($this->TituloListado)  ?>
+		</td>
+	</tr>
+</table>
+<?php if ($glb_grilla['botonera_posicion']=='arriba') 
+		grilla_tpl_botonera($this,$glb_grilla)
+?>
+<table width="<?php  $this->_($this->ancho) ?>" class="<?php echo $glb_grilla['estilo']['textoTablaDato'] ?>" border="1" cellpadding="1" cellspacing="1" align="center">
+	<tr class='<?php echo $glb_grilla['estilo']['textoColumnasTitulo'] ?>'>
+	<?php foreach ($this->columnas as $row) { ?>
+		<td align="center" <?php if (isset ($row['ancho_columna'])) echo "width='".$row['ancho_columna']."'"?>>
+			<?php $this->_($row["titulo_columna"]); ?>
+		</td>
+	<?php } ?>
+	</tr>
+	
+	<?php 
+	
+	foreach ($this->result as $row_dato) { 
+		
+	?>
+	<tr>
+		<?php foreach ($this->columnas as $row_columna) {	?>
+			<td align="<?php echo (isset ($row_columna['align_columna']))?$row_columna['align_columna']:'center'?>" <?php if (isset ($row_columna['ancho_columna'])) echo "width='".$row_columna['ancho_columna']."'"?> <?php if (isset ($row_columna["id_columna"]["nombre_id"])) echo 'id="'.$row_columna["id_columna"]["nombre_id"].$row_dato[$row_columna["id_columna"]["codigo_id"]].'"'; ?>>
+			<?php 
+				if ( !isset($row_columna['condicion_visualizar_columna']) || call_user_func($row_columna['condicion_visualizar_columna'], $row_dato ) ) {
+			
+					switch ($row_columna["tipo"]) {
+
+					case "txt" : 
+
+						$this->_($row_dato[$row_columna["campo_grilla"]]); 
+						if ($row_dato[$row_columna["campo_grilla"]]=="")
+						  echo "&nbsp;";
+						break;
+						
+					case "link":
+						
+						// Define el enlace url, debe haber por lo menos un parametro
+										
+						if  ( ($row_columna["url_tipo"]=="cte") || (!isset($row_columna["url_tipo"])))
+							$enlace = $row_columna["url"];
+						else 	
+							$enlace = $row_dato[$row_columna["url"]];
+							
+						ArmarQueryString($row_dato,$enlace,$row_columna["parametros"],isset($row_columna["url_ancla"])?$row_columna["url_ancla"]:"",$row_columna['funcion_md5'],$enlace);
+						
+						// Define la leyenda del enlace
+						if ($row_columna["leyenda_param"]["tipo_param"] == "cte" )
+							$leyenda = $row_columna["leyenda_param"]["valor"];							
+						else 
+							$leyenda = $row_dato[$row_columna["leyenda_param"]["valor"]];															
+					
+					?> <a href="<?php echo $enlace ?>" class='<?php echo $glb_grilla['estilo']['textoLink'] ?>' <?php if (isset ($row_columna['target'])) {echo  "target='".$row_columna['target']."'";} ?> ><?php echo $leyenda?></a><?php
+					
+						break;	
+					
+					case "linkimg" :
+					
+						$imagen = $row_columna["imagen"];
+						
+						// Define el enlace url de la imagen, debe haber por lo menos un parametro
+						if(!isset($row_columna['onClick_function'])) { 
+						
+							if  (($row_columna["url_tipo"]=="cte") || (!isset($row_columna["url_tipo"])))
+								$enlace = $row_columna["url"];
+							else 	
+								$enlace = $row_dato[$row_columna["url"]];
+							
+							ArmarQueryString($row_dato,$enlace,$row_columna["parametros"],isset($row_columna["url_ancla"])?$row_columna["url_ancla"]:"",$row_columna['funcion_md5'],$enlace);
+							
+							$title = (isset($row_columna["altImagen"])?$row_columna["altImagen"]:"");
+						?>
+							<a href="<?php echo $enlace ?>" <?php if (isset ($row_columna['target'])) {echo  "target='".$row_columna['target']."'";} ?> > 
+								<img src="<?php echo $imagen ?>" alt="<?= $title ?>" title="<?= $title ?>" border="0" />
+							</a>
+
+					<?php  } else { // Para onclick de javascript
+					
+							$enlace=$row_columna['onClick_function']."(";
+							$primero = true;
+							
+							foreach ($row_columna["parametros"] as $parametro) {
+								$enlace .= (($primero)?"":",");
+								if ($parametro["para_tipo"]=="cte")
+									$enlace .="'".$parametro["para_dato"]."'";
+							
+								elseif ($parametro["para_tipo"]=="var") {	
+								  $enlace .="'".$row_dato[$parametro["para_dato"]]."'";
+								} else {
+									$enlace_url = "";
+									ArmarQueryString($row_dato,"",$parametro["para_dato"],"",NULL,$enlace_url);
+									$enlace .= "'".$enlace_url."'";
+								}
+								$primero = false;
+							}
+							$enlace.=")";
+					
+							$title=(isset($row_columna["altImagen"])?$row_columna["altImagen"]:"");
+							?>	<a href="<?php echo $row_columna["url"] ?>" onClick="<?php echo $enlace ?>;">
+									<img src="<?php echo $imagen ?>" alt="<?= $title ?>" title="<?= $title ?>" border="0" />
+								</a>												
+							<?php					
+						}
+						break;
+
+					case "addValor" :
+					
+						foreach ($row_columna["parametros"] as $parametro) {
+							if ($parametro["para_tipo"]=="cte") 
+								$codigo=$parametro["para_dato"];	
+							else 
+								$codigo=$row_dato[$parametro["para_dato"]];
+						}
+						$imagen = $row_columna["imagen"];
+						
+						if (isset($row_columna["documentAddValor"]))
+							$ventana=$row_columna["documentAddValor"];
+						else
+							$ventana='window.opener.document';
+	
+						$accion_submit="";
+						if ( isset($row_columna["submitAddValor"]) && ($row_columna["submitAddValor"]=='si'))
+							$accion_submit = $ventana.".".$row_columna["nombreFormularioSubmitAddValor"].".submit()";
+					
+						$title=(isset($row_columna["altImagen"])?$row_columna["altImagen"]:"");
+						
+					 ?>	
+						<a href="javascript:void(0)" onClick="addValorPopup(<?php echo $ventana ?>,'<?php echo $row_columna["idtextboxAddValor"] ?>', '<?php echo $codigo ?>', '<?php echo isset($row_columna["nombreContenidoAddValor"])?FuncionesPHPLocal::ReemplazarComillas($row_dato[$row_columna["nombreContenidoAddValor"]]):"" ?>','<?php  echo isset($row_columna["idtextoContenidoAddValor"])?$row_columna["idtextoContenidoAddValor"]:"" ?>');<?php echo $accion_submit ?>;window.close();"> 
+							<img src="<?php echo $imagen ?>" alt="<?= $title ?>" title="<?= $title ?>" border="0" />
+						</a>
+					<?php
+						break;
+
+					case "popup" :
+					
+						if  (($row_columna["url_tipo"]=="cte") || (!isset($row_columna["url_tipo"])))
+							$enlace = $row_columna["url"];
+						else 	
+							$enlace = $row_dato[$row_columna["url"]];
+							
+						ArmarQueryString($row_dato,$enlace,$row_columna["parametros"],"",$row_columna['funcion_md5'],$enlace);
+
+						// Define la leyenda 
+						if (isset($row_columna["leyenda_param"])) {							
+							if ($row_columna["leyenda_param"]["tipo_param"] == "cte" )
+								$leyenda = $row_columna["leyenda_param"]["valor"];							
+							else 
+								$leyenda = $row_dato[$row_columna["leyenda_param"]["valor"]];															
+						} else 
+								$leyenda ="";
+
+						// CAMBIO NUEVO: ventana nombre 
+						$ventana_nombre = (isset($row_columna['ventanaNombre']))?$row_columna['ventanaNombre']:'ventana_descripciones';
+						$ancho= (isset($row_columna['ventanaAnchoPopup']))?$row_columna['ventanaAnchoPopup']:430;
+						$alto = (isset($row_columna['ventanaAltoPopup']))?$row_columna['ventanaAltoPopup']:360;
+						$varx = (isset($row_columna['ventanaVarxPopup']))?$row_columna['ventanaVarxPopup']:"screen.availWidth-450";
+						$vary = (isset($row_columna['ventanaVaryPopup']))?$row_columna['ventanaVaryPopup']:"screen.availHeight-420";
+
+						$title = (isset($row_columna["altImagen"])?$row_columna["altImagen"]:"");
+						?>
+						<a href="javascript:void(0)" onClick="Popup('<?php echo $enlace ?>','<?php echo $ventana_nombre ?>',<?php echo $ancho ?>,<?php echo $alto; ?>,<?php echo $varx ?>,<?php echo $vary ?>,'yes');" class='<?php echo $glb_grilla['estilo']['textoLink'] ?>'> 
+							<?php if (isset($row_columna["imagen"])) {?> 
+									<img src="<?php echo $row_columna["imagen"] ?>" alt="<?= $title ?>" title="<?= $title ?>" border="0" />
+							<?php } 
+								echo $leyenda ;
+							?>
+						</a>
+						<?php							
+					}
+				}	else // El explorer no muestra bien los bordes si no hay nada
+					  echo "&nbsp;"; ?>							
+			</td>
+		<?php } ?>
+	</tr>
+<?php } ?>
+</table>
+<?php if ($glb_grilla['botonera_posicion']=='abajo')
+		grilla_tpl_botonera($this,$glb_grilla)
+?>
+</div>

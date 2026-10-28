@@ -1,0 +1,295 @@
+<?php
+//----------------------------------------------------------------------------------------- 
+class cDatosDocumentos  {
+
+	var $conexion;
+	public function __construct($conexion,$formato=FMT_TEXTO) {
+		$this->conexion = &$conexion;
+		$this->formato = $formato;
+	}
+
+
+	//-----------------------------------------------------------------------------------------------------	
+	function TraerDatosDatosDocumentos($dto_codigo,&$datosresult,&$es_modif) {
+		
+		$datosresult=array();
+		$es_modif = false;		
+		$sparam=array('pdto_codigo'=>$dto_codigo);
+		$spnombre="sel_datos_documentos_xdto_codigo";	
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$errormail="\ndto_codigo=".$dto_codigo."\nerror=".$errno;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar los datos del sello.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato),$errormail);
+			return false;
+		}
+		if ($numfilas == 1)	{
+			$datosresult = mysqli_fetch_assoc($resultado);
+			$es_modif = true;
+		}
+		return true;
+	
+	}
+
+
+//-----------------------------------------------------------------------------------------------------	
+	function ObtenerSPClave(&$spnombre,&$spparam,$codigo) {
+		$spnombre="sel_datos_documentos_xdto_codigo";
+		$spparam=array('pdto_codigo'=>$codigo);
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function ValidarFormAltaDatosDocumentos() {
+	?>
+	 	function ValidarFormAltaDatosDocumentos(formulario,operacion) {
+		
+			return true;
+		}
+	<?php
+	}
+
+//-----------------------------------------------------------------------------------------------------	
+	function AltaDatosDatosDocumentos($datos) {
+
+
+	if(!$this->_DatosValidosAltaDatosDocumentos($datos,$datosvalidados))
+		return false;
+
+	$spnombre="ins_datos_documentos";
+	$spparam=array(
+		'pjurisdid_inap'=>$_SESSION['jurisdid_inap'],
+		'pdto_linea_encabezado'=>$datosvalidados['dto_linea_encabezado'],
+		'pdto_sello_linea1'=>$datosvalidados['dto_sello_linea1'],
+		'pdto_sello_linea2'=>$datosvalidados['dto_sello_linea2'],
+		'pdto_sello_linea3'=>$datosvalidados['dto_sello_linea3'],
+		'pdto_default'=>$datosvalidados['dto_default'],
+		'pdto_linea_nota'=>$datosvalidados['dto_linea_nota'],
+		'pultmodusuario'=>$_SESSION['usuariocod'],
+		'pultmodfecha'=>date("Y/m/d H:i:s")
+	);
+	if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)
+	{
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se pudo dar de alta los datos documento.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+		return false;
+	}
+	
+
+	return true;
+}	
+//-----------------------------------------------------------------------------------------------------	
+	function PosibleBajaFisica($dis_codigo) {
+/*
+		// La disposición esta sólo asociada a los dictamenes
+		if(!$this->conexion->TraerCampo('dictamen','dis_codigo',array("dis_codigo='",$dis_codigo,"'"),$dato,$numfilas,$errno)) {
+			$error="Error al intentar eliminar la disposición.";
+			$errormail="Error al determinar si puede ser realizada la baja física de la disposición (dictamen). error=".$errno."dis_codigo='".$dis_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato),$errormail);
+			return false;	
+	    } elseif ($numfilas!=0) {
+			return false;	
+		}
+*/		
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function EliminarDatosDatosDocumentos($dto_codigo) {
+
+		if(!$this->_DatosValidosEliminarDatosDocumentos($dto_codigo,$datosvalidados))
+			return false;
+
+		$spnombre="del_datos_documentos_xdto_codigo";
+		$spparam=array('pdto_codigo'=> $dto_codigo);
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errorcod)) 
+			return false;					  	 	
+		
+		return true;
+	}	
+//-----------------------------------------------------------------------------------------------------	
+	function ModifDatosDatosDocumentos($datos)	{
+
+
+		if(!$this->_DatosValidosModifDatosDocumentos($datos,$datosvalidados))
+			return false;
+
+		$spnombre="upd_datos_documentos_xdto_codigo";
+		$spparam=array(
+			'pdto_codigo'=> $datosvalidados['dto_codigo'], 
+			'pjurisdid_inap'=> $_SESSION['jurisdid_inap'], 
+			'pdto_linea_encabezado'=> $datosvalidados['dto_linea_encabezado'],
+			'pdto_sello_linea1'=> $datosvalidados['dto_sello_linea1'],
+			'pdto_sello_linea2'=> $datosvalidados['dto_sello_linea2'],
+			'pdto_sello_linea3'=> $datosvalidados['dto_sello_linea3'],									
+			'pdto_default'=> $datosvalidados['dto_default'],									
+			'pdto_linea_nota'=> $datosvalidados['dto_linea_nota'],									
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y/m/d H:i:s")
+		);
+		
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)
+		{
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al actualizar los datos del sello.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+			return false;
+		}
+		
+		return true;
+	}	
+
+
+
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoModificar($dto_codigo,$rolcod,$jurisdid) {
+	
+		$es_modif=false;
+		// Trae los datos del DatosDocumentos a modificar 
+		if (!$this->TraerDatosDatosDocumentos($dto_codigo,$fila_DatosDocumentos,$es_modif) || !$es_modif  ) {
+			$error="No se encontró los datos del sello.";
+			$errormail="Error al buscar los datos del sello \ndto_codigo=".$dto_codigo;
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato),$errormail);
+			return false;
+		}
+				
+		if ($rolcod==USUCURSOINAP || $rolcod==USUACTINS || $rolcod==USUACTJUR  || $rolcod==USUORGANISMO  || $rolcod==COORDINADORTECNICO) {
+		
+			if ($jurisdid == $fila_DatosDocumentos['jurisdid_inap'] )
+				return true;	  
+		}
+		
+		FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"No tiene permisos para modificar los datos del sello.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>$this->formato));
+		
+		return false;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function TienePermisoBaja($dto_codigo,$rolcod,$jurisdid) {
+			return $this->TienePermisoModificar($dto_codigo,$rolcod,$jurisdid);
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosAltaDatosDocumentos($datos,&$datosvalidados)	{
+
+		
+		$datosvalidados=array();
+
+		// Valido que los datos comunes sean válidos
+		if (!$this->_DatosValidosComunesDatosDocumentos($datos,$datosvalidados))
+		   return false; 
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosEliminarDatosDocumentos($dto_codigo,&$datosvalidados)	{
+
+		$datosvalidados=array();
+		if (!$this->TienePermisoBaja($dto_codigo,$_SESSION['rolcod'], $_SESSION['jurisdid_inap'])) {
+			return false; 
+		}
+		
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosModifDatosDocumentos($datos,&$datosvalidados)	{
+
+		if (!$this->TienePermisoModificar($datos['dto_codigo'],$_SESSION['rolcod'], $_SESSION['jurisdid_inap'])) {
+			return false; 
+		}
+		$datosvalidados['dto_codigo']=$datos['dto_codigo'];
+
+		if (!$this->_DatosValidosComunesDatosDocumentos($datos,$datosvalidados))
+		   return false; 
+
+		return true;
+	}
+//-----------------------------------------------------------------------------------------------------	
+	function _DatosValidosComunesDatosDocumentos($datos,&$datosvalidados)	{
+
+		// si es default, valido que sea el único
+		if (isset($datos['dto_default'])) {
+
+			$ArregloDatos = array();
+			$ArregloDatos['jurisdid_inap'] = $_SESSION['jurisdid_inap'];
+			$ArregloDatos['dto_default'] = SI;
+			
+			if(!$this->BuscarDatosDocumentos($ArregloDatos,$numfilas,$result,$error,$errormail)){
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error seleccionando datos a mostrar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;			
+			}			
+
+			if ($numfilas == 1) { // si hay uno solo, verifico que no sea él mismo
+				$fila = mysqli_fetch_assoc($result);
+				if ($fila['dto_codigo'] != $datos['dto_codigo']) {
+					FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"Ya existe un sello DEFAULT.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;			
+				}
+			}
+			$datosvalidados['dto_default'] = SI;
+			
+		} else 
+			$datosvalidados['dto_default'] = NO;			
+			
+		$datosvalidados['dto_linea_encabezado']=$datos['dto_linea_encabezado'];
+		$datosvalidados['dto_sello_linea1']=$datos['dto_sello_linea1'];
+		$datosvalidados['dto_sello_linea2']=$datos['dto_sello_linea2'];
+		$datosvalidados['dto_sello_linea3']=$datos['dto_sello_linea3'];
+		$datosvalidados['dto_linea_nota']=$datos['dto_linea_nota'];								
+
+		return true;
+	}	
+
+//-----------------------------------------------------------------------------------------------------	
+	function BuscarDatosDocumentos($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+		$sparam=array('pxdto_codigo'=>0);
+		$sparam+=array('pxdto_default'=>0);
+		$sparam+=array('pxjurisdid_inap'=>0);
+		
+		$sparam+=array('pdto_codigo'=>"");
+		$sparam+=array('pdto_default'=>"");
+		$sparam+=array('pjurisdid_inap'=>"");
+		$sparam+=array('porderby'=>"dto_codigo");
+
+		if (isset ($ArregloDatos['dto_codigo']))
+		{
+			if ($ArregloDatos['dto_codigo']!="")
+			{	
+				$sparam['pdto_codigo']= $ArregloDatos['dto_codigo'];
+				$sparam['pxdto_codigo']= 1;
+			}
+		}
+		if (isset ($ArregloDatos['dto_default']))
+		{
+			if ($ArregloDatos['dto_default']!="")
+			{	
+				$sparam['pdto_default']= $ArregloDatos['dto_default'];
+				$sparam['pxdto_default']= 1;
+			}
+		}	
+		if (isset ($ArregloDatos['jurisdid_inap']))
+		{
+			if ($ArregloDatos['jurisdid_inap']!="")
+			{	
+				$sparam['pjurisdid_inap']= $ArregloDatos['jurisdid_inap'];
+				$sparam['pxjurisdid_inap']= 1;
+			}
+		}	
+
+		if (isset($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+			{	
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+		
+	
+		$spnombre="sel_datos_documentos_xdatos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar Datos Ctes de Documentos.";
+			$errormail="Error al buscar Datos Ctes de Documentos\nerror=.".$errno;
+			return false;
+		}
+
+		return true;
+	}
+
+} // class
+?>

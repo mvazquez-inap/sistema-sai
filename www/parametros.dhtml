@@ -1,0 +1,11 @@
+<?php
+define("SISTEMA",'SAI');
+
+// Database credentials come from the environment. See .env.example.
+define("BASEDATOS", getenv("SAI_DB_NAME") ?: "");
+define("SERVIDORBD", getenv("SAI_DB_HOST") ?: "");
+define("USUARIOBD", getenv("SAI_DB_USER") ?: "");
+define("CLAVEBD", getenv("SAI_DB_PASSWORD") ?: "");
+define("SYS_VENTANA_NOMBRE",'Sistema de Acreditación');
+define("TIEMPOSESION",1800); // cantidad de segundos que dura la sesion
+?>

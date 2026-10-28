@@ -1,0 +1,290 @@
+<?php
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+//----------------------------------------------------------------------------------------- 	
+	function MostrarGrillaSeleccion($conexion, $modulo, $valor_buscado="") {
+
+		$oDatosDocumentos = new cDatosDocumentos($conexion);
+
+		$ArregloDatos = array();
+		$ArregloDatos['jurisdid_inap'] = $_SESSION['jurisdid_inap'];
+		$ArregloDatos['orderby'] = "dto_sello_linea1";
+		
+		if(!$oDatosDocumentos->BuscarDatosDocumentos($ArregloDatos,$numfilas,$result,$error,$errormail)){
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando datos a mostrar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;			
+		}			
+		
+		$opciones=array(
+			"numPagina"=>isset($_GET['pagina'])?$_GET['pagina']:1,
+			"NombrePaginaQuery"=>"pagina",
+			"FilasPagina"=>10
+		);
+		
+		if (isset($_GET['pagina']))	{
+			$querystring=FuncionesPHPLocal::ArmarQueryString("pagina","",false);	
+			$opciones['QueryString']=$querystring;
+		}
+		
+		$oGrilla = new cGrilla($opciones);
+	
+		$oGrilla->SetearTituloGrilla('Sello y Datos para Documentos');
+						
+		$oGrilla->SetearAnchoGrilla('90%');
+		
+		$miColumna1 = $oGrilla->AddColumna('txt');
+		$oGrilla->Setear('titulo_columna',$miColumna1,"Línea 1");
+		$oGrilla->Setear('campo_grilla',$miColumna1,'dto_sello_linea1');
+		$oGrilla->Setear('align_columna',$miColumna1,'left');
+
+		$miColumna4 = $oGrilla->AddColumna('txt');
+		$oGrilla->Setear('titulo_columna',$miColumna4,"Vigente");
+		$oGrilla->Setear('campo_grilla',$miColumna4,'dto_default');
+		$oGrilla->Setear('align_columna',$miColumna4,'center');
+	
+		$miColumna2 = $oGrilla->AddColumna('linkimg');
+		$oGrilla->Setear('titulo_columna',$miColumna2,'Editar');
+		$oGrilla->Setear('ancho_columna',$miColumna2,'60');
+		$oGrilla->Setear('url',$miColumna2,$modulo);
+		$oGrilla->Setear('imagen',$miColumna2,'images/editar.jpg');
+		$oGrilla->Setear('altImagen',$miColumna2,'Editar');						
+		$oGrilla->AddParametrosURL($miColumna2,'comi_codigo',$_GET['comi_codigo'],"cte");
+		$oGrilla->AddParametrosURL($miColumna2,'dto_codigo','dto_codigo');
+		$oGrilla->AddParametrosURL($miColumna2,"operacion","M","cte");
+	
+		$miColumna3 = $oGrilla->AddColumna('linkimg');
+		$oGrilla->Setear('titulo_columna',$miColumna3,'Eliminar');
+		$oGrilla->Setear('ancho_columna',$miColumna3,'60');
+		$oGrilla->Setear('url',$miColumna3,$modulo);
+		$oGrilla->Setear('imagen',$miColumna3,'images/borrar.jpg');
+		$oGrilla->Setear('altImagen',$miColumna3,'Eliminar');
+		$oGrilla->AddParametrosURL($miColumna3,'comi_codigo',$_GET['comi_codigo'],"cte");
+		$oGrilla->AddParametrosURL($miColumna3,'dto_codigo','dto_codigo');
+		$oGrilla->AddParametrosURL($miColumna3,"operacion","B","cte");
+	
+
+		if (!$oGrilla->CargarGrilla($result))
+			return false;
+			
+		$oGrilla->MostrarGrilla();
+	
+	return true;
+	
+	}
+//-----------------------------------------------------------------------------------------------------	
+
+
+$cDatosDocumentos= new cDatosDocumentos($conexion);
+?>
+<script type="text/javascript">
+	<?php $cDatosDocumentos->ValidarFormAltaDatosDocumentos(); ?>
+</script>
+<?php
+
+$modulo_recarga= "datos_documentos.dhtml";
+$result = true;
+//--------------------------------------------------------------------------------------------------
+// Se confirmo la operacion 
+//--------------------------------------------------------------
+if (isset($_POST['boton_confirma'])) {
+
+	$commit=true;
+	$conexion->ManejoTransacciones("B");
+
+	// Alta - Baja - Modificación
+	if ($commit) {
+
+		switch($_POST['operacion']) {
+
+		case 'I': 	
+			if ($cDatosDocumentos->AltaDatosDatosDocumentos($_POST)) {
+				$nuevocodigo=$conexion->UltimoCodigoInsertado();
+				FuncionesPHPLocal::RegistrarAcceso($conexion,"49201","dto_codigo=".$nuevocodigo,$_SESSION['usuariocod']);
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se han insertado los datos del sello.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} else  //  Cualquier error es informado en AltaDatosDatosDocumentos
+				$commit=false;
+
+			break;	
+			
+		case 'M': 
+			if ($cDatosDocumentos->ModifDatosDatosDocumentos($_POST)) {
+				FuncionesPHPLocal::RegistrarAcceso($conexion,"49203","dto_codigo=".$_POST['dto_codigo'],$_SESSION['usuariocod']);
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se han modificado los datos del sello.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+
+			} else //  Cualquier error es informado en ModifDatosDatosDocumentos
+				$commit=false;
+
+			break;	
+
+		case 'B': 
+
+			if ($cDatosDocumentos->EliminarDatosDatosDocumentos($_POST['dto_codigo'])) {			
+				FuncionesPHPLocal::RegistrarAcceso($conexion,"49202","dto_codigo=".$_POST['dto_codigo'],$_SESSION['usuariocod']);
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se han eliminado los datos del sello.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} else //  Cualquier error es informado en EliminarDatosDatosDocumentos
+				$commit=false;
+			break;	
+
+		default: 
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error operación",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				$commit=false;
+		} // $switch
+		
+		if($commit)
+			$conexion->ManejoTransacciones("C");
+		else
+			$conexion->ManejoTransacciones("R");
+	}	// commit
+} // seteado el confirma 
+
+//------------------------------------------------------------
+// Inicio de pantalla
+//------------------------------------------------------------
+// Se define la acción
+if (!isset($_GET['operacion'])) {
+	$leyenda_operacion = "Agregar";
+	$boton_operacion = "Agregar";		
+	$operacion = "I";
+} else {
+	switch ($_GET['operacion']) {		
+	case "M" :
+			$leyenda_operacion = "Actualizar";		
+			$boton_operacion = "Actualizar";		
+			$operacion = "M";				
+			break;
+	case "B" :
+			$leyenda_operacion = "Eliminar";		
+			$boton_operacion = "Eliminar";		
+			$operacion = "B";				
+			break;
+	default:
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error de operación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		$result=false;
+	}
+}
+
+//------- GRILLA VALORES A MODIFICAR 
+if ($result)  { ?>
+	<br>
+	<div style="width:95%" align="right"><a href="comision_notificar_creditos.dhtml?comi_codigo=<?= $_GET['comi_codigo'] ?>">Volver a la Comisi&oacute;n </a></div>
+	<table width="100%" class="textoTablaDato">
+		<tr> 
+			<td align="center">			
+			<?php if (!MostrarGrillaSeleccion($conexion, $modulo_recarga))
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar datos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			?>
+			</td>
+		</tr>	
+	</table>
+	<br>
+<?php	}
+
+
+//------- DATOS DE UN REGISTRO
+if ($result) { 	
+
+	$fila_tabla=array();						//  NUEVO
+
+	if ($operacion == "I")
+		$fila_tabla['dto_codigo']="";
+		
+	if ($operacion == "M" || $operacion == "B") {	// BAJA o MODIFICACION
+
+		// Datos para la seleccion de un registro por su clave.
+		$cDatosDocumentos->ObtenerSPClave($spnombre_clave,$spparam_clave,$_GET['dto_codigo']);
+		if(!$conexion->ejecutarStoredProcedure($spnombre_clave,$spparam_clave,$query,$numfilas,$errno)) {	
+			$txt_sys_mail="\ndto_codigo=".$_GET['dto_codigo'];
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando datos de la tabla.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+			$result=false;
+		} elseif ($numfilas==0)  {
+				$txt_sys_mail="\ndto_codigo=".$_GET['dto_codigo']."\nnumfilas=".$numfilas;
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando datos, no existe el valor buscado.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				$result=false;
+			} else
+				$fila_tabla=mysqli_fetch_assoc($query);
+				
+	} // Obtencion de datos 
+	
+	if ( $result ) {  
+
+	?>
+	<table width="90%"  border="0" align="center" cellspacing="0" cellpadding="0">			
+		<!-- DATOS A MODIFICAR -->
+		<tr> 
+			<td>
+				<fieldset class="bordeDetalleRegistro">
+				<legend class="textoLeyendaDetalleRegistro">  Detalle del Registro  ( <?php echo $leyenda_operacion ?>  )</legend>
+				<form action="<?php echo $modulo_recarga."?comi_codigo=".$_GET['comi_codigo']; ?>" method="post" name="formulario">
+				<table width="100%" class="textoTablaDato" cellpadding="2" cellspacing="0">
+						<tr>
+							<td valign="top" class="textoEtiqueta">Encabezado</td>
+							<td class="textoEtiquetaDatoResaltado">	
+								 <input name="dto_linea_encabezado" type="text" <?php echo ($operacion == "B" )?' class="inputReadonly" readonly ':' class="textoInput" ' ?>  size="50" maxlength="100" value="<?php if($operacion == "M" || $operacion == "B") echo htmlspecialchars($fila_tabla['dto_linea_encabezado'],ENT_QUOTES) ?>"> 
+							</td>
+						</tr> 
+						<tr>
+							<td valign="top" class="textoEtiqueta">Línea 1</td>
+							<td class="textoEtiquetaDatoResaltado">	
+								 <input name="dto_sello_linea1" type="text" <?php echo ($operacion == "B")?' class="inputReadonly" readonly ':' class="textoInput" ' ?>  size="50" maxlength="50" value="<?php if($operacion == "M" || $operacion == "B") echo htmlspecialchars($fila_tabla['dto_sello_linea1'],ENT_QUOTES) ?>"> 
+							</td>
+						</tr> 
+						<tr>
+							<td valign="top" class="textoEtiqueta">Línea 2</td>
+							<td class="textoEtiquetaDatoResaltado">	
+								 <input name="dto_sello_linea2" type="text" <?php echo ($operacion == "B")?' class="inputReadonly" readonly ':' class="textoInput" ' ?>  size="50" maxlength="50" value="<?php if($operacion == "M" || $operacion == "B") echo htmlspecialchars($fila_tabla['dto_sello_linea2'],ENT_QUOTES) ?>"> 
+							</td>
+						</tr> 
+						<tr>
+							<td valign="top" class="textoEtiqueta">Línea 3</td>
+							<td class="textoEtiquetaDatoResaltado">	
+								 <input name="dto_sello_linea3" type="text" <?php echo ($operacion == "B")?' class="inputReadonly" readonly ':' class="textoInput" ' ?>  size="50" maxlength="50" value="<?php if($operacion == "M" || $operacion == "B") echo htmlspecialchars($fila_tabla['dto_sello_linea3'],ENT_QUOTES) ?>"> 
+							</td>
+						</tr> 
+						<tr>
+							<td valign="top" class="textoEtiqueta">Es Default</td>
+							<td class="textoEtiquetaDatoResaltado">	
+								 <input name="dto_default" type="checkbox" <?php echo ($operacion == "B")?' class="inputReadonly" readonly ':' class="textoInput" ' ?>  value="si" <?php echo (($operacion == "M" || $operacion == "B") && htmlspecialchars($fila_tabla['dto_default'],ENT_QUOTES)== SI)? "checked='checked'":""?>> 
+							</td>
+						</tr> 
+
+						<tr>
+							<td valign="top" class="textoEtiqueta">Nota</td>
+							<td class="textoEtiquetaDatoResaltado">	
+								 <input name="dto_linea_nota" type="text" <?php echo ($operacion == "B")?' class="inputReadonly" readonly ':' class="textoInput" ' ?>  size="50" maxlength="100" value="<?php if($operacion == "M" || $operacion == "B") echo htmlspecialchars($fila_tabla['dto_linea_nota'],ENT_QUOTES) ?>"> 
+							</td>
+						</tr> 
+						<tr>
+							<td colspan="2" align="center">
+								<input type="submit" name="boton_confirma" value="<?php echo $boton_operacion; ?>" onClick="return ValidarFormAltaDatosDocumentos(formulario,'<?php echo $operacion ?>'); " class="botones" />
+								<input type="submit" name="boton_cancela" value="Cancelar" class="botones" />
+								<input type="hidden" name="operacion" id="operacion" value="<?php echo $operacion;?>" />
+								<input type="hidden" name="dto_codigo" id="dto_codigo" value="<?php echo $fila_tabla['dto_codigo'] ?>" />				  
+							</td>
+						</tr>					
+				</table>
+				</form>
+				</fieldset> 	
+			</td>
+			</tr>
+		</table>
+<?php	} // 
+} //  
+$oEncabezados->PieMenuEmergente(); 
+?>

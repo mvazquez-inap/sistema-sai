@@ -1,0 +1,39 @@
+<?php 
+
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$_SESSION['rolcod']=0;
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+
+//----------------------------------------------------------------------------------------- 
+
+	//  borrar las variables de sesion y cierra la sesion
+	FuncionesPHPLocal::RegistrarAcceso($conexion,"010004","",$_SESSION["usuariocod"]);	
+
+	$_SESSION=array();
+	session_destroy();
+
+	echo "<p>&nbsp;</p>";
+	FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"Ud. se ha desconectado del sistema",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+
+?>
+<br>
+<div align="center"><a href="index.dhtml" class="linkFondoBlanco textoAclaraciones">Volver al Inicio del Sistema </a></div>
+<?php
+$oEncabezados->PieMenuEmergente();
+?>

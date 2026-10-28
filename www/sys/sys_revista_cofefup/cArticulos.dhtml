@@ -1,0 +1,566 @@
+<?php 
+class cArticulos 
+{
+	var $conexion;
+	var $error=0; 
+
+	//-----------------------------------------------------------------------------------------
+	function __construct($conexion,$formato=FMT_TEXTO)
+	{
+		$this->conexion = &$conexion;
+	}
+	
+	// Destructor de la clase
+	function __destruct() {	
+		
+    } 	
+	
+//----------------------------------------------------------------------------------------- 
+//                                       PUBLICAS   
+//----------------------------------------------------------------------------------------- 
+  	public function PuedeModificar($regdatocod)
+	{
+		// Busco el curso y me fijo si esta cerrado
+		if(!$this->RegistroXRegdatocod($regdatocod,$datos))
+			return false;
+
+		// PENDIENTE DE DEFINIR	
+		// if ($datos['cat_02']==ESTCURSOCERRADO) // Va a ser ESTARTICULOCERRADO, es lo que vos llamabas finalizado
+		//	return false;
+				
+		return true;		
+	}
+	
+	
+	public function BusquedaAvanzada($datosbusqueda,&$tipo,&$resultado,&$numfilas)
+	{
+		$campo = " a.*, b.*  "; // pendiente , d.tabcampocatdesc as estado 
+		if ($tipo==1)
+			$campo = " COUNT(a.idart) as total ";
+		
+		$spnombre="sel_articulos_buscar";
+		$sparam=array(
+			'pcampos'=> $campo,
+			'pxtitulo'=> 0,
+			'ptitulo'=> "",
+			'pxdesc_corta'=> 0,
+			'pdesc_corta'=> "",
+			'pxidpub'=> 0,
+			'pidpub'=> "",
+ 			'pxidart'=>0,
+ 			'pidart'=>-1,		
+			'pxdestacado'=>0,
+ 			'pdestacado'=>"",		
+ 			'pxmas_leido'=>0,
+ 			'pmas_leido'=>"",		
+			'pxanio_edicion'=>0,
+ 			'panio_edicion'=>"",		
+			'pxnumero_edicion'=>0,
+ 			'pnumero_edicion'=>"",
+			'pxestadoart'=>0,
+ 			'pestadoart'=>-1,
+			'pxestadopub'=>0,
+ 			'pestadopub'=>-1,	
+			'porderby'=> "",
+			'plimit'=> ""
+			);
+	
+		if (isset ($datosbusqueda['titulo']) && $datosbusqueda['titulo']!="")
+		{
+			$sparam['ptitulo'] = $datosbusqueda['titulo'];
+			$sparam['pxtitulo'] = 1;
+		}	
+		
+		if (isset ($datosbusqueda['desc_corta']) && $datosbusqueda['desc_corta']!="")
+		{
+			$sparam['pdesc_corta'] = $datosbusqueda['desc_corta'];
+			$sparam['pxdesc_corta'] = 1;
+		}	
+		
+		if (isset ($datosbusqueda['idpub']) && $datosbusqueda['idpub']!="")
+		{
+			$sparam['pidpub'] = $datosbusqueda['idpub'];
+			$sparam['pxidpub'] = 1;
+		}
+		
+		if (isset ($datosbusqueda['idart']) && $datosbusqueda['idart']!="")
+		{
+			$sparam['pidart'] = $datosbusqueda['idart'];
+			$sparam['pxidart'] = 1;
+		}
+		if (isset ($datosbusqueda['destacado']) && $datosbusqueda['destacado']!="")
+		{
+			$sparam['pdestacado'] = $datosbusqueda['destacado'];
+			$sparam['pxdestacado'] = 1;
+		}
+		if (isset ($datosbusqueda['mas_leido']) && $datosbusqueda['mas_leido']!="")
+		{
+			$sparam['pmas_leido'] = $datosbusqueda['mas_leido'];
+			$sparam['pxmas_leido'] = 1;
+		}	
+		if (isset ($datosbusqueda['anio_edicion']) && $datosbusqueda['anio_edicion']!="")
+		{
+			$sparam['panio_edicion'] = $datosbusqueda['anio_edicion'];
+			$sparam['pxanio_edicion'] = 1;
+		}		
+		if (isset ($datosbusqueda['numero_edicion']) && $datosbusqueda['numero_edicion']!="")
+		{
+			$sparam['pnumero_edicion'] = $datosbusqueda['numero_edicion'];
+			$sparam['pxnumero_edicion'] = 1;
+		}	
+		if (isset ($datosbusqueda['estadoart']) && $datosbusqueda['estadoart']!="")
+		{
+			$sparam['pestadoart'] = $datosbusqueda['estadoart'];
+			$sparam['pxestadoart'] = 1;
+		}	
+		if (isset ($datosbusqueda['estadopub']) && $datosbusqueda['estadopub']!="")
+		{
+			$sparam['pestadopub'] = $datosbusqueda['estadopub'];
+			$sparam['pxestadopub'] = 1;
+		}	
+		if (isset ($datosbusqueda['limit']) && $datosbusqueda['limit']!="")
+		{
+			$sparam['plimit'] = $datosbusqueda['limit'];
+		}	
+		if (isset ($datosbusqueda['orderby']) && $datosbusqueda['orderby']!="")
+		{
+			$sparam['porderby'] = $datosbusqueda['orderby'];
+		}else {
+			$sparam['porderby'] = 'orden desc';
+		}	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			FuncionesPHPPortal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se han podido obtener los registros por búsqueda.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		return true;	
+	}
+	
+
+
+	public function Buscarxidpublicacion($datos,&$resultado,&$numfilas)
+	{
+		
+		$spnombre="sel_articulo_xidpub";
+		$sparam=array(
+			'pidpub'=> $datos["idpub"]
+			);
+	
+		// echo "<br> Aca en busqueda de artículos";
+		// print_r($sparam);
+			
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			FuncionesPHPPortal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se han podido obtener los registros por búsqueda.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		return true;
+	}
+
+
+	function InsertarArticuloCompleto($datos,&$idart)
+	{
+
+		//if (!$this->PuedeInsertar($datos))
+		//	return false;
+		$spnombre="ins_articulo";
+		$sparam=array(
+			'pidpub'=> $datos["idpub"],
+			'ptitulo'=> $datos["titulo"],
+			'pdesc_corta'=> $datos["desc_corta"],
+			'pcopete'=> $datos["copete"],
+			'pdesc_larga'=> $datos["desc_larga"],
+			'porden_menu'=> $datos["orden_menu"],
+			'plink'=> $datos["link"],
+			'pimg'=> $datos["img"],
+			'pimg_alt'=> $datos["img_alt"],
+			'pepigrafe'=> $datos["epigrafe"],
+			'paudio'=> $datos["audio"],
+			'pvideo_embebido'=> $datos["video_embebido"],
+			'pdestacado'=> $datos["destacado"],
+			'porden_destacado'=> $datos["orden_destacado"],
+			'pmas_leido'=> $datos["mas_leido"],
+			'porden_mas_leido'=> $datos["orden_mas_leido"],
+			'porden'=> $datos["orden"],
+			'pestado'=> ACTIVO,
+			'pusuariobloqueo'=> $_SESSION['usuariocod'],
+			'pultmodusuario'=> $_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y-m-d H:i:s")
+			);
+			
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			FuncionesPHPPortal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se ha podido insertar el articulo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$idart=$this->conexion->UltimoCodigoInsertado();
+		
+		
+		return true;
+	
+	}
+	
+	function ModificarArticuloCompleto($datos,&$idart)
+	{
+
+		//if (!$this->PuedeInsertar($datos))
+			//return false;
+	$spnombre="upd_articulo_xidart";
+		$sparam=array(
+			'pidpub'=> $datos["idpub"],
+			'ptitulo'=> $datos["titulo"],
+			'pdesc_corta'=> $datos["desc_corta"],
+			'pcopete'=> $datos["copete"],
+			'pdesc_larga'=> $datos["desc_larga"],
+			'porden_menu'=> $datos["orden_menu"],
+			'plink'=> $datos["link"],
+			'pimg'=> $datos["img"],
+			'pimg_alt'=> $datos["img_alt"],
+			'pepigrafe'=> $datos["epigrafe"],
+			'paudio'=> $datos["audio"],
+			'pvideo_embebido'=> $datos["video_embebido"],
+			'pdestacado'=> $datos["destacado"],
+			'porden_destacado'=> $datos["orden_destacado"],
+			'pmas_leido'=> $datos["mas_leido"],
+			'porden_mas_leido'=> $datos["orden_mas_leido"],
+			'porden'=> $datos["orden"],
+			'pestado'=> ACTIVO,
+			'pusuariobloqueo'=> $_SESSION['usuariocod'],
+			'pultmodusuario'=> $_SESSION['usuariocod'],
+			'pultmodfecha'=> date("Y-m-d H:i:s"),
+			'pidart'=> $datos["idart"]
+	);	
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			FuncionesPHPPortal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se ha podido modificar el articulo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		$idpub=$this->conexion->UltimoCodigoInsertado();
+		
+		
+		return true;
+	
+	}
+	
+	
+	function EliminarArticulo($datos)
+	{
+
+		//if (!$this->PuedeEliminar($datos))
+			//return false;
+
+		$spnombre="del_articulo_xidart";
+		$sparam=array(
+			'pidart'=> $datos["idart"]
+			);
+
+		
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			FuncionesPHPPortal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se ha podido eliminar el articulo.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		} 
+
+		
+		
+		return true;
+	
+	}
+
+
+
+	
+/* 	
+//-----------------------------------------------------------------------------------------
+//                                       PRIVADAS   
+//----------------------------------------------------------------------------------------- 
+// Retorna si los datos enviados son válidos para dar de alta un nuevo registro
+
+// Parámetros de Entrada:
+//          datos: un array asociativo con los datos a cargar
+
+// Retorna:
+//          datosvalidados: datos habilitados para cargar en la base
+//          la función retorna true si los datos están correctos, false en caso contrario
+      
+      protected function DatosValidosAlta($datos,&$datosvalidados)
+      {
+            $datosvalidados=array();
+            
+            if(!$this->ValidarDatosBasicosRegistro($datos,$datosvalidados))
+                  return false;
+                  
+            $datosvalidados['regdatoestado'] = REGINICICIAL;     
+            
+            return true;
+      }
+//----------------------------------------------------------------------------------------- 
+// Retorna si los datos enviados son válidos para actualizar un registro
+
+// Parámetros de Entrada:
+//          regdatocod: es el registro a actualizar
+//          datos: un array asociativo con los datos a cargar
+
+// Retorna:
+//          datosvalidados: datos habilitados para actualizar el registro
+//          la función retorna true si los datos están correctos, false en caso contrario
+      
+
+      protected function DatosValidosModificacion($regdatocod,$datos,&$datosvalidados)
+      {
+        	if(!$this->ValidarDatosBasicosRegistro($datos,$datosvalidados))
+                  return false;
+                  
+            return true;
+      }
+//----------------------------------------------------------------------------------------- 
+// Retorna si el registro se puede borrar
+
+// Parámetros de Entrada:
+//          usuariocod,rol: es el usuario/rol que quiere borrar el registro
+//          regdatocod: es el registro a borrar
+
+// Retorna:
+//          datosvalidados: datos habilitados para borrar el registro
+//          la función retorna true si los datos están correctos, false en caso contrario
+
+    protected function DatosValidosBorrado($usuariocod,$rolcod,$notcod,&$datosvalidados)
+    {
+    
+// falta
+    	return true;
+    }      
+
+//----------------------------------------------------------------------------------------- 
+// Verifica si están los datos básicos de un registro
+
+// Parámetros de Entrada:
+//          datos: los datos a validar
+
+// Retorna:
+//          datosvalidados: los datos ya validados
+//          la función retorna true o false si se pudo ejecutar con éxito o no
+      
+	protected function ValidarDatosBasicosRegistro($datos,&$datosvalidados)
+    {
+		if($datos['regdatonom']=="")
+        {
+        	FuncionesPHPPortal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Falta ingresar el nombre interno.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+            return false;
+		}
+        $datosvalidados["regdatonom"]=$datos['regdatonom'];
+
+        if($datos['regdatodesccorta']=="")
+        {
+        	FuncionesPHPPortal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Falta ingresar el título. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+            return false;
+		}
+        $datosvalidados["regdatodesccorta"]=$datos['regdatodesccorta'];
+
+        if($datos['regdatocopete']=="")
+        {
+        	FuncionesPHPPortal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Falta ingresar el copete. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+            return false;
+		}
+		
+		if(strlen($datos['regdatocopete'])>400)
+        {
+        	FuncionesPHPPortal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"El copete superó la máxima longitud permitida. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+            return false;
+		}
+        $datosvalidados["regdatocopete"]=$datos['regdatocopete'];
+
+        $datosvalidados["regdatofvenc"]="NULL";
+            
+        if(!FuncionesPHPPortal::ValidarContenido($this->conexion,$datos["regdatoorden"],"NumericoEntero"))
+        {
+        	FuncionesPHPPortal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"Error en el orden. Debe ser numérico. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+            return false;
+		}
+        $datosvalidados["regdatoorden"]=$datos['regdatoorden'];
+
+        if(isset($datos["regdatodestacada"]))
+        	$datosvalidados["regdatodestacada"]="1";
+		else 
+        	$datosvalidados["regdatodestacada"]="0";
+            
+		$datosvalidados["regdatodesclarga"]=$datos['regdatodesclarga'];
+
+		$datosvalidados["regdatolink"] 		= $datos["regdatolink"] ;
+		
+		$datosvalidados["imgcod"]=$datos['imgcod'];
+		
+		$datosvalidados["regdatovideo"]=$datos['regdatovideo'];
+		$datosvalidados["regdatoepigrafe"]=$datos['regdatoepigrafe'];
+    	$datosvalidados["imgalt"]=$datos['imgalt'];    
+		$datosvalidados["regdatoaudio"]=$datos['regdatoaudio'];
+		$datosvalidados["regdatovideoyoutube"] 	= $datos['regdatovideoyoutube'];
+        
+		
+        // Setea en null aquellos datos que no se usan en la implementación de articulos 
+        $datosvalidados["regdatofinicio"]   = "NULL";
+        $datosvalidados["regdatoffin"]      =  "NULL";
+        $datosvalidados["regdatofvenc"] 	= "NULL";
+        $datosvalidados["usuariobloqueo"] 	= "NULL";
+                        
+		return true;
+	}
+
+//----------------------------------------------------------------------------------------- 
+	protected function AltaRegistroTablaPropiaVariables($datos,$regdatocod)
+	{
+
+	$datos["art_tags"]=NULL;
+	
+    	$spnombre="ins_tablas_propias_articulos_datos_variables";
+		$sparam=array(
+				'pregdatocod'=> $regdatocod,
+				'part_ano_edicion'=> $datos["art_ano_edicion"],
+				'part_numero_edicion'=> $datos["art_numero_edicion"],
+				'part_orden_menu'=> $datos["art_orden_menu"],
+				'part_es_mas_leida'=> $datos["art_es_mas_leida"],
+				'part_orden_destacada'=> $datos["art_orden_destacado"],
+				'part_orden_mas_leida'=> $datos["art_orden_mas_leida"],
+				'part_tags'=> $datos["art_tags"],
+				'pultmodusuario'=> $_SESSION['usuariocod'],
+				'pultmodfecha'=> date("Y/m/d H:i:s")
+		);
+
+
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$query,$numfilas,$errno) || $numfilas!=1)
+		{
+			FuncionesPHPPortal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se ha podido insertar el registro.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		return true;
+	}     
+//----------------------------------------------------------------------------------------- 
+    protected function ModificarRegistroTablaPropiaVariables($datos,$regdatocod)
+	{
+		if(!$this->_DatosValidosModifVariables($datos,$datosvalidados))
+			return false;
+	
+			
+		$datos["art_tags"]=NULL;
+		$spnombre="upd_tablas_propias_articulos_datos_variables_xregdatocod";
+		$sparam=array(
+				'pregdatocod'=> $regdatocod,
+				'part_ano_edicion'=> $datos["art_ano_edicion"],
+				'part_numero_edicion'=> $datos["art_numero_edicion"],
+				'part_orden_menu'=> $datos["art_orden_menu"],
+				'part_es_mas_leida'=> $datos["art_es_mas_leida"],
+				'part_orden_destacada'=> $datos["art_orden_destacado"],
+				'part_orden_mas_leida'=> $datos["art_orden_mas_leida"],
+				'part_tags'=> $datos["art_tags"],
+				'pultmodusuario'=> $_SESSION['usuariocod'],
+				'pultmodfecha'=> date("Y/m/d H:i:s")
+	    );
+
+
+	    		echo "ACA ";
+		print_r($sparam);
+		echo "ACA ";
+	    if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$query,$numfilas,$errno) || $numfilas!=1)
+		{
+			FuncionesPHPPortal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se ha podido insertar el registro.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+
+		return true;
+	}     
+//----------------------------------------------------------------------------------------- 
+	protected function PuedeEliminarRegistroTablaPropia($regdatocod,&$tipobaja)
+	{
+		if(!$this->RegistroXRegdatocod($regdatocod,$datos))
+			return false;
+		
+		switch ($datos['cat_02'])
+		{
+			case ESTCURSOCARGADO:
+				$tipobaja=1;
+				break;
+			case ESTCURSOABIERTO:	
+			case ESTCURSOCERRADO:
+				$tipobaja=2;
+				break;
+			default:
+				$tipobaja=2;	
+		}					
+		return true;
+	}
+	
+	
+	protected function 	EliminarRegistroTablaPropiaVariables($regdatocod) 
+	{
+		
+		$spnombre="del_tablas_propias_articulos_datos_variables_xregdatocod";
+		$sparam=array(
+			'pregdatocod'=> $regdatocod
+			);		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$query,$numfilas,$errno) || $numfilas!=1)
+		{
+			FuncionesPHPPortal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"No se ha podido borrar el registro de la tabla propia de variables.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+			
+		return true;
+	}
+//----------------------------------------------------------------------------------------- 
+    private function _DatosValidosAltaVariables($datos,&$datosvalidados)
+    {
+    	if(!$this->_DatosValidosVariables($datos,$datosvalidados))
+			return false; 	
+      	
+      	// PENDIENTE VER: $datosvalidados["cat_02"] = ESTCURSOCARGADO;
+           
+      	return true;
+	}
+//----------------------------------------------------------------------------------------- 
+   private function _DatosValidosModifVariables($datos,&$datosvalidados)
+    {
+    	if(!$this->_DatosValidosVariables($datos,$datosvalidados))
+			return false; 	
+      	
+		// Estados posibles
+
+      	return true;
+	}
+//----------------------------------------------------------------------------------------- 
+    private function _DatosValidosVariables($datos,&$datosvalidados)    
+    {
+        return true; 
+    }
+
+*/
+
+//-----------------------------------------------------------------------------------------
+// getError
+//----------------------------------------------------------------------------------------- 
+// Entrada: -
+// Retorna: El error ocurrido.
+//----------------------------------------------------------------------------------------- 
+	public function getError()
+	{
+		return $this->error;
+	}
+//-----------------------------------------------------------------------------------------
+//							 PRIVADAS	
+//----------------------------------------------------------------------------------------- 
+// setError
+//----------------------------------------------------------------------------------------- 
+// Entrada: El error a setear en la variable privada de la clase.
+// Retorna: No retorna datos.
+//-----------------------------------------------------------------------------------------
+	private function setError($error)
+	{
+		$this->error=$error;
+		$this->fault=true;
+	}
+//-----------------------------------------------------------------------------------------
+	
+}// FIN CLASE
+?>

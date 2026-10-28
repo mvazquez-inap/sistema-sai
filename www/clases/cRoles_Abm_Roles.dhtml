@@ -1,0 +1,141 @@
+<?php
+//----------------------------------------------------------------------------------------- 
+class cRoles_Abm_Roles
+{
+	var $conexion;
+
+	public function __construct($conexion)
+	{
+		$this->conexion = &$conexion;
+	}
+//-----------------------------------------------------------------------------------------
+//							 PUBLICAS	
+//----------------------------------------------------------------------------------------- 
+// Tabla roles_abm_roles (rolcodactualiza, rolcodactualizado, ultmodusuario, ultmodfecha)
+//----------------------------------------------------------------------------------------- 
+// Retorna una consulta con todos los usuarios que cumplan con las condiciones
+
+// Parámetros de Entrada:
+//		ArregloDatos: array asociativo con los filtros. Claves: usuarionombre, usuarioapellido, usuariocuit, usuarioemail
+
+// Retorna:
+//		numfilas,resultado: cantidad de filas y query de resultado
+//		la función retorna true o false si se pudo ejecutar con éxito o no
+
+	function BuscarDatos ($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)
+	{
+		$sparam=array('pestadoactualizado' =>0);
+		$sparam+=array('pestadoactualiza' =>0);
+	
+		$sparam+=array('prolcodactualizado' =>"");
+		$sparam+=array('prolcodactualiza' =>"");
+
+		$sparam+=array('porderby' =>"rolcodactualizado");
+
+		if (isset ($ArregloDatos['rolcodactualizado']))
+		{
+			if ($ArregloDatos['rolcodactualizado']!="")
+			{	
+				$sparam['prolcodactualizado']= $ArregloDatos['rolcodactualizado'];
+				$sparam['pestadoactualizado']= 1;
+			}
+		}
+		
+		if (isset ($ArregloDatos['rolcodactualiza']))
+		{
+			if ($ArregloDatos['rolcodactualiza']!="")
+			{	
+				$sparam['prolcodactualiza']= $ArregloDatos['rolcodactualiza'];
+				$sparam['pestadoactualiza']= 1;
+			}
+		}	
+		
+		if (isset ($ArregloDatos['orderby']))
+		{
+			if ($ArregloDatos['orderby']!="")
+				$sparam['porderby']= $ArregloDatos['orderby'];
+		}	
+		
+		$spnombre="sel_roles_abm_roles";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar el Roles-ABM-Roles.";
+			$errormail="Error al buscar el Roles-ABM-Roles ".$errno;
+			return false;
+		}
+
+		return true;
+	}
+
+
+
+	function Insertar ($ArregloDatos, &$error, &$errormail)
+	{
+		
+		if (!$this->BuscarDatos ($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+			return false;
+		
+		if ($numfilas==1)
+		{
+			$error="Error, el Rol-ABM-Rol ya se encuentra en la tabla de Roles-ABM-Roles. ";
+			$errormail="Error, el Rol-ABM-Rol ya se encuentra en la tabla de Roles-ABM-Roles. ";
+			return false;
+		}
+		
+		$sparam =array("prolcodactualiza"=>$ArregloDatos['rolcodactualiza']);
+		$sparam+=array("prolcodactualizado"=>$ArregloDatos['rolcodactualizado']);
+		$sparam+=array("pultmodusuario"=>$_SESSION['usuariocod']);
+		$sparam+=array("pultmodfecha"=>date("Y/m/d H:i:s"));
+		$spnombre="ins_roles_abm_roles";
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al insertar el Rol-ABM-Rol.";
+			$errormail="Error al insertar el Rol-ABM-Rol".$errno;
+			return false;
+		}
+		return true;
+	}
+
+
+	function Eliminar ($ArregloDatos, &$error, &$errormail)
+	{
+		if (!isset ($ArregloDatos['rolcodactualiza']) || ($ArregloDatos['rolcodactualiza']==""))
+		{
+			$error="Error Código de Rol que actualiza Inexistente.";
+			$errormail="Error Código de Rol que actualiza Inexistente.";
+			return false;
+		}
+		if (!isset ($ArregloDatos['rolcodactualizado']) || ($ArregloDatos['rolcodactualizado']==""))
+		{
+			$error="Error Código Rol Actualizado Inexistente.";
+			$errormail="Error Código de Rol Actualizado Inexistente.";
+			return false;
+		}
+		if (!$this->BuscarDatos ($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+			return false;
+		
+		if ($numfilas!=1)
+		{
+			$error="Error Código de Rol-ABM-Rol Inexistente.";
+			$errormail="Error Código de Rol-ABM-Rol Inexistente. ";
+			return false;
+		}
+		
+		//VERIFICAR QUE NO TENGA NADA COLGANDO(MODULOS)
+		
+		$sparam =array("prolcodactualiza"=>$ArregloDatos['rolcodactualiza']);
+		$sparam +=array("prolcodactualizado"=>$ArregloDatos['rolcodactualizado']);
+		$spnombre="del_roles_abm_roles_xrolcodactualiza_rolcodactualizado";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al Eliminar el Rol-ABM-Rol.";
+			$errormail="Error al Eliminar el Rol-ABM-Rol ".$errno;
+			return false;
+		}
+		return true;
+	}
+
+
+}
+
+?>

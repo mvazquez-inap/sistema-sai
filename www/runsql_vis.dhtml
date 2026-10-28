@@ -1,0 +1,66 @@
+<?php
+//--------------------------------------------------------------------------
+//  Ejecutar en producción
+//--------------------------------------------------------------------------
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$base_datos = getenv("SAI_RUNSQL_VIS_DB") ?: "";
+$servidor = getenv("SAI_RUNSQL_HOST") ?: "";
+$usuariodb = getenv("SAI_RUNSQL_USER") ?: "";
+$clave = getenv("SAI_RUNSQL_PASSWORD") ?: "";
+echo "<br> HOLA <br>";
+
+/*
+// JURISDICCIONES
+$base_datos = getenv("SAI_RUNSQL_ALT_DB") ?: "";
+$servidor = getenv("SAI_RUNSQL_ALT_HOST") ?: "";
+$usuariodb = getenv("SAI_RUNSQL_ALT_USER") ?: "";
+$clave = getenv("SAI_RUNSQL_ALT_PASSWORD") ?: "";
+*/
+
+mysqli_report(MYSQLI_REPORT_OFF);
+$idconexion = mysqli_connect($servidor, $usuariodb, $clave) or die("No es posible establecer conexion con MySQL Server");
+
+mysqli_select_db($idconexion, $base_datos) or die("No es posible conectar a la base de datos");
+
+// --------------------------
+// consultas a ejecutar
+// --------------------------
+echo "<br>(primera) <br>";
+$sql="select * from into actividad_curso_prestador_docente where act_codigo=5442 and presdoc_codigo=1810";
+
+$query=mysqli_query($idconexion, $sql) or die("Error SQL[= ".$sql."] Error:".mysqli_error($idconexion));
+$filas_afectadas = mysqli_affected_rows($idconexion);
+$fila1=mysqli_fetch_assoc($query);
+
+echo "<br>Realizando la operación (primera) <br>";
+echo "<br>Filas afectadas = ".$filas_afectadas."<br>";
+print_r($fila1);
+
+echo "<br>(segunda) <br>";
+
+$sql="select * from comision_prestador_docente  where comi_codigo=3325 and act_codigo=5442 and presdoc_codigo=1810";
+$query=mysqli_query($idconexion, $sql) or die("Error SQL[= ".$sql."] Error:".mysqli_error($idconexion));
+$filas_afectadas = mysqli_affected_rows($idconexion);
+$fila2=mysqli_fetch_assoc($query);
+print_r($fila2);
+
+echo "<br>Realizando la operación (segunda) <br>";
+echo "<br>Filas afectadas = ".$filas_afectadas."<br>";
+echo "<br>FIN --- fin proceso <br>";
+?>

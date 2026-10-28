@@ -1,0 +1,264 @@
+<?php 
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+//-----------------------------------------------------------------------------------------------------	
+switch ($_GET['tipo']) {
+
+	case 1: // Notificaccion de creditos para una comisiones: 	x personas 
+			//													x jurisdicción	 
+
+		$oComisionPersona= new cComisionPersona($conexion);		
+		$ok = true;
+		$ArregloDatos = array();
+		$ArregloDatos['comi_codigo'] = $_GET['comi_codigo'];
+		
+		if (!$oComisionPersona->ObtenerNotificacionCabecera($ArregloDatos, $datos_cabecera)) {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al obtener la cabecera de la Constancia de realización.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$ok = false;		
+		} else {
+		
+			$ArregloDatos = array();
+			$ArregloDatos['comi_codigo'] = $_GET['comi_codigo'];
+			$ArregloDatos['eval_certifica'] = array('"','S','"'); // Se Informan los que certifican
+			
+			if ($_GET["pers_cuilt"] != "") {
+				$oPersonas = new cPersonas($conexion);
+				if(!$oPersonas->TraerDatosPersona($_GET["pers_cuilt"],$datospersona,$es_modif)) {
+					$ok = false;
+				} elseif ($es_modif) {
+					$ArregloDatos['pers_codigo'] = $datospersona['pers_codigo'];		
+				} else {
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No se ha encontrado la persona.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					$ok = false;		
+				}	
+			}
+			
+			switch ($_GET['juridid_inap']) {
+				case "-1":
+					break;
+				case "-2":
+					$ArregloDatos['jurisdid_inap'] = "NULL";
+					break;
+				default:
+					$ArregloDatos['jurisdid_inap'] = $_GET['juridid_inap'];
+					break;			
+			}
+		}	
+		
+		if ($ok) {
+
+			//	Arreglo x pedigo de orden por apellido y nombre en los incriptos
+			$ArregloDatos['orderby'] = "jurisd_inap_nombre, pers_apellido, pers_nombre";
+
+			if (!$oComisionPersona->ObtenerNotificacionInscriptos($ArregloDatos, $datos_inscriptos)) {
+				$ok = false;
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar los inscriptos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} elseif (count($datos_inscriptos)>0) {
+
+				// x Pedido
+				//  Si selecciona Formato multiple y todos los organismos 
+				//	NO hay que mostrar las personas a las que no les corresponde orgnanismo de coordinacion 
+				if ($_GET['formato'] == "M") { // Formato multiple
+					if ($_GET['juridid_inap']==-1)	{ 						// Selecciono todos los organismos 
+						foreach($datos_inscriptos as $i=>$valor) {
+							if ($valor['jurisdid_inap']==NO_CORRESPONDE) 	// Organismo no corresponde 
+								unset($datos_inscriptos[$i]);									
+						} // foreach
+					} // if 
+				} // if		
+				
+				if (!$oComisionPersona->ImprimirNotificacionCreditos($datos_cabecera, $datos_inscriptos,$_GET['formato'])) {
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al imprimir los inscriptos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					$ok = false;
+				}
+			} else 
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No hay inscriptos certificados con los datos seleccionados.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		}
+		break;
+	
+	case 2:		// Constancia de Certificación para una actividad x persona (para act. ext)
+				//										recibe = actividad, secuencia, persona
+
+		// tiene que venir la actividad - por ahora para 1 sola persona	
+		if (isset($_GET['act_codigo']) ){ 
+
+			$ArregloDatos['act_codigo'] = $_GET['act_codigo'];		
+			$ArregloDatos['actprog_sec'] = $_GET['actprog_sec'];		
+
+			if ($_GET["pers_cuilt"] != "") {
+				$oPersonas = new cPersonas($conexion);
+				if(!$oPersonas->TraerDatosPersona($_GET["pers_cuilt"],$datospersona,$es_modif)) {
+					$ok = false;
+				} elseif ($es_modif) {
+					$ArregloDatos['pers_codigo'] = $datospersona['pers_codigo'];		
+				} else {
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No se ha encontrado la persona.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					$ok = false;		
+				}	
+			}
+			$oActividadPersona = new cActividadExternaPersona($conexion);
+					
+			if (!$oActividadPersona->ObtenerConstanciaCreditosCabecera($ArregloDatos, $datos_cabecera)) {
+				$txt_sys_mail = "Datos cabecera -\npers_codigo=".$ArregloDatos['pers_codigo']."\act_codigo=".$ArregloDatos['act_codigo'];	
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar los personas certificadas.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} elseif (!$oActividadPersona->ObtenerConstanciaCertificacion($ArregloDatos, $personas_inscriptas)) {
+				$txt_sys_mail = "Datos cuerpo de la constancia de ceritficación -\npers_codigo=".$ArregloDatos['pers_codigo']."\act_codigo=".$ArregloDatos['act_codigo'];	
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar los personas certificadas.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} elseif (count($personas_inscriptas)>0) {
+					$oActividadPersona->ImprimirConstanciaCreditosTabla($datos_cabecera,$personas_inscriptas);
+			} else 
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No hay personas certificadas en la actividdad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+
+
+		} else {
+
+			$txt_sys_mail = "No esta seteado el codigo de actividad.";	
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al imprimir la constancia de certificación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+
+		}	
+		break;
+						
+
+	case 3:		// Constancia de Certificación para una actividad  (para act. autodesarrollo)
+				//										recibe = actividad, persona - tipoact_codigo
+
+		// tiene que venir la actividad - por ahora para 1 sola persona	
+		if (isset($_GET['act_codigo']) ){ 
+
+			$ArregloDatos['act_codigo'] = $_GET['act_codigo'];		
+			$ArregloDatos['tipoact_codigo'] = $_GET['tipoact_codigo'];					
+
+			if ($_GET["pers_cuilt"] != "") {
+				$oPersonas = new cPersonas($conexion);
+				if(!$oPersonas->TraerDatosPersona($_GET["pers_cuilt"],$datospersona,$es_modif)) {
+					$ok = false;
+				} elseif ($es_modif) {
+					$ArregloDatos['pers_codigo'] = $datospersona['pers_codigo'];		
+				} else {
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No se ha encontrado la persona.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					$ok = false;		
+				}	
+			}
+			
+			$oActividadPersona=new cActividadAutodesarrolloPersona($conexion);				
+			if (!$oActividadPersona->ObtenerConstanciaCreditosCabecera($ArregloDatos, $datos_cabecera)) {
+				$txt_sys_mail = "Datos cabecera -\npers_codigo=".$ArregloDatos['pers_codigo']."\act_codigo=".$ArregloDatos['act_codigo'];	
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar los personas certificadas.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} elseif (!$oActividadPersona->ObtenerConstanciaCertificacion($ArregloDatos, $personas_inscriptas)) {
+				$txt_sys_mail = "Datos cuerpo de la constancia de ceritficación -\npers_codigo=".$ArregloDatos['pers_codigo']."\act_codigo=".$ArregloDatos['act_codigo'];	
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar los personas certificadas.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} elseif (count($personas_inscriptas)>0) {
+					$oActividadPersona->ImprimirConstanciaCreditosTabla($datos_cabecera,$personas_inscriptas);
+			} else 
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No hay personas certificadas en la actividdad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+
+		} else {
+
+			$txt_sys_mail = "No esta seteado el codigo de actividad.";	
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al imprimir la constancia de certificación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+
+		}	
+		
+	case 4:		// Constancia de Certificación para una actividad Institucional (para act. autodesarrollo)
+				//										recibe = actividad, persona - tipoact_codigo
+
+		// tiene que venir la actividad - por ahora para 1 sola persona	
+		if (isset($_GET['act_codigo']) ){ 
+
+			$ArregloDatos['act_codigo'] = $_GET['act_codigo'];		
+
+			if (isset($_GET["pers_codigo"]) && $_GET["pers_codigo"] != "") {
+				$oPersonas = new cPersonas($conexion);
+				if(!$oPersonas->TraerDatosPersona_xCod($_GET["pers_codigo"],$datospersona,$es_modif)) {
+					$ok = false;
+				} elseif ($es_modif) {
+					$ArregloDatos['pers_codigo'] = $datospersona['pers_codigo'];		
+				} else {
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No se ha encontrado la persona.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					$ok = false;		
+				}	
+			}
+			$oActividadCursoInstitucionalPersona=new cActividadCursoInstitucionalPersona($conexion);				
+				
+			if (!$oActividadCursoInstitucionalPersona->ObtenerConstanciaCreditosCabecera($ArregloDatos, $datos_cabecera)) {
+				$txt_sys_mail = "Datos cabecera -\npers_codigo=".$ArregloDatos['pers_codigo']."\act_codigo=".$ArregloDatos['act_codigo'];	
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar los personas certificadas.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} elseif (!$oActividadCursoInstitucionalPersona->ObtenerConstanciaCertificacion($ArregloDatos, $personas_inscriptas)) {
+				$txt_sys_mail = "Datos cuerpo de la constancia de ceritficación -\npers_codigo=".$ArregloDatos['pers_codigo']."\act_codigo=".$ArregloDatos['act_codigo'];	
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar los personas certificadas.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} elseif (count($personas_inscriptas)>0) {
+					$oActividadCursoInstitucionalPersona->ImprimirConstanciaCreditosTabla($datos_cabecera,$personas_inscriptas);
+			} else 
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No hay personas certificadas en la actividdad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+
+		} else {
+
+			$txt_sys_mail = "No esta seteado el codigo de actividad.";	
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al imprimir la constancia de certificación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+
+		}	
+
+		break;
+		
+	case 5:		// Constancia de Certificación para una actividad Educación Formal
+				//										recibe = actividad, persona - tipoact_codigo
+
+		// tiene que venir la actividad - por ahora para 1 sola persona	
+		if (isset($_GET['act_codigo']) ){ 
+
+			$ArregloDatos['act_codigo'] = $_GET['act_codigo'];		
+
+			if ($_GET["pers_cuilt"] != "") {
+				$oPersonas = new cPersonas($conexion);
+				if(!$oPersonas->TraerDatosPersona($_GET["pers_cuilt"],$datospersona,$es_modif)) {
+					$ok = false;
+				} elseif ($es_modif) {
+					$ArregloDatos['pers_codigo'] = $datospersona['pers_codigo'];		
+				} else {
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No se ha encontrado la persona.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					$ok = false;		
+				}	
+			}
+
+			$oActividadEducacionFormalPersona=new cActividadEducacionFormalPersona($conexion);
+
+			if (!$oActividadEducacionFormalPersona->ObtenerConstanciaCreditosCabecera($ArregloDatos, $datos_cabecera)) {
+			
+				$txt_sys_mail = "Datos cabecera -\npers_codigo=".$ArregloDatos['pers_codigo']."\act_codigo=".$ArregloDatos['act_codigo'];	
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar los personas certificadas.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} elseif (!$oActividadEducacionFormalPersona->ObtenerConstanciaCertificacion($ArregloDatos, $personas_inscriptas)) {
+				$txt_sys_mail = "Datos cuerpo de la constancia de ceritficación -\npers_codigo=".$ArregloDatos['pers_codigo']."\act_codigo=".$ArregloDatos['act_codigo'];	
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar los personas certificadas.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} elseif (count($personas_inscriptas)>0) {
+					$oActividadEducacionFormalPersona->ImprimirConstanciaCreditosTabla($datos_cabecera,$personas_inscriptas);
+			} else 
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No hay personas certificadas en la actividdad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+
+		} else {
+
+			$txt_sys_mail = "No esta seteado el codigo de actividad.";	
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al imprimir la constancia de certificación.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO), $txt_sys_mail);
+
+		}	
+
+		break;		
+	
+		
+	}			
+
+?>

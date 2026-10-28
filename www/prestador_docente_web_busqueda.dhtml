@@ -1,0 +1,117 @@
+<?php 
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+//$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+
+
+//----------------------------------OBJETOS------------------------------------------------ 
+$oComisionPersonaCandidato = new cComisionPersonaCandidato($conexion);
+$oPersonas = new cPersonas($conexion);
+$oAgentes = new cAgentes($conexion);
+$oComision = new cComision($conexion);
+$oComisionPersona =	new cComisionPersona($conexion);
+//----------------------------------------------------------------------------------------- 
+
+$ok_actualiza = true;
+$ok = true;
+$comi_codigo = $_POST['comi_codigo'];
+	if (!$oComision->TraerDatosComision($comi_codigo,$filacomision,$es_modif)) {
+		$txt_sys_mail="\nvalor_buscado_".$comi_codigo."\nerror=".$errormail;
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+		$ok = false;
+	}
+	
+	if ($ok) 
+	{
+			$ArregloDatos= array();
+			$ArregloDatos['ppers_apellido'] = $_POST['buscado'];
+			$ArregloDatos['porderby'] = "pers_apellido, pers_nombre";
+			$ArregloDatos['pcomi_codigo'] = $comi_codigo;
+				
+			if (!$oComision->BuscarComisionInscriptos($ArregloDatos,$numfilas,$result,$error,$errormail)) {
+				$txt_sys_mail="\nvalor_buscado_".$comi_codigo."\nerror=".$errormail;
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando datos a mostrar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+				$ok = false;			
+			}
+	}	
+
+
+?>
+
+
+ 
+        <table width="100%" class="textoTablaDato" border="1" cellpadding="4" cellspacing="1" align="center">
+            
+            <tr class='colorTitulosGrupo textoTituloGrupo'>
+                <td align="center"> Apellido y Nombre</td>
+                <td align="center"> CUIT/CUIL</td>					
+                <td align="center"> Organismo</td>					
+                <td align="center"> Evaluaci&oacute;n</td>															
+            </tr>
+            
+            <?php 
+				   if($numfilas>0){
+		
+					$i=0;
+					while ($fila_inscripto = mysqli_fetch_assoc($result)) { 
+						
+						if ($fila_inscripto['jurisdid_inap'] != "") {
+							// busco el organismo de coordinación
+							$oAgentes = new cAgentes($conexion);
+							
+							$oAgentes->Jurisdid_InapSP($spnombre,$spparam);
+							if(!$oComision->conexion->BuscarRegistroxClave($spnombre,$spparam,array("jurisdid"=>$fila_inscripto["jurisdid_inap"]),$resultado,$filaret,$numfilasmatcheo,$errno))
+							{
+								FuncionesPHPLocal::MostrarMensaje($oComision->conexion,MSG_ERRSOSP,"Error al seleccionar el organismo de coordinación. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+								return false;
+							}
+						} else {
+							$filaret['jurisdnom'] = "No corresponde";
+						}					
+		
+						?>
+						<tr onmouseover="setPointer(this, <?php echo ($i+1) ?>, 'over', '<?php echo COLOR_FILA_FONDO_DEFAULT ?>','<?php echo COLOR_FILA_OVER ?>', '<?php echo COLOR_FILA_FONDO_CLARO ?>');" onmouseout="setPointer(this, <?php echo ($i+1) ?>, 'out', '<?php echo COLOR_FILA_FONDO_DEFAULT ?>', '<?php echo COLOR_FILA_OVER ?>', '<?php echo COLOR_FILA_FONDO_CLARO ?>');">
+							<td align="left" bgcolor="<?php echo COLOR_FILA_FONDO_DEFAULT; ?>"><?php echo $fila_inscripto['pers_apellido'].",",$fila_inscripto['pers_nombre']  ?></td>
+							<td align="left" bgcolor="<?php echo COLOR_FILA_FONDO_DEFAULT; ?>"><?php echo $fila_inscripto['pers_cuilt'] ?></td>					
+							<td align="left" bgcolor="<?php echo COLOR_FILA_FONDO_DEFAULT; ?>"><?php echo $filaret['jurisdnom'] ?></td>					
+							<td align="left" bgcolor="<?php echo COLOR_FILA_FONDO_DEFAULT; ?>">
+							<?php 	$spnombre="sel_evaluacion_orden";
+								$spparam=array('porderby'=>"eval_descripcion");				
+								$funcion_evaluar = "CambioComboEval(document,\"cambio_eval_codigo_".$fila_inscripto['pers_codigo']."\")";
+								FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario_evaluacion","eval_codigo_".$fila_inscripto['pers_codigo'],"eval_codigo","eval_descripcion",$fila_inscripto['eval_codigo'],"",$fila_tipo,$sele_tipo,"0",$funcion_evaluar,"",false,false);
+							?>
+								<input type="hidden" name="<?="cambio_eval_codigo_".$fila_inscripto['pers_codigo']?>"  id="<?="cambio_eval_codigo_".$fila_inscripto['pers_codigo']?>" value="0"/>
+							</td>								
+						</tr>							
+						
+						<?php $i++;
+						}
+						}else{ ?>
+						
+							<div class="textoEtiqueta" style="font-weight:bold; color: #000000; width:100%; padding-top:10px;  padding-left:190px"> No se encontro la persona buscada </div><br>
+
+					<?php	} ?>
+            
+            </table>
+
+
+
+
+<?php
+				
+				
+?>

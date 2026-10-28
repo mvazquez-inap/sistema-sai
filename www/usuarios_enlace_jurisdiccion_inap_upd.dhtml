@@ -1,0 +1,142 @@
+<?php 
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+
+
+$oUsuariosEnlaceJurisdiccionInap = new cUsuarios_Enlace_Jurisdiccion_Inap($conexion);
+
+
+
+//----------------------------------------------------------------------------------------- 
+function Validarphp($conexion,&$datosvalidados,$oUsuariosEnlaceJurisdiccionInap)
+{
+	$datosvalidados=array();
+	
+	if($_POST['usuariocod']=="")
+	{
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error en la selección del usuario. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;
+	}
+
+	if(!$conexion->BuscarRegistroxClave("sel_usuarios_roles_jurisdiccion_inap_xusuariocod_rolcod_jurisdid",array("pusuariocod"=>$_POST['usuariocod'],"prolcod"=>USUACTJUR,"pjurisdid_inap"=>0),array("usuariocod"=>$_POST['usuariocod']),$resultado,$filaret,$numfilasmatcheo,$errno))
+	{
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al seleccionar el usuario. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;
+	}
+	
+	if($numfilasmatcheo==0)
+	{
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al seleccionar el usuario. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;
+	}
+	$datosvalidados["usuariocod"]=$_POST['usuariocod'];
+	$datosvalidados["usuarioCUIT"]=$_POST['usuarioCUIT'];
+	
+	if(isset($_POST['listajurisdiccionesabajo']))
+		$arrayfinal=$_POST['listajurisdiccionesabajo'];
+	else
+		$arrayfinal=array();
+
+	$arrayinicial=array();
+	if(!$conexion->ejecutarStoredProcedure("sel_usuarios_enlace_jurisdiccion_inap_xusuariocod_rolcod_orden",array('pusuariocod'=>$datosvalidados["usuariocod"],'prolcod'=>USUACTJUR,'porderby'=>"jurisdid_inap"),$resultado,$numfilas,$errno))
+	{
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar los organismos. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;
+	}
+	while($filaorganismo=mysqli_fetch_assoc($resultado))
+		$arrayinicial[]=$filaorganismo['jurisdid_inap'];
+
+
+
+	$arraysacar=array_diff($arrayinicial,$arrayfinal);
+	$arrayponer=array_diff($arrayfinal,$arrayinicial);
+
+	$datosvalidados["jurisdiccionessacar"]=$arraysacar;
+	$datosvalidados["jurisdiccionesponer"]=$arrayponer;
+	
+	return true;
+}
+
+//----------------------------------------------------------------------------------------- 	
+?>
+
+
+<?php
+	$result=true;
+	if(isset($_POST['botonalta']) && !Validarphp($conexion,$datosvalidados,$oUsuariosEnlaceJurisdiccionInap))
+	{
+		FuncionesPHPLocal::RegistrarAcceso($conexion,"040099","",$_SESSION['usuariocod']);	
+		$result=false;
+	}
+
+if ($result) {
+
+	$ArregloDatos['usuariocod']=$datosvalidados["usuariocod"];
+
+	if(isset($_POST['botonalta']))
+	{
+		$conexion->ManejoTransacciones("B");
+		
+		foreach($datosvalidados["jurisdiccionesponer"] as $jurisdid_inap)
+		{
+			$ArregloDatos=array('usuariocod'=>$datosvalidados['usuariocod'],'jurisdid_inap'=>$jurisdid_inap,'rolcod'=>USUACTJUR);
+			if (!$oUsuariosEnlaceJurisdiccionInap->Insertar ($ArregloDatos,$error,$errormail))
+			{	
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Se ha producido un error al agrgar el organismo al usuario.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				$result=false;
+				break;
+			}
+				FuncionesPHPLocal::RegistrarAcceso($conexion,'034001',"usuariocod=".$datosvalidados['usuariocod']."-"."jurisdid_inap=".$jurisdid_inap,$_SESSION['usuariocod']);
+			
+		}
+
+		if($result)
+		{
+			foreach($datosvalidados["jurisdiccionessacar"] as $jurisdid_inap)
+			{
+				$ArregloDatos=array('usuariocod'=>$datosvalidados['usuariocod'],'jurisdid_inap'=>$jurisdid_inap,'rolcod'=>USUACTJUR);
+				if (!$oUsuariosEnlaceJurisdiccionInap->Eliminar ($ArregloDatos,$error,$errormail))
+				{	
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					$result=false;
+					break;
+				}
+				FuncionesPHPLocal::RegistrarAcceso($conexion,'034002',"usuariocod=".$datosvalidados['usuariocod']."-"."jurisdid_inap=".$jurisdid_inap,$_SESSION['usuariocod']);
+			}
+			
+		}
+		if($result)
+		{
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se actualizaron los Organismos para el Usuario '".$datosvalidados['usuarioCUIT']."'.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$conexion->ManejoTransacciones("C");
+		}
+		else
+			$conexion->ManejoTransacciones("R");
+	}
+
+
+}
+?>
+	<br><br><br><div align="center"><a href="usuarios_enlace_jurisdiccion_inap.dhtml" class="linkFondoBlanco">Volver</a></div>
+
+<?php
+$oEncabezados->PieMenuEmergente();
+?>
+

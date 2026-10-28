@@ -1,0 +1,91 @@
+<?php 
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+//$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+$sesion->TienePermisosPrestadorDocente($conexion,$_SESSION['usuariocod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+//-----------------------------------------------------------------------------------------------------	
+
+		$oComision = new cComision($conexion);
+		$oComisionPrestadorDocente = new cComisionPrestadorDocente($conexion);
+
+		$ok = true;
+		$ArregloDatos = array();
+		$ArregloDatos['comi_codigo'] = $_GET['comi_codigo'];
+
+		// verifico que el docente tenga permisos sobre la comisión
+		
+		$ArregloDatos['presdoc_codigo'] = $_SESSION['usuariocod'];
+		$ArregloDatos['porderby'] = "presdoc_apellido, presdoc_nombre";
+	
+		if (!$oComisionPrestadorDocente->BuscarComisionPrestadorDocente($ArregloDatos,$numfilas,$resultado,$error,$errormail)) {
+			$txt_sys_mail="Error al buscar docentes - \ncomi_codigo=".$comi_codigo;
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al buscar de docentes de la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),"");
+			$ok = false;
+		}	
+		
+		if ($numfilas != 1){
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"Ud. no tiene permisos sobre la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),"");
+			$ok = false;
+		}
+	
+		if ($ok) {
+			// determino si tengo que ABRIR COMISIÓN, buscando el número de acta
+			if (!$conexion->TraerCampo("comision","comi_estado",array("comi_codigo='",$_GET['comi_codigo'],"'"),$estado,$numfilas,$errorcod)) 
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al buscar el estado de la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			
+			if ($estado== COMISIONNUEVA) { // se tiene que abrir la comisión
+				if($oComision->AbrirComision($ArregloDatos)) 
+					FuncionesPHPLocal::RegistrarAcceso($conexion,"50104","comi_codigo=".$_GET['comi_codigo'],$_SESSION['usuariocod']);
+				else
+					 $ok = false;
+			}
+		}
+		
+		if ($ok) { // abrir comisión OK, entonces puedo imprimir el acta
+				
+			if (!$oComision->TraerDatosCabeceraActa($ArregloDatos,$datos_cabecera)) {
+				$ok = false;
+			}
+	
+			if ($ok && !$oComision->TraerDatosCaratulaActa($ArregloDatos,$datos_caratula)) {
+					$ok = false;
+			}
+			
+			
+			$oComisionPersona = new cComisionPersona($conexion);
+			if ($ok) {
+
+				//	Arreglo x pedigo de orden por apellido y nombre en los incriptos
+				$ArregloDatos['orderby'] = "pers_apellido, pers_nombre";
+
+				if (!$oComisionPersona->ObtenerNotificacionInscriptos($ArregloDatos, $datos_inscriptos)) {
+					$ok = false;
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al seleccionar los inscriptos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				} elseif (count($datos_inscriptos)>0) {
+				
+				
+					if (!$oComision->ImprimirActaVolante($datos_caratula, $datos_cabecera, $datos_inscriptos, $_GET['formato'])) {
+						FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error al imprimir el acta volante.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+						$ok = false;
+					}
+				} else {
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No hay inscriptos con los datos seleccionados.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				}
+			}		
+		}
+
+		
+?>

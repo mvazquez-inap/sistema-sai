@@ -1,0 +1,812 @@
+/* CSS Document */
+body {
+	color: #000000;
+	background-color:#FFF;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 12px;
+	margin-left: 0px;
+	margin-top: 0px;
+}
+#div_top #logo {	background-image:url(images/top.jpg);	height:104px;	width:980px;	background-repeat: no-repeat;	background-position: center center;	background-color: #FFF;}
+#div_top #ambiente1 { display:none}
+#div_top #ambiente2 { text-align:right; font-size:14px; font-weight:bold; color: #006600; padding:5px; margin:20px; text-transform:uppercase; background-color:#9F9; float:right}
+#div_top #ambiente3 { text-align:right; font-size:14px; font-weight:bold; color: #D8000C; padding:5px; margin:20px; text-transform:uppercase; background-color:#FCC;; float:right}
+
+#divContenido{ width:980px; margin-left:auto; margin-right:auto; margin-top:10px; border:10px #A9A9A9 solid;  }
+/* 
+ // gris oscuro se usa en el fondo de segundo nivel del menu izquierdo del menu emergente (_MenuEmergenteJS) 
+.color_menu_n2 {BACKGROUND-COLOR:#666666}
+ // gris más oscuro se usa en el fondo de segundo nivel del menu emergente cuando se selecciona (_MenuEmergenteJS) 
+.color_menu_n2_selected {BACKGROUND-COLOR:#333333}
+ // gris claro fondo del menu emergente cuando se selecciona  (_MenuEmergenteJS) 
+.color_texto_menu_n2 {BACKGROUND-COLOR:#CCCCCC}
+ // blanco de la letra cuando se selecciona en el menu (_MenuEmergenteJS) 
+ // también se usa en otra oportunidades 
+.color_texto_menu_n2_select {BACKGROUND-COLOR:#FFFFFF}
+ //  azul fondo principal 
+.color_n7 {BACKGROUND-COLOR:#337599}
+ //  azul que se usa en el fondo de la opcion seleccionada en el primer nivel del menu 
+.color_n6 {BACKGROUND-COLOR:#006897}
+ //  azul celeste entre el la parte superior y el menu izquierdo 
+.color_n5 {BACKGROUND-COLOR:#3380FF}
+ // celeste del menu izquierdo 
+.color_n6 {BACKGROUND-COLOR:#99CCFF}
+*/
+
+/* ----------------------- Colores ----------------------------- */
+.colorTitulosGrupo {
+	background-color: #3D005F;
+}
+.colorTitulosGrupoClaro  {
+ 	background-color:#E0C2EF; 
+}
+.colorTitulosGrupoIzq {
+	background-color: #AA1FFF;
+	color:#FFFFFF
+}
+.colorFondoSeleccion {
+ 	background-color:#E0C2EF; 
+}
+/* ex #337599 fondo principal superior e izq */
+.colorMenuPrincipal   {
+/*	BACKGROUND-COLOR:#60008F;*/
+	BACKGROUND-COLOR:#6A4684;
+}
+/* ex #99CCFF color de fondo del menu izq primer nivel*/
+.colorMenuN1 		  {
+	BACKGROUND-COLOR:#E0C2EF;  
+}
+/* ex #337599 color de fondo del menu izq primer nivel seleccionado */
+.colorMenuN1Selected {
+	BACKGROUND-COLOR:#D195EF
+}
+/* ex #333366 color de la línea del menu superior */
+.colorLineaMenu  {
+	BACKGROUND-COLOR:#3D005F;
+}
+/* ex #3380FF  color de la linea izq arriba del menu izq */
+.colorLineaMenuIzq   {
+	BACKGROUND-COLOR:#AA1FFF;
+}
+/* ----------------------- Links ----------------------------- */
+A { text-decoration:none; }
+A:link {
+	color:#6A4684;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+}
+A:visited {
+	color:#6A4684;
+}
+A:hover {
+	color:#000000;
+	text-decoration:underline;
+	background-color: #FFFFFF;
+}
+
+.linkEncabezado {
+		BACKGROUND-COLOR:#6A4684;COLOR:#d2d2d2;FONT-SIZE:10px; 
+		font-weight:bold;TEXT-DECORATION:none;
+}
+.linkEncabezado:link {
+		COLOR:#d2d2d2;
+		FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.linkEncabezado:visited {COLOR:#d2d2d2}
+.linkEncabezado:hover {
+		BACKGROUND-COLOR:#6A4684;;
+		TEXT-DECORATION: underline
+}
+
+.linkMenuEmergente { text-decoration:none; }
+.linkMenuEmergente:link {
+	color:#000000;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+}
+.linkMenuEmergente:visited { color:#000000; }
+.linkMenuEmergente:hover {
+	color:#6A4684;
+	text-decoration:underline;
+	background-color: #E0C2EF;
+}
+.linkFondoBlanco { text-decoration:none; }
+.linkFondoBlanco:link {
+	color:#000000;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+}
+.linkFondoBlanco:visited {
+	color:#6A4684;
+}
+.linkFondoBlanco:hover {
+	color:#6A4684;
+	text-decoration:underline;
+}
+
+.linkOrden { text-decoration:none;}
+.linkOrden:link {
+	color:#D195EF;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+}
+.linkOrden:visited {
+	color:#D195EF;
+}
+.linkOrden:hover {
+	color:#EFEFEF;
+	text-decoration:none;
+	background-color:#3D005F; 
+}
+.linkOrdenSel {
+	color:#FF0000;
+}
+
+/* ----------------------- Textos  ----------------------------- */
+.textoIngresoSistema {
+	COLOR:#E0C2EF; FONT-SIZE:12px;
+	FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif ;
+	FONT-WEIGHT:bold; height:20px 
+}
+.textoMenuInferior {
+	FONT-SIZE: 10px;
+	COLOR: #000000;
+	FONT-FAMILY: Verdana, Arial, Helvetica, sans-serif;
+	line-height: normal;
+}
+.textonombreclave {
+	FONT-SIZE: 10px;
+	COLOR: #000000;
+	font-weight: bold;
+	font-size: 12px;
+	
+}
+.textonombreclavemin {
+FONT-SIZE: 10px;
+COLOR: #666666;
+	font-weight: bold;
+	font-size: 10px;
+}
+.textoUsuariosCuit {
+FONT-SIZE: 10px;
+COLOR: #999999;
+	font-weight: bold;
+	font-size: 11px;
+}
+.textoTituloTablas {
+FONT-SIZE: 10px;
+COLOR: #666666;
+	font-weight: bold;
+	font-size: 11px;
+}
+
+.textoTitulosGrilla {
+	color: #3D005F;
+	background-color:#FFFFFF;
+    font-weight:bold  
+}
+.textoTitulo {
+	color: #3D005F;
+	background-color:#FFFFFF;
+    font-weight:bold  
+}
+.textoAclaraciones {
+	font-size: 10px;
+}
+.textoTituloGrupo {
+	COLOR:#E0C2EF; FONT-SIZE:12px;
+	FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif ;
+	FONT-WEIGHT:bold; 
+}
+.textoTituloGrupoGrande {
+	COLOR:#E0C2EF; FONT-SIZE:14px;
+	FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif ;
+	FONT-WEIGHT:bold; 
+}
+.textoEtiqueta {
+	FONT-SIZE:12px; COLOR:#808080;
+}
+.textoEtiquetaDato {
+	FONT-SIZE:12px;COLOR:#000000; 
+}
+.textoEtiquetaDatoBold {
+	FONT-SIZE:12px;COLOR:#000000; 
+	FONT-WEIGHT:bold; 
+}
+.textoEtiquetaChico {
+	FONT-SIZE:10px; COLOR:#808080;
+}
+.textoEtiquetaDatoResaltado {
+	BACKGROUND-COLOR:#E0C2EF;
+	COLOR:#000000;FONT-SIZE:12px
+}
+.textoEtiquetaDatoBold {
+	FONT-SIZE:12px;COLOR:#808080; 
+	FONT-WEIGHT:bold; 
+}
+.textoEtiquetaClave {
+	FONT-SIZE:12px;COLOR:#808080; 
+	FONT-WEIGHT:bold; 
+}
+.textoTablaDato, .textoTablaDatoBorde {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 12px;
+	text-align:left
+}
+.textoTablaDatoBorde {
+    border:double;
+	border-style:double;	
+}
+
+.textoTablaDatoChico {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 10px;
+}
+.textoTablaDatoResaltado {
+	BACKGROUND-COLOR:#eeeeee;
+	FONT-SIZE:12px;
+	FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.textoDatoBold {
+	FONT-SIZE:12px; 
+	font-weight:bold;
+	FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.textoInput {
+	color: #000000;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 13px;
+	border: 1px solid;	
+	border-color: #5D3C91;	
+}
+.textoMenuIzquierdo {
+	color: #000000;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 11px;
+	background-color: #E0C2EF;
+	padding-left:5px;
+}
+.textoTituloModulo {
+	background-color:#6A4684;
+	color:#E0C2EF;
+	font-family:Verdana, Arial, Helvetica, sans-serif;
+	font-size:11px;
+	font-weight:bold;
+	padding: 1px;
+}
+.textoLeyendaDetalleRegistro {
+	color:#D195EF;
+	font-style:italic;
+	font-weight:bold;
+	font-size:11px;
+}
+.textoEtiquetaDatosUsuario {
+	FONT-SIZE:12px;COLOR:#808080; 
+	font-style:italic;
+}
+.textoDatosUsuario {
+	FONT-SIZE:12px;
+	font-style:italic;
+}
+.textoLeyendaDetalleUsuario{
+	color:#D195EF;
+	font-style:italic;
+	font-weight:bold;
+	font-size:11px;
+}
+.textoTituloListado {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 14px;
+	text-align:left;
+	color:#6A4684;
+	font-weight:bold;
+
+}
+.textoDatoListado {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 12px;
+	text-align:left
+}
+.textoEtiquetaListado {
+	background-color:#eeeeee;
+	font-size:12px;
+	color:#6A4684;
+	font-weight:bold;
+	font-family:Verdana, Arial, Helvetica, sans-serif
+}
+
+.textoAtencion{
+	COLOR:#FF0000;
+	FONT-SIZE:12px;
+	FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif;
+	font-weight:bold;
+}
+
+.inputReadonly {
+	background-color: #F8EFFF;
+	color:#000000;
+}
+.menuIzquierdoTitulo {
+	background-color: #3380FF;
+}
+.styling {
+	background-color:#6A4684;
+	color:#E0C2EF;
+	font-family:Verdana, Arial, Helvetica, sans-serif;
+	font-size:12px;
+	font-weight:bold;
+	padding: 1px;
+}
+.linea {BACKGROUND-COLOR:#E0C2EF;COLOR:#E0C2EF;
+	    border-top-style:none;border-right-style:none;
+		border-bottom-style:none;border-left-style:none;
+}
+.combos {
+	color: #000000;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 13px;
+	border: 1px solid;	
+	outline-color: #33FF00;	
+}
+.botones {
+	background-color: #E0C2EF;
+	border-top: 2px solid;
+	border-top-color: #FFFFFF;
+	border-right: 2px solid;
+	border-right-color: #6A4684;
+	border-bottom: 2px solid;
+	border-bottom-color: #6A4684;
+	border-left: 2px solid #FFFFFF;
+	border-left-color: #FFFFFF;
+}
+.bordeTabla {
+	border-top: 2px solid;
+	border-top-color: #FFFFFF;
+	border-right: 2px solid;
+	border-right-color: #6A4684;
+	border-bottom: 2px solid;
+	border-bottom-color: #6A4684;
+	border-left: 2px solid #FFFFFF;
+	border-left-color: #FFFFFF;
+}
+.celdaSinBorde {border-left-style:none;border-right-style:none;
+				border-bottom-style:none;border-top-style:none
+}  
+.bordeDetalleRegistro { 
+	border-style:outset; border-left-width:3px;
+	border-bottom-width:3px;border-top-width:3px;
+	border-right-width:3px;
+	padding:5px;
+	border-color:#D195EF;
+}
+.bordeDetalleUsuario { 
+	border-style:outset; border-left-width:1px;
+	border-bottom-width:1px;border-top-width:1px;
+	border-right-width:1px;
+	padding:2px;
+	border-color:#D195EF;
+}
+.linkListadoMenu {COLOR:#6A4684;TEXT-DECORATION:none;FONT-SIZE:12px;FONT-WEIGHT:bold;
+}
+.linkListadoMenu:link {COLOR:#6A4684;FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.linkListadoMenu:visited {COLOR:#6A4684; TEXT-DECORATION: underline; 
+}
+.linkListadoMenu:hover {COLOR:#E0C2EF;TEXT-DECORATION: underline; 
+}
+
+
+/* Del Portal no se usan en un sistema hasta el login
+.textotitulosgrupo {
+	FONT-SIZE: 12px; 
+	COLOR: #99CCFF; 
+}
+.textotamanioconsulta {
+	font-size: 11px;
+}
+.textotamaniominiconsulta {
+	font-size: 9px;
+} 
+.textotamaniomaxconsulta {
+	font-size: 15px;
+}
+.textomenusuperior {
+	color: #FFFFFF;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 12px;
+}
+.textomesayuda {
+	color: #FFFFFF;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-weight: bold;
+	font-size: 12px;
+}
+.textousuario {
+	color: #FFFFFF;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 12px;
+}
+
+.menusuperiorselec {
+	color: #3399CC;
+	background-color: #6699FF;
+}
+
+.menuizquierdoselec {
+	color: #3399CC;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 11px;
+	background-color: #6699FF;
+}
+.negrita {
+	font-weight: bolder;
+}
+.inputro {
+	background-color: #66CCFF;
+}
+.textonombreclave {
+	font-weight: bold;
+	font-size: 12px;
+}
+.textonombredatos {
+	color: #808080;
+	font-size: 11px;
+}
+.textodatosgris {
+	color: #808080;
+}
+.ListaBuscarTexto {
+	text-align:left;
+	margin:0px;
+	padding:4px;
+	display:block;
+	width:95%;
+	font-size:11px;
+}
+.ListaBuscarTexto:hover {
+	color:#ffffff;
+	background-color:#6c9ad9;
+}
+.colortitulospie {
+	background-color: #3366FF;
+}
+.colorfondocampotablaseleccion {
+	background-color:#CFCFCF;
+}
+.colorfondoreportes {
+	background-color:#E4D9C9;
+}
+.colorprimertituloreporte {
+	background-color:#FFFFFF;
+}
+.colorotrostitulosreporte {
+	background-color:#C7C7C7;
+}
+.colorprimeracolumnareporte {
+	background-color:#FFFFFF;
+}
+.colorotrascolumnasreporte {
+	background-color:#F8F8F8;
+}
+.colorfondoidentado10 {
+	margin-left:10px;
+}
+.colorfondoidentado20 {
+	margin-left:20px;
+}
+.colordemastitulosestruc {
+	background-color: #E4D9C9;
+}
+.colordetallesestruc {
+	background-color: #FCFCFC;
+}
+*/
+
+/* DDF algunos
+A {TEXT-DECORATION: none}
+A:link {COLOR:#d2d2d2;FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif}
+A:visited {COLOR:#d2d2d2}
+A:hover {COLOR:#000000;TEXT-DECORATION: underline}
+
+BODY {COLOR:#000000;MARGIN-TOP:0px;FONT-SIZE:12px;MARGIN-LEFT:0px;
+ 	  FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif}
+
+.color_n1 {BACKGROUND-COLOR:#005500
+}
+.color_n2 {BACKGROUND-COLOR:#336633
+}
+.color_n3 {BACKGROUND-COLOR:#669966 
+}
+.color_n4 {BACKGROUND-COLOR:#99CC99  
+}
+.color_n5 {BACKGROUND-COLOR:#ccffcc   
+}
+
+.celdaMenuIzqTitulo {BACKGROUND-COLOR:#996699
+}
+.celdaMenuIzqFocus {BACKGROUND-COLOR:#ccffcc;COLOR:#336633;FONT-SIZE:10px;FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.celdaMenuIzqOff {BACKGROUND-COLOR:#336633;COLOR:#ccffcc;
+				  FONT-SIZE:10px;FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.celdaMenuIzqOn {BACKGROUND-COLOR:#669966;COLOR:#ccffcc;
+				 FONT-SIZE:10px;FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.celdaMenuSuperiorFocus {BACKGROUND-COLOR:#ccffcc;COLOR:#336633;
+						 FONT-SIZE:12px;FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.celdaMenuSuperiorOff  {BACKGROUND-COLOR:#336633;COLOR:#ccffcc;
+						FONT-SIZE:12px;FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.celdaMenuSuperiorOn  {BACKGROUND-COLOR:#669966;COLOR:#ccffcc;
+					   FONT-SIZE:12px;FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.celdaSinBorde {border-left-style:none;border-right-style:none;
+				border-bottom-style:none;border-top-style:none
+}  
+.imgSinBorde {border-left-style:none;border-right-style:none;
+				border-bottom-style:none;border-top-style:none
+}  
+.celdaTablaPrincipalMenuSuperior{ BACKGROUND-COLOR:#336633;
+		height:30px;border-left-style:solid;border-left-color:#D2D2D2; 
+		border-right-style: solid; border-right-color: #D2D2D2
+} 
+.celdaTablaPrincipalIzq { border-left-style:solid;border-left-color: #D2D2D2; 
+}
+.celdaTablaPrincipalDer { border-right-style:solid;border-right-color:  #D2D2D2;FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif; FONT-SIZE:14px;
+}
+.celdTablaPrincipalPie { BACKGROUND-COLOR:#eeeeee; 
+						 FONT-SIZE:9px;  
+}
+
+.textoEtiqueta {FONT-SIZE:12px;COLOR:#808080;
+}
+.textoEtiquetaDato {FONT-SIZE:12px;COLOR:#000000; 
+}
+.textoEtiquetaDatoResaltado {BACKGROUND-COLOR:#eeeeee;COLOR:#000000;FONT-SIZE:12px
+}
+.textoTablaTitulo {BACKGROUND-COLOR:#99CC99;FONT-SIZE:12px;
+				   FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.textoTablaDato {FONT-SIZE:12px;FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.textoTablaDatoResaltado {BACKGROUND-COLOR:#eeeeee;FONT-SIZE:12px;
+						  FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.textoTablaDatoBold {FONT-SIZE:12px; font-weight:bold;
+						  FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.textoTablaClave {FONT-SIZE:12px;FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.textoTablaPaginadaTitulo {BACKGROUND-COLOR:#336633;COLOR:#d2d2d2;FONT-SIZE:12px;
+						   FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif; 
+						   height:18px;  
+}
+.textoTablaPaginadaDato {FONT-SIZE:12px;FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.textoTablaPaginadaDatoResaltado {BACKGROUND-COLOR:#eeeeee; FONT-SIZE:12px; 
+								  FONT-FAMILY: Verdana, Arial, Helvetica, sans-serif
+}
+.textoTablaPaginadaEncabezado {BACKGROUND-COLOR:#99CC99;COLOR:#000000;FONT-SIZE:12px;
+							   FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.textoListadoEncabezado {BACKGROUND-COLOR:#99CC99;COLOR:#000000;FONT-SIZE:12px;
+							   FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.textoListadoTitulo {BACKGROUND-COLOR:#336633;COLOR:#d2d2d2;FONT-SIZE:12px;
+						   FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif; 
+						   height:18px;  
+}
+.textoTitulo {FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif;FONT-SIZE:14px;
+}
+.textoTituloChico {FONT-SIZE:12px;FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.textoGrupoTitulo { BACKGROUND-COLOR:#99CC99;color:#666666;FONT-SIZE:12px;
+					FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif;FONT-WEIGHT:bold;
+					cursor:pointer; 
+}				
+.textoGrupoTituloChico {FONT-SIZE:11px;color:#99CC99;
+						FONT-FAMILY: Verdana, Arial, Helvetica, sans-serif;FONT-WEIGHT:bold
+}
+.textoAclaraciones {COLOR:#000000;FONT-SIZE:10px;
+					FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif;
+}
+.textoAclaracionesDatoObligatorio {COLOR:#FF0033;FONT-SIZE:10px;
+					FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif;
+}
+
+.textoIngresoSistema {BACKGROUND-COLOR:#336633; COLOR:#d2d2d2; FONT-SIZE:12px;
+					  FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif ;FONT-WEIGHT:bold; height:20px 
+}
+.textoPaginaSeleccionada {BACKGROUND-COLOR:#99CC99;COLOR:#ffffff;TEXT-DECORATION:none;
+						  FONT-SIZE:11px;FONT-WEIGHT:bold
+}
+.textoEstructuraTitulo {BACKGROUND-COLOR:#336633;COLOR:#ffffff;FONT-SIZE:14px; 
+						FONT-FAMILY: Verdana, Arial, Helvetica, sans-serif; FONT-WEIGHT: bold; 
+}
+
+.textoEstructura {BACKGROUND-COLOR:#99CC99;FONT-SIZE:12px;
+				  FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif;FONT-WEIGHT:bold
+}
+.textoNavegacion {BACKGROUND-COLOR:#ffffff;COLOR:#808080;FONT-SIZE:10px;
+				 FONT-WEIGHT:bold;TEXT-DECORATION:none;
+}
+.textoCombo {BACKGROUND-COLOR:#eeffee;FONT-SIZE:12px;
+			 FONT-FAMILY:Verdana, Arial, Helvetica;
+ 			 border: outset; border-color: #99CC99;
+}
+.textoReadOnly {BACKGROUND-COLOR: #ebebe4
+}
+.textoReadOnlyBlanco {BACKGROUND-COLOR: #ffffff
+}
+.textoMensaje { FONT-SIZE:12px;	FONT-WEIGHT:bold;
+				FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif;
+}
+.textoMensajeError {FONT-SIZE:12px;	FONT-WEIGHT:bold;COLOR:#FF0033;
+					FONT-FAMILY:Arial, Helvetica, sans-serif;
+}
+.textoDatoObligatorio {FONT-SIZE:10px;	FONT-WEIGHT:bold;COLOR:#FF0033;
+					FONT-FAMILY:"Courier New", Courier, mono;
+}
+.textoAguarde {BACKGROUND-COLOR:#ffffff;COLOR:#336633;
+		   	   FONT-SIZE:12px;FONT-WEIGHT:bold;TEXT-DECORATION:none;
+}
+
+.textoAvisoBloqueo { 
+	BACKGROUND-COLOR:#FF0033; COLOR:#ffffff;
+	FONT-SIZE:14px;FONT-WEIGHT:bold;
+	FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif    	
+}
+
+.boton {BORDER-RIGHT:#336633 2px solid;BORDER-TOP:#99CC99 2px solid;
+		BORDER-LEFT:#99CC99 2px solid;BORDER-BOTTOM:#336633 2px solid;
+		BACKGROUND-COLOR:#669966;FONT-WEIGHT:bold;FONT-SIZE:12px;
+		COLOR:#CCFFCC;FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif    	
+}
+.botonChico {BORDER-RIGHT:#336633 2px solid;BORDER-TOP:#99CC99 2px solid;
+			 BORDER-LEFT:#99CC99 2px solid;BORDER-BOTTOM: #336633 2px solid;
+			 BACKGROUND-COLOR:#669966;FONT-WEIGHT:bold;FONT-SIZE:9px;COLOR:#CCFFCC;FONT-FAMILY: Verdana, Arial, Helvetica, sans-serif
+}
+
+.tablaPrincipal {BACKGROUND-COLOR:#005500;width:750px;				
+}
+
+.tablaGrupo {border-left-style:solid;border-left-color:#99CC99 ; 
+			 border-right-style:solid; border-right-color:#99CC99;
+			 border-bottom-style:solid; border-bottom-color:#99CC99; 
+			 border-left-width:thin;
+			 border-right-width:thin;					
+			 border-bottom-width:thin;
+}
+.tablaGrupoLink {border-left-style:solid;border-left-color:#ccffcc; 
+			 border-right-style:solid; border-right-color:#ccffcc;
+			 border-bottom-style:solid; border-bottom-color:#ccffcc; 
+			 border-left-width:thin;
+			 border-right-width:thin;					
+			 border-bottom-width:thin;
+			 background-color:#ccffcc;
+}
+
+.linkEncabezado {BACKGROUND-COLOR:#005500;COLOR:#d2d2d2;FONT-SIZE:10px; 
+				 TEXT-DECORATION:none;
+}
+.linkEncabezado:link {COLOR:#d2d2d2;
+					  FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.linkEncabezado:visited {COLOR:#d2d2d2
+}
+.linkEncabezado:hover {COLOR:#000000;TEXT-DECORATION: underline
+}
+
+.linkAclaraciones {COLOR:#669966;
+				   FONT-SIZE:10px;FONT-WEIGHT:bold;TEXT-DECORATION:none;
+}
+.linkAclaraciones:link {COLOR:#669966;FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.linkAclaraciones:visited {COLOR:#669966
+}
+.linkAclaraciones:hover {COLOR:#000000;TEXT-DECORATION:underline
+}
+
+.linkTema {BACKGROUND-COLOR:#ffffff;COLOR:#336633;
+		   FONT-SIZE:12px;FONT-WEIGHT:bold;TEXT-DECORATION:none;
+}
+.linkTema:link {COLOR:#336633;FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.linkTema:visited {COLOR:#336633 
+}
+.linkTema:hover {COLOR:#000000;TEXT-DECORATION:underline
+}
+
+.linkSubTema {BACKGROUND-COLOR:#ffffff;COLOR:#336633;
+			  FONT-SIZE:11px;FONT-WEIGHT:bold;TEXT-DECORATION:none;
+}
+.linkSubTema:link {COLOR:#336633;FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.linkSubTema:visited {COLOR:#336633 
+}
+.linkSubTema:hover {COLOR:#000000;TEXT-DECORATION:underline
+}
+
+.linkTemasTodos {BACKGROUND-COLOR:#ffffff;COLOR:#000000;
+			FONT-SIZE:12px;FONT-WEIGHT:bold;TEXT-DECORATION:none;
+}
+.linkTemasTodos:link {COLOR:#336633;FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.linkTemasTodos:visited {COLOR:#000000 
+}
+.linkTemasTodos:hover {COLOR:#336633;TEXT-DECORATION:underline
+}
+
+.linkEstructura {COLOR:#336633;TEXT-DECORATION:none;FONT-SIZE:12px;FONT-WEIGHT:bold;
+}
+.linkEstructura:link {COLOR:#336633;FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.linkEstructura:visited {COLOR:#336633 
+}
+.linkEstructura:hover {COLOR:#000000;TEXT-DECORATION: underline
+}
+
+.linkNavegacion {COLOR:#336633;FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif;
+				 FONT-SIZE:10px;FONT-WEIGHT:bold;TEXT-DECORATION:none;
+}
+.linkNavegacion:link {COLOR:#336633;FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.linkNavegacion:visited {COLOR:#336633 
+}
+.linkNavegacion:hover {COLOR:#000000;TEXT-DECORATION:underline
+}
+
+.linkPagina {BACKGROUND-COLOR:#99CC99;COLOR:#336633;
+			FONT-SIZE:11px;FONT-WEIGHT:bold;TEXT-DECORATION:none;
+}
+.linkPagina:link {COLOR:#336633;FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.linkPagina:visited {COLOR:#336633 
+}
+.linkPagina:hover {COLOR:#000000;TEXT-DECORATION:underline
+}
+
+.linkMasDatos {BACKGROUND-COLOR:#99CC99;COLOR:#336633;
+			   FONT-SIZE:10px;FONT-WEIGHT:bold;TEXT-DECORATION:none;
+}
+.linkMasDatos:link {COLOR:#336633;FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif
+}
+.linkMasDatos:visited {COLOR:#336633 
+}
+.linkMasDatos:hover {COLOR:#000000;TEXT-DECORATION:underline
+}
+
+.linkTablaDato {COLOR:#336633;
+				FONT-SIZE:12px;FONT-WEIGHT:bold;TEXT-DECORATION:none;
+}
+.linkTablaDato:link {COLOR:#336633;FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif;
+					 FONT-WEIGHT:bold
+}
+.linkTablaDato:visited {COLOR:#336633 
+}
+.linkTablaDato :hover {COLOR:#000000;TEXT-DECORATION:underline
+}
+
+.linkTablaDatoChico {BACKGROUND-COLOR:#ffffff;COLOR:#336633;
+					 FONT-SIZE:10px;FONT-WEIGHT:bold;TEXT-DECORATION:none;
+}
+.linkTablaDatoChico:link {COLOR:#336633;FONT-FAMILY:Verdana, Arial, Helvetica, sans-serif;
+					 	  FONT-WEIGHT:bold
+}
+.linkTablaDatoChico:visited {COLOR:#336633 
+}
+.linkTablaDatoChico:hover {COLOR:#000000;TEXT-DECORATION:underline
+}
+
+.linea {BACKGROUND-COLOR:#99CC99;COLOR:#99CC99;
+	    border-top-style:none;border-right-style:none;
+		border-bottom-style:none;border-left-style:none;
+}
+
+.itemListaLinkEstructura {color:#336633;font-size:12px;   
+			list-style-type:disc;  	
+}
+.itemListaLinkEstructuraSuperior {color:#808080;font-size:12px;   
+	list-style-type:none;  	
+}
+.itemListaEstructura {color:#000000;font-size:12px;  
+					 list-style-type:disc;
+}
+*/

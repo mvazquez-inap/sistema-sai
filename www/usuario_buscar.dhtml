@@ -1,0 +1,84 @@
+<?php 
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+//----------------------------------------------------------------------------------------- 	
+// Inicio de pantalla
+?>
+<br>
+<script type="text/javascript" language="javascript">
+function Validar(formulario) {
+/*	if(formulario.usuarionombre.value=="" && formulario.usuarioapellido.value=="" && 
+	  formulario.usuarioCUIT.value=="" && formulario.usuarioemail.value=="" && formulario.rolcod.value==""  )
+	{
+		alert("Debe ingresar al menos uno de los datos");
+		formulario.usuarioCUIT.focus();
+		return false;	
+	} 
+*/
+	return true;
+}
+</script>
+<form action="usuario_roles_lst.dhtml" method="post" name="formulario">
+<table width="100%" class="textoTablaDato" align="center">
+	<tr>
+	    <td width="25%"></td>
+		<td width="65%"></td>
+	</tr>
+	<tr>
+	    <td class="textoEtiquetaClave">CUIT/CUIL/CDI</td>
+		<td class="textoEtiquetaDatoResaltado">	<input type="text" name="usuarioCUIT" class="textoInput" maxlength="11" size="12"></td>
+	</tr>
+	<tr>
+	    <td class="textoEtiqueta">Apellido</td>
+		<td class="textoEtiquetaDatoResaltado"><input type="text" name="usuarioapellido" class="textoInput" maxlength="30" size="31"></td>
+	</tr>
+	<tr>
+	    <td class="textoEtiqueta">Nombre</td>
+		<td class="textoEtiquetaDatoResaltado"><input type="text" name="usuarionombre" class="textoInput" maxlength="30" size="31"></td>
+	</tr>
+	<tr>
+	    <td class="textoEtiqueta">eMail</td>
+		<td class="textoEtiquetaDatoResaltado">	<input type="text" name="usuarioemail" class="textoInput" maxlength="40" size="41"></td>
+	</tr>
+
+	<tr>
+	    <td class="textoEtiqueta">Rol</td>
+		<td class="textoEtiquetaDatoResaltado">
+		<?php 	$spnombre="sel_roles_orden";
+			$spparam=array('porderby'=>"roldesc");
+			FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario","rolcod","rolcod","roldesc","","-- Todos los Roles",$fila_rol,$selecnousar,1); 
+		?>
+		</td>
+	</tr>
+
+	<tr>
+		<td colspan="2" height="20"></td>
+  	</tr>
+	<tr align="center">
+	  	<td colspan="2">
+			<input type="submit" name="boton_buscar" class="botones" value="Buscar Usuarios" onClick="return Validar(formulario)">&nbsp;&nbsp;&nbsp;&nbsp;
+			<input type="reset" name="boton_limpiar" class="botones" value="Limpiar">
+	  	</td>
+    </tr>
+</table>
+</form>
+<?php 
+$oEncabezados->PieMenuEmergente();
+?>

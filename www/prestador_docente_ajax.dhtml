@@ -1,0 +1,216 @@
+<?php 
+require('./include.dhtml');
+header('Content-Type: text/html; charset=utf-8');
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+//$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+//----------------------------------------------------------------------------------------- 
+$oPersonas = new cPersonas($conexion);
+$oAgentes = new cAgentes($conexion);
+$oComision = new cComision($conexion);
+$oComisionPersonaCandidato = new cComisionPersonaCandidato($conexion);
+//----------------------------------------------------------------------------------------- 
+
+
+
+			$comi_codigo=$_POST['comi_codigo'];
+			$act_codigo=$_POST['act_codigo'];
+			$ok = true;
+			
+			$ArregloDatos = array();
+			$ArregloDatos['comi_codigo'] = $comi_codigo;
+			
+			if (!$oComision->TraerDatosCabeceraActa($ArregloDatos,$datos_cabecera)) {
+				$ok = false;
+			}
+			
+			if ($ok) {
+			?>			<fieldset class="bordeDetalleRegistro">
+					<legend class="textoLeyendaDetalleRegistro">Datos Comisi&oacute;n </legend>
+					<table width="100%" class="textoTablaDato" align="center" cellpadding="2" cellspacing="0" border="0">
+						<tr>
+							<td>
+								<table width="100%" class="textoTablaDato" align="center" border="0" cellpadding="2" cellspacing="2">
+								<tr>
+									<td valign="top" width="25%" class='textoEtiqueta'>Comisi&oacute;n</td>
+									<td class="textoEtiquetaDatoResaltado"><input type="text" name="comi_codinap" id="comi_codinap"  class="inputReadonly" readonly="readonly" size="21" maxlength="20" value="<?php echo htmlspecialchars($datos_cabecera['comi_codinap'],ENT_QUOTES) ?>">
+								</tr>				
+								<tr>
+									<td valign="top" width="15%" class='textoEtiqueta'>Nro de Acta</td>
+									<td class="textoEtiquetaDatoResaltado"><input type="text"  style="text-align:right" name="comi_acta_numero" id="comi_acta_numero" class="inputReadonly" readonly="readonly" size="8" maxlength="8" value="<?php echo htmlspecialchars($datos_cabecera['comi_acta_numero'],ENT_QUOTES) ?>">
+									</td>
+								</tr>
+								<tr>
+									<td valign="top" width="25%" class='textoEtiqueta'>Nombre de Actividad</td>
+									<td class="textoEtiquetaDatoResaltado">
+									<textarea cols="100" rows="2" class="inputReadonly" readonly="readonly" name="act_nombre"  id="act_nombre"  style="width:400px" ><?php echo htmlspecialchars($datos_cabecera['act_nombre'],ENT_QUOTES); ?></textarea>
+									</td>
+								</tr>				
+								<tr>
+									<td valign="top" width="15%" class='textoEtiqueta'>C&oacute;digo INAP de Actividad</td>
+									<td class="textoEtiquetaDatoResaltado"><input type="text" name="act_codinap" id="act_codinap"  class="inputReadonly" readonly="readonly" size="21" maxlength="20" value="<?php echo htmlspecialchars($datos_cabecera['act_codinap'],ENT_QUOTES) ?>">
+									</td>
+								</tr>						
+								</table>
+							</td>
+							</tr>
+						</table>
+					</fieldset>
+				<?php }  // if ok 
+				
+			
+				?>
+			<?php
+			//----------------------------------------------------------------------------
+				$ok = true;
+			
+				//BUSQUEDA DE LA PERSONA//
+				if (!isset($_POST['buscado']) && !isset($_GET['pagina']) )
+					$_SESSION['array_busqueda_tabla']['valor_buscado']="";
+			
+				if (isset($_POST['buscado'])) 
+					$_SESSION['array_busqueda_tabla']['valor_buscado']=$_POST['buscado'];
+			
+			
+				if (!$oComision->TraerDatosComision($comi_codigo,$filacomision,$es_modif)) {
+					$txt_sys_mail="\nvalor_buscado_".$comi_codigo."\nerror=".$errormail;
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+					$ok = false;
+				}
+			
+				if ($ok) {
+					$ArregloDatos= array();
+					$ArregloDatos['ppers_apellido'] = $_SESSION['array_busqueda_tabla']['valor_buscado'];
+					$ArregloDatos['porderby'] = "pers_apellido, pers_nombre";
+					$ArregloDatos['pcomi_codigo'] = $comi_codigo;
+						
+					if (!$oComision->BuscarComisionInscriptos($ArregloDatos,$numfilas,$result,$error,$errormail)) {
+						$txt_sys_mail="\nvalor_buscado_".$comi_codigo."\nerror=".$errormail;
+						FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,"Error seleccionando datos a mostrar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$txt_sys_mail);
+						$ok = false;			
+					}			
+				}		
+					
+				if ($ok) {
+			?>
+					<div align="left">
+					        <img src="images/imprimir.gif"  alt="Imprimir" />
+						    <a href="javascript:Popup('comision_emitir_acta_download_docente.dhtml?comi_codigo=<?= $filacomision['comi_codigo']?>&amp;formato=C','ventana_acta_2',630,500,screen.availWidth-680,screen.availHeight-550,'yes')">Imprimir Acta</a>
+			            </div>
+			            <br>
+						<fieldset class="bordeDetalleRegistro">
+						<legend class="textoLeyendaDetalleRegistro">Inscriptos en la Comisi&oacute;n </legend>
+						<table width="100%" border="0" cellpadding="1" cellspacing="1" >
+							<tr> 
+								<td align="left">
+								<form action="javascript:void(0)" method="post" name="formulario_buscar"> Apellido:
+									<input name="buscado" type="text" size="40" id="buscado" maxlength="41" value ="<?php echo $_SESSION['array_busqueda_tabla']['valor_buscado'] ?>">  
+									<input type="hidden" name="comi_codinap_seleccion" value="<?php echo $filacomision['comi_codinap']?>"  />
+   								    <input type="button" name="boton_buscar" value="Buscar" onClick="return BuscarPersona(formulario_buscar,'<?= $comi_codigo ?>'); " class="botones" />
+   								    <input type="button" name="boton_limpiar" value="Traer Todos" onClick="return Limpiar(formulario_buscar,'<?= $comi_codigo ?>'); " class="botones" />
+									<div class="textoAclaraciones">Nota: Para filtrar los datos mostrados, ingrese el valor a buscar. </div>
+								</form>
+								</td>	
+							</tr>		
+						</table>
+						<br />
+						
+						<form name="formulario_evaluacion" action="prestador_docente_web_alta.dhtml" method="post">
+                        <table width="100%" class="textoTablaDato" border="0" cellpadding="1" cellspacing="1">
+							<tr>
+								<td colspan="5" align="right"> Asignar a todos los inscriptos: 
+								<?php 	$spnombre="sel_evaluacion_orden";
+									$spparam=array('porderby'=>"eval_descripcion");
+									$funcion_evaluar = "CambiarEvaluacion(document, \"formulario_evaluacion\",eval_todos.value)";
+									FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario_evaluacion","eval_todos","eval_codigo","eval_descripcion","","-- Seleccione Evaluacion",$fila_tipo,$sele_tipo,"1",$funcion_evaluar,"",false,false);
+								?>	
+								</td>
+							</tr>
+						</table>
+						<div id="ListadoInscriptos">
+						<table width="100%" class="textoTablaDato" border="1" cellpadding="4" cellspacing="1" align="center">
+							
+							<tr class='colorTitulosGrupo textoTituloGrupo'>
+								<td align="center"> Apellido y Nombre</td>
+								<td align="center"> CUIT/CUIL</td>					
+								<td align="center"> Organismo</td>					
+								<td align="center"> Evaluaci&oacute;n</td>															
+							</tr>
+							
+							<?php 
+							$i=0;
+							while ($fila_inscripto = mysqli_fetch_assoc($result)) { 
+								
+								if ($fila_inscripto['jurisdid_inap'] != "") {
+									// busco el organismo de coordinación
+									$oAgentes = new cAgentes($conexion);
+									
+									$oAgentes->Jurisdid_InapSP($spnombre,$spparam);
+									if(!$oComision->conexion->BuscarRegistroxClave($spnombre,$spparam,array("jurisdid"=>$fila_inscripto["jurisdid_inap"]),$resultado,$filaret,$numfilasmatcheo,$errno))
+									{
+										FuncionesPHPLocal::MostrarMensaje($oComision->conexion,MSG_ERRSOSP,"Error al seleccionar el organismo de coordinación. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+										return false;
+									}
+								} else {
+									$filaret['jurisdnom'] = "No corresponde";
+								}					
+			
+							?>
+							<tr onmouseover="setPointer(this, <?php echo ($i+1) ?>, 'over', '<?php echo COLOR_FILA_FONDO_DEFAULT ?>','<?php echo COLOR_FILA_OVER ?>', '<?php echo COLOR_FILA_FONDO_CLARO ?>');" onmouseout="setPointer(this, <?php echo ($i+1) ?>, 'out', '<?php echo COLOR_FILA_FONDO_DEFAULT ?>', '<?php echo COLOR_FILA_OVER ?>', '<?php echo COLOR_FILA_FONDO_CLARO ?>');">
+								<td align="left" bgcolor="<?php echo COLOR_FILA_FONDO_DEFAULT; ?>"><?php echo $fila_inscripto['pers_apellido'].",",$fila_inscripto['pers_nombre']  ?></td>
+								<td align="left" bgcolor="<?php echo COLOR_FILA_FONDO_DEFAULT; ?>"><?php echo $fila_inscripto['pers_cuilt'] ?></td>					
+								<td align="left" bgcolor="<?php echo COLOR_FILA_FONDO_DEFAULT; ?>"><?php echo $filaret['jurisdnom'] ?></td>					
+								<td align="left" bgcolor="<?php echo COLOR_FILA_FONDO_DEFAULT; ?>">
+								<?php 	$spnombre="sel_evaluacion_orden";
+									$spparam=array('porderby'=>"eval_descripcion");				
+									$funcion_evaluar = "CambioComboEval(document,\"cambio_eval_codigo_".$fila_inscripto['pers_codigo']."\")";
+									FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,$spnombre,$spparam,"formulario_evaluacion","eval_codigo_".$fila_inscripto['pers_codigo'],"eval_codigo","eval_descripcion",$fila_inscripto['eval_codigo'],"",$fila_tipo,$sele_tipo,"0",$funcion_evaluar,"",false,false);
+								?>
+									<input type="hidden" name="<?="cambio_eval_codigo_".$fila_inscripto['pers_codigo']?>"  id="<?="cambio_eval_codigo_".$fila_inscripto['pers_codigo']?>" value="0"/>
+								</td>								
+							</tr>							
+							
+							<?php $i++;
+							} ?>
+							
+							</table>
+                              </div>
+                            <table align="center">
+                                <tr>
+								<td align="center" colspan="4">
+                                <input type="hidden" name="comi_codigo" value="<?php echo $comi_codigo?>" />
+                                <input type="hidden" name="act_codigo" value="<?php echo $act_codigo?>" />
+                                <input type="submit" name="boton_confirma" id="boton_confirma" class="botones" value="Confirma"  /></td>
+							</tr>
+
+                            </table>  
+						</form>
+                      
+						</fieldset>
+						<br /><br />
+					<?php }  // if ok 
+					
+			
+	
+
+?>
+<script type="text/javascript">
+	<?php $oComisionPersona->ValidarFormAltaInscribirAlumno(); ?>
+</script>
+<?php
+
+?>						
+	<span id="divComision"></span>
+    <span id="listado"></span>

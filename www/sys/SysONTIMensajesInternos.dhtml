@@ -1,0 +1,278 @@
+<?php
+class cMensajesInternos {
+	
+
+	private $conexion;
+	
+	const MENSAJE_NUEVO = 10;    
+	const MENSAJE_LEIDO = 20;
+	
+	const MENSAJE_TIPO_ORIGEN_SISTEMA = 10;
+	const MENSAJE_TIPO_ORIGEN_USUARIO = 20;
+
+	const MENSAJE_TIPO_DESTINO_ROL = 10;
+	const MENSAJE_TIPO_DESTINO_USUARIO = 20;
+	
+	public function __construct($conexion) {
+
+		$this->conexion = &$conexion;
+	}
+	
+	
+//----------------------------------------------------------------------------------------- 
+	function AltaMensajesInternos ($conexion,$datos) {
+
+		$spnombre="ins_mensajes_internos";
+		$spparam=array(
+			'psis_nombre'=>SISTEMA,
+			'pmsg_tipo_origen'=>$datos['tipo_origen'],
+			'pmsg_tipo_destino'=>$datos['tipo_destino'],
+			'pmsg_ip_origen'=>$_SERVER['REMOTE_ADDR'],
+			'pmsg_fecha'=>date('Y/m/d H:i:s'),
+			'pmsg_nivel_mensaje'=>$datos['nivel_mensaje'],
+			'pmsg_asunto'=>$datos['asunto'],
+			'pmsg_mensaje'=>$datos['mensaje'],
+			'pmsg_archivo_ejec'=>$datos['archivo'],
+			'pmsg_funcion'=>$datos['funcion'],
+			'pmsg_usuariocod_origen'=>$datos['usuario_origen']['usuariocod'],
+			'pmsg_usuariorol_origen'=>$datos['usuario_origen']['rolcod'],
+			'pmsg_usuariocod_destino'=>$datos['usuario_destino']['usuariocod'],
+			'pmsg_usuariorol_destino'=>$datos['usuario_destino']['rolcod'],
+			'pmsg_variables'=>"SESSION: ".print_r($datos['var_session'],true)." \n "."POST: ".print_r($datos['var_post'],true)." \n "."GET: ".print_r($datos['var_get'],true),
+			'pmsg_estado'=>MENSAJENUEVO,
+			'pultmodusuario'=>$_SESSION['usuariocod'],
+			'pultmodfecha'=>date('Y/m/d H:i:s')
+			);			
+
+
+		if(!$conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno)) {
+			return false;
+		}	
+
+		return true;
+	}	
+
+
+//----------------------------------------------------------------------------------------- 
+	function BorrarMensajesInternos ($msg_codigo) {
+	
+		if(!$this->_DatosValidosBorrarMensajesInternos($msg_codigo))
+			return false;
+		//baja física
+		$spnombre="del_mensajes_internos_xmsg_codigo";
+		$spparam=array(
+			'pmsg_codigo'=>$msg_codigo
+		);			
+		
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al eliminar el mensaje.";
+			$errormail="Error al eliminar el mensaje.";
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,GENERAL_MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>GENERAL_FMT_TEXTO),$errormail);
+			return false;
+		}
+
+		return true;
+	}
+		
+	
+//-----------------------------------------------------------------------------------------
+	function BuscarMensajesInternos($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)	{
+
+
+		$sparam=array('pxmsg_codigo'=>0);
+		$sparam+=array('pxsis_nombre'=>0);
+		$sparam+=array('pxmsg_tipo_origen'=>0);
+		$sparam+=array('pxmsg_tipo_destino'=>0);
+		$sparam+=array('pxmsg_ip_origen'=>0);
+		$sparam+=array('pxmsg_fecha_inicio'=>0);
+		$sparam+=array('pxmsg_fecha_fin'=>0);		
+		$sparam+=array('pxmsg_nivel_mensaje'=>0);
+		$sparam+=array('pxmsg_archivo_ejec'=>0);
+		$sparam+=array('pxmsg_funcion'=>0);
+		$sparam+=array('pxmsg_usuariocod_origen'=>0);
+		$sparam+=array('pxmsg_usuariorol_origen'=>0);
+		$sparam+=array('pxmsg_usuariocod_destino'=>0);
+		$sparam+=array('pxmsg_usuariorol_destino'=>0);
+		$sparam+=array('pxmsg_estado'=>0);
+
+		$sparam+=array('pmsg_codigo'=>"");
+		$sparam+=array('psis_nombre'=>"");
+		$sparam+=array('pmsg_tipo_origen'=>0);
+		$sparam+=array('pmsg_tipo_destino'=>0);
+		$sparam+=array('pmsg_ip_origen'=>"");
+		$sparam+=array('pmsg_fecha_inicio'=>"");
+		$sparam+=array('pmsg_fecha_fin'=>"");		
+		$sparam+=array('pmsg_nivel_mensaje'=>"");
+		$sparam+=array('pmsg_archivo_ejec'=>"");
+		$sparam+=array('pmsg_funcion'=>"");
+		$sparam+=array('pmsg_usuariocod_origen'=>"");
+		$sparam+=array('pmsg_usuariorol_origen'=>"");
+		$sparam+=array('pmsg_usuariocod_destino'=>"");
+		$sparam+=array('pmsg_usuariorol_destino'=>"");
+		$sparam+=array('pmsg_estado'=>-1);
+
+		$sparam+=array('porderby'=>"msg_fecha DESC");
+
+
+
+		if (isset ($ArregloDatos['msg_codigo'])) {
+			if ($ArregloDatos['msg_codigo']!="") {	
+				$sparam['pmsg_codigo']= $ArregloDatos['msg_codigo'];
+				$sparam['pxmsg_codigo']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['sis_nombre'])) {
+			if ($ArregloDatos['sis_nombre']!="") {	
+				$sparam['psis_nombre']= $ArregloDatos['sis_nombre'];
+				$sparam['pxsis_nombre']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['msg_tipo_origen'])) {
+			if ($ArregloDatos['msg_tipo_origen']!="") {	
+				$sparam['pmsg_tipo_origen']= $ArregloDatos['msg_tipo_origen'];
+				$sparam['pxmsg_tipo_origen']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['msg_tipo_destino'])) {
+			if ($ArregloDatos['msg_tipo_destino']!="") {	
+				$sparam['pmsg_tipo_destino']= $ArregloDatos['msg_tipo_destino'];
+				$sparam['pxmsg_tipo_destino']= 1;
+			}
+		}	
+			
+		if (isset ($ArregloDatos['msg_ip_origen'])) {
+			if ($ArregloDatos['msg_ip_origen']!="") {	
+				$sparam['pmsg_ip_origen']= $ArregloDatos['msg_ip_origen'];
+				$sparam['pxmsg_ip_origen']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['msg_fecha_inicio'])) {
+			if ($ArregloDatos['msg_fecha_inicio']!="") {	
+				$sparam['pmsg_fecha_inicio']= $ArregloDatos['msg_fecha_inicio'];
+				$sparam['pxmsg_fecha_inicio']= 1;
+			}
+		}	
+			
+		if (isset ($ArregloDatos['msg_fecha_fin'])) {
+			if ($ArregloDatos['msg_fecha_fin']!="") 	{	
+				$sparam['pmsg_fecha_fin']= $ArregloDatos['msg_fecha_fin'];
+				$sparam['pxmsg_fecha_fin']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['msg_nivel_mensaje'])) {
+			if ($ArregloDatos['msg_nivel_mensaje']!="") 	{	
+				$sparam['pmsg_nivel_mensaje']= $ArregloDatos['msg_nivel_mensaje'];
+				$sparam['pxmsg_nivel_mensaje']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['msg_archivo_ejec'])) {
+			if ($ArregloDatos['msg_archivo_ejec']!="") {	
+				$sparam['pmsg_archivo_ejec']= $ArregloDatos['msg_archivo_ejec'];
+				$sparam['pxmsg_archivo_ejec']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['msg_funcion'])) {
+			if ($ArregloDatos['msg_funcion']!="") {	
+				$sparam['pmsg_funcion']= $ArregloDatos['msg_funcion'];
+				$sparam['pxmsg_funcion']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['msg_usuariocod_origen'])) {
+			if ($ArregloDatos['msg_usuariocod_origen']!="") {	
+				$sparam['pmsg_usuariocod_origen']= $ArregloDatos['msg_usuariocod_origen'];
+				$sparam['pxmsg_usuariocod_origen']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['msg_usuariorol_origen'])) {
+			if ($ArregloDatos['msg_usuariorol_origen']!="") {	
+				$sparam['pmsg_usuariorol_origen']= $ArregloDatos['msg_usuariorol_origen'];
+				$sparam['pxmsg_usuariorol_origen']= 1;
+			}
+		}	
+		
+		if (isset ($ArregloDatos['msg_usuariocod_destino'])) {
+			if ($ArregloDatos['msg_usuariocod_destino']!="") {	
+				$sparam['pmsg_usuariocod_destino']= $ArregloDatos['msg_usuariocod_destino'];
+				$sparam['pxmsg_usuariocod_destino']= 1;
+			}
+		}	
+
+		if (isset($ArregloDatos['msg_usuariorol_destino']))	{
+			if ($ArregloDatos['msg_usuariorol_destino']!="")
+			{	
+				$sparam['pmsg_usuariorol_destino']= $ArregloDatos['msg_usuariorol_destino'];
+				$sparam['pxmsg_usuariorol_destino']= 1;
+			}
+		}	
+		if (isset($ArregloDatos['msg_estad']))	{
+			if ($ArregloDatos['msg_estad']!="")
+			{	
+				$sparam['pmsg_estad']= $ArregloDatos['msg_estad'];
+				$sparam['pxmsg_estad']= 1;
+			}
+		}	
+
+		if (isset ($ArregloDatos['orderby'])) {
+			if ($ArregloDatos['orderby']!="") {	
+				$sparam['porderby']= $ArregloDatos['orderby'];
+			}
+		}
+
+		$spnombre="sel_mensajes_internos_avanzada_xdatos";	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno))
+		{
+			$error="Error al buscar mensaje interno.";
+			$errormail="Error al buscar mensaje interno.".$errno;
+			return false;
+		}
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------
+	function CambioEstado($msg_codigo,$msg_estado,&$error,&$errormail)	{
+
+		$spnombre="upd_mensajes_internos_cambio_estado_xmsg_codigo";
+		$spparam=array(
+				'pmsg_codigo'=> $msg_codigo,
+				'pmsg_estado'=> $msg_estado,
+			  	'pultmodusuario'=>$_SESSION['usuariocod'],
+	            'pultmodfecha'=> date("Y/m/d H:i:s") 
+		);
+	
+		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) || $numfilas!=1)	{
+			$errormail="Error al cambiar el estado del mensaje\nmsg_codigo=".$msg_codigo."\nmsg_estado=".$msg_codigo;
+			return false;
+		}
+		
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------
+	function _DatosValidosBorrarMensajesInternos ($msg_codigo) {
+	
+		$ArregloDatos['msg_codigo'] = $msg_codigo;
+		if (!$this->BuscarMensajesInternos($ArregloDatos,$numfilas_msg,$result_msg,$error,$errormail))
+		{
+			return false;
+		}
+		
+		if ($numfilas_msg != 1)			
+				return false;
+		
+		
+		return true;		
+	
+	}
+	
+} // clase
+?>

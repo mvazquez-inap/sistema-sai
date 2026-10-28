@@ -1,0 +1,2037 @@
+<?php
+
+define("CODSUPPAGINA","<? echo 'Acceso No Permitido.';die(); ?>");
+
+//----------------------------------------------------------------------------------------- 
+class cObjetosDinamicos
+{
+	var $msg_error;
+	var $pagina;
+	var $es_admin;
+	
+	function cObjetosDinamicos($es_admin=false)
+	{
+		$this->msg_error = "";
+		$this->es_admin = $es_admin;
+	}
+
+	function Setear($parametros)
+	{
+		$this->pagina=$parametros["pagina"];
+		return true;
+	}
+	
+	function Mostrar($codigohtml,&$salida)
+	{
+		$salida="";
+		$seprodujoerror=false;
+
+		$partes=array();
+		cSepararHTML::ProcesarHTML($codigohtml,$partes);
+
+		foreach($partes as $comando)		
+		{
+			// si es un comando
+			if(is_array($comando))
+			{
+				// si no existe la clase para dar soporte al comando
+				if(!class_exists($comando["Tipo"]))
+				{
+					$this->msg_error.="Clase ".$comando["Tipo"]." no encontrada";
+					return false;
+				}
+				else
+				{
+					$componente=new $comando["Tipo"]($this->es_admin);
+					if($componente->Setear($comando+array("pagina"=>$this->pagina)))
+					{
+						if(!$componente->Mostrar($salida))
+							$seprodujoerror=true;
+					}
+					else
+						$seprodujoerror=true;
+						
+					$this->msg_error.=$componente->RetornarMsgError();
+				}
+			}
+			else
+				$salida.=$comando;
+		}
+
+		return !$seprodujoerror;
+	}
+}
+
+//----------------------------------------------------------------------------------------- 
+class cFecha
+{
+	var $msg_error;
+	var $es_admin;
+
+	function cFecha($es_admin=false)
+	{
+		$this->msg_error = "";
+		$this->es_admin = $es_admin;
+	}
+	
+	function Setear($parametros)
+	{
+		return true;
+	}
+	
+	function Mostrar(&$salida)
+	{
+		$seprodujoerror=false;
+		
+		putenv("TZ=America/Argentina/Buenos_Aires");
+		
+		$texto = date("H:i - l d \d\e F \d\e Y"); 
+
+		$texto=ReemplazarTextoFechas($texto);
+		
+		$salida.=$texto;
+		
+		return !$seprodujoerror;
+	}
+
+	function RetornarMsgError()
+	{
+		return $this->msg_error;
+	}
+	
+}
+
+//----------------------------------------------------------------------------------------- 
+class cFechaIngles
+{
+	var $msg_error;
+	var $es_admin;
+
+	function cFechaIngles($es_admin=false)
+	{
+		$this->msg_error = "";
+		$this->es_admin = $es_admin;
+	}
+	
+	function Setear($parametros)
+	{
+		return true;
+	}
+	
+	function Mostrar(&$salida)
+	{
+		$seprodujoerror=false;
+
+		$texto = date("l, F d, Y h:i A"); 
+		
+		$salida.=$texto;
+		
+		return !$seprodujoerror;
+	}
+
+	function RetornarMsgError()
+	{
+		return $this->msg_error;
+	}
+	
+}
+
+
+//----------------------------------------------------------------------------------------- 
+class cImagen
+{
+	var $msg_error;
+
+	function cImagen($es_admin=false)
+	{
+		$this->msg_error = "";
+		$this->es_admin = $es_admin;
+	}
+	
+	function Setear($parametros)
+	{
+		return true;
+	}
+	
+	function Mostrar(&$salida)
+	{
+		$seprodujoerror=false;
+
+		$arreglo=array();
+		$arreglo[]=array("/contenido/portal/img/img_home_02.jpg","Cerro Fitz Roy  - Pcia. de Santa Cruz. Foto: Secretaría de Turismo de la Nación");
+		$arreglo[]=array("/contenido/portal/img/img_home_03.jpg","Caminito - Ciudad de Buenos Aires. Foto: Secretaría de Turismo de la Nación");
+		$arreglo[]=array("/contenido/portal/img/img_home_04.jpg","Cueva de las Manos -  Pcia. de Santa Cruz. Foto: Secretaría de Turismo de la Nación");
+		$arreglo[]=array("/contenido/portal/img/img_home_05.jpg","Glaciar Perito Moreno - Pcia. de Santa Cruz. Foto: Secretaría de Turismo de la Nación");
+		$arreglo[]=array("/contenido/portal/img/img_home_07.jpg","Ruinas de la Ciudad de Los Quilmes - Pcia. de Tucumán. Foto: Secretaría de Turismo de la Nación");
+		$arreglo[]=array("/contenido/portal/img/img_home_08.jpg","Cultivos de Santa Fe - Pcia. de Santa Fe. Foto: Secretaría de Turismo de la Nación");
+		$arreglo[]=array("/contenido/portal/img/img_home_09.jpg","Cerro de los Siete Colores  - Pcia. Jujuy. Foto: Secretaría de Turismo de la Nación");
+		$arreglo[]=array("/contenido/portal/img/img_home_10.jpg","Cataratas del Iguazú - Pcia. de Misiones. Foto: Secretaría de Turismo de la Nación");
+		$arreglo[]=array("/contenido/portal/img/imagen3.jpg","Parque Nacional Iguazú - Cataratas. Provincia de Misiones");
+		$arreglo[]=array("/contenido/portal/img/imagen4.jpg","Parque Nacional Nahuel Huapi. Provincia de Río Negro");
+		$arreglo[]=array("/contenido/portal/img/imagen5.jpg","Pueblo en la Quebrada de Humahuaca. Provincia de Jujuy");
+		$arreglo[]=array("/contenido/portal/img/imagen6.jpg","Cerro Aconcagua. Provincia de Mendoza");
+		$arreglo[]=array("/contenido/portal/img/imagen7.jpg","Represa de Valle Grande, Provincia de Mendoza");
+		$arreglo[]=array("/contenido/portal/img/imagen8.jpg","Pingüinera. Provincia de Chubut");
+
+
+
+		$pos=rand(0,count($arreglo)-1);
+		$salida.="<img src=\"";
+		$salida.=$arreglo[$pos][0];
+		$salida.="\" id=\"imagen_home\" width=\"750\" height=\"207\" alt=\"";
+		$salida.=$arreglo[$pos][1];
+		$salida.="\" title=\"";
+		$salida.=$arreglo[$pos][1];
+		$salida.="\" />";		
+
+		return !$seprodujoerror;
+	}
+
+	function RetornarMsgError()
+	{
+		return $this->msg_error;
+	}
+	
+}
+
+//----------------------------------------------------------------------------------------- 
+class cPronosticoTiempo
+{
+	var $cont_archivo_pron;
+	var $cont_archivo_datact;
+	var $SubTipo;
+	var $msg_error;
+	var $es_admin;
+
+/*	var $CiudMostrarPron=array(
+							"CAPITAL FEDERAL"=>array("AEROPARQUE BUENOS AIRES"=>true),
+							"BUENOS AIRES"=>array("LA PLATA"=>true),
+							"CATAMARCA"=>array("CATAMARCA"=>true),
+							"CHACO"=>array("RESISTENCIA"=>true)
+						);
+
+	var $CiudMostrarDatosAct=array(
+							"Aeroparque Buenos Aires"=>true,
+							"La Plata"=>true,
+							"Catamarca"=>true,
+							"Resistencia"=>true
+						);*/
+			
+	// ("Texto provincia a mostrar","Texto ciudad a mostrar","Ciudad de dato actual","Provincia de pronostico","Ciudad de pronostico","link de otras ciudades")
+	var $CapProv=array(
+					array("Buenos Aires","La Plata","La Plata","BUENOS AIRES","LA PLATA","paginas.dhtml?pagina=584#BA_CA"),
+					array("Catamarca","San Fernando del Valle de Catamarca","Catamarca","CATAMARCA","CATAMARCA",""),
+					array("Chaco","Resistencia","Resistencia","CHACO","RESISTENCIA",""),
+					array("Chubut","Rawson","","CHUBUT","RAWSON","paginas.dhtml?pagina=584#CHU"),
+					array("Corrientes","Ciudad de Corrientes","Corrientes","CORRIENTES","CORRIENTES",""),
+					array("Córdoba","Ciudad de Córdoba","Córdoba","CÓRDOBA","CÓRDOBA","paginas.dhtml?pagina=584#CORD"),
+					array("Entre Ríos","Paraná","Paraná","ENTRE RÍOS","PARANÁ","paginas.dhtml?pagina=584#ER"),
+					array("Formosa","Ciudad de Formosa","Formosa","FORMOSA","FORMOSA",""),
+					array("Jujuy","San Salvador de Jujuy","Jujuy","JUJUY","JUJUY",""),
+					array("La Pampa","Santa Rosa","Santa Rosa","LA PAMPA","SANTA ROSA",""),
+					array("La Rioja","Ciudad de La Rioja","La Rioja","LA RIOJA","LA RIOJA",""),
+					array("Mendoza","Ciudad de Mendoza","Mendoza","MENDOZA","MENDOZA","paginas.dhtml?pagina=584#MZ"),
+					array("Misiones","Posadas","Posadas","MISIONES","POSADAS","paginas.dhtml?pagina=584#MI"),
+					array("Neuquén","Ciudad de Neuquén","Neuquén","NEUQUÉN","NEUQUÉN",""),
+					array("Río Negro","Viedma","Viedma","RÍO NEGRO","VIEDMA","paginas.dhtml?pagina=584#RN"),
+					array("Salta","Ciudad de Salta","Salta","SALTA","SALTA",""),
+					array("San Juan","Ciudad de San Juan","San Juan","SAN JUAN","SAN JUAN",""),
+					array("San Luis","Ciudad de San Luis","San Luis","SAN LUIS","SAN LUIS",""),
+					array("Santa Cruz","Río Gallegos","Río Gallegos","SANTA CRUZ","RÍO GALLEGOS",""),
+					array("Santa Fe","Ciudad de Santa Fe","Santa Fe","SANTA FE","SANTA FE","paginas.dhtml?pagina=584#SF"),
+					array("Santiago del Estero","Ciudad de Santiago del Estero","Santiago del Estero","SANTIAGO DEL ESTERO","SANTIAGO DEL ESTERO",""),
+					array("Tierra del Fuego","Ushuaia","Ushuaia","TIERRA DEL FUEGO","USHUAIA","paginas.dhtml?pagina=584#TF"),
+					array("Tucumán","San Miguel de Tucumán","Tucumán","TUCUMÁN","TUCUMÁN","")
+					);
+					
+	// ("Texto provincia a mostrar","nombre ancla",
+	//		("Texto ciudad a mostrar","Ciudad de dato actual","Provincia de pronostico","Ciudad de pronostico"),
+	//      (...),
+	//	)
+	var $OtrasCiudades=array(
+					array("Buenos Aires - Costa Atlántica","BA_CA",
+						array("Santa Teresita","Santa Teresita","BUENOS AIRES","SANTA TERESITA"),
+						array("Villa Gesell","Villa Gesell","BUENOS AIRES","VILLA GESELL"),
+						array("Mar del Plata","Mar del Plata","BUENOS AIRES","MAR DEL PLATA")
+						),
+					array("Buenos Aires - Otras Ciudades","BA_OC",
+						array("Tandil","Tandil","BUENOS AIRES","TANDIL")
+						),
+					array("Chubut","CHU",
+						array("Comodoro Rivadavia","Comodoro Rivadavia","CHUBUT","COMODORO RIVADAVIA")
+						),
+					array("Córdoba","CORD",
+						array("Río Cuarto","Río Cuarto","CÓRDOBA","RÍO CUARTO")
+						),
+					array("Entre Ríos","ER",
+						array("Gualeguaychú","Gualeguaychú","ENTRE RÍOS","GUALEGUAYCHÚ")
+						),
+					array("Mendoza","MZ",
+						array("Malargue","Malargue","MENDOZA","MALARGUE"),
+						array("San Rafael","San Rafael","MENDOZA","SAN RAFAEL")
+						),
+					array("Misiones","MI",
+						array("Iguazú","Iguazú","MISIONES","IGUAZÚ")
+						),
+					array("Río Negro","RN",
+						array("Bariloche","Bariloche","RÍO NEGRO","BARILOCHE")
+						),
+					array("Santa Fe","SF",
+						array("Rosario","Rosario","SANTA FE","ROSARIO")
+						),
+					array("Tierra del Fuego","TF",
+						array("Río Grande","Río Grande B.A.","TIERRA DEL FUEGO","RÍO GRANDE B.A."),
+						array("Tolhuin","Tolhuin","TIERRA DEL FUEGO","TOLHUIN")
+						),
+					array("Islas Malvinas","IM",
+						array("Islas Malvinas","Mount Pleasant Airport<br>(Islas Malvinas)","ISLAS MALVINAS","PUERTO ARGENTINO")
+						)
+					);
+					
+					
+						
+	var $iconos=array(
+					"/contenido/portal/img/ico_clima_soleado.gif", //00
+					"/contenido/portal/img/ico_clima_00_despejado.gif", //01
+					"/contenido/portal/img/ico_clima_00_despejado.gif", //02
+					"/contenido/portal/img/ico_clima_lluvias.gif", //03
+					"/contenido/portal/img/ico_clima_04_lluvias_y_tormenta.gif", //04
+					"/contenido/portal/img/ico_clima_nieve.gif", //05
+					"/contenido/portal/img/ico_clima_06_lloviznas.gif", //06
+					"/contenido/portal/img/ico_clima_nieve.gif", //07
+					"/contenido/portal/img/ico_clima_nublado.gif", //08
+					"/contenido/portal/img/ico_clima_nublado.gif", //09
+					"/contenido/portal/img/ico_clima_nublado.gif", //10
+					"/contenido/portal/img/ico_clima_11_inestable.gif", //11
+					"/contenido/portal/img/ico_clima_11_inestable.gif", //12
+					"/contenido/portal/img/ico_clima_lluvias.gif", //13
+					"/contenido/portal/img/ico_clima_04_lluvias_y_tormenta.gif", //14
+					"/contenido/portal/img/ico_clima_nublado.gif", //15
+					"/contenido/portal/img/ico_clima_00_despejado.gif" //16
+				);
+	
+	function cPronosticoTiempo($es_admin=false)
+	{
+		$this->msg_error = "";
+		$this->es_admin = $es_admin;
+	}
+	
+	function Setear($parametros)
+	{
+		$this->SubTipo=$parametros["SubTipo"];
+		
+		switch($this->SubTipo)
+		{
+			case "DatosActHome":
+			case "DatosActCapProv":
+			case "DatosActCiudades":
+				if(!$this->_LeerArchivoPron())
+					return false;
+
+				if(!$this->_LeerArchivoDatAct())
+					return false;
+			
+				break;
+		}
+
+		return true;
+	}
+	
+	function Mostrar(&$salida)
+	{
+		$seprodujoerror=false;
+
+		switch($this->SubTipo)
+		{
+			case "DatosActHome":
+			
+				$this->_ObtenerDatosAct("Buenos Aires",$temperatura,$sensterm,$icono,$humedad);
+				$textopron="";
+				$textopron=$this->_ConvertirMayuscula($this->cont_archivo_pron["CAPITAL FEDERAL"]["BUENOS AIRES"][0][7]);
+
+				$salida.= "<div class=\"bgcolordestacada clearfix\">\n";
+				$salida.= "	<div style=\"float:left; width:25px; padding:3px; text-align:center;\">\n";
+				if($icono!="")
+					$salida.= "		<img src=\"".$icono."\" alt=\"Clima\" title=\"Clima\" width=\"24\" height=\"25\" />\n";
+				$salida.= "	</div>\n";
+				$salida.= "	<div style=\"float:left; width:227px; padding:6px;\" class=\"bgcolorcelesteclaro\">\n";
+				$salida.= "		<div class=\"txtIndice\" style=\"margin-left:0px; margin-bottom:6px; \">\n";
+				$salida.= "	        <div class=\"titCaja\" style=\"margin-top:2px;margin-bottom:10px; \">ESTADO DEL TIEMPO</div>";
+				$salida.= "			<div style=\"float:left;  white-space:nowrap; margin-left:0px;\" class=\"titIndice\">Buenos Aires</div>\n";
+				$salida.= "			<div style=\"float:right; width:40px; white-space:nowrap; text-align:right;\">".$humedad."</div>\n";
+				$salida.= "			<div style=\"float:right; width:58px; white-space:nowrap; text-align:right;\">".$sensterm."</div>\n";
+				$salida.= "			<div style=\"float:right; width:53px; white-space:nowrap; text-align:right;\">".$temperatura."</div>\n";
+				$salida.= "			<div class=\"clearboth\"></div>\n";
+				$salida.= "		</div>\n";
+				$salida.= "		<div class=\"txtStandard\">".$textopron."</div>\n";
+				$salida.= "		<div class=\"txtStandard\">&middot; <a href=\"paginas.dhtml?pagina=554\" class=\"txtStandard\">Ver otras ciudades </a></div>\n";
+				$salida.= "		<div class=\"txtLetraChica\" align=\"right\">Suministrado por el Servicio Meteorológico Nacional</div>\n";
+				$salida.= "	</div>\n";
+				$salida.= "	<div class=\"clearboth\"></div>\n";
+				$salida.= "</div>\n";
+
+				break;
+
+			case "DatosActCapProv":
+
+				$salida.="<div style=\"padding:0px 5px\">\n";
+				foreach($this->CapProv as $datos)
+				{
+					$this->_ObtenerDatosAct($datos[2],$temperatura,$sensterm,$icono,$humedad);
+
+					$textopron="";
+					$textopron=$this->_ConvertirMayuscula($this->cont_archivo_pron[$datos[3]][$datos[4]][0][7]);
+
+					$salida.="<div class=\"titBloque01\" style=\"margin:8px 0px\">".$datos[0]."</div>\n";
+					$salida.= "<div class=\"bgcolordestacada clearfix\" >\n";
+					$salida.= "	<div style=\"float:left; padding:3px; text-align:center;\" class=\"caja_pron_prim_col\">\n";
+					if($icono!="")
+						$salida.= "		<img src=\"".$icono."\" alt=\"Clima\" title=\"Clima\" width=\"24\" height=\"25\" />\n";
+					$salida.= "	</div>\n";
+					$salida.= "	<div style=\"float:left; padding:6px;\" class=\"bgcolorcelesteclaro caja_pron_segunda_col\">\n";
+					$salida.= "		<div class=\"txtIndice\" style=\"margin-left:0px; margin-bottom:12px; \">\n";
+					$salida.= "			<div style=\"float:left;  white-space:nowrap; margin-left:0px;\" class=\"titIndice\">".$datos[1]."</div>\n";
+					$salida.= "			<div style=\"float:right; width:40px; white-space:nowrap; text-align:right;\">".$humedad."</div>\n";
+					$salida.= "			<div style=\"float:right; width:60px; white-space:nowrap; text-align:right;\">".$sensterm."</div>\n";
+					$salida.= "			<div style=\"float:right; width:55px; white-space:nowrap; text-align:right;\">".$temperatura."</div>\n";
+					$salida.= "			<div class=\"clearboth\"></div>\n";
+					$salida.= "		</div>\n";
+					$salida.= "		<div class=\"txtStandard\" >".$textopron."</div>\n";
+					if($datos[5]!="")
+						$salida.= "		<div style=\"margin-top:12px; \"><a href=\"".$datos[5]."\" class=\"txtStandard\">Otras ciudades </a></div>\n";
+					$salida.= "	</div>\n";
+					$salida.= "	<div class=\"clearboth\"></div>\n";
+					$salida.= "</div>\n";
+				}
+				$salida.="</div>\n";
+				$salida.= "<div class=\"txtLetraChica\" align=\"right\">Suministrado por el Servicio Meteorológico Nacional</div>\n";
+
+				
+				break;
+				
+			case "DatosActCiudades":
+
+				$salida.="<div style=\"padding:0px 5px\">\n";
+				foreach($this->OtrasCiudades as $prov)
+				{
+					$salida.="<div class=\"titBloque01\" style=\"margin:8px 0px\"><a name='".$prov[1]."'></a>".$prov[0]."</div>\n";
+
+					for($ciud_i=2;$ciud_i<count($prov);$ciud_i++)
+					{
+						$datos=$prov[$ciud_i];
+						$this->_ObtenerDatosAct($datos[1],$temperatura,$sensterm,$icono,$humedad);
+
+						$textopron="";
+						$textopron=$this->_ConvertirMayuscula($this->cont_archivo_pron[$datos[2]][$datos[3]][0][7]);
+
+
+						$salida.= "<div class=\"bgcolordestacada clearfix\" style=\"margin:8px 0px\">\n";
+						$salida.= "	<div style=\"float:left; padding:3px; text-align:center;\" class=\"caja_pron_prim_col\">\n";
+						if($icono!="")
+							$salida.= "		<img src=\"".$icono."\" alt=\"Clima\" title=\"Clima\" width=\"24\" height=\"25\" />\n";
+						$salida.= "	</div>\n";
+						$salida.= "	<div style=\"float:left; padding:6px;\" class=\"bgcolorcelesteclaro caja_pron_segunda_col\">\n";
+						$salida.= "		<div class=\"txtIndice\" style=\"margin-left:0px; margin-bottom:6px; \">\n";
+						$salida.= "			<div style=\"float:left;  white-space:nowrap; margin-left:0px;\" class=\"titIndice\">".$datos[0]."</div>\n";
+						$salida.= "			<div style=\"float:right; width:40px; white-space:nowrap; text-align:right;\">".$humedad."</div>\n";
+						$salida.= "			<div style=\"float:right; width:60px; white-space:nowrap; text-align:right;\">".$sensterm."</div>\n";
+						$salida.= "			<div style=\"float:right; width:55px; white-space:nowrap; text-align:right;\">".$temperatura."</div>\n";
+						$salida.= "			<div class=\"clearboth\"></div>\n";
+						$salida.= "		</div>\n";
+						$salida.= "		<div class=\"txtStandard\" >".$textopron."</div>\n";
+						$salida.= "	</div>\n";
+						$salida.= "	<div class=\"clearboth\"></div>\n";
+						$salida.= "</div>\n";
+					}
+				}
+				$salida.="</div>\n";
+				$salida.= "<div class=\"txtLetraChica\" align=\"right\">Suministrado por el Servicio Meteorológico Nacional</div>\n";
+
+
+				
+				break;
+		}
+		
+		return !$seprodujoerror;
+	}
+	
+	function RetornarMsgError()
+	{
+		return $this->msg_error;
+	}
+	
+	function _LeerArchivoPron()
+	{
+		$this->cont_archivo_pron=array();
+
+		if(!($contenido_original=file(DIR_PAGESTATICA."info_externa/PronCiu.txt")))
+			return false;
+			
+		$i=2;
+		while($i<count($contenido_original))
+		{		
+			$linea=explode("|",substr(trim($contenido_original[$i]),0,-1));
+			if(!isset($linea[4]))
+				error_log("Fallo Pronostico: ".$contenido_original[$i]);
+			$this->cont_archivo_pron[$linea[0]][$linea[1]][$linea[4]]=$linea;
+			$i++;
+		}
+		
+		return true;
+	}
+	
+	function _LeerArchivoDatAct()
+	{
+		$this->cont_archivo_datact=array();
+
+		if(!($contenido_original=file(DIR_PAGESTATICA."info_externa/total.txt")))
+			return false;
+
+		$i=0;
+		while($i<count($contenido_original))
+		{
+			$linea=explode(";",substr(trim($contenido_original[$i]),0,-2));
+			$this->cont_archivo_datact[$linea[0]]=$linea;
+			$i++;
+		}
+		
+		return true;
+	}
+	
+	function _ConvertirMayuscula($texto)
+	{
+		$texto=mb_strtolower($texto);
+		$arr_texto=explode(".",$texto);
+		$arr_texto = array_map("trim", $arr_texto);
+		$arr_texto = array_map("ucfirst", $arr_texto);
+		$texto=implode(". ",$arr_texto);
+	
+		return $texto;
+	}
+
+	function _ObtenerDatosAct($ciudad,&$temperatura,&$sensterm,&$icono,&$humedad)
+	{
+		$temperatura="";
+		$sensterm="&nbsp;";
+		$icono="";
+		$humedad="";
+	
+		if(isset($this->cont_archivo_datact[$ciudad]) && trim($this->cont_archivo_datact[$ciudad][3])!="Sin información disponibl")
+		{
+			$datosact=$this->cont_archivo_datact[$ciudad];
+		
+			$temperatura="T: ".str_replace(".",",",$datosact[5])."&deg;";
+			if($datosact[6]!="No se calcula")
+				$sensterm="ST: ".$datosact[6]."&deg;";
+			$icono=$this->iconos[$datosact[10]];
+			$humedad="H: ".$datosact[7]."%";
+		}
+
+		return true;
+	}
+	
+}
+
+//----------------------------------------------------------------------------------------- 
+class cFeriados
+{
+	var $SubTipo;
+	var $NumPaginaAnio;
+	var $msg_error;
+	var $es_admin;
+	var $xml;
+	var $pagina;
+	
+	function cFeriados($es_admin=false)
+	{
+		require_once('minixml-1.3.0/minixml.inc.php');
+		require_once('SOAP/Type/dateTime.php');		
+		
+		$this->msg_error = "";
+		$this->es_admin = $es_admin;
+		$this->xml = new MiniXMLDoc();
+	}
+
+	function Setear($parametros)
+	{
+		$this->SubTipo=$parametros["SubTipo"];
+		$this->NumPaginaAnio=$parametros["NumPaginaAnio"];
+		$this->pagina=$parametros["pagina"];
+		
+		switch($this->SubTipo)
+		{
+			case "FeriadosMes":
+				if(!$this->_LeerArchivoMes())
+					return false;
+				break;
+			case "FeriadosAnio":
+				if(!$this->_LeerArchivoAnio())
+					return false;
+				break;
+		}
+
+		return true;
+	}
+
+	function Mostrar(&$salida)
+	{
+		$DateTimeSOAP=new SOAP_Type_dateTime();
+
+		$seprodujoerror=false;
+
+		switch($this->SubTipo)
+		{
+			case "FeriadosMes":
+
+				$xmlRoot =& $this->xml->getRoot();
+				$feriadods=& $xmlRoot->getElementByPath('/FeriadoDS');
+				$feriados =& $feriadods->getAllChildren();
+				
+				$salida.= "<div class=\"bgcolordestacada clearfix\">\n";
+				$salida.= "	<div style=\"float:left; width:25px; padding:3px; text-align:center;\">\n";
+				$salida.= "		<img src=\"/contenido/portal/img/calendario_feriados.jpg\" alt=\"Calendario\" title=\"Calendario\" width=\"24\" height=\"25\" />\n";
+				$salida.= "	</div>\n";
+				$salida.= "	<div style=\"float:left; width:223px; padding:6px;\" class=\"bgcolorcelesteclaro\">\n";
+				$salida.= "	    <div class=\"titCaja\" style=\"margin-bottom:5px; \">FERIADOS DEL MES</div>";
+				foreach($feriados as $feriado)
+				{
+					$nodo_xml=$feriado->getElementByPath('/ID');
+					$id_xml=html_entity_decode($nodo_xml->getValue());
+					$nodo_xml=$feriado->getElementByPath('/Descripcion');
+					$texto_xml=html_entity_decode($nodo_xml->getValue());
+					$nodo_xml=$feriado->getElementByPath('/FechaOrigen');
+					$fecha_xml=ReemplazarTextoFechas(date("d \de F",$DateTimeSOAP->toUnixtime($nodo_xml->getValue())));
+
+					$salida.= "		<div class=\"titIndice\" style=\"margin-left:0px; \">".$fecha_xml." - ".$texto_xml."</div>\n";
+
+					$salida.= "		<div id=\"feriados_".$id_xml."\" >";
+					$salida.= "		     <a href=\"javascript:MostrarOcultar('feriados_".$id_xml."','feriados_".$id_xml."_info');\" class=\"txtStandard\" >&middot; Mas información</a>";
+					$salida.= "		</div>";
+					// agregado de noscript
+					$salida.= "		 <noscript>";
+					$salida.= "		<div class=\"txtStandard\">";
+					$nodo_xml=$feriado->getElementByPath('/Trasladable');
+					if($nodo_xml->getValue()=="true")
+					{
+						$nodo_xml=$feriado->getElementByPath('/FechaEfectiva');
+						$fecha_xml=ReemplazarTextoFechas(date("d \de F",$DateTimeSOAP->toUnixtime($nodo_xml->getValue())));
+						$salida.= "		<div class=\"txtStandard\">&middot; Feriado Trasladable al ".$fecha_xml."</div>\n";
+					}
+					else
+						$salida.= "		<div class=\"txtStandard\">&middot; Feriado Inamovible</div>\n";
+					$nodo_xml=$feriado->getElementByPath('/TipoDescripcion');						
+					$tipodesc_xml=html_entity_decode($nodo_xml->getValue());
+					$salida.= "		<div class=\"txtStandard\">&middot; ".$tipodesc_xml."</div>\n";					
+					$salida.= "		</div>";
+					$salida.= "		 </noscript>";
+					// fin agregado de noscript
+					
+					$salida.= "		<div class=\"txtStandard\" id=\"feriados_".$id_xml."_info\" style='visibility: hidden; Position:absolute; '>";
+					$nodo_xml=$feriado->getElementByPath('/Trasladable');
+					if($nodo_xml->getValue()=="true")
+					{
+						$nodo_xml=$feriado->getElementByPath('/FechaEfectiva');
+						$fecha_xml=ReemplazarTextoFechas(date("d \de F",$DateTimeSOAP->toUnixtime($nodo_xml->getValue())));
+						$salida.= "		<div class=\"txtStandard\">&middot; Feriado Trasladable al ".$fecha_xml."</div>\n";
+					}
+					else
+						$salida.= "		<div class=\"txtStandard\">&middot; Feriado Inamovible</div>\n";
+					$nodo_xml=$feriado->getElementByPath('/TipoDescripcion');
+					$tipodesc_xml=html_entity_decode($nodo_xml->getValue());
+					$salida.= "		<div class=\"txtStandard\">&middot; ".$tipodesc_xml."</div>\n";
+					$salida.= "		<div>&middot; <a href=\"javascript:MostrarOcultar('feriados_".$id_xml."_info','feriados_".$id_xml."');\" class=\"txtStandard\" >Ocultar información</a></div>";
+					$salida.= "		</div>";
+					$salida.= "		<div style=\"margin-bottom:10px; \"></div>\n";
+				}
+				//-----------------------------------//
+				//ABRE POPUP CON LOS FERIADOS DEL AÑO DEL WEBSERVICE
+				//$salida.= "		<div class=\"txtStandard\"><a href=\"javascript:void(0)\" onclick=\"window.open('/contenido/portal/paginas_imp.dhtml?pagina=".$this->NumPaginaAnio."','FeriadosAnio','menubar=no,location=no,toolbar=no,status=no,scrollbars=yes,directories=no,width=635,height=600')\">&middot; Ver todos los feriados del año.</a></div>\n";
+				// VA DIRECTO A LA PAGINA DEL MINISTERIO DEL INTERIOR
+				$salida.= "		<div class=\"txtStandard\"><a href='http://www.mininterior.gov.ar/servicios/feriados2008.asp' target='_blank'>&middot; Ver todos los feriados del año.</a></div>\n";
+				//-----------------------------------//
+				$salida.= "		<div class=\"txtLetraChica\" align=\"right\">Información provista por el <a href='http://www.mininterior.gov.ar/servicios/feriados.asp' target='_blank'>Ministerio del Interior.</a></div>\n";
+				$salida.= "	</div>\n";
+				$salida.= "	<div class=\"clearboth\"></div>\n";
+				$salida.= "</div>\n";
+
+
+				break;
+			case "FeriadosAnio":
+				$xmlRoot =& $this->xml->getRoot();
+				$feriadods=& $xmlRoot->getElementByPath('/FeriadoDS');
+				$feriados =& $feriadods->getAllChildren();
+				$mes_anterior="";
+
+				foreach($feriados as $feriado)
+				{
+					$nodo_xml=$feriado->getElementByPath('/Descripcion');
+					$texto_xml=html_entity_decode($nodo_xml->getValue());
+					$nodo_xml=$feriado->getElementByPath('/FechaOrigen');
+					$fecha_xml=ReemplazarTextoFechas(date("d \de F",$DateTimeSOAP->toUnixtime($nodo_xml->getValue())));
+
+					$mes_actual=ReemplazarTextoFechas(date("F",$DateTimeSOAP->toUnixtime($nodo_xml->getValue())));
+					if($mes_actual!=$mes_anterior)
+					{
+						$salida.="<div class=\"titBloque01\" style=\"margin:12px 0px 4px 0px\">".$mes_actual."</div>\n";
+						$mes_anterior=$mes_actual;
+					}
+					else
+						$salida.="<div class=\"titBloque01\" style=\"padding:6px 0px\"></div>\n";
+					
+					$salida.= "<div class=\"bgcolordestacada clearfix\" >\n";
+					$salida.= "	<div style=\"float:left; padding:3px; text-align:center;\" class=\"caja_pron_prim_col\"></div>\n";
+					$salida.= "	<div style=\"float:left; padding:0px 6px; width:543px;\" class=\"bgcolorcelesteclaro caja_pron_segunda_col\">\n";
+					$salida.="<p class=\"titBloque02\">".$fecha_xml." - ".$texto_xml."</p>\n";
+					$nodo_xml=$feriado->getElementByPath('/Trasladable');
+					if($nodo_xml->getValue()=="true")
+					{
+						$nodo_xml=$feriado->getElementByPath('/FechaEfectiva');
+						$fecha_xml=ReemplazarTextoFechas(date("d \de F",$DateTimeSOAP->toUnixtime($nodo_xml->getValue())));
+						$salida.= "		<p class=\"txtStandard\">Feriado Trasladable al ".$fecha_xml."</p>\n";
+					}
+					else
+						$salida.= "		<p class=\"txtStandard\">Feriado Inamovible</p>\n";
+					$nodo_xml=$feriado->getElementByPath('/TipoDescripcion');
+					$tipodesc_xml=html_entity_decode($nodo_xml->getValue());
+					$salida.= "		<p class=\"txtStandard\">".$tipodesc_xml."</p>\n";
+
+					$salida.="</div>\n</div>\n";
+				}
+				$salida.= "		<div class=\"txtLetraChica\" align=\"right\">Información provista por el <a href='http://www.mininterior.gov.ar/servicios/feriados.asp' target='_blank'>Ministerio del Interior.</a></div>\n";
+
+				$salida.= "		<div style=\"font-size:1px; height:10px;\"></div>\n";
+				$salida.= "		<ul style=\"list-style-type: none;padding: 0;margin: 0;	width: 350px;\">\n";
+				$salida.= "			<li class=\"txtStandard\" style=\"text-align:left;float:left;width:175px;height: 26px;\"><img src=\"/contenido/portal/img/ico_imprimir.gif\" alt=\"Imprimir\" style=\"vertical-align:middle; display:inline\" /><a href=\"javascript:void(0)\" onclick=\"window.print();\" class=\"txtVolverArriba\" > Imprimir esta p&aacute;gina </a></li>\n";
+				$salida.= "			<li class=\"txtStandard\" style=\"text-align:right;float:left;width:175px;height: 26px;\"><img src=\"/contenido/portal/img/ico_email_2.gif\" alt=\"Recomendar\" style=\"vertical-align:middle; display:inline\" /><a href=\"mailto:?subject=Portal%20argentina.gov.ar&amp;body=Te%20recomiendo%20visitar%20este%20sitio:%20http://www.argentina.gov.ar/contenido/portal/pagina_imp.dhtml=".$this->pagina."\" class=\"txtVolverArriba\" > Enviar por e-mail</a></li>\n";
+				$salida.= "		</ul>\n";
+				$salida.= "		<div class=\"clearboth\"></div>\n";
+				
+				break;
+		}
+
+		return !$seprodujoerror;
+	}
+
+	function RetornarMsgError()
+	{
+		return $this->msg_error;
+	}
+
+	function _LeerArchivoMes()
+	{
+		if(!($contenido_original=file_get_contents(DIR_PAGESTATICA."info_externa/feriados_mes.xml")))
+			return false;
+		
+		$this->xml->fromString($contenido_original);
+		
+		return true;
+	}
+
+	function _LeerArchivoAnio()
+	{
+		if(!($contenido_original=file_get_contents(DIR_PAGESTATICA."info_externa/feriados_anio.xml")))
+			return false;
+		
+		$this->xml->fromString($contenido_original);
+		
+		return true;
+	}
+
+
+}
+
+function ReemplazarTextoFechas($texto)
+{
+	// reemplazo meses  
+	$texto = preg_replace("#January#","Enero",$texto); 
+	$texto = preg_replace("#February#","Febrero",$texto); 
+	$texto = preg_replace("#March#","Marzo",$texto); 
+	$texto = preg_replace("#April#","Abril",$texto); 
+	$texto = preg_replace("#May#","Mayo",$texto); 
+	$texto = preg_replace("#June#","Junio",$texto); 
+	$texto = preg_replace("#July#","Julio",$texto); 
+	$texto = preg_replace("#August#","Agosto",$texto); 
+	$texto = preg_replace("#September#","Septiembre",$texto); 
+	$texto = preg_replace("#October#","Octubre",$texto); 
+	$texto = preg_replace("#November#","Noviembre",$texto); 
+	$texto = preg_replace("#December#","Diciembre",$texto); 
+
+	// reemplazo meses cortos 
+	$texto = preg_replace("#Jan#","Ene",$texto); 
+	$texto = preg_replace("#Apr#","Abr",$texto); 
+	$texto = preg_replace("#Aug#","Ago",$texto); 
+	$texto = preg_replace("#Dec#","Dic",$texto); 
+
+	// reemplazo días 
+	$texto = preg_replace("#Monday#","Lunes",$texto); 
+	$texto = preg_replace("#Tuesday#","Martes",$texto); 
+	$texto = preg_replace("#Wednesday#","Miércoles",$texto); 
+	$texto = preg_replace("#Thursday#","Jueves",$texto); 
+	$texto = preg_replace("#Friday#","Viernes",$texto); 
+	$texto = preg_replace("#Saturday#","Sábado",$texto); 
+	$texto = preg_replace("#Sunday#","Domingo",$texto); 
+	
+	// reemplazo dias cortos 
+	$texto = preg_replace("#Mon#","Lun",$texto); 
+	$texto = preg_replace("#Tue#","Mar",$texto); 
+	$texto = preg_replace("#Wed#","Mié",$texto); 
+	$texto = preg_replace("#Thu#","Jue",$texto); 
+	$texto = preg_replace("#Fri#","Vie",$texto); 
+	$texto = preg_replace("#Sat#","Sáb",$texto); 
+	$texto = preg_replace("#Sun#","Dom",$texto); 
+
+	return $texto;
+}
+
+
+function ObetenerTextoMes($m) {
+	switch ($m) {
+		case 1: $month_text = "Enero"; break;
+		case 2: $month_text = "Febrero"; break;
+		case 3: $month_text = "Marzo"; break;
+		case 4: $month_text = "Abril"; break;
+		case 5: $month_text = "Mayo"; break;
+		case 6: $month_text = "Junio"; break;
+		case 7: $month_text = "Julio"; break;
+		case 8: $month_text = "Agosto"; break;
+		case 9: $month_text = "Septiembre"; break;
+		case 10: $month_text = "Octubre"; break;
+		case 11: $month_text = "Noviembre"; break;
+		case 12: $month_text = "Diciembre"; break;
+	}
+	return ($month_text);
+} 
+
+
+
+
+/*------------------------------------------------------------------------------------*/
+/*------------------------------------------------------------------------------------*/
+/*------------------------------------------------------------------------------------*/
+
+class cMenuDinamico
+{
+	var $conexionobjeto;
+	var $msg_error;
+	var $es_admin;
+	
+	var $pagcod;
+	var $con_link = true;
+	var $idioma="ESP";
+	var $accion="";
+	var $pagcodbusqueda="";
+	
+	var $carpetadireccion = "";
+
+	function cMenuDinamico($es_admin=false)
+	{
+		$this->conexionobjeto = new accesoBDPortal(SERVIDORBD,USUARIOBD,CLAVEBD);
+		$this->conexionobjeto->SeleccionBD(BASEDATOS);
+		$this->msg_error = "";
+		$this->es_admin = $es_admin;
+	}
+	
+	function Setear($parametros)
+	{
+		if(isset($parametros['PaginaDefault']) && $parametros['PaginaDefault']!="")
+			$this->pagcod=$parametros['PaginaDefault'];
+		elseif (isset($_GET['pagina']))
+			$this->pagcod=$_GET['pagina'];
+
+
+		if(isset($parametros['PaginaSeleccionar']) && $parametros['PaginaSeleccionar']!="")
+			$this->pagcodbusqueda=$parametros['PaginaSeleccionar'];
+
+		$this->accion = $parametros['Subtipo'];
+		
+		if(isset($parametros['CarpetaOrigen']) && $parametros['CarpetaOrigen']!="")
+			$this->carpetadireccion = $parametros['CarpetaOrigen'];
+			
+		return true;
+	}
+	
+	function Mostrar(&$salida)
+	{
+		$seprodujoerror=false;
+		$ruta=array();
+
+		switch($this->accion)
+		{
+			case 'MenuSuperiorMasHijos':
+				$spnombre="sel_paginas_xpagcod";
+				$spparam=array("ppagcod"=>$this->pagcod);
+				if($this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) && $numfilas==1)
+				{
+						$filapagina=mysqli_fetch_assoc($query);
+						$pagcodarbol = $this->pagcod;
+						if ($filapagina['pagoriginal']!="")
+							$pagcodarbol = $filapagina['pagoriginal'];
+						
+						$arregloarbol = array();
+						
+						if(!$this->ArmarArbolSuperior($pagcodarbol,$arregloarbol))
+							return false;
+							
+						$menusuperior="";
+						foreach($arregloarbol as $pagcod => $arreglopaginas)
+						{
+							$ultimonivel=0;
+							$nivelseleccion = -1;
+							if(!$this->_MostrarRamaSuperior($arreglopaginas,0,$nivelseleccion,$ultimonivel,$menusuperior))
+								return false;
+						}
+						$salida.="<div class=\"menulateral\">".chr(13);
+						$salida.=$menusuperior;
+						$salida.="</div>".chr(13);
+				}
+			break;
+			
+			case 'MenuHijos':
+				/*RESUELTO OBJETO DINAMICO*/
+				
+				$spnombre="sel_paginas_xpagcod";
+				$spparam=array("ppagcod"=>$this->pagcod);
+				if($this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) && $numfilas==1)
+				{
+					$filapagina=mysqli_fetch_assoc($query);
+			
+					if(!$this->_MostrarHijos($this->pagcod,0,$ruta))
+						return false;
+					
+					$rutastr=implode("  ",$ruta);
+					$salida.="<h3>";
+					$salida.="<a href='".$this->carpetadireccion."paginas.dhtml?pagina=".$filapagina['pagcod']."' title=\"Link a ".$filapagina["pagtitle"]."\">".$filapagina["pagnomarbol"]."</a>".chr(13);
+					$salida.="</h3>";
+					$salida.="<div class=\"menulateral\">".chr(13);
+					$salida.=$rutastr.chr(13);
+					$salida.="</div>".chr(13);
+				}		
+			break;
+			
+			case 'MenuSeleccion':
+				if(!$this->_BuscarSuperior($this->pagcod,$pagcodsuperior))
+					return false;
+				
+				$spnombre="sel_paginas_xpagcod";
+				$spparam=array("ppagcod"=>$pagcodsuperior);
+				
+				if ($pagcodsuperior == $this->pagcodbusqueda)
+					$salida.=" class=\"seleccionado\" ";
+				elseif($this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) && $numfilas==1)
+				{
+					$datospagsuperior = mysqli_fetch_assoc($query);
+					if ($datospagsuperior['pagoriginal']!="")
+						$pagcodsuperior = $datospagsuperior['pagoriginal'];
+
+					if ($pagcodsuperior == $this->pagcodbusqueda)
+						$salida.=" class=\"seleccionado\" ";
+				}		
+			break;
+			
+			
+			case 'MapaSitio':
+				$spnombre="sel_paginas_xpagcod";
+				$spparam=array("ppagcod"=>$this->pagcod);
+				if($this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) && $numfilas==1)
+				{
+					$filapagina=mysqli_fetch_assoc($query);
+					$salida.="<div class=\"mapasitio clearfix\">";
+					$salida.="<ul class=\"clearfix\">";
+					$salida.="<li class=\"titulo\">".chr(13);
+					$salida.="<a href='".$this->carpetadireccion."paginas.dhtml?pagina=".$filapagina['pagcod']."' title=\"Link a ".$filapagina["pagtitle"]."\">".$filapagina["pagnomarbol"]."</a>".chr(13);
+					$arreglohijos = array();
+					if (!$this->ArmarArbol($this->pagcod,$arreglohijos))
+						return false;
+					$ultimonivel=0;
+					$menusuperior="";
+					$nivelseleccion = -1;
+					if(!$this->_MostrarRamaSuperior($arreglohijos,0,$nivelseleccion,$ultimonivel,$menusuperior))
+						return false;
+					if ($menusuperior!="")
+					{	
+						$salida.="<div>".chr(13);
+						$salida.=$menusuperior;
+						$salida.="</div>".chr(13);
+					}
+					$salida.="</li>".chr(13);
+					$salida.="</ul>".chr(13);
+					$salida.="</div>".chr(13);
+				}
+			break;
+		}
+		return !$seprodujoerror;
+	}
+
+	function RetornarMsgError()
+	{
+		return $this->msg_error;
+	}
+	
+	
+	function ArmarArbolSuperior($pagcod,&$arregloarbol)
+	{
+		$spnombre="sel_paginas_xpagcod";
+		$spparam=array("ppagcod"=>$pagcod);
+		if($this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) && $numfilas==1)
+		{
+			$filapagina=mysqli_fetch_assoc($query);
+			$spparam=array("ppagcod"=>$pagcod);
+			$spparam+=array("pporderby"=>"pagordenmenu, pagnomarbol");
+			if ($this->es_admin)
+			{	
+				$spnombre="sel_paginas_pagsuperior_modif";
+			}else
+			{
+				$spnombre="sel_paginas_pagsuperior_activas";
+				$spparam += array("ppagestado"=>70);
+			}	
+			if($this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno) && $numfilas!=0)
+			{
+				while($fila = mysqli_fetch_assoc($resultado))
+				{
+					$pagcod = $filapagina['pagcod'];
+					if ($this->es_admin)
+					{
+						if ($filapagina['pagcopiadoen']!="")
+							$pagcod = $filapagina['pagcopiadoen'];
+					}	
+					$arregloarbol[$pagcod][$fila['pagcod']] = $fila;
+					if (array_key_exists($fila['pagcod'],$arregloarbol))
+					{
+						$arregloarbol[$pagcod][$fila['pagcod']]['subarbol'] = $arregloarbol[$fila['pagcod']];
+						unset($arregloarbol[$fila['pagcod']]);
+					}
+				}
+				
+			}
+			if ($filapagina['pagsuperior']!="")
+			{	
+				$superior = $filapagina['pagsuperior'];
+				if ($this->es_admin)
+				{
+					if ($filapagina['pagoriginal']!="")
+						$superior = $filapagina['pagoriginal'];
+				}	
+				if (!$this->ArmarArbolSuperior($superior,$arregloarbol))
+					return false;
+			}		
+		}
+		
+		return true;
+	}
+	
+	
+	function _MostrarRamaSuperior($arreglopaginas,$nivel,&$nivelseleccion,&$ultimonivel,&$menusuperior)
+	{
+
+		if (count($arreglopaginas)>0)
+		{
+			$menusuperior.="<ul class=\"clearfix\">";
+			$i=1;
+			foreach ($arreglopaginas as $paginas)
+			{
+				$borde = "";
+				if ($nivel==$ultimonivel)
+				{
+					if (count($arreglopaginas)==1)
+					{	
+						if (array_key_exists("subarbol",$paginas) && count($paginas['subarbol'])>0)
+							$ultimonivel++;
+						else
+							$borde = " style=\"border:none;\"";	
+					}elseif($i==count($arreglopaginas))
+					{	
+						$mostrarborde = false;
+						if (array_key_exists("subarbol",$paginas))
+						{
+							foreach($paginas['subarbol'] as $hijos)
+							{
+								if ($hijos['pagcodcargamenu']==1)
+									$mostrarborde = true;
+							}
+						}
+						if ((!array_key_exists("subarbol",$paginas) || count($paginas['subarbol'])==0) || !$mostrarborde)
+							$borde = " style=\"border:none;\"";	
+						else
+							$ultimonivel++;	
+					}	
+								
+				}
+				
+				$mostrarmenu = true;
+				$paginaseleccion = $this->pagcod;
+	
+				if ($mostrarmenu)
+				{
+					//if (array_key_exists("subarbol",$paginas) && count($paginas['subarbol'])>0)
+						//$seleccion = " class=\"seleccionado\"";
+					//else	
+					$seleccion = "";
+
+					if ($paginaseleccion==$paginas['pagcod'])
+					{	
+						//$seleccion = " class=\"seleccionado hijos\"";
+						$seleccion = " class=\"seleccionado\"";
+						$nivelseleccion = $nivel;
+					}
+				
+					if ($nivel!=0 && $nivelseleccion==0 && $nivelseleccion!=-1)
+						$seleccion = " class=\"seleccionadohijos\"";
+					
+					//if ($paginaseleccion == $paginas['pagcod'])
+						//$seleccion = " class=\"seleccionado\"";
+					
+					$menusuperior.="<li>".chr(13);
+					$menusuperior.="<a ".$seleccion." ".$borde." href='".$this->carpetadireccion."paginas.dhtml?pagina=".$paginas['pagcod']."' title=\"Link a ".$paginas["pagtitle"]."\">".$paginas["pagnomarbol"]."</a>".chr(13);
+					
+					if (array_key_exists("subarbol",$paginas) && count($paginas['subarbol'])>0)
+					{	
+						$nivel++;
+						if ($paginas["pagcodcargamenuinf"]==1)
+							if (!$this->_MostrarRamaSuperior($paginas['subarbol'],$nivel,$nivelseleccion,$ultimonivel,$menusuperior))
+								return false;
+						$nivel--;	
+					}
+					$i++;
+					$menusuperior.="</li>";
+				}	
+			}
+			$menusuperior.="</ul>";
+		}
+		return true;	
+	
+	}
+	
+	
+	function ObtenerNivel($pagcod,&$nivel)
+	{
+		$spnombre="sel_paginas_xpagcod";
+		$spparam=array("ppagcod"=>$pagcod);
+		if($this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) && $numfilas==1)
+		{
+			$filapagina=mysqli_fetch_assoc($query);
+			if ($filapagina['pagsuperior']!="")
+			{
+				$nivel++;
+				if (!$this->ObtenerNivel($filapagina['pagsuperior'],$nivel))
+					return false;
+			}
+		}	
+		return true;
+	}
+	
+	
+	function _MostrarHijos($pagcod,$orden,&$ruta,$borrarborde=true)
+	{
+		if(is_null($pagcod) || $pagcod=="")
+			return true;
+		
+		$spparam=array("ppagcod"=>$pagcod);
+		$spparam+=array("pporderby"=>"pagordenmenu, pagnomarbol");
+		if ($this->es_admin)
+		{	
+			$spnombre="sel_paginas_pagsuperior_modif";
+		}else
+		{	
+			$spnombre="sel_paginas_pagsuperior_activas";
+			/*PAGPUB = 70*/
+			$spparam += array("ppagestado"=>70);
+		}
+	
+		$primero = true;
+		if($this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) && $numfilas!=0)
+		{
+			if ($primero && $numfilas>0)
+				$ruta[]="<ul>".chr(13);
+
+			$contador = 1;
+			while($filapagina=mysqli_fetch_assoc($query))
+			{	
+				if ($borrarborde)
+				{
+					$borde = "";
+					if ($contador==$numfilas)
+						$borde = " style=\"border:none;\"";
+				}	
+				$ruta[]="<li><a ".$borde." href='".$this->carpetadireccion."paginas.dhtml?pagina=".$filapagina['pagcod']."'>".$filapagina["pagnomarbol"]."</a></li>".chr(13);
+				$contador++;
+			}
+			if ($primero && $numfilas>0)
+			{
+				$primero = false;
+				$ruta[]="</ul>".chr(13);
+			}
+		} // Fin de encontró la pagina
+		
+		return true;	
+	
+	}
+
+	function _BuscarSuperior($pagcod,&$superior)
+	{
+		if(is_null($pagcod) || $pagcod=="")
+			return true;
+
+		$spnombre="sel_paginas_xpagcod";
+		$spparam=array("ppagcod"=>$pagcod);
+		
+		if($this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) && $numfilas==1)
+		{
+			$filapagina=mysqli_fetch_assoc($query);
+			$superior = $pagcod;
+			if(!$this->_BuscarSuperior($filapagina["pagsuperior"],$superior))
+				return false;
+
+			
+		} // Fin de encontró la pagina
+		else
+		{
+			$this->msg_error.="El código de página es inexistente o contiene un error. Pagina: ".$this->pagcod."<br>";
+			return false;
+		}	
+		
+		return true;	
+	
+	}
+	
+	
+	
+	function ArmarArbol($pagcod,&$arreglo)
+	{
+		if(is_null($pagcod) || $pagcod=="")
+			return true;
+
+		$spparam=array("ppagcod"=>$pagcod);
+		$spparam+=array("pporderby"=>"pagordenmenu, pagnomarbol");
+		if ($this->es_admin)
+		{	
+			$spnombre="sel_paginas_pagsuperior_modif";
+		}else
+		{
+			$spnombre="sel_paginas_pagsuperior_activas";
+			$spparam += array("ppagestado"=>70);
+		}	
+		
+
+		if($this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) && $numfilas!=0)
+		{
+			while($filapagina=mysqli_fetch_assoc($query))
+			{	
+				$pagcodhijo = $filapagina['pagcod'];
+				$arreglo[$pagcodhijo] = $filapagina;
+				$arreglo[$pagcodhijo]['subarbol'] = array();
+				if (!$this->ArmarArbol($pagcodhijo,$arreglo[$pagcodhijo]['subarbol']))
+					return false;
+			}
+		} // Fin de encontró la pagina
+		
+		return true;
+	}
+	
+	
+	
+	
+	
+}
+
+
+
+/*------------------------------------------------------------------------------------*/
+/*------------------------------------------------------------------------------------*/
+/*------------------------------------------------------------------------------------*/
+
+
+class cNoticiasDinamicas 
+{
+
+	var $conexionobjeto;
+	var $msg_error;
+	var $es_admin;
+	
+	var $pagcod;
+	var $con_link = true;
+	var $idioma="ESP";
+	var $accion = "";
+	var $accion_interna = "";
+	var $cantidad_noticias = 10;
+	var $notcod;
+	var $mes;
+	var $anio;
+	var $noticiaaprobada = 70;
+	var $noticiabaja = 90;
+
+
+	var $cantidadpaginar = 10;
+	var $paginaactual = 1;
+	
+	
+	var $arreglotitulos;
+	var $tituloruta;
+
+	function cNoticiasDinamicas($es_admin=false)
+	{
+		$this->conexionobjeto = new accesoBDPortal(SERVIDORBD,USUARIOBD,CLAVEBD);
+		$this->conexionobjeto->SeleccionBD(BASEDATOS);
+		$this->msg_error = "";
+		$this->es_admin = $es_admin;
+	}
+	
+	function Setear($parametros)
+	{
+	
+		if (isset($parametros['pagina']))
+			$this->pagcod = $parametros['pagina'];
+		elseif(isset($_GET['pagina']))
+			$this->pagcod = $_GET['pagina'];
+		
+		if (isset($_GET['paginado']))
+			$this->paginaactual = $_GET['paginado'];
+		
+		if (isset($parametros['SubTipo']))
+			$this->accion = $parametros['SubTipo'];
+		
+		if (isset($parametros['Cantidad']))
+			$this->cantidad_noticias = $parametros['Cantidad'];
+
+		$this->arreglotitulos['Titulo'] = "Noticias";
+		$this->arreglotitulos['TituloCorto'] = "Noticia";
+		$this->arreglotitulos['TituloRuta'] = "Prensa";
+		$this->arreglotitulos['TituloAmpliado'] = "Noticia Ampliada";
+		if (isset($parametros['Titulo']))
+			$this->arreglotitulos['Titulo'] = $parametros['Titulo'];
+		if (isset($parametros['TituloRuta']))
+			$this->arreglotitulos['TituloRuta'] = $parametros['TituloRuta'];
+		if (isset($parametros['TituloCorto']))
+			$this->arreglotitulos['TituloCorto'] = $parametros['TituloCorto'];
+		if (isset($parametros['TituloAmpliado']))
+			$this->arreglotitulos['TituloAmpliado'] = $parametros['TituloAmpliado'];
+
+		if (isset($_GET['anio']))
+		{	
+			$this->anio = $_GET['anio'];
+			if(!FuncionesPHPPortal::ValidarContenido($this->conexionobjeto,$this->anio,"NumericoEntero"))
+				$this->anio = date("Y");
+			if ($this->anio>date("Y"))	
+				$this->anio = date("Y");
+			if ($this->anio<2009)
+				$this->anio=date("Y");
+		}	
+		if (isset($_GET['mes']))
+		{	
+			$this->mes = $_GET['mes'];
+			if(!FuncionesPHPPortal::ValidarContenido($this->conexionobjeto,$this->mes,"NumericoEntero"))
+				$this->mes = "";
+			if ($this->mes<1 || $this->mes>12)	
+				$this->mes = "";
+		}
+		if (isset($_GET['notcod']))
+			$this->notcod = $_GET['notcod'];
+			
+		$this->accion_interna = "UltimasActivas";	
+		if (isset($_GET['notcod']) && $this->accion=="UltimasNoticias")
+			$this->accion = "NoticiaAmpliada";
+		elseif ((isset($_GET['mes']) || isset($_GET['anio'])) && $this->accion=="UltimasNoticias")
+			$this->accion_interna = "NoticiasxMesAnio";	
+
+
+
+		return true;
+	}
+	
+	function Mostrar(&$salida)
+	{
+		$seprodujoerror=false;
+		$ruta=array();
+		
+		$paginarresultados = false;
+		switch($this->accion)
+		{
+			case 'UltimasNoticias':
+				switch($this->accion_interna){
+				
+					case "UltimasActivas":
+						$spnombre="sel_noticias_xestado_xcantidadfija";
+						$spparam=array("pnotestado"=>$this->noticiaaprobada);
+						$spparam+=array("pxnotestado"=>1);
+						$spparam+=array("pxnotestadodistinto"=>1);
+						$spparam+=array("pxnotadmin"=>0);
+						if ($this->es_admin)
+						{	
+							$spparam['pxnotestado']=0;
+							$spparam['pxnotadmin']=1;
+							
+						}	
+						$spparam+=array("pnotestadodistinto"=>$this->noticiabaja);
+						$spparam+=array("porderby"=>"notdestacada DESC, notfechapub DESC, notorden ASC");
+						$spparam+=array("pcantidadnoticias"=>$this->cantidad_noticias);
+						$salida .= "<h1>".$this->arreglotitulos['Titulo']."</h1>";
+					break;
+					case "NoticiasxMesAnio":
+						
+						$spnombre="sel_noticias_xestado_xmes_anio_ordenadas";
+						$spparam=array("pnotestado"=>$this->noticiaaprobada);
+						$spparam+=array("pxnotestado"=>1);
+						$spparam+=array("pxnotestadodistinto"=>1);
+						$spparam+=array("pxnotadmin"=>0);
+						if ($this->es_admin)
+						{	
+							$spparam['pxnotestado']=0;
+							$spparam['pxnotadmin']=1;
+						}	
+						$spparam+=array("pnotestadodistinto"=>$this->noticiabaja);
+						$spparam+=array("porderby"=>"notfechapub DESC, notorden ASC");
+						$spparam+=array("pnotfechapubmes"=>$this->mes);
+						$spparam+=array("pestadomes"=>0);
+						if ($this->mes!="")
+							$spparam["pestadomes"]=1;
+						
+						$spparam+=array("pestadoanio"=>0);
+						if ($this->anio!="")
+							$spparam["pestadoanio"]=1;
+							
+						$spparam+=array("pnotfechapubanio"=>$this->anio);
+
+						$aniosel = date("Y");
+						if ($this->anio!="")
+							$aniosel = $this->anio;
+						if ($this->mes!="")
+						{
+							$texto = ObetenerTextoMes($this->mes);
+							$salida .= "<h1>".$this->arreglotitulos['Titulo']." de ".$texto." de ".htmlspecialchars($aniosel,ENT_QUOTES)."</h1>";
+						}elseif ($this->anio!="")
+							$salida .= "<h1>&Uacute;ltimas ".$this->arreglotitulos['Titulo']." del ".htmlspecialchars($aniosel,ENT_QUOTES)."</h1>";
+						
+						
+						if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$canttotal,$errno))
+							return false;
+						
+						$spnombre="sel_noticias_xestado_xmes_anio_ordenadas_limitadas";
+						$spparam+=array("paginicio"=>0);
+						$spparam+=array("pagfin"=>$canttotal);
+						
+						
+						if ($canttotal > $this->cantidadpaginar)
+						{
+							$i=1;
+							$paginicio = 0;
+							while ($i<=$this->paginaactual)
+							{
+								$pagfin = $this->cantidadpaginar * $i;
+								$paginicio = $pagfin - $this->cantidadpaginar;
+								$i++;
+							}
+							$spparam["paginicio"] = 0;
+							if ($paginicio<$canttotal)
+								$spparam["paginicio"] = $paginicio;
+							$spparam["pagfin"] = $this->cantidadpaginar;
+
+							$ultimapagina = ceil($canttotal / $this->cantidadpaginar);
+
+							if ($spparam["paginicio"]==0)
+							{
+								$paginasiguiente = 2;
+								$paginaanterior = 1;
+								$this->paginaactual = 1;
+							}else
+							{
+								$paginasiguiente = $i;
+								if ($paginasiguiente>$ultimapagina)
+									$paginasiguiente = $ultimapagina;
+								
+								$paginaanterior = $i - 2;
+								if ($paginaanterior<1)
+									$paginaanterior = 1;
+							}
+							$paginarresultados = true;
+						}
+					break;
+				}
+				
+				if($this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno))
+				{
+					if ($numfilas==0)
+					{
+						$salida .= "<div class=\"noticia_msg msg_accion clearfix\">";
+						$salida .= "Sin ".$this->arreglotitulos['Titulo']." Cargadas";
+						$salida .= "</div>";
+					}
+					while($filanoticia=mysqli_fetch_assoc($query))
+					{
+					
+						$textofecha = $this->ObtenerTextoFecha($filanoticia['notfechapub']);
+						
+						if(!is_null($filanoticia["imgcod"]))
+						{
+							$spnombre="sel_noticias_imagenes_ximgcod";
+							$spparam=array("pimgcod"=>$filanoticia["imgcod"]);
+					
+							if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$queryimg,$numfilasimg,$errno) || $numfilasimg!=1)
+							{
+								$this->msg_error.="Imagen error. Notcod: ".$this->notcod." / Pagina: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+								return false;
+							}
+							$filaimagen=mysqli_fetch_assoc($queryimg);
+							$imgubic = $filaimagen['imgubic'];
+						}else
+							$imgubic = "img/prensa_generico.jpg";
+
+						$imgubic = FuncionesPHPPortal::ConvertirStringParaURL($imgubic); 
+						
+						$destacada = false;
+						if ($filanoticia['notdestacada']==1)
+							$destacada = true;
+
+						$salida .= "<div class=\"listultimasnoticias\">";
+						$salida .= "	<div class=\"noticia clearfix\">";
+						$salida .= "		<div class=\"imagen_noticia\">";
+						$salida .= "			<img src=\"".$imgubic."\" alt=\"Im&aacute;gen de ".$this->arreglotitulos['TituloCorto']."\" />\n";
+						$salida .= "		</div>";
+						$salida .= "		<div class=\"texto_noticia\">";
+						$salida .= "			<h2><span class=\"fechapublicacion\">".$textofecha." - </span>".htmlspecialchars($filanoticia['notdesccorta'],ENT_QUOTES);
+						if ($destacada)
+							$salida .= "			- <span class=\"destacada\">".$this->arreglotitulos['TituloCorto']." DESTACADA</span>";
+						$salida .= "			</h2>";
+						$copete = htmlspecialchars($filanoticia['notcopete'],ENT_QUOTES);
+						if (strlen($filanoticia['notcopete'])>280)
+							$copete = substr(htmlspecialchars($filanoticia['notcopete'],ENT_QUOTES),0,280)."...";
+						$salida .= "			<p>".$copete."</p>";
+						$salida .= "			<div class=\"masinfo clearfix\">";
+						$querystring = str_replace("&","&amp;",$_SERVER['QUERY_STRING']);
+						$salida .= "				<a href=\"paginas.dhtml?".$querystring."&amp;notcod=".$filanoticia['notcod']."\" title=\"m&aacute;s informaci&oacute;n\">m&aacute;s informaci&oacute;n></a>";
+						$salida .= "			</div>";
+						$salida .= "		</div>";
+						$salida .= "	</div>";
+						$salida .= "</div>";
+					}	
+				}	
+				$querystring = FuncionesPHPPortal::ArmarQueryString("paginado");	
+				$querystring = str_replace("&","&amp;",$querystring);
+				if ($paginarresultados)
+				{
+					$salida .= "<div class=\"paginar\">";
+					$salida .= "		<hr />";
+					$salida .= "		<div class=\"botones_izq\">";
+					$salida .= "			<a href=\"paginas.dhtml?".$querystring."&amp;paginado=1\" title=\"Primer P&aacute;gina\">&lt;&lt;</a>";
+					$salida .= "			&nbsp;&nbsp;&nbsp;";
+					$salida .= "			<a href=\"paginas.dhtml?".$querystring."&amp;paginado=".$paginaanterior."\" title=\"P&aacute;gina Anterior\">&lt;</a>";
+					$salida .= "		</div>";
+					$salida .= "		<div class=\"txt_cen bold\">";
+					$salida .= "			p&aacute;gina ".$this->paginaactual." de ".$ultimapagina;
+					$salida .= "		</div>";
+					$salida .= "		<div class=\"botones_der\">";
+					$salida .= "			<a href=\"paginas.dhtml?".$querystring."&amp;paginado=".$paginasiguiente."\" title=\"P&aacute;gina Siguente\">&gt;</a>";
+					$salida .= "			&nbsp;&nbsp;&nbsp;";
+					$salida .= "			<a href=\"paginas.dhtml?".$querystring."&amp;paginado=".$ultimapagina."\" title=\"&Uacute;ltima P&aacute;gina\">&gt;&gt;</a>";
+					$salida .= "		</div>";
+					$salida .= "		<div class=\"clear\"></div>";
+					$salida .= "</div>";
+				}
+				break;
+				
+				case 'NoticiaAmpliada':
+					$salida .= "<h1 id='titnoticiaampliada'>".$this->arreglotitulos['TituloCorto']." Ampliada</h1>";
+					$spnombre="sel_noticias_xnotcod";
+					$spparam=array("pnotcod"=>$this->notcod);
+					if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno))
+					{
+						$this->msg_error.="Noticias error. Notcod: ".$this->notcod." / Pagina: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+						return false;
+					}
+					if ($numfilas==1)
+					{
+						$filanoticia=mysqli_fetch_assoc($query);
+						$se_visualiza = false;
+						if ($this->es_admin)
+						{
+							if ($filanoticia['notestado']!=$this->noticiabaja)
+								$se_visualiza = true;
+						}else
+						{
+							if ($filanoticia['notestado']==$this->noticiaaprobada)
+								$se_visualiza = true;
+						}
+						
+						$destacada = false;
+						if ($filanoticia['notdestacada']==1)
+							$destacada = true;
+
+						if ($se_visualiza)
+						{
+							$textofecha = $this->ObtenerTextoFecha($filanoticia['notfechapub']);
+							$contieneimg = false;
+							if(!is_null($filanoticia["imgcod"]))
+							{
+								$spnombre="sel_noticias_imagenes_ximgcod";
+								$spparam=array("pimgcod"=>$filanoticia["imgcod"]);
+						
+								if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$queryimg,$numfilasimg,$errno) || $numfilasimg!=1)
+								{
+									$this->msg_error.="Imagen error. Notcod: ".$this->notcod." / Pagina: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+									return false;
+								}
+								$filaimagen=mysqli_fetch_assoc($queryimg);
+								$imgubic = $filaimagen['imgubic'];
+								$contieneimg = true;
+							}else
+								$imgubic = "/contenido/portal/img/logotipo_JGM.png";
+						
+							$contieneaudio = false;
+							if ($filanoticia['notaudio']!="")
+								$contieneaudio = true;
+							
+							$contienevideo = false;
+							if ($filanoticia['notvideo']!="")
+								$contienevideo = true;
+
+
+							$contieneepigrafe = false;
+							if ($filanoticia['notepigrafe']!="")
+								$contieneepigrafe = true;
+							$alt = "   ";
+							if ($filanoticia['imgalt']!="")
+								$alt = $filanoticia['imgalt'];
+							
+							$salida .= "<div class=\"noticia_ampliada clearfix\">";
+							$salida .= "	<div class=\"noticia clearfix\">";
+							$salida .= "		<h2>".htmlspecialchars($filanoticia['notdesccorta'],ENT_QUOTES);
+							if ($destacada)
+								$salida .= "			- <span class=\"destacada\">".$this->arreglotitulos['TituloCorto']." DESTACADA</span>";
+							$salida .= "</h2>";
+							$salida .= "		<div class=\"copete\">";
+							$salida .= "			<p>".htmlspecialchars($filanoticia['notcopete'],ENT_QUOTES)."</p>";
+							$salida .= "		</div>";
+							if ($contieneimg)
+							{
+								$salida .= "		<div class=\"imagen_noticia\">";
+								$salida .= "			<img src=\"".$imgubic."\" alt=\"".htmlspecialchars($alt,ENT_QUOTES)."\" />\n";
+								if($contieneepigrafe)
+								{
+									$salida .= "		<div class=\"epigrafe\">";
+									$salida .= "			".$filanoticia['notepigrafe']."\n";
+									$salida .= "		</div>";
+								}								
+								$salida .= "		</div>";
+							}
+
+							if($contienevideo)
+							{
+								
+								$salida .= '<div id="contenidovideonot_'.$filanoticia['notcod'].'"></div>'.chr(13);
+								$salida .= '<script type="text/javascript">'.chr(13);
+								$salida .= ' var so = new SWFObject("player/video.swf?ruta=../'.$filanoticia['notvideo'].'", "mymovie", "500", "350", "7", "#EBF8FF")'.chr(13);
+								$salida .= ' so.addParam("movie", "player/video.swf?ruta=../'.$filanoticia['notvideo'].'")'.chr(13);
+								$salida .= ' so.addParam("autoSize", "false");'.chr(13);
+								$salida .= ' so.addParam("mantainAspectRadio", "false");'.chr(13);
+								$salida .= ' so.addParam("wmode", "transparent");'.chr(13);
+								$salida .= ' so.write("contenidovideonot_'.$filanoticia['notcod'].'");'.chr(13);
+								$salida .= ' </script>'.chr(13);
+								
+								$salida .= '<noscript>'.chr(13);
+								$salida .= ' <object type="application/x-shockwave-flash" data="player/video.swf?ruta=../'.$filanoticia['notvideo'].'"  width="500" height="350">'.chr(13);
+								$salida .= ' <param name="movie" value="player/video.swf?ruta=../'.$filanoticia['notvideo'].'" />'.chr(13);
+								$salida .= ' <param name="quality" value="high" />'.chr(13);
+								$salida .= ' <param name="autoSize" value="false" />'.chr(13);
+								$salida .= ' <param name="mantainAspectRadio" value="false" />'.chr(13);
+								$salida .= ' <param name="wmode" value="transparent" />'.chr(13);
+								$salida .= ' </object>'.chr(13);
+								$salida .= ' </noscript>'.chr(13);
+								
+							}
+							
+							if($contieneaudio)
+							{
+								
+								$salida .= '<div class="solapa_audio"><h3>Audio</h3>'.chr(13);
+								$salida .= '<div id="contenidosonidonot_'.$filanoticia['notcod'].'"></div>'.chr(13);
+								$salida .= '<script type="text/javascript">'.chr(13);
+								$salida .= ' var so = new SWFObject("player/player-sonido.swf?soundFile='.$filanoticia['notaudio'].'", "mymovie", "460", "24", "7", "#EBF8FF")'.chr(13);
+								$salida .= ' so.addParam("movie", "player/player-sonido.swf?soundFile='.$filanoticia['notaudio'].'")'.chr(13);
+								$salida .= ' so.addParam("quality", "high");'.chr(13);
+								$salida .= ' so.addParam("menu", "true");'.chr(13);
+								$salida .= ' so.addParam("wmode", "transparent");'.chr(13);
+								$salida .= ' so.addParam("true", "titles");'.chr(13);
+								$salida .= ' so.write("contenidosonidonot_'.$filanoticia['notcod'].'");'.chr(13);
+								$salida .= ' </script>'.chr(13);
+
+								$salida .= '<noscript>'.chr(13);
+								$salida .= '<object data="player/player-sonido.swf?soundFile='.$filanoticia['notaudio'].'" ';
+								$salida .= ' type="application/x-shockwave-flash" height="24" width="460">'.chr(13).'<param value="player/player-sonido.swf?soundFile='.$filanoticia['notaudio'].'" name="movie" />'.chr(13);
+								$salida .= ' <param value="high" name="quality" />'.chr(13);
+								$salida .= ' <param value="true" name="menu" />'.chr(13);
+								$salida .= ' <param value="transparent" name="wmode" />'.chr(13);
+								$salida .= ' <param value="true" name="titles" />'.chr(13);
+								$salida .= ' <param value="false" name="animation" />'.chr(13);
+								$salida .= ' </object>	';
+								$salida .= ' </noscript>'.chr(13);
+								$salida .= ' </div>'.chr(13);
+								
+								
+							}
+
+							$salida .= "		<div class=\"fechapublicacion bold\">".$textofecha."</div>";
+							$salida .= "		<div>";
+							cNoticiasDinamicas::ProcesarNoticia($filanoticia['notdesclarga'],$salida);
+							$salida .= "		</div>";
+							$salida .= "	</div>";
+							$salida .= "		<div class=\"volver\">";
+							$salida .= "			<a href=\"javascript:history.back();\" title=\"Volver Atr&aacute;s\">< volver atr&aacute;s</a>";
+							$salida .= "		</div>";
+							$salida .= "</div>";
+						}else
+						{
+							$salida .= "<div class=\"noticia_msg msg_error  clearfix\">";
+							$salida .= "Error, ".strtolower($this->arreglotitulos['TituloCorto'])." inexistente";
+							$salida .= "</div>";
+						}	
+					}else
+					{
+						$salida .= "<div class=\"noticia_msg msg_error  clearfix\">";
+						$salida .= "Error, ".strtolower($this->arreglotitulos['TituloCorto'])." inexistente";
+						$salida .= "</div>";
+					}	
+					break;				
+
+
+				case 'ListadoNoticiasBreves':
+				
+				$spnombre="sel_noticias_xestado_xcantidadfija";
+				$spparam=array("pnotestado"=>$this->noticiaaprobada);
+				$spparam+=array("pxnotestado"=>1);
+				$spparam+=array("pxnotestadodistinto"=>1);
+				$spparam+=array("pxnotadmin"=>0);
+				if ($this->es_admin)
+				{	
+					$spparam['pxnotestado']=0;
+					$spparam['pxnotadmin']=1;
+				}	
+				$spparam+=array("pnotestadodistinto"=>$this->noticiabaja);
+				$spparam+=array("porderby"=>"notdestacada DESC, notfechapub DESC, notorden ASC");
+				$spparam+=array("pcantidadnoticias"=>3);
+				
+				if($this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno))
+				{
+					$primero = true;
+					$salida .= "<div class=\"noticiasbreves\">";
+					while($filanoticia=mysqli_fetch_assoc($query))
+					{
+					
+						$textofecha = $this->ObtenerTextoFecha($filanoticia['notfechapub']);
+						
+						if(!is_null($filanoticia["imgcod"]))
+						{
+							$spnombre="sel_noticias_imagenes_ximgcod";
+							$spparam=array("pimgcod"=>$filanoticia["imgcod"]);
+					
+							if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$queryimg,$numfilasimg,$errno) || $numfilasimg!=1)
+							{
+								$this->msg_error.="Imagen error. Notcod: ".$this->notcod." / Pagina: ".(isset($_GET["pagina"])?$_GET["pagina"]:"")."<br>";
+								return false;
+							}
+							$filaimagen=mysqli_fetch_assoc($queryimg);
+							$imgubic = $filaimagen['imgubic'];
+						}else
+							$imgubic = "img/prensa_generico.jpg";
+
+						$imgubic = FuncionesPHPPortal::ConvertirStringParaURL($imgubic); 
+						
+						$destacada = false;
+						if ($filanoticia['notdestacada']==1)
+							$destacada = true;
+						if ($primero)
+						{
+							$salida .= "<div class=\"notprincipal\">";
+							$salida .= "	<div class=\"noticia clearfix \">";
+							$salida .= "		<div class=\"imagen_noticia\">";
+							$salida .= "			<img src=\"".$imgubic."\" alt=\"Im&aacute;gen de ".$this->arreglotitulos['TituloCorto']."\" />\n";
+							$salida .= "		</div>";
+							$salida .= "		<div class=\"texto_noticia\">";
+							$salida .= "			<h3>".htmlspecialchars($filanoticia['notdesccorta'],ENT_QUOTES);
+							$salida .= "			</h3>";
+							$copete = htmlspecialchars($filanoticia['notcopete'],ENT_QUOTES);
+							if (strlen($filanoticia['notcopete'])>280)
+								$copete = substr(htmlspecialchars($filanoticia['notcopete'],ENT_QUOTES),0,280)."...";
+							$salida .= "			<p>".$copete."</p>";
+							$salida .= "			<div class=\"masinfo clearfix\">";
+							$salida .= "				<a href=\"paginas.dhtml?pagina=7&amp;notcod=".$filanoticia['notcod']."\" title=\"m&aacute;s informaci&oacute;n\">m&aacute;s informaci&oacute;n></a>";
+							$salida .= "			</div>";
+							$salida .= "		</div>";
+							$salida .= "	</div>";
+							$salida .= "</div>";
+							$primero = false;
+						}else
+						{
+							$salida .= "<div class=\"notsecundaria\">";
+							$salida .= "	<div class=\"noticia clearfix\">";
+							$salida .= "		<div class=\"texto_noticia\">";
+							$salida .= "			<h3>".htmlspecialchars($filanoticia['notdesccorta'],ENT_QUOTES);
+							$salida .= "				&nbsp;<a href=\"paginas.dhtml?pagina=7&amp;notcod=".$filanoticia['notcod']."\" title=\"m&aacute;s informaci&oacute;n\" style=\"text-transform:lowercase\">m&aacute;s informaci&oacute;n></a>";
+							$salida .= "			</h3>";
+							$salida .= "		</div>";
+							$salida .= "	</div>";
+							$salida .= "</div>";
+						}
+					}	
+					$salida .= "</div>";
+				}	
+					break;				
+
+
+			case "MenuMeses":
+
+				$m = date("m");
+				
+				
+				$salida .= "<div class=\"menulateral\">";
+				$salida .= "	<ul class=\"clearfix\">";
+				
+				if ($this->anio!="")
+					if ($this->anio<date("Y"))
+						$m=12;
+				$i = $m;
+				
+				if ($this->anio=="")
+					$this->anio=date("Y");
+				if ($this->anio<1)
+					$this->anio=date("Y");
+	
+				$aux=1;
+				$encontradoanio=false;
+				while(!$encontradoanio || $aux<5)
+				{
+					$spnombre = "sel_noticias_ultimomes_activo";
+					$spparam=array("pnotestado"=>$this->noticiaaprobada);
+					$spparam+=array("pxnotestado"=>0);
+					$spparam+=array("pnotfechapubanio"=>$this->anio);
+					if ($this->es_admin)
+						$spparam['pxnotestado']=1;
+	
+					if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$querynotultmes,$numfilasnotultmes,$errno))
+					{
+						$this->msg_error.="Error al buscar la última ".strtolower($this->arreglotitulos['TituloCorto'])." del año por mes.";
+						return false;
+					}
+					if ($this->anio<1)
+						break;
+					if ($numfilasnotultmes>0)
+					{
+						$datosultmes = mysqli_fetch_assoc($querynotultmes);
+						if ($datosultmes['ultmes']!="")
+						{
+							$ultmes = $datosultmes['ultmes'];
+							$encontradoanio=true;
+						}else
+							$this->anio = $this->anio - 1;
+					}else
+						$this->anio = $this->anio - 1;
+
+					$aux++;
+				}	
+
+				while ($i>0)
+				{
+					$spnombre="sel_noticias_xestado_xmes_anio_ordenadas";
+				
+					$spparam=array("pnotestado"=>$this->noticiaaprobada);
+					$spparam+=array("pxnotestado"=>1);
+					$spparam+=array("pxnotestadodistinto"=>0);
+					$spparam+=array("pxnotadmin"=>0);
+					if ($this->es_admin)
+					{	
+						$spparam['pxnotestado']=0;
+						$spparam['pxnotestadodistinto']=1;
+						$spparam['pxnotadmin']=1;
+					}	
+					$spparam+=array("pnotestadodistinto"=>$this->noticiabaja);
+					$spparam+=array("porderby"=>"notfechapub DESC");
+					$spparam+=array("pnotfechapubmes"=>$i);
+					$spparam+=array("pestadomes"=>1);
+					
+					$spparam+=array("pestadoanio"=>0);
+					if ($this->anio!="")
+						$spparam["pestadoanio"]=1;
+						
+					$spparam+=array("pnotfechapubanio"=>$this->anio);
+					$spparam+=array("porderby"=>"notfechapub DESC");
+				
+					if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$querynotmes,$numfilasnotmes,$errno))
+					{
+						$this->msg_error.="Error al buscar ".$this->arreglotitulos['Titulo']." por mes.";
+						return false;
+					}
+
+					$borde = " ";
+					if ($i==$ultmes)
+						$borde = " style=\"border:none;\"";
+					
+					$querystring = FuncionesPHPPortal::ArmarQueryString("");	
+					$texto = ObetenerTextoMes($i);
+					$seleccionado = " ";
+					if (isset($this->mes) && $this->mes!="" && $this->mes==$i)
+						$seleccionado = " class=\"seleccionado\"";
+	
+					$anio="";
+					if ($this->anio!="")
+						$anio = "&amp;anio=".$this->anio;
+	
+					$mes = "&amp;mes=".$i;
+					$href = "paginas.dhtml?pagina=".$this->pagcod.$anio.$mes;
+					if ($numfilasnotmes>0)	
+					{
+						$salida .= "	<li>";
+						$salida .= "		<a ".$borde.$seleccionado." href=\"".$href."\" title=\"".$this->arreglotitulos['Titulo']." de ".$texto."\">";
+						$salida .= "			".$texto." (".$numfilasnotmes.")";
+						$salida .= "		</a>";
+						$salida .= "	</li>";
+					}	
+					$i--;
+				}
+				$salida .= "	</ul>";
+				$salida .= "</div>";
+			break;
+
+
+			case "MenuAnios":
+				$y = "";
+				if ($this->anio!="")
+					$y=$this->anio;
+				
+				$spnombre="sel_noticias_anios_connoticias";
+				$spparam=array("pnotestado"=>$this->noticiaaprobada);
+				$i=1;
+				if($this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno) && $numfilas>0)
+				{
+					$salida .= "<div class=\"separador\">&nbsp;</div>";
+					$salida .= "<div class=\"menulateral\">";
+					$salida .= "	<ul class=\"clearfix\">";
+					while($filaanios=mysqli_fetch_assoc($query))
+					{
+						$spnombre="sel_noticias_xestado_xmes_anio_ordenadas";
+						$spparam=array("pnotestado"=>$this->noticiaaprobada);
+						$spparam+=array("pxnotestado"=>1);
+						$spparam+=array("pxnotestadodistinto"=>0);
+						$spparam+=array("pxnotadmin"=>0);
+						if ($this->es_admin)
+						{	
+							$spparam['pxnotestado']=0;
+							$spparam['pxnotestadodistinto']=1;
+							$spparam['pxnotadmin']=1;
+						}	
+						$spparam+=array("pnotestadodistinto"=>$this->noticiabaja);
+						$spparam+=array("porderby"=>"notfechapub DESC");
+						$spparam+=array("pnotfechapubmes"=>"");
+						$spparam+=array("pestadomes"=>0);
+						$spparam+=array("pestadoanio"=>0);
+						$spparam["pestadoanio"]=1;
+						$spparam+=array("pnotfechapubanio"=>$filaanios['anio']);
+						$spparam+=array("porderby"=>"notfechapub DESC");
+						if(!$this->conexionobjeto->ejecutarStoredProcedure($spnombre,$spparam,$querynotanio,$numfilasnotanio,$errno))
+						{
+							$this->msg_error.="Error al buscar ".$this->arreglotitulos['Titulo']." por año.";
+							return false;
+						}
+						
+						$borde = " ";
+						if ($i==$numfilas)
+							$borde = " style=\"border:none;\"";
+						
+						$querystring = FuncionesPHPPortal::ArmarQueryString("");	
+						$texto = $filaanios['anio'];
+						$seleccionado = " ";
+						if ($this->anio!="" && $this->anio==$filaanios['anio'])
+							$seleccionado = " class=\"seleccionado\"";
+
+						$anio = "&amp;anio=".$filaanios['anio'];
+						$href = "paginas.dhtml?pagina=".$this->pagcod.$anio;
+							
+						$salida .= "	<li>";
+						$salida .= "		<a ".$borde.$seleccionado." href=\"".$href."\" title=\"".$this->arreglotitulos['Titulo']." de ".$texto."\">";
+						$salida .= "			".$texto." (".$numfilasnotanio.")";
+						$salida .= "		</a>";
+						$salida .= "	</li>";
+						$i++;
+						
+					}
+					$salida .= "	</ul>";
+					$salida .= "</div>";
+				}
+			break;
+			
+			case "Ruta":
+				$href = "paginas.dhtml?pagina=1";
+				$salida .= "<a href=\"".$href."\" title=\"Inicio\">Inicio</a>";
+				if ($this->anio=="" && $this->mes=="" && $this->notcod=="")
+				{
+					$salida .= "&nbsp;> <strong>".$this->arreglotitulos['TituloRuta']."</strong>";
+				}else
+				{
+					$href = "paginas.dhtml?pagina=".$this->pagcod;
+					$salida .= "&nbsp;> <a href=\"".$href."\" title=\"".$this->arreglotitulos['TituloRuta']."\">".$this->arreglotitulos['TituloRuta']."</a>";
+				}
+				$anio = "";
+				if ($this->anio!="")
+					$anio = "&amp;anio=".$this->anio;
+				if ($this->anio!="")
+				{	
+					$href = "paginas.dhtml?pagina=".$this->pagcod.$anio;
+					$salida .= "&nbsp;> <a href=\"".$href."\" title=\"".$this->arreglotitulos['TituloRuta']." de ".$this->anio."\">".$this->anio."</a>";
+				}
+				if ($this->mes!="")
+				{	
+					if ($this->anio!="")
+						$mes = "&amp;mes=".$this->mes;
+					if ($this->notcod!="")
+					{
+						$href = "paginas.dhtml?pagina=".$this->pagcod.$anio.$mes;
+						$salida .= "&nbsp;> <a href=\"".$href."\" title=\"".$this->arreglotitulos['TituloRuta']." de ".$this->anio."\">".ObetenerTextoMes($this->mes)."</a>";
+					}else
+					{
+						$salida .= "&nbsp;> <strong>".ObetenerTextoMes($this->mes)."</strong>";
+					}
+				}
+				if ($this->notcod!="")
+				{
+					$salida .= "&nbsp;> <strong>".$this->arreglotitulos['TituloCorto']."</strong>";
+				}
+			break;
+		}
+		
+		return true;	
+	}
+	
+	
+
+
+	function ObtenerTextoFecha($fecha)
+	{
+		$arrayfecha = explode('-', $fecha);
+		$fechaint = mktime(0,0,0, $arrayfecha[1], $arrayfecha[2], $arrayfecha[0]);
+		$fechasalida = strftime("%e de %B de %Y." ,$fechaint);
+		return ReemplazarTextoFechas($fechasalida);
+	}
+	
+	function ProcesarNoticia($descripcion,&$salida)
+	{
+	
+		$campo=new cVisualizaCampo($this->conexionobjeto,$this->comentarios,$this->es_admin);
+		if($campo->Setear(array("ContCampo"=>$descripcion,"conv_SGML"=>true)))
+		{
+			if(!$campo->Mostrar($salida))
+				$seprodujoerror=true;
+		}
+		else
+			$seprodujoerror=true;
+				
+		return true;		
+	}
+
+
+	function RetornarMsgError()
+	{
+		return $this->msg_error;
+	}
+	
+
+
+}//fin clase cNoticiasDinamicas
+
+?>

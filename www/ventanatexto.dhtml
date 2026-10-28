@@ -1,0 +1,99 @@
+<?php	
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+?>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 TRANSITIONAL//EN"> 
+<html>
+<head>
+<title>Ventana de Detalles &nbsp;</title>
+<link rel="stylesheet" type="text/css" href="estilos.css">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+</head>
+<body>
+<?php 	if (!isset($_GET['tipo'])) {
+			?> <span class="textoTablaDato"> <?php
+			echo "<BR>".htmlspecialchars($_GET['textopopup'],ENT_QUOTES); 
+			?> </span> <?php
+	} else {
+		switch ($_GET['tipo']) {	
+		case 'dto_jurisd': 		
+			if ($_GET['jurisdid']=="") 
+				echo "No se seleccionó organismo.";
+			break;			
+		case 'dto_usuario': 
+?>		<table align="center" width="100%" border="0" cellpadding="3" cellspacing="3" class="textoTablaDato"> 
+			<tr>		
+				<td width="25%" class="textoEtiqueta">Usuario</td>
+				<td class="textoEtiquetaDatoResaltado"> <?php	
+					if($conexion->TraerCampo("usuarios","concat(usuarioapellido,',',usuarionombre)",array("usuariocod='",$_SESSION['usuariocod'],"'"),$usuario,$numfilas,$errno))
+					{	$usuario=htmlspecialchars($usuario,ENT_QUOTES);
+						echo $usuario;
+					}?>	
+				</td>
+			</tr>			
+			<tr>		
+				<td width="25%" class="textoEtiqueta">CUIT/CUIL/CDI</td>
+				<td class="textoEtiquetaDatoResaltado"> <?php 
+					if($conexion->TraerCampo("usuarios","usuariocuit",array("usuariocod='",$_SESSION['usuariocod'],"'"),$usuariocuit,$numfilas,$errno))
+					{  	$usuariocuit=htmlspecialchars($usuariocuit,ENT_QUOTES);
+						echo $usuariocuit;
+					} ?>	
+				</td> 
+			</tr>
+			<tr>		
+				<td width="25%" class="textoEtiqueta">ROL</td>
+				<td class="textoEtiquetaDatoResaltado">  <?php 	
+					if($conexion->TraerCampo("roles","roldesc",array("rolcod='",$_SESSION['rolcod'],"'"),$roldesc,$numfilas,$errno))
+					{	$roldesc=htmlspecialchars($roldesc,ENT_QUOTES);
+						echo $roldesc;
+					}?>
+				</td> 
+			</tr>			
+			<?php
+			if($conexion->TraerCampo("roles","rolselecjurisd",array("rolcod='",$_SESSION['rolcod'],"'"),$rolselecjurisd,$numfilas,$errno))			{	if ($rolselecjurisd=="S") {	?>			
+				<tr>		
+				  <td width="25%" class="textoEtiqueta">Organismo</td>
+				  <td class="textoEtiquetaDatoResaltado">
+	<?php					$objJurisdicciones= new jurisdicciones;
+						if ($objJurisdicciones->SelectJurisdxID($_SESSION['jurisdid_inap'],array(),TABGRALES_TS_ARRAY,$fila_jurisd,array(),$NumFilas,$CodError)) 
+							$organismo=htmlspecialchars($fila_jurisd[$_SESSION['jurisdid_inap']]['jurisdnom'],ENT_QUOTES);
+							
+						echo $organismo;
+	?>				</td>
+				</tr>	
+<?php				} // rol con organismo 
+			} // ok 
+			if($_SESSION['rolcod']==USUACTJUR) { 
+?>				<tr>		
+				  	<td width="25%" class="textoEtiqueta">Organismo</td>
+				  	<td class="textoEtiquetaDatoResaltado">
+<?php					if ($conexion->TraerCampo("jurisdiccion_inap","jurisdnom",array("jurisdid='",$_SESSION['jurisdid_inap'],"'"),$jurisdnom,$numfilas,$errno))
+						$organismo_actualizado_por_enlace=htmlspecialchars($jurisdnom,ENT_QUOTES);			
+					echo 
+						$organismo_actualizado_por_enlace;	?>				
+					</td>
+				</tr>	
+<?php			}	?>			
+			
+		</table>
+<?php		break;
+	}
+}	
+?>
+</body>
+</html>

@@ -1,0 +1,311 @@
+<?php
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+
+$oPoc = new cPoc($conexion);
+$oPocActividad= new cPocActividad($conexion);
+//--------------------------------------------------------------------------------------------------------------------------------
+function sePuedeEliminarRelacion($array_fila_grilla) {
+	if ( $array_fila_grilla['pocactact_estado'] != POCACTIVIDADACTIVIDADAPROBADA &&
+		 $array_fila_grilla['pocactact_estado'] != POCACTIVIDADACTIVIDADPEDAPROB		
+	)  
+		return true;
+	else 
+		return false;
+}
+//--------------------------------------------------------------------------------------------------------------------------------
+function MostrarGrillaActDisActPoc($conexion,$ArregloDatos) {
+
+	// Muestra actividades poc asociados a un diseño  
+
+	$oPocActividadActividad = new cPocActividadActividad($conexion);				
+	$filtro = array('act_codigo'=>$ArregloDatos['act_codigo'],
+					'poc_codigo'=>$ArregloDatos['poc_codigo'],
+					'orderby'=>'pocact_nombre_tentativo',
+					);
+	
+	if (!$oPocActividadActividad->BuscarPocActividadActividad($filtro,$numfilas,$result_act_asignadas,$error,$errormail)) {
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+		return false;
+	}
+	
+	$actividades_asignadas = array();
+	$resultado = array();
+	
+	while ($fila_act = mysqli_fetch_assoc($result_act_asignadas)) {
+		$conexion->TraerCampo("constantes_grales","constantedesc",
+									array("constantetipo='","POCACTIVIDADACTIVIDADESTADO","' and constantecod='",$fila_act['pocactact_estado'],"'"),
+									$pocactact_estado_desc,$numfilas,$errorcod); 
+
+		$resultado[] = array('pocact_codigo'=> $fila_act['pocact_codigo'],		
+		  					 'pocact_nombre_tentativo'=> $fila_act['pocact_nombre_tentativo'],
+							 'pocactact_estado'=> $fila_act['pocactact_estado'],
+							 'pocactact_estado_desc'=> $pocactact_estado_desc,
+ 							 'poc_codigo'=> $fila_act['poc_codigo'],
+							 );	
+							 
+		$actividades_asignadas[] = $fila_act['pocact_codigo'];
+	}
+	
+	// Actividad_poc APROBADA
+	$oPocActividad= new cPocActividad($conexion);
+	
+	$filtro = array('poc_codigo'=>$ArregloDatos['poc_codigo'],'pocact_estado'=>POCACTIVIDADAPROBADA);
+	if(!$oPocActividad->BuscarPocActividad($filtro,$numfilas,$resultado_pocact,$error,$errormail)) {
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error al buscar las actividades del POC.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;
+	}
+	if ($numfilas ==0) {
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error la actividad poc no se encuentra confirmada.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;
+	} 
+	
+	while ($fila_act_poc  = mysqli_fetch_assoc($resultado_pocact)) {
+		$actividades_poc[] = $fila_act_poc;
+	}
+	
+	if ($ArregloDatos['accion'] == "Disponibles") {
+
+		$resultado=array();
+		
+		foreach ($actividades_poc as $clave=>$valor) {
+			if (!in_array($valor['pocact_codigo'], $actividades_asignadas)) {
+				 $resultado[]=$valor;
+			}
+		}
+		
+		$operacion = "A";
+		$titulo_grilla = 'Actividades POC Disponibles para asignar a Actividad Curso';
+		$titulo_operacion = 'Agregar';	
+		$imagen_operacion = 'images/insertar.jpg';	
+		$mensaje_sin_datos = "No hay actividades POC disponibles para asignar a la Actividad Curso seleccionada.";							
+	
+	} else {
+	
+		$operacion = "B";
+		$titulo_grilla = 'Actividades POC asociadas a Actividad Curso';
+		$titulo_operacion = 'Eliminar';
+		$imagen_operacion = 'images/del.jpg';			
+		$mensaje_sin_datos = "";				
+	
+	}
+
+	if (count($resultado) ==0 && ($ArregloDatos['accion'] == "Disponibles") ) {
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,$mensaje_sin_datos,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;			
+	}
+
+	if (count($resultado) >0 ) {
+		$opciones=array(
+			"FilasPagina"=>count($resultado),
+		);
+		
+		$oGrilla = new cGrilla($opciones);
+		$oGrilla->SetearTituloGrilla($titulo_grilla);
+		$oGrilla->SetearAnchoGrilla('90%');
+		
+		$miColumna2 = $oGrilla->AddColumna('txt');
+		$oGrilla->Setear('titulo_columna',$miColumna2,'Nombre');
+		$oGrilla->Setear('campo_grilla',$miColumna2,'pocact_nombre_tentativo');
+		$oGrilla->Setear('align_columna',$miColumna2,'left');
+
+		if (!($ArregloDatos['accion'] == "Disponibles")) {
+			$miColumna3 = $oGrilla->AddColumna('txt');
+			$oGrilla->Setear('ancho_columna',$miColumna3,'100');
+			$oGrilla->Setear('titulo_columna',$miColumna3,'Estado');
+			$oGrilla->Setear('campo_grilla',$miColumna3,'pocactact_estado_desc');
+			$oGrilla->Setear('align_columna',$miColumna3,'center');
+		} 
+		
+		$miColumna5 = $oGrilla->AddColumna('popup');
+		$oGrilla->Setear('titulo_columna',$miColumna5,'Detalle');
+		$oGrilla->Setear('ancho_columna',$miColumna5,'55');
+		$oGrilla->Setear('imagen',$miColumna5,'images/verdetalle.gif');
+		$oGrilla->Setear('altImagen',$miColumna5,'Ver Detalle Actividad POC');
+		$oGrilla->Setear('url',$miColumna5,'poc_actividad_ver_dis.dhtml');
+		$oGrilla->Setear('ventanaAnchoPopup',$miColumna5,'680');
+		$oGrilla->Setear('ventanaAltoPopup',$miColumna5,'500');
+		$oGrilla->Setear('ventanaVarxPopup',$miColumna5,'120');
+		$oGrilla->Setear('ventanaVaryPopup',$miColumna5,'50');
+		$oGrilla->AddParametrosURL($miColumna5,"poc_codigo",$ArregloDatos['poc_codigo'],'cte');
+		$oGrilla->AddParametrosURL($miColumna5,"pocact_codigo",'pocact_codigo');
+
+		$miColumna4 = $oGrilla->AddColumna('linkimg');
+		$oGrilla->Setear('titulo_columna',$miColumna4,$titulo_operacion);
+		$oGrilla->Setear('imagen',$miColumna4,$imagen_operacion);
+		$oGrilla->Setear('altImagen',$miColumna4,$titulo_operacion);
+		$oGrilla->Setear('ancho_columna',$miColumna4,'60');
+		$oGrilla->Setear('align_columna',$miColumna4,'center');
+		
+		if ($operacion=="B")
+			$oGrilla->Setear('condicion_visualizar_columna',$miColumna4,'sePuedeEliminarRelacion');
+		
+		$oGrilla->Setear('url',$miColumna4,"poc_act_act_asociar.dhtml");
+		$oGrilla->AddParametrosURL($miColumna4,"poc_codigo","poc_codigo");
+		$oGrilla->AddParametrosURL($miColumna4,"pocact_codigo","pocact_codigo");
+		$oGrilla->AddParametrosURL($miColumna4,"tipoact_codigo",$ArregloDatos["tipoact_codigo"],"cte");
+		
+		$oGrilla->AddParametrosURL($miColumna4,"act_codigo",$ArregloDatos['act_codigo'],"cte");
+		$oGrilla->AddParametrosURL($miColumna4,"operacion",$operacion,"cte");
+
+
+		if (!$oGrilla->CargarGrilla($resultado))
+			return false;
+			
+		$oGrilla->MostrarGrilla();
+		echo "<br>";
+	}
+}
+//--------------------------------------------------------------
+// Se confirmo la operacion 
+//--------------------------------------------------------------
+// se seleccionó alguna actividad para agregar o eliminar
+if (isset($_GET['operacion'])) {
+
+	$oPocActividadActividad = new cPocActividadActividad ($conexion);
+	switch ($_GET['operacion']) {
+
+		case "A":
+			if($oPocActividadActividad->AltaDatosPocActividadActividad($_GET)) {
+				FuncionesPHPLocal::RegistrarAcceso($conexion,"37401","operacion=asignacion"."\npocact_codigo=".$_GET['pocact_codigo']."\nact_codigo=".$_GET['act_codigo'],$_SESSION['usuariocod']);
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se ha agregado la asociación Actividad Curso - Actividad POC.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} else 
+				$result=false;
+			break;
+			
+		case "B":
+			if($oPocActividadActividad->BajaDatosPocActividadActividad($_GET)) {
+				FuncionesPHPLocal::RegistrarAcceso($conexion,"37402","operacion=baja"."\npocact_codigo=".$_GET['pocact_codigo']."\nact_codigo=".$_GET['act_codigo'],$_SESSION['usuariocod']);
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se ha eliminado la asociación Actividad Curso - Actividad POC.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} else 
+				$result=false;
+			break;
+	}	
+}
+//------------------------------------------------------------
+// Inicio de pantalla - Se define la acción
+//------------------------------------------------------------
+?>
+	<form action="<?php $_SERVER['PHP_SELF'] ?>" method="post" name="formulario_seleccion" id="formulario_seleccion">
+	<table width="90%" align="center" border="0" cellspacing="2" cellpadding="0">		
+		<tr> 
+			<td colspan="2" >&nbsp;</td>
+		</tr>
+		<tr>
+			<td valign="middle" width="20%" class='textoEtiqueta'>Poc</td>
+			<td class="textoEtiquetaDatoResaltado" width="70%" valign="middle"  align="left" >
+			<?php
+			$querystring=FuncionesPHPLocal::ArmarQueryString("poc_codigo");
+			$querystring=FuncionesPHPLocal::ArmarQueryString("tipoact_codigo");
+			$querystring=FuncionesPHPLocal::ArmarQueryString("act_codigo");
+		//	$oPoc->PocSP($_SESSION['rolcod'],$_SESSION['jurisdid_inap'],$spnombre,$spparam);
+		//	Cambia porque cambia el usuario que realiza la operación y el estado es Aprobado
+			$oPoc->PocEstadoJurid($_SESSION['jurisdid_inap'],"(".POCAPROBADO.")",$spnombre,$spparam);		
+			FuncionesPHPLocal::ArmarCombo_BD($conexion,$spnombre,$spparam,"formulario_seleccion","poc_codigo","poc_codigo","poctodo",$querystring,"-- Seleccione un POC",$fila_poc,$sel_poc);
+			?>
+			</td>
+		</tr>	
+        <tr>
+            <td width="20%" class="textoEtiqueta" valign="middle">Tipo Actividad </td>
+            <td class="textoEtiquetaDatoResaltado" valign="middle"  align="left" >
+            <?php 	$spnombre = "sel_tipo_actividad_xtipoact_codigo";
+                $tipoact_codigo=TIPOACTCURSOINAP.",".TIPOACTCURSOJURISD;
+                $spparam = array("ptipoact_codigo"=>$tipoact_codigo);
+				FuncionesPHPLocal::ArmarCombo_BD($conexion,$spnombre,$spparam,"formulario_seleccion","tipoact_codigo","tipoact_codigo","tipoact_descripcion",$querystring,"-- Seleccione Tipo de Actividad",$fila_tipo,$sel_tipo);
+                ?>	
+            </td>
+        </tr>		
+		<?php
+
+		if($fila_tipo) { 	?>
+			<tr>
+				<td valign="middle" width="20%" class='textoEtiqueta' align="left">Actividad Curso</td>				
+				<td class="textoEtiquetaDatoResaltado" width="70%" valign="middle"  align="left">
+	     			<?php 
+					$filacurso=array();
+					$filacurso['act_codinap']=(isset($_POST['act_codinap_seleccion']))?$_POST['act_codinap_seleccion']:"";
+	
+					$filacurso['act_codigo']=(isset($_POST['act_codigo']))?$_POST['act_codigo']:"";
+	
+					if ($filacurso['act_codigo']=="")					
+						$filacurso['act_codigo']=(isset($_GET['act_codigo']))?$_GET['act_codigo']:"";
+
+
+					if (isset($_POST['act_codinap_seleccion'])) {
+						if($conexion->TraerCampo("actividad","act_codigo",array("act_codinap='",$_POST['act_codinap_seleccion'],"'"),$act_codigo,$numfilas,$errno))
+							$filacurso['act_codigo']=htmlspecialchars($act_codigo,ENT_QUOTES);
+							
+					}	else {
+						if($conexion->TraerCampo("actividad","act_codinap",array("act_codigo='",$filacurso['act_codigo'],"'"),$act_codigo,$numfilas,$errno))
+							$filacurso['act_codinap']=htmlspecialchars($act_codigo,ENT_QUOTES);
+					}
+
+					$conexion->TraerCampo("actividad","act_nombre",array("act_codigo='",$filacurso['act_codigo'],"'"),$act_nombre,$numfilas,$errno);
+					
+					
+					if($fila_tipo['tipoact_codigo']==TIPOACTCURSOINAP) {
+						$oActividadCurso = new cActividadCursoInap($conexion);	
+						$oActividadCurso->PedirActividad($filacurso['act_codinap'],'formulario_seleccion','act_codinap_seleccion','AsociarActPocINAP'); 
+					} elseif ($fila_tipo['tipoact_codigo']==TIPOACTCURSOJURISD) {
+						$oActividadCurso = new cActividadCursoJurisdiccional($conexion);						
+						$oActividadCurso->PedirActividad($filacurso['act_codinap'],'formulario_seleccion','act_codinap_seleccion','AsociarActPocJURIS'); 
+					}
+					?>
+                    <table width="100%" class="textoTablaDato" align="center">
+                    <tr>
+                        <td valign="middle" width="15%" class='textoEtiqueta'>Nombre</td>
+                        <td class="textoEtiquetaDato" valign="middle" align="left">
+                            <?php echo $act_nombre ?>
+                        </td>			
+                    </tr>
+					</table>					
+				</td>
+			</tr>	
+			<tr>
+				<td valign="top" colspan="2">&nbsp; </td>
+			</tr>
+	<?php }?>		
+	</table>
+	</form>
+<?php		
+
+if(isset($filacurso['act_codigo']) && $filacurso['act_codigo']!="") { 	// Se selecciono el POC y el Diseño (tipo/codigo)
+
+	// FALTA Verificar permisos a la hora asignacion 
+	$_SESSION['filtro_busqueda']=array();
+	$_SESSION['filtro_busqueda']['act_codigo']=$filacurso['act_codigo'];
+	$_SESSION['filtro_busqueda']['poc_codigo']=isset($_POST['poc_codigo'])?$_POST['poc_codigo']:$_GET['poc_codigo'];
+	$_SESSION['filtro_busqueda']['tipoact_codigo']=isset($_POST['tipoact_codigo'])?$_POST['tipoact_codigo']:$_GET['tipoact_codigo'];
+	$_SESSION['filtro_busqueda']['jurisdid_inap']=$_SESSION['jurisdid_inap'];
+
+?> 	<div align="right">
+		<a class="linkListadoMenu" href='javascript:void(0)' onClick="Popup('actividad_ver_dis.dhtml?act_codigo=<?= htmlspecialchars($filacurso['act_codigo'],ENT_QUOTES)."&amp; tipoact_codigo=".$_SESSION['filtro_busqueda']['tipoact_codigo']; ?>','ventana_diseno',650,420,screen.availWidth-650,screen.availHeight-420,'yes');"> Ver diseño de la actividad </a> 
+	</div>	
+<?php
+	$_SESSION['filtro_busqueda']['accion']="Asignadas";					
+	MostrarGrillaActDisActPoc($conexion,$_SESSION['filtro_busqueda']);
+
+	$_SESSION['filtro_busqueda']['accion']="Disponibles";					
+	MostrarGrillaActDisActPoc($conexion,$_SESSION['filtro_busqueda']);
+}
+?> <br />
+<?php
+$oEncabezados->PieMenuEmergente(); 
+?>

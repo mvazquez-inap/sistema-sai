@@ -1,0 +1,102 @@
+<?php
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+//----------------------------------------------------------------------------------------- 	
+$oUsuario=new cUsuarios($conexion);
+
+function Validar($conexion,$oUsuario,$usuariocod,&$datosvalidados)
+{
+	$datosvalidados=array();
+	
+	$ArregloDatos['usuariocod']=$usuariocod;
+	if (!$oUsuario->BuscarUsuarios ($ArregloDatos,$numfilas,$resultadousuarios,$error,$errormail) || $numfilas!=1)
+	{	
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;
+	}
+	$filausuario=mysqli_fetch_assoc($resultadousuarios);
+
+	if (!FuncionesPHPLocal::ValidarContenido($conexion,$_POST['usuarioapellido'],"AlfabeticoPuro") || trim($_POST['usuarioapellido'])=="")
+	{
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error en el apellido.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;
+	}
+	$datosvalidados["usuarioapellido"]=strtoupper($_POST["usuarioapellido"]);
+
+	if (!FuncionesPHPLocal::ValidarContenido($conexion,$_POST['usuarionombre'],"AlfabeticoPuro") || trim($_POST['usuarionombre'])=="")
+	{
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error en el nombre. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;
+	}
+	$datosvalidados["usuarionombre"]=$_POST["usuarionombre"];
+	
+	if ($_POST['usuariocuit']=="" || !FuncionesPHPLocal::ValidarContenido($conexion,$_POST['usuariocuit'],"CUIT"))
+	{
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error en CUIT/CUIL/CDI. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;
+	}
+	
+	if(!$oUsuario->ValidarCUIT($_POST['usuariocuit'],$usuariocod))
+	{
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Se está duplicado el CUIT/CUIL/CDI ingresado. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;
+	}
+	$datosvalidados["usuariocuit"]=$_POST["usuariocuit"];
+
+	if ($_POST['usuarioemail']=="" || !FuncionesPHPLocal::ValidarContenido($conexion,$_POST['usuarioemail'],"Email"))
+	{
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error en el mail. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;
+	}
+	$datosvalidados["usuarioemail"]=$_POST["usuarioemail"];
+
+	return true;
+}
+
+//----------------------------------------------------------------------------------------- 	
+// Inicio de pantalla
+if(!Validar($conexion,$oUsuario,$_SESSION["usuariocod"],$datosvalidados))
+{
+?>
+	<br><div align="center"><a href="usuario_modificar.dhtml" class="linkFondoBlanco">Volver</a></div>
+<?php
+}
+else
+{
+	$conexion->ManejoTransacciones("B");
+	$result=true;
+	
+	if(!$oUsuario->ModificarUsuario($_SESSION["usuariocod"],$datosvalidados,$error))
+		$result=false;
+		
+	if($result) {
+		FuncionesPHPLocal::RegistrarAcceso($conexion,"033803","usuariocod=".$_SESSION["usuariocod"],$_SESSION['usuariocod']);
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se modificaron los datos.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		$conexion->ManejoTransacciones("C");
+	} else
+		$conexion->ManejoTransacciones("R");
+
+?>		<br><div align="center"><a href="usuario_modificar.dhtml" class="linkFondoBlanco">Volver</a></div>
+<?php
+}
+
+$oEncabezados->PieMenuEmergente();
+?>
+

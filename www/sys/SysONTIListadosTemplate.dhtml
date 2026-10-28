@@ -1,0 +1,436 @@
+<?php
+require_once('Savant2.php');
+
+// Cambio para que levante la clase FuncionesPHP2
+// FuncionesPHP x FuncionesPHP2
+// require_once('SysONTIfuncionesphp.dhtml'); x require_once('SysONTIfuncionesphp2.dhtml');
+
+require_once('SysONTIfuncionesphp2.dhtml');
+
+//--------------------------------------------------------------------------
+//  Define el acceso a los template.
+//--------------------------------------------------------------------------
+class cListadosTemplate
+{
+	// variables que se inicializan desde el constructor
+	var $archivo_template;
+	var $DatosOrigen=array();
+	var $Origen=0;
+	var $numPagina=1;
+	var $FilasPagina=10;
+	var $Paginar=true;
+	var $TituloListado="";
+	var $NombrePaginaQuery="pagina";
+	var $QueryString="";
+	var $FormularioBotonera="formulario_botonera";
+
+	// Un array con datos adicionales a mostrar en el tpl
+	var $DatosAdicionales=array();
+
+	// Cantidad total de paginas
+	var $CantTotalPaginas=0;
+	// aca se guardan los datos que se van a mostrar en la página
+	var $array_mostrar=array();
+
+	// Constantes para definir estructuras especiales en los tpl
+	var $FormCombo=1;
+	var $Arreglo=2;
+
+//-----------------------------------------------------------------------------------------
+//							 PUBLICAS
+//-----------------------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------------------
+// Constructor
+
+	public function __construct($opciones)
+	{
+		// tpl a utilizar. Obligatorio
+		$this->archivo_template=$opciones["archivo_template"];
+
+		// Origen de los datos. Sólo uno del grupo debería ser seteado
+		if(isset($opciones["query"]))
+		{
+			$this->DatosOrigen=$opciones["query"];
+			$this->Origen=1;
+		}
+		elseif(isset($opciones["arreglo"]))
+		{
+			$this->DatosOrigen=$opciones["arreglo"];
+			$this->Origen=2;
+		}
+
+		// Número de página a mostrar
+		if(isset($opciones["numPagina"]))
+			$this->numPagina=$opciones["numPagina"];
+
+		// Cantidad de Filas a mostrar por página
+		if(isset($opciones["FilasPagina"]))
+			$this->FilasPagina=$opciones["FilasPagina"];
+
+		// Si se pagina o no el listado
+		if(isset($opciones["Paginar"]))
+			$this->Paginar=$opciones["Paginar"];
+
+		// Titulo a mostrar en el listado
+		if(isset($opciones["TituloListado"]))
+			$this->TituloListado=$opciones["TituloListado"];
+
+		// El nombre de la variable a usar en el GET para definir la página actual
+		if(isset($opciones["NombrePaginaQuery"]))
+			$this->NombrePaginaQuery=$opciones["NombrePaginaQuery"];
+
+		if(isset($opciones["FormularioBotonera"]))
+			$this->FormularioBotonera=$opciones["FormularioBotonera"];
+
+		// El GET a poner en los links, cuando se pagina, por ejemplo.
+		if(isset($opciones["QueryString"]))
+			$this->QueryString=$opciones["QueryString"];
+	}
+
+//--------------------------------------------------------------------------
+// Agrega datos adicionales, que son pasados directamente al tpl
+
+// Parámetros:
+//		$clave, $valor: datos a agregar
+
+	function AgregarDatoAdicional($clave,$valor)
+	{
+		$this->DatosAdicionales[$clave]=$valor;
+	}
+
+//--------------------------------------------------------------------------
+// Busca los datos de arraybusq en datos origen, para posicionar la pagina actual en la que se encuentra los datos buscados
+
+// Parámetros:
+//		$arraybusq: array asociativo, donde la clave debe ser campo en los datos origen
+
+// Retorna:
+//		Si se produjo un error, retorna false.
+//		Si se ejecutó con exito, retorna true y cambia el número de página a la encontrada
+
+	function BuscarPagina($arraybusq)
+	{
+		if(!is_array($arraybusq))
+			return false;
+
+		if($this->_OrigenCantidadRegistros()>0)
+		{
+			if(!$this->_OrigenPosicionar(0))
+				return false;
+		}
+
+		$num_fila=-1;
+		$matcheo=false;
+		while(!$matcheo && $this->_OrigenObtenerDatos($fila))
+		{
+			foreach ($arraybusq as $clave => $valor)
+			{
+				$matcheo=true;
+				if (!isset($fila[$clave]))
+					return false;
+
+				if($fila[$clave]!=$valor)
+				{
+					$matcheo=false;
+					break;
+				}
+			} // for each arraybusq
+
+			$num_fila++;
+		} // while del query
+
+		if($matcheo)
+			$this->numPagina=floor($num_fila/$this->FilasPagina)+1;
+
+		return true;
+	}
+
+//--------------------------------------------------------------------------
+// Muestra el template en pantalla, en formato listado, con paginacion
+
+// Retorna:
+//		Si se produjo un error, retorna false.
+//		Si se ejecutó con exito, retorna true y procesa el template
+
+	function MostrarListado()
+	{
+		if(!$this->_ArmarDatosMostrar())
+			return false;
+
+		// Cambio 5.3
+
+		$tpl = new Savant2();
+
+		// agrega el salto de renglón al escapeado, para cuando se muestren los datos con $this->_
+		$tpl->addEscape('nl2br');
+
+		// envia los datos definitivos a mostrar en la pantalla
+		$tpl->assignRef('result', $this->array_mostrar);
+
+		// Carga todos los datos adicionales en el template
+		$this->_AsiganarDatosAdicionalesTemplate($tpl);
+
+		$tpl->assign('PaginaUltima', $this->CantTotalPaginas);
+		$tpl->assign('PaginaActual', $this->numPagina);
+		$tpl->assign('DeshabilitarBtsAtras', ($this->numPagina==1)?"disabled":"");
+		$tpl->assign('DeshabilitarBtsAdelante', ($this->numPagina==$this->CantTotalPaginas || $this->CantTotalPaginas==0)?"disabled":"");
+
+		$tpl->assign('TituloListado', $this->TituloListado);
+
+		// Genera el querystring a enviar al template
+		if($this->QueryString!="")
+			$querystring=$this->QueryString;
+		else
+			$querystring=FuncionesPHP::ArmarQueryString($this->NombrePaginaQuery);
+
+		if($querystring!="")
+			$querystring="?".$querystring."&".$this->NombrePaginaQuery."=";
+		else
+			$querystring="?".$this->NombrePaginaQuery."=";
+
+		$tpl->assign('ArchivoDestino',$_SERVER['PHP_SELF'].$querystring);
+
+		$tpl->assign('FormularioBotonera',$this->FormularioBotonera);
+
+		// Muestra el template
+		$tpl->display($this->archivo_template);
+
+		return true;
+	}
+
+//--------------------------------------------------------------------------
+// Muestra el template en pantalla
+
+// Retorna:
+//		Si se produjo un error, retorna false.
+//		Si se ejecutó con exito, retorna true y procesa el template
+
+	function Mostrar()
+	{
+		// Cambio 5.3
+		$tpl = new Savant2();
+
+		// agrega el salto de renglón al escapeado, para cuando se muestren los datos con $this->_
+		$tpl->addEscape('nl2br');
+
+		// Carga todos los datos adicionales en el template
+		$this->_AsiganarDatosAdicionalesTemplate($tpl);
+
+		// Muestra el template
+		$tpl->display($this->archivo_template);
+
+		return true;
+	}
+
+//-----------------------------------------------------------------------------------------
+//							 PRIVADAS
+//-----------------------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------
+// Procesa los datos adicionales y los asigna al tpl
+
+// Parámetros:
+//		$tpl: es el template que se está procesando
+
+// Retorna:
+//		Si se produjo un error, retorna false.
+//		Si se ejecutó con exito, retorna true y procesa el template
+
+	function _AsiganarDatosAdicionalesTemplate(&$tpl)
+	{
+		$opts_cycle=array('values'=>array());
+
+		foreach($this->DatosAdicionales as $clave=>$valor)
+		{
+			// Si no es un array, el dato se asigna directamente
+			if(!is_array($valor))
+				$tpl->assign($clave, $valor);
+			else
+			{
+				// si es un array, se procesa según el valor de Tipo
+				switch($valor["Tipo"])
+				{
+					case $this->FormCombo:
+						$tpl->assign($clave,$clave."_combo");
+
+						$opts_cycle["values"][$clave.'_claves']=$valor["Claves"];
+						$opts_cycle["values"][$clave.'_valores']=$valor["Valores"];
+
+						$tpl->assign($clave.'_cant',count($valor["Claves"]));
+
+						break;
+					case $this->Arreglo:
+						$tpl->assign($clave,$valor['Arreglo']);
+
+						break;
+				}
+			}
+		}
+
+		if(count($opts_cycle["values"])>0)
+			$tpl->loadPlugin('cycle', $opts_cycle);
+
+		return true;
+	}
+
+//--------------------------------------------------------------------------
+// Genera el array definitivo, según la paginación
+
+// Retorna:
+//		Si se produjo un error, retorna false.
+//		Si se ejecutó con exito, retorna true
+
+	function _ArmarDatosMostrar()
+	{
+		// si origen tiene datos, posiciona el puntero en el primer registro
+		if($this->_OrigenCantidadRegistros()==0)
+			return true;
+		else
+			$this->_OrigenPosicionar(0);
+
+		if(!$this->Paginar)
+		{
+			// recorre todo el origen y lo pasa al array a mostrar
+			while($this->_OrigenObtenerDatos($fila))
+				$this->array_mostrar[]=$fila;
+
+			return true;
+		}
+
+		if($this->numPagina<1)
+			$this->numPagina=1;
+
+		// Determino cuantas páginas en total tiene el listado
+		$this->CantTotalPaginas=ceil($this->_OrigenCantidadRegistros() / $this->FilasPagina);
+
+		// Determino las filas inicio y fin, segun la pagina solicitada
+		$filainicio=($this->numPagina-1)*$this->FilasPagina+1;
+		$filafin=$this->numPagina*$this->FilasPagina;
+
+		// si me pidieron una página que se va de rango, reduzco hasta encontrar la última página
+		while($this->_OrigenCantidadRegistros()<$filainicio)
+		{
+			$this->numPagina--;
+
+			$filainicio=($this->numPagina-1)*$this->FilasPagina+1;
+			$filafin=$this->numPagina*$this->FilasPagina;
+		}
+
+		// se posiciona en el primer registro de la pagina a mostrar
+		if(!$this->_OrigenPosicionar($filainicio-1))
+			return false;
+
+		// recorre hasta conseguir todos los registros necesarios a mostrar o llegar al final de los datos origen
+		while(($this->_OrigenObtenerDatos($fila)) && $filainicio<=$filafin)
+		{
+			$this->array_mostrar[]=$fila;
+			$filainicio++;
+		}
+
+		return true;
+	}
+
+//--------------------------------------------------------------------------
+// Retorna la cantidad de registros en los datos origen
+
+// Retorna:
+//		Si se produjo un error, retorna false.
+//		Si se ejecutó con exito, retorna la cantidad de registros
+
+	function _OrigenCantidadRegistros()
+	{
+		switch($this->Origen)
+		{
+			case 1:
+				return mysqli_num_rows($this->DatosOrigen);
+				break;
+
+			case 2:
+				return count($this->DatosOrigen);
+				break;
+		}
+
+		return false;
+	}
+
+//--------------------------------------------------------------------------
+// Se posiciona en el registro solicitado
+
+// Parámetros:
+//		$posicion: la posición a fijar, teniendo en cuenta que el primero es 0
+
+// Retorna:
+//		Si se produjo un error, retorna false.
+//		Si se ejecutó con exito, se posiciona en el registro.
+
+	function _OrigenPosicionar($posicion)
+	{
+		$cantreg=$this->_OrigenCantidadRegistros();
+
+		if(!$cantreg || $cantreg==0)
+			return false;
+
+		switch($this->Origen)
+		{
+			case 1:
+				return mysqli_data_seek($this->DatosOrigen,$posicion);
+				break;
+
+			case 2:
+				reset($this->DatosOrigen);
+
+				$i=0;
+				while($i<$posicion)
+				{
+					if(next($this->DatosOrigen)===false)
+						return false;
+
+					$i++;
+				}
+
+				return true;
+				break;
+		}
+
+		return false;
+	}
+
+//--------------------------------------------------------------------------
+// Obtiene el registro actual de los datos origen
+
+// Retorna:
+//		$dato: vector asociativo
+//		Si se produjo un error, retorna false.
+
+	function _OrigenObtenerDatos(&$dato)
+	{
+		$dato=array();
+
+		switch($this->Origen)
+		{
+			case 1:
+				return ($dato=mysqli_fetch_assoc($this->DatosOrigen));
+				break;
+
+			case 2:
+				$dato=current($this->DatosOrigen);
+
+				if($dato===false)
+					return false;
+
+				next($this->DatosOrigen);
+
+				return true;
+				break;
+		}
+
+		return false;
+
+
+	}
+
+}
+
+
+?>

@@ -1,0 +1,54 @@
+<?php
+//ini_set("display_errors","off");
+######
+## VeriWord
+## A PHP CAPTCHA System
+## Version 2
+#######
+## Author: Huda M Elmatsani
+## Email: 	justhuda ## netscape ## net
+##
+## 25/07/2004
+#######
+## Copyright (c) 2004 Huda M Elmatsani All rights reserved.
+## This program is free for any purpose use.
+########
+##
+## PACKAGE OF VERIWORD V2
+## sample.php
+## image.veriword.php
+## class.veriword.php
+## class.captcha.php
+## class.noisegenerator.php
+## class.wordgenerator.php
+## class.wordart.php
+## class.filefinder.php
+## class.configreader.php
+## veriword.ini
+##
+#######
+require_once("../parametros.dhtml");
+require_once("../clases/accesoBD.dhtml");
+require_once("SysONTIMensajesInternos.dhtml");
+require_once("../clases/funcionesphp.dhtml");
+require_once("../clases/sesion.dhtml");
+require_once("./class.veriword.dhtml");
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion
+$sesion = new Sesion($conexion,false); // Inicia session
+
+$vword = new VeriWord;
+$vword->setConfiguration();
+//print ("a");
+$vword->setCaptcha();
+//print("b");
+$vword->outputImage();
+//print("c");
+?>

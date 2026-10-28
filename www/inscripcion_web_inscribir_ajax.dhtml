@@ -1,0 +1,296 @@
+<?php 
+require('./include.dhtml');
+header('Content-Type: text/html; charset=utf-8');
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+//$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+//----------------------------------OBJETOS------------------------------------------------ 
+$oComisionPersonaCandidato = new cComisionPersonaCandidato($conexion);
+$oPersonas = new cPersonas($conexion);
+$oAgentes = new cAgentes($conexion);
+$oComision = new cComision($conexion);
+$oEscalafon = new cEscalafones($conexion);	
+//----------------------------------------------------------------------------------------- 
+
+
+// persona nueva
+$continua_preinscripcion = false;
+/*
+if ((isset($_POST["boton"]) && $_POST["boton"]=="Enviar datos")){
+	
+		
+	$conexion->ManejoTransacciones("B");
+
+	if($oPersonas->AltaDatosPersTemporal($_POST))
+	{
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se ha dado de Alta la persona con CUIT ".$_POST['pers_cuilt'].".",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		$continua_preinscripcion = true;
+		$conexion->ManejoTransacciones("C");
+	}
+	else
+		$conexion->ManejoTransacciones("R");
+	
+		
+
+} // persona_nueva
+
+*/
+
+	$_POST = FuncionesPHPLocal::ConvertiraUtf8($_POST);
+		
+		
+if ((isset($_POST["boton"]) && $_POST["boton"]=="Inscribir") || ($continua_preinscripcion)){
+		if (!$oComisionPersonaCandidato->AltaDatosInscripcionWeb($_POST,$resultado,$numfilas) ){
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error Insertando a la Persona.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;	
+		}else{
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"Se ha realizado la Pre Inscripción correctamente. <br>Próximamente recibirá la confirmación de su inscripción.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		}
+
+		$comi_codigo = $_POST['comi_codigo'];
+		$pers_cuilt = $_POST['pers_cuilt'];
+		$datosvalidados["comi_codigo"] = $_POST['comi_codigo'];
+		$datosvalidados["pers_cuilt"] = $_POST['pers_cuilt'];
+		$datosvalidados["pers_apellido"]= $_POST['pers_apellido'];
+		$datosvalidados["pers_nombre"] = $_POST['pers_nombre'];
+		$datosvalidados["pers_sexo"] = $_POST['pers_sexo'];
+		$datosvalidados["pers_email"] = $_POST['pers_email'];
+		$datosvalidados["pers_fechanac"] = $_POST['pers_fechanac'];
+		
+
+		$datosvalidados["apellido"]= $_POST['pers_apellido'];
+
+		
+		
+		
+		$ok=true;
+		
+		
+		if ($oComision->TraerDatosComision($comi_codigo,$filacomision,$es_modif)) {
+			if (!$es_modif) {
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No se ha encontrado la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} else { 
+				if ($oComision->TienePermisoInscribirWeb($comi_codigo, $pers_cuilt)) {
+				
+					$ArregloDatos = array(	"comi_codigo" => $comi_codigo, 
+											"pers_cuilt" => "");
+						
+				}// verificar que la persona no esté en la tabla de candidatos para la comisión	
+					
+			} // TienePermisoInscribirWeb
+		} //  TraerDatosComision
+
+
+			
+			
+}
+
+
+
+if ((isset($_POST["boton"]))  &&  ($_POST["boton"]=="Confirmar Inscripcion" || $_POST["boton"]=="Enviar datos"))	
+{
+
+		$comi_codigo = $_POST['comi_codigo'];
+		$pers_cuilt = $_POST['pers_cuilt'];
+		$pers_apellido = $_POST['pers_apellido'];
+		$pers_nombre = $_POST['pers_nombre'];
+		$pers_fechanac = $_POST['pers_fechanac'];
+		$ok=true;
+
+
+		if ($_POST['tipo_individual_con_org'] == SI) {
+			if (!$oEscalafon->ValidarEscalafon($_POST['esc_agrup_niv_grado'], $datosvalidados) ) {
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error seleccionando la persona a asignar.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;
+			}
+			$es_modif_agente = true;
+			/*$datosvalidados["escalafcod"]=$datosvalidados["escalafcod"];
+			$datosvalidados["agrupcod"]=$datosvalidados["agrupcod"];
+			$datosvalidados["escalafnivcod"]=$datosvalidados["escalafnivcod"];
+			$datosvalidados["escalafgradocod"]=$datosvalidados["escalafgradocod"];
+			*/
+			
+			
+		} else {
+			$es_modif_agente = false;
+			$datosvalidados['escalafcod'] = "NULL";
+			$datosvalidados['agrupcod'] = "NULL";
+			$datosvalidados['escalafnivcod'] = "NULL";
+			$datosvalidados['escalaftramocod'] = "NULL";
+			$datosvalidados['escalafgradocod'] = "NULL";
+			$datosvalidados['jurisdid_inap'] = "0";
+			
+			
+			
+		}
+
+	
+		if ($oComision->TraerDatosComision($comi_codigo,$filacomision,$es_modif)) {
+			if (!$es_modif) {
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No se ha encontrado la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			} else { 
+				if ($oComision->TienePermisoInscribirWeb($comi_codigo, $pers_cuilt)) {
+				
+					// buscar CUIT en tabla persona
+					$cambio_datos = false;
+					if(!$oPersonas->TraerDatosPersona($pers_cuilt,$datospersona,$es_modif_persona)) {
+						$ok=false;
+					} else { 
+					
+						if ($es_modif_persona) {
+							
+								if(($datospersona['pers_apellido'] != $pers_apellido)  || ($datospersona['pers_nombre'] != $pers_nombre) ) {
+									$cambio_datos = true;
+									$error="Ud ha cambiado sus datos de nombre y apellido.";
+									FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+								}
+								if ($_POST['tipo_individual_con_org'] == SI) {
+									if(!$oAgentes->TraerDatosAgente($pers_cuilt,$datosagente,$es_modif_agente)) {
+										$ok=false;
+									} else { 
+											if ($es_modif_agente) {
+	
+													if(		($datosagente['escalafcod'] != $datosvalidados["escalafcod"]) 
+														||  ($datosagente['agrupcod'] != $datosvalidados["agrupcod"]) 
+														||  ($datosagente['escalafnivcod'] != $datosvalidados["escalafnivcod"]) 
+														||  ($datosagente['escalaftramocod'] != $datosvalidados["escalaftramocod"]) 
+														||  ($datosagente['escalafgradocod'] != $datosvalidados["escalafgradocod"]) 
+														) {
+														$cambio_datos = true;
+														$error="Ud ha cambiado sus datos de escalafón.";
+														FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+													}
+													if(		($datosagente['agfunc_codigo'] != $_POST["agfunc_codigo"]) 
+														||  ($datosagente['jurisdid_inap'] != $_POST["jurisinap"]) 
+														||  ($datosagente['jurisdid_apn'] != $_POST["jurislaboral"]) 
+														) {
+														$cambio_datos = true;
+														$error="Ud ha cambiado sus datos laborales.";
+														FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+													}											
+												
+												
+											}
+									}
+							  	}			  
+
+							
+							
+							
+							  if($datospersona['pers_estado'] == PERSONABAJA) {
+									$error="La persona ingresada se encuentra dada de baja.";
+									FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+									$ok = false;
+							  } else {
+									
+									$ArregloDatos = array(	"comi_codigo" => $comi_codigo, 
+															"pers_codigo" => $datospersona['pers_codigo']);
+									 }	
+											
+						} else {
+	
+									$ArregloDatos = array(	"comi_codigo" => $comi_codigo, 
+															"pers_cuilt" => $pers_cuilt);
+						
+								} //es_modif_persona
+	
+		
+						}// verificar que la persona no esté en la tabla de candidatos para la comisión	
+					
+				} // TienePermisoInscribirWeb
+			} // es_modif
+		} //  TraerDatosComision
+		
+//		if(!$oAgentes->TraerDatosAgente($datospersona['pers_cuilt'],$datosvalidados,$es_modif))
+//				return false;
+		
+
+
+		
+			$datosvalidados["comi_codigo"]=$comi_codigo;
+			$datosvalidados["pers_cuilt"]=$_POST["pers_cuilt"];
+			$datosvalidados["pers_nombre"]=$_POST["pers_nombre"];
+			$datosvalidados["pers_apellido"]=$_POST["pers_apellido"];
+			$datosvalidados["pers_sexo"]=$_POST["pers_sexo"];
+			$datosvalidados["pers_email"]=$_POST["pers_email"];
+			$datosvalidados["pers_fechanac"]=FuncionesPHPLocal::ConvertirFecha($_POST['pers_fechanac'],'dd/mm/aaaa','aaaa-mm-dd');
+
+			$datosvalidados["agfunc_codigo"]=$_POST["agfunc_codigo"];
+			if (isset($_POST["jurisdid_coordinacion"]))
+				$datosvalidados["jurisdid_inap"]=$_POST["jurisdid_coordinacion"];
+			if (isset($_POST["jurisinap"]))
+				$datosvalidados["jurisdid_inap"]=$_POST["jurisinap"];
+
+			switch ($_POST['tipoorg_codigo']) {
+				
+				case ORGANISMO_APN :
+					$datosvalidados["jurisdid_apn"]=$_POST['jurislaboral'];
+					$datosvalidados["orgapub_codigo"]="NULL";				
+					break;
+					
+				case ORGANISMO_NO_APN:
+					$datosvalidados["jurisdid_apn"]="NULL";
+					$datosvalidados["orgapub_codigo"]=$_POST['jurislaboral'];				
+					break;
+			}	
+
+			
+			if ($_POST["tipo_individual_con_org"]==NO) {
+				$datosvalidados["jurisdid_apn"]="NULL";
+				$datosvalidados["orgapub_codigo"]="NULL";
+			}
+				
+			
+			
+			$datosvalidados["nivest_codigo"]=$_POST["nivest_codigo"];
+			$datosvalidados["agentes_a_cargo"]=$_POST["agentes_a_cargo"];
+			$datosvalidados["paiscod_revista"]=$_POST["paiscod_revista"];
+			$datosvalidados["provinciacod_revista"]=$_POST["provinciacod_revista"];
+			$datosvalidados["pers_codigo"]="NULL";
+			$datosvalidados["cambio_datos"]=($cambio_datos)?"si":"no";
+			$datosvalidados["tareas"]=htmlspecialchars($_POST["tareas"], ENT_QUOTES);
+			$datosvalidados["carr_codigo"]=$_POST["carr_codigo"];
+						
+		
+			$oActividadCurso = new cActividadCurso($conexion); 
+			if ($oActividadCurso->TieneFormatoTipo($filacomision['act_codigo'],FORMATOCURSO,TIPOACTCURSOJURISD,$tiene_formato_tipo)) {
+				if ($tiene_formato_tipo) { 
+					// paso el candidato a INAP (candidato APROBADO)
+							$datosvalidados["cpc_estado"]=CANDIDATO_APROBADO;
+				} else {
+				
+					if ($_POST["jurisinap"] == 0)
+						$datosvalidados["cpc_estado"]=CANDIDATO_APROBADO;
+					else 	
+						$datosvalidados["cpc_estado"]=CANDIDATO_SIN_EVALUAR;
+					}
+			}
+			
+			if ($datosvalidados["carr_codigo"] != "NULL"){
+				$datosvalidados["cpc_estado"]=CANDIDATO_SIN_EVALUAR_UNIVERSIDAD;
+			}
+				
+			if (!$oComisionPersonaCandidato->AltaDatosInscripcionWebConfirmacion($datosvalidados,$resultado,$numfilas) ){
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRSOSP,"Error Insertando a la Persona.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				return false;	
+			}else
+			{
+				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"Se ha realizado la Pre Inscripción correctamente. <br>Próximamente recibirá la confirmación de su inscripción.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			
+			}
+
+
+	
+}//fin--?>

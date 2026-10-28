@@ -1,0 +1,216 @@
+<?php
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+
+$oPoc = new cPoc($conexion);
+$oPocActividad= new cPocActividad($conexion);
+$oPocObjetivo= new cPocObjetivo($conexion);
+$oPocPocObjetivoPocArea= new cPocPocObjetivoPocArea($conexion);
+$oPocActividadPocObjetivo= new cPocActividadPocObjetivo($conexion);
+//----------------------------------------------------------------------------------------- 
+$commit=true;
+$errorinformable=true;
+
+if (isset($_POST['boton_actualizar'])){
+		
+		$pocact_codigo=$_POST['pocact_codigo'];
+		$poc_codigo=$_POST['poc_codigo'];
+
+		//LLENAMOS EL ARREGLO DE LOS DATOS TRAIDOS DEL POST
+		$OpcionSelec=array();
+
+		foreach ($_POST as $nombre_var => $valor_var) 	{
+			if (empty($valor_var)) {
+				$vacio[$nombre_var] = $valor_var;
+			} else {
+				$post[$nombre_var] = $valor_var;
+				$opcion = substr($nombre_var,0,9);
+				
+				if ($opcion=="checkobj_") {
+					$OpcionSelec[]=substr($nombre_var,9,strlen($nombre_var)-6);
+				}
+			}
+		}
+		//FIN LLENAR DATOS
+		
+		if(!$oPocActividadPocObjetivo->BuscarRelacionXPocActividad($pocact_codigo,$query))	{
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"Error en la búsqueda de relaciones entre la Actividad y el Objetivo por código de actividad. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			return false;
+		}
+		
+		$arreglo=array();
+		while ($fila=mysqli_fetch_assoc($query))	
+			$arreglo[]=$fila['pocobj_codigo'];
+
+		$arrayponer=array_diff($OpcionSelec,$arreglo);
+		$arraysacar=array_diff($arreglo,$OpcionSelec);
+		
+		$conexion->ManejoTransacciones("B");
+		
+		$result=true;
+
+		//INSERTAR ARREGLOPONER
+		foreach ($arrayponer as $pocobj_codigo)	{
+			if(!$oPocActividadPocObjetivo->InsertarPocActividadPocObjetivo($pocact_codigo,$pocobj_codigo,$poc_codigo))	{	
+				break;
+				$result=false;
+			} else {
+				FuncionesPHPLocal::RegistrarAcceso($conexion,"37501","pocact_codigo=".$pocact_codigo." - pocobj_codigo=".$pocobj_codigo,$_SESSION['usuariocod']);
+			}	
+		}
+		//FIN INSERTAR
+
+		//ELIMINAR ARREGLOSACAR
+		foreach ($arraysacar as $pocobj_codigo)	{
+			if(!$oPocActividadPocObjetivo->EliminarPocActividadPocObjetivo($pocact_codigo,$pocobj_codigo,$poc_codigo))	{	
+				break;
+				$result=false;
+			} else {
+				FuncionesPHPLocal::RegistrarAcceso($conexion,"37502","pocact_codigo=".$pocact_codigo." - pocobj_codigo=".$pocobj_codigo,$_SESSION['usuariocod']);
+			}	
+		}
+		//FIN ELIMINAR
+		
+		if ($result) {
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_OK,"Se han actualizado las relaciones entre los objetivos y la actividad.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$conexion->ManejoTransacciones("C");
+		} else 	{
+			FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"Se ha producido un error al actualizar la relación .",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			$conexion->ManejoTransacciones("R");
+		}
+}
+//--------------------------------------------------------------------------------------------------
+?>
+<script type="text/javascript">
+function Validarjs(formulario) 	{
+	return true;
+}
+	
+function ChequearTodos(chkbox) {
+	for (var i=0;i < document.forms[0].elements.length;i++) {
+	var elemento = document.forms[0].elements[i];
+		if (elemento.type == "checkbox") {
+			elemento.checked = chkbox.checked
+		}
+	}
+}
+</script>
+<?php 
+//--------------------------------------------------------------
+// Inicio de pantalla
+//------------------------------------------------------------
+// Se define la acción
+//------------------------------------------------------------
+?>
+<form action="poc_actividad_poc_objetivo.dhtml?<?php echo htmlspecialchars($_SERVER['QUERY_STRING'],ENT_QUOTES)?>" method="post" name="formulario">
+<table width="90%"  border="0" align="center" cellspacing="0" cellpadding="0">		
+	<!-- DATOS A MODIFICAR -->
+	<tr> 
+		<td colspan="2" >&nbsp;</td>
+	</tr>
+	<tr>
+		<td valign="top" width="30%" class='textoEtiqueta'>Poc</td>
+		<td class="textoEtiquetaDatoResaltado" width="70%" align="left">
+		<?php
+		$oPoc->PocEstados($_SESSION['jurisdid_inap'],$spnombre,$spparam);
+		$querystring=FuncionesPHPLocal::ArmarQueryString("poc_codigo");
+		FuncionesPHPLocal::ArmarCombo_BD($conexion,$spnombre,$spparam,"formulario","poc_codigo","poc_codigo","poctodo",$querystring,"-- Seleccione un POC",$filaselec,$selec);
+		?>
+		</td>
+	</tr>	
+	<tr>
+		<td valign="top" colspan="2">&nbsp; </td>
+	</tr>
+<?php			
+	$filaselecact=array();
+	
+	if($filaselec) {		?>
+		<tr>
+			<td valign="top" width="30%" class='textoEtiqueta'>Actividad del Poc</td>			
+			<td class="textoEtiquetaDatoResaltado" width="70%" align="left">
+			<?php
+//			$oPocActividad->PocActividaddelPoc($filaselec['poc_codigo'],$spnombreact,$spparamact);
+			$spnombreact="sel_poc_actividad_xpoc_codigo_xestado";
+			$spparamact =array( 'ppoc_codigo'=> $filaselec['poc_codigo'],
+								'ppocact_estado' => (POCACTIVIDADNUEVA.",".POCACTIVIDADRECHAZADA)
+			);
+			$querystring=FuncionesPHPLocal::ArmarQueryString("pocact_codigo");
+			FuncionesPHPLocal::ArmarCombo_BD($conexion,$spnombreact,$spparamact,"formulario","pocact_codigo","pocact_codigo","pocact_nombre_tentativo",$querystring,"-- Seleccione una Actividad",$filaselecact,$selecact);
+			?>
+			</td>
+		</tr>	
+		<tr>
+			<td valign="top" colspan="2">&nbsp; </td>
+		</tr>
+<?php }?>		
+</table>
+<?php
+if($filaselecact){
+	
+	$poc_codigo=$filaselec['poc_codigo'];
+	$orden="pocobj_descripcion ASC";
+	if (!$oPocPocObjetivoPocArea->TraerDatosxpoc_codigo($poc_codigo,$result,$orden)) {
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"Error en la búsqueda de relaciones entre el Poc y el Objetivo. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		return false;
+	}
+
+	$total=mysqli_num_rows($result);
+	if($total==0) {
+		FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No existen Objetivos relacionados al Poc. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+		$mostraraprobaretaps=false;	
+	} elseif($total>0) {?>		
+
+		<div align="center" style="margin-top:20px;">
+		<table width="95%" class="textoTablaDato" border="1" cellpadding="1" cellspacing="1" >
+			<tr align="center">
+				<td width="5%" class='colorTitulosGrupo textoTituloGrupo'></td>
+				<td width="95%" class='colorTitulosGrupo textoTituloGrupo'>Objetivo</td>
+			</tr>
+<?php			while($filaobjetivo=mysqli_fetch_assoc($result))	{
+				if(!$oPocActividadPocObjetivo->BuscarPocActividadPocObjetivo($filaselecact['pocact_codigo'],$filaobjetivo['pocobj_codigo'],$posee))	{
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"Error en la búsqueda de relaciones entre la Actividad y el Objetivo. ",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					return false;
+				}	?>
+				<tr align="center">
+					<td width="5%"><input type="checkbox" name="checkobj_<?php echo ($filaobjetivo['pocobj_codigo'])?>" id="checkobj_<?php echo ($filaobjetivo['pocobj_codigo'])?>" value="checkobj_<?php echo ($filaobjetivo['pocobj_codigo'])?>" <?php if($posee) echo "checked"; ?>></td>
+					<td width="95%" align="left"><?php echo htmlspecialchars ($filaobjetivo['pocobj_descripcion'],ENT_QUOTES);?></td>
+				</tr>				
+		<?php	} // while del recorrido de los contenidos 	?>
+		</table>
+		</div>
+		&nbsp;&nbsp;&nbsp;&nbsp;
+		<div align="left" style="width:95%">
+			<input type="checkbox" style="vertical-align:middle;" name="Todos" id="Todos" onclick="ChequearTodos(this)">
+			<label for="Todos" style="vertical-align:middle;">Todos</label>
+		</div>							
+		<br>
+		<br>
+		&nbsp;&nbsp;&nbsp;
+		&nbsp;<input type="submit" name="boton_actualizar" value="Actualizar Objetivos"  class="botones" onClick="return Validarjs(formulario)" />
+		&nbsp;<INPUT TYPE="reset"	class="botones" name="limpiarform" value="Restaurar" >
+		&nbsp;<input type="button" name="botoncancelar" class="botones" value="Cancelar" onClick="GoToURL('self','<?php echo $_SERVER['PHP_SELF'] ?>');return document.ReturnValue">
+	<?php 
+	} // fin: elseif($total>0)
+} // fin de: if($filaselecact)
+?>
+</form>
+<?php	
+$oEncabezados->PieMenuEmergente(); 
+?>

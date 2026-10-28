@@ -1,0 +1,125 @@
+<?php 
+require('./include.dhtml');
+
+$conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
+$conexion->SeleccionBD(BASEDATOS);
+
+// carga las constantes generales
+FuncionesPHPLocal::CargarConstantes($conexion,array("roles"=>"si","sistema"=>SISTEMA));
+$conexion->SetearAdmiGeneral(ADMIONTI);
+
+// arma las variables de sesion y verifica si se tiene permisos
+$sesion = new Sesion($conexion,false); // Inicia session y no borra
+$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
+
+// ve si el sistema está bloqueado
+$oSistemaBloqueo = new SistemaBloqueo();
+$oSistemaBloqueo->VerificarBloqueo($conexion);
+
+$oEncabezados = new cEncabezados($conexion);
+$oEncabezados->EncabezadoMenuEmergente($_SESSION['usuariocod'],$_SESSION['rolcod'],$_SESSION['jurisdid_inap']);
+
+$oGruposModulos= new cGruposModulos($conexion);
+
+//----------------------------------------------------------------------------------------- 
+
+//----------------------------------------------------------------------------------------- 	
+// Inicio de pantalla
+
+$ArregloDatos['orderby']="grupomodtextomenu";
+if (!$oGruposModulos->BuscarDatos ($ArregloDatos,$numfilas,$resultado,$error,$errormail))
+{
+	FuncionesPHPLocal::MostrarMensaje($conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+	die();
+}
+
+
+?>	
+<script language="javascript" type="text/javascript">
+
+var campos_linea=new Array("lst|listamodulosizq[]|listamodulosder[]");
+var datos_grilla=new Array();
+
+// ciclo recorriendo los mismos datos que la grilla
+datos_grilla[0]=new Array();
+datos_grilla[0][0]="";
+<?php
+
+$i = 1;
+while($filagrupo=mysqli_fetch_assoc($resultado))
+{
+	echo "datos_grilla[".$i."]=new Array();\n";
+	echo "datos_grilla[".$i."][0]=new Array(";
+	
+	if(!$conexion->ejecutarStoredProcedure("sel_modulos_xgrupomodcod_orden",array('pgrupomodcod'=>$filagrupo['grupomodcod'],'porderby'=>"modulocod"),$resulmodulo,$numfilas,$errno)) die();
+
+	$codigosel=array();
+	while($filasubtema=mysqli_fetch_assoc($resulmodulo))
+		$codigosel[]=$filasubtema["modulocod"];
+	
+	if(count($codigosel)>0)
+		echo "'".implode("','",$codigosel)."'";
+	
+	echo ");\n";
+
+	$i++;
+}
+?>
+</script>
+
+<SCRIPT LANGUAGE="JavaScript" type="text/javascript">
+<!--
+function Validarjs(formulario) 
+	{
+		if (formulario.grupomodcod.value=="")
+		{
+			alert("Debe seleccionar un grupo de módulos");
+			formulario.grupomodcod.focus();
+			return false;
+		}
+
+		return true;
+	}
+//-->
+</script>
+
+<form action="gruposmod_modulos_upd.dhtml" method="post" name="formulario">
+<table width="100%" class="textoTablaDato">
+	  <tr>
+		  <td valign="top" width="25%">
+			  <span class='textoEtiquetaClave'>Grupo de Módulos</span>
+		  </td>
+		  <td width="75%" class="textoEtiquetaDatoResaltado">
+<?php
+FuncionesPHPLocal::ArmarCombo_SinSalto_BD($conexion,"sel_gruposmod_orden",array("porderby"=>"grupomodtextomenu"),"formulario","grupomodcod","grupomodcod","grupomodtextomenu","","Seleccione un Grupo de Módulos",$regnousar,$selecnousar,1,"SeleccionCombo(formulario,campos_linea,datos_grilla,this.selectedIndex)")
+?>
+	    </td>
+	  </tr>	
+	  <tr>
+		  <td valign="top" colspan="2" height="10">
+  		  </td>
+  	  </tr>
+		  <tr>
+		    <td colspan="2" valign="top">
+<?php
+FuncionesPHPLocal::ArmarListas($conexion,"sel_modulos_orden",array('porderby'=>"modulocod"),"modulocod","modulotextomenu","formulario","listamodulos","Módulos Disponibles","Módulos Asignados","width: 250px",15,false)
+?>
+		    </td>
+		  </tr>	
+	  <tr>
+		  <td valign="top" colspan="2" height="20">
+  		  </td>
+  	  </tr>
+	  <tr align="center">
+	    <td colspan="2" valign="top">
+	    <input type="submit" name="botonalta" class="botones" value="Actualizar" onClick="SeleccionarTodosLista(formulario['listamodulosder[]']);return Validarjs(formulario)">
+      &nbsp;&nbsp;&nbsp;&nbsp;<input type="button" class="botones" name="botoncancelar" value="Cancelar" onClick="formulario.grupomodcod.selectedIndex=0;SeleccionCombo(formulario,campos_linea,datos_grilla,0)">
+	    </td>
+      </tr>
+</table>
+<br>
+</form>
+
+<?php
+$oEncabezados->PieMenuEmergente();
+?>
