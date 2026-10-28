@@ -12,7 +12,7 @@ $conexion->SetearAdmiGeneral(ADMIONTI);
 $sesion = new Sesion($conexion,false); // Inicia session y no borra
 $sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
 
-// ve si el sistema est� bloqueado
+// ve si el sistema está bloqueado
 $oSistemaBloqueo = new SistemaBloqueo();
 $oSistemaBloqueo->VerificarBloqueo($conexion);
 $oPersonas = new cPersonas($conexion);
@@ -25,7 +25,7 @@ $oPersonas = new cPersonas($conexion);
 <link rel="stylesheet" type="text/css" href="estilos.css">
 <link rel="stylesheet" type="text/css" href="calendar/calendar.css">
 
-<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 </head>
 
 <body>

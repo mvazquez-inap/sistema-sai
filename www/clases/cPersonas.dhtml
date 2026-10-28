@@ -116,26 +116,26 @@ class cPersonas
 
 	<?php if ($valida) { ?>
 			if (!ValidarContenido(formulario.pers_cuilt.value,"CUIT")){
-				alert("El CUIT/CUIL/CDI no es v�lido");
+				alert("El CUIT/CUIL/CDI no es válido");
 				formulario.pers_cuilt.focus();
 				return false;
 			}	
 	<?php } ?>
 
 			if (!ValidarContenido(formulario.pers_apellido.value,"AlfabeticoPuro") || (trim(formulario.pers_apellido.value)=="")){
-				alert("Debe ingresar un apellido v�lido");
+				alert("Debe ingresar un apellido válido");
 				formulario.pers_apellido.focus();
 				return false;
 			}	
 		
 			if (!ValidarContenido(formulario.pers_nombre.value,"AlfabeticoPuro") || (trim(formulario.pers_nombre.value)=="")){
-				alert("Debe ingresar un nombre v�lido");
+				alert("Debe ingresar un nombre válido");
 				formulario.pers_nombre.focus();
 				return false;
 			}	
 		
 			if (!ValidarContenido(formulario.pers_nombre.value,"AlfabeticoPuro") || (trim(formulario.pers_nombre.value)=="")){
-				alert("Debe ingresar un nombre v�lido");
+				alert("Debe ingresar un nombre válido");
 				formulario.pers_nombre.focus();
 				return false;
 			}	
@@ -153,14 +153,14 @@ class cPersonas
 			
 			if(formulario.pers_email.value!="" && !ValidarContenido(formulario.pers_email.value,"Email"))
 			{
-				alert("Debe ingresar el eMail v�lido");
+				alert("Debe ingresar el eMail válido");
 				formulario.pers_email.focus();
 				return false;	
 			}
 			
 			if(formulario.pers_fechanac.value!="" && !ValidarFecha(formulario.pers_fechanac.value))
 			{
-				alert("Debe ingresar la fecha de nacimiento v�lida");
+				alert("Debe ingresar la fecha de nacimiento válida");
 				formulario.pers_fechanac.focus();
 				return false;	
 			}
@@ -336,7 +336,7 @@ class cPersonas
 		if (!$esActividad_autodesarrollo_persona && !$esActividad_autodesarrollo_dictamen && !$esActividad_autodesarrollo_dictamen && !$esActividad_externa_persona && !$esComision_persona) {
 		
 
-			//baja f�sica
+			//baja física
 		
 			if ($esAgente) {
 				$spnombre="del_agente_xpers_codigo";
@@ -363,7 +363,7 @@ class cPersonas
 			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"La persona se encuentra registrada en alguna actividad INAP.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),"");
 			return false;
 		/*
-				//baja l�gica
+				//baja lógica
 				$spnombre="upd_persona_cambio_estado_xpers_codigo";
 				$spparam=array(
 					'ppers_codigo'=>$datosvalidados["pers_codigo"] ,
@@ -518,7 +518,7 @@ class cPersonas
 		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
 		{
 			$error="Error al rehabilitar a la persona.";
-			$errormail="Error al modificar en la tabla persona. Rehabilitaci�n de persona.".$errno;
+			$errormail="Error al modificar en la tabla persona. Rehabilitación de persona.".$errno;
 			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
 			return false;
 		}
@@ -568,7 +568,7 @@ class cPersonas
 		}
 	
 		if ($numfilas == 1) {
-			$mensaje_salida = "La persona ya se encuentra a la espera de la evaluaci�n del Coordinador T�cnico.";
+			$mensaje_salida = "La persona ya se encuentra a la espera de la evaluación del Coordinador Técnico.";
 			return false;
 		}
 		
@@ -582,7 +582,7 @@ class cPersonas
 
 		if (!FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['pers_cuilt'],"CUIT"))
 		{
-			$arraymensajepantalla="El CUIT ingresado no es v�lido";
+			$arraymensajepantalla="El CUIT ingresado no es válido";
 			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 			return false;
 		}
@@ -658,7 +658,7 @@ class cPersonas
 
 		if (!FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['pers_cuilt'],"CUIT"))
 		{
-			$arraymensajepantalla="El CUIT ingresado no es v�lido";
+			$arraymensajepantalla="El CUIT ingresado no es válido";
 			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 			return false;
 		}
@@ -713,7 +713,7 @@ class cPersonas
 
 		if (trim($datos['pers_apellido']) =="" || !FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['pers_apellido'],"AlfabeticoPuro"))
 		{
-			$arraymensajepantalla="El apellido ingresado no es v�lido";
+			$arraymensajepantalla="El apellido ingresado no es válido";
 			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 			return false;
 		}
@@ -721,7 +721,7 @@ class cPersonas
 		
 		if (trim($datos['pers_nombre']) =="" || !FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['pers_nombre'],"AlfabeticoPuro"))
 		{
-			$arraymensajepantalla="El nombre ingresado no es v�lido";
+			$arraymensajepantalla="El nombre ingresado no es válido";
 			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 			return false;
 		}
@@ -733,7 +733,7 @@ class cPersonas
 			($datos['pers_sexo'] != SEXO_MASCULINO) &&
 			($datos['pers_sexo'] != SEXO_NO_RESPONDE)
 			) ) {
-			$arraymensajepantalla="El sexo ingresado no es v�lido";
+			$arraymensajepantalla="El sexo ingresado no es válido";
 			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 			return false;
 		}
@@ -751,7 +751,7 @@ class cPersonas
 		// Fecha nacimiento- [pers_fechanac] 	- [OBLIG]
 		if (trim($datos['pers_fechanac'])=="" || !FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['pers_fechanac'],"FechaDDMMAAAA"))
 		{
-			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La fecha de nacimiento no es v�lida.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La fecha de nacimiento no es válida.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 			return false;
 		}
 		$fechanac_AAAAMMDD=FuncionesPHPLocal::ConvertirFecha($datos['pers_fechanac'],'dd/mm/aaaa','aaaa-mm-dd');
@@ -764,14 +764,14 @@ class cPersonas
 //----------------------------------VANI------------------------------------------------------- 
 // Retorna una consulta con todos las personas que cumplan con las condiciones
 
-// Par�metros de Entrada:
+// Parámetros de Entrada:
 //		datosbuscar: array asociativo con los filtros. 
 //	Claves: pers_nombre, pers_apellido, pers_cuilt,
 //			pers_codigo, pers_estado
 
 // Retorna:
 //		numfilas,resultado: cantidad de filas y query de resultado
-//		la funci�n retorna true o false si se pudo ejecutar con �xito o no
+//		la función retorna true o false si se pudo ejecutar con éxito o no
 
 	function BuscarPersonas ($ArregloDatos,&$numfilas,&$resultado,&$error,&$errormail)
 	{
@@ -856,7 +856,7 @@ class cPersonas
 	
 	<?php if ($valida) { ?>
 		if(<?php echo $formularioName ?>.<?php echo $inputName ?>=="" || !ValidarContenido(<?php echo $formularioName ?>.<?php echo $inputName ?>.value,"CUIT"))	{
-			alert("El CUIT/CUIL/CDI no es v�lido");
+			alert("El CUIT/CUIL/CDI no es válido");
 			<?php echo $formularioName ?>.<?php echo $inputName ?>.focus();
 			return false;	
 		}

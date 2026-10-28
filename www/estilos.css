@@ -68,12 +68,12 @@ body {
 /* 
  // gris oscuro se usa en el fondo de segundo nivel del menu izquierdo del menu emergente (_MenuEmergenteJS) 
 .color_menu_n2 {BACKGROUND-COLOR:#666666}
- // gris m�s oscuro se usa en el fondo de segundo nivel del menu emergente cuando se selecciona (_MenuEmergenteJS) 
+ // gris más oscuro se usa en el fondo de segundo nivel del menu emergente cuando se selecciona (_MenuEmergenteJS) 
 .color_menu_n2_selected {BACKGROUND-COLOR:#333333}
  // gris claro fondo del menu emergente cuando se selecciona  (_MenuEmergenteJS) 
 .color_texto_menu_n2 {BACKGROUND-COLOR:#CCCCCC}
  // blanco de la letra cuando se selecciona en el menu (_MenuEmergenteJS) 
- // tambi�n se usa en otra oportunidades 
+ // también se usa en otra oportunidades 
 .color_texto_menu_n2_select {BACKGROUND-COLOR:#FFFFFF}
  //  azul fondo principal 
 .color_n7 {BACKGROUND-COLOR:#337599}
@@ -112,7 +112,7 @@ body {
 .colorMenuN1Selected {
 	BACKGROUND-COLOR:#eeeeee
 }
-/* ex #333366 color de la l�nea del menu superior */
+/* ex #333366 color de la línea del menu superior */
 .colorLineaMenu  {
 	BACKGROUND-COLOR:#252C4F;
 }

@@ -1,6 +1,6 @@
 <?php
 require('./include.dhtml');
-header('Content-Type: text/html; charset=iso-8859-1');
+header('Content-Type: text/html; charset=utf-8');
 
 $conexion = new accesoBDLocal(SERVIDORBD,USUARIOBD,CLAVEBD);
 $conexion->SeleccionBD(BASEDATOS);
@@ -14,7 +14,7 @@ $sesion = new Sesion($conexion,false); // Inicia session y no borra
 //$sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
 require_once("./veriword/class.verificator.dhtml");
 
-// ve si el sistema est� bloqueado
+// ve si el sistema está bloqueado
 $oSistemaBloqueo = new SistemaBloqueo();
 $oSistemaBloqueo->VerificarBloqueo($conexion);
 
@@ -95,12 +95,12 @@ $oBecas = new cBecas($conexion);
 					if ($ok) {
 							if ($es_modif_persona) {
 
-								// verificar que la persona no est� inscripta en la comisi&oacute;n
+								// verificar que la persona no está inscripta en la comisi&oacute;n
 								$ArregloDatos = array(	"comi_codigo" => $comi_codigo,
 														"pers_codigo" => $datospersona['pers_codigo']);
 
 								if(!$oComisionPersona->BuscarActividadAsignadaPersona ($ArregloDatos, $numfilasAsignacion, $result, $error, $errormail)) {
-										//$error="Error al buscar los datos de inscripci�n.";
+										//$error="Error al buscar los datos de inscripción.";
 										FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 										$ok = false;
 								} else {
@@ -119,7 +119,7 @@ $oBecas = new cBecas($conexion);
 
 								// verificar que la persona no tenga acreditada la actividad
 								// Armo todas las evaluaciones que certifican
-								// SOLO si hay que validar inscripci�n �nica
+								// SOLO si hay que validar inscripción única
 								$oActividadCursoInap= new cActividadCursoInap($conexion);
 								if (!$oActividadCursoInap->TraerDatosActividadCursoInap($filacomision['act_codigo'],$filacurso,$es_modif))  {
 									$txt_sys_mail="\nact_codigo=".$act_codigo;
@@ -167,7 +167,7 @@ $oBecas = new cBecas($conexion);
 
 
 
-								// verificar que la persona no est� en la tabla de candidatos para la comisi&oacute;n
+								// verificar que la persona no está en la tabla de candidatos para la comisi&oacute;n
 								if ($ok) {
 								$ArregloDatos['pers_codigo'] = "";
 
@@ -222,7 +222,7 @@ $oBecas = new cBecas($conexion);
 
 
 										$ok = true;
-										// verificar que la persona no est� en la tabla de candidatos para la comisi&oacute;n
+										// verificar que la persona no está en la tabla de candidatos para la comisi&oacute;n
 
 										$ArregloDatos = array(	"comi_codigo" => $comi_codigo,
 																"pers_cuilt" => $pers_cuilt);

@@ -12,7 +12,7 @@ $conexion->SetearAdmiGeneral(ADMIONTI);
 $sesion = new Sesion($conexion,false); // Inicia session y no borra
 $sesion->TienePermisos($conexion,$_SESSION['usuariocod'],$_SESSION['rolcod'],$_SERVER['PHP_SELF']);
 
-// ve si el sistema est� bloqueado
+// ve si el sistema está bloqueado
 $oSistemaBloqueo = new SistemaBloqueo();
 $oSistemaBloqueo->VerificarBloqueo($conexion);
 
@@ -146,7 +146,7 @@ if (isset($_POST['usuarioCUIT']))
 						<input type="submit" name="BotonAlta" class="botones" value="<?php echo ($es_modif)?"Actualizar":"Agregar" ?>" onClick="return ValidarFormAltaPersonaJS(formulario)">
 						&nbsp;&nbsp;&nbsp; 
 						<?php if ($puedo_eliminar) { ?>
-							<input type="submit" name="BotonBaja" class="botones" value="Borrar" <?php echo ($es_modif)?"":"disabled='disabled'"  ?> onClick="return confirm('�Est� seguro de que desea borrar los datos de persona?');">
+							<input type="submit" name="BotonBaja" class="botones" value="Borrar" <?php echo ($es_modif)?"":"disabled='disabled'"  ?> onClick="return confirm('¿Está seguro de que desea borrar los datos de persona?');">
 						<?php }  ?>
 							
 						<input type="hidden" name="pers_codigo" value="<?php echo $datospersona['pers_codigo']?>" />

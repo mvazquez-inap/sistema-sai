@@ -107,7 +107,7 @@ class cComisionPersonaCandidato{
 
 		if(!$this->conexion->ejecutarStoredProcedure($spnombre,$sparam,$resultado,$numfilas,$errno)) {
 			$errormail="";
-			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar la comisi�n.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar la comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO),$errormail);
 			return false;
 		}
 
@@ -238,7 +238,7 @@ function AltaDatosInscripcionWebConfirmacion($datos,&$resultado,&$numfilas) {
 			);
 
 			if(!$this->conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))	{
-				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al insertar la inscripci�n 2.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+				FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al insertar la inscripción 2.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 				return false;
 			}
 
@@ -332,7 +332,7 @@ function  AltaDatosComisionInscribirCandidato ($datos) {
 					);
 
 					if(!$this->TraerDatosInscripcion($ArregloDatos,$result_candidatos,$numfilas_candidatos)) {
-							$error="Error al buscar los datos de inscripci�n.";
+							$error="Error al buscar los datos de inscripción.";
 							FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 							return false;
 					}
@@ -355,7 +355,7 @@ function  AltaDatosComisionInscribirCandidato ($datos) {
 							// es una persona nueva
 							if ($fila_candidato['pers_codigo']=="")	{
 
-								// busco si est� la persona para modificar los datos o agregarla
+								// busco si está la persona para modificar los datos o agregarla
 								if(!$oPersonas->TraerDatosPersona($fila_candidato["pers_cuilt"],$datospersona,$es_modif_persona)) {
 									FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al buscar la persona con CUIT ".$fila_candidato['pers_cuilt'].".",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 									return false;
@@ -440,7 +440,7 @@ echo "<br> sacar mara 4 <br>";
 							if ($oActividadCurso->TieneFormatoTipo($fila_comision['act_codigo'],FORMATOCURSO,TIPOACTCURSOJURISD,$tiene_formato_tipo_jur)) {
 									
 								if ($tiene_formato_tipo_jur) { 
-									// agrego la persona a la comisi�n
+									// agrego la persona a la comisión
 		
 		
 									if ($fila_candidato["escalafcod"] =="")
@@ -488,19 +488,19 @@ echo "<br> --------------------------- ";
 									);
 		
 									if(!$this->EliminarDatosInscripcionWeb($ArregloDatos,$result,$numfilas)) {
-										FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al eliminar el candidato de la Comisi�n".$fila_candidato['pers_cuilt'].".",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+										FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRGRAVE,"Error al eliminar el candidato de la Comisión".$fila_candidato['pers_cuilt'].".",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 										return false;
 									}	
 									
-									$mensaje = " At.: ".$fila_candidato["pers_nombre"]." ".$fila_candidato["pers_apellido"]."\n\n La jurisdicci�n ha confirmado su inscripci�n para la siguiente actividad :\n";
+									$mensaje = " At.: ".$fila_candidato["pers_nombre"]." ".$fila_candidato["pers_apellido"]."\n\n La jurisdicción ha confirmado su inscripción para la siguiente actividad :\n";
 									$mensaje .= " Actividad:   ".$fila_actividad['act_nombre']."\n";
-									$mensaje .= " C�digo INAP:   ".$fila_actividad['act_codinap']."\n";	;
-									$mensaje .= " Comisi�n:   ".$fila_comision['comi_codinap']."\n";	;
+									$mensaje .= " Código INAP:   ".$fila_actividad['act_codinap']."\n";	;
+									$mensaje .= " Comisión:   ".$fila_comision['comi_codinap']."\n";	;
 									$mensaje .=  $fila_candidato["pers_cuilt"]." ".$fila_candidato["pers_nombre"]." ".$fila_candidato["pers_apellido"]." (".$fila_candidato["pers_email"].")\n";
-									$asunto = "Confirmaci�n de Inscripci�n en Actividad";
+									$asunto = "Confirmación de Inscripción en Actividad";
 		
 									// Agrego cabeceras al mail
-									$cabeceras = "Content-type: text/plain; charset=iso-8859-1\r\n";
+									$cabeceras = "Content-type: text/plain; charset=utf-8\r\n";
 									$cabeceras .= "From: ".MAIL_SISTEMA_FROM;
 		
 									if(mail($fila_candidato['pers_email'],$asunto,$mensaje,$cabeceras))
@@ -557,7 +557,7 @@ echo "<br> --------------------------- ";
 
 							}
 
-							// agrego la persona a la comisi�n
+							// agrego la persona a la comisión
 
 
 							if ($fila_candidato["escalafcod"] =="")
@@ -608,32 +608,32 @@ echo "<br> --------------------------- ";
 							// lo agrego al mail
 							if ($fila_candidato['jurisdid_inap'] != 0) {
 
-								// lo mando al Coordinador T�cnico
-								$mensaje = " Sr. Coordinador T�cnico de Capacitaci�n: \n\nEl Usuario de Cursos INAP ha confirmado la inscripci�n del siguiente agente:\n";
+								// lo mando al Coordinador Técnico
+								$mensaje = " Sr. Coordinador Técnico de Capacitación: \n\nEl Usuario de Cursos INAP ha confirmado la inscripción del siguiente agente:\n";
 								$mensaje .= " Actividad:   ".$fila_actividad['act_nombre']."\n";
-								$mensaje .= " C�digo INAP:   ".$fila_actividad['act_codinap']."\n";	;
-								$mensaje .= " Comisi�n:   ".$fila_comision['comi_codinap']."\n";	;
+								$mensaje .= " Código INAP:   ".$fila_actividad['act_codinap']."\n";	;
+								$mensaje .= " Comisión:   ".$fila_comision['comi_codinap']."\n";	;
 								$mensaje .= " Fecha de Inicio :   ".FuncionesPHPLocal::ConvertirFecha($fila_comision['comi_fecha_inicio'],'aaaa-mm-dd','dd/mm/aaaa')."\n";	;
-								$mensaje .= " Fecha de Finalizaci�n :   ".FuncionesPHPLocal::ConvertirFecha($fila_comision['comi_fecha_fin'],'aaaa-mm-dd','dd/mm/aaaa')."\n";	;
+								$mensaje .= " Fecha de Finalización :   ".FuncionesPHPLocal::ConvertirFecha($fila_comision['comi_fecha_fin'],'aaaa-mm-dd','dd/mm/aaaa')."\n";	;
 								$fila_comision['comi_codinap']."\n";	;
 								$mensaje .= " Agente: ".$fila_candidato["pers_cuilt"]." ".$fila_candidato["pers_nombre"]." ".$fila_candidato["pers_apellido"]." (".$fila_candidato["pers_email"].")\n";
-								$asunto = "SAI - Confirmaci�n de Inscripci�n";
+								$asunto = "SAI - Confirmación de Inscripción";
 
 								//$mensaje = utf8_decode($mensaje);
 								//$asunto = utf8_decode($asunto);
 								if (FuncionesPHPLocal::MandarMail($this->conexion,COORDINADORTECNICO,$fila_candidato['jurisdid_inap'],$asunto,$mensaje)) {
-									FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_OK,"Se ha enviado un correo electr&oacute;nico al Coordinador T�cnico de Capacitaci&oacute;n.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+									FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_OK,"Se ha enviado un correo electr&oacute;nico al Coordinador Técnico de Capacitaci&oacute;n.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 								} else {
 									FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_INF,"El correo electr&oacute;nico no fue enviado,<br> notifique al Coordinador T&eacute;cnico de Capacitaci&oacute;n por otra v&iacute;a.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 								}
 
 								// lo mando al Usuario de Organismo
-								$mensaje = " Sr. Usuario de Organismo: \n\nEl Usuario de Cursos INAP ha confirmado la inscripci�n del siguiente agente:\n";
+								$mensaje = " Sr. Usuario de Organismo: \n\nEl Usuario de Cursos INAP ha confirmado la inscripción del siguiente agente:\n";
 								$mensaje .= " Actividad:   ".$fila_actividad['act_nombre']."\n";
-								$mensaje .= " C�digo INAP:   ".$fila_actividad['act_codinap']."\n";	;
-								$mensaje .= " Comisi�n:   ".$fila_comision['comi_codinap']."\n";	;
+								$mensaje .= " Código INAP:   ".$fila_actividad['act_codinap']."\n";	;
+								$mensaje .= " Comisión:   ".$fila_comision['comi_codinap']."\n";	;
 								$mensaje .= " Fecha de Inicio :   ".FuncionesPHPLocal::ConvertirFecha($fila_comision['comi_fecha_inicio'],'aaaa-mm-dd','dd/mm/aaaa')."\n";	;
-								$mensaje .= " Fecha de Finalizaci�n :   ".FuncionesPHPLocal::ConvertirFecha($fila_comision['comi_fecha_fin'],'aaaa-mm-dd','dd/mm/aaaa')."\n";	;
+								$mensaje .= " Fecha de Finalización :   ".FuncionesPHPLocal::ConvertirFecha($fila_comision['comi_fecha_fin'],'aaaa-mm-dd','dd/mm/aaaa')."\n";	;
 								$mensaje .= " Agente: ".$fila_candidato["pers_cuilt"]." ".$fila_candidato["pers_nombre"]." ".$fila_candidato["pers_apellido"]." (".$fila_candidato["pers_email"].")\n";
 
 								if (FuncionesPHPLocal::MandarMail($this->conexion,USUORGANISMO,$fila_candidato['jurisdid_inap'],$asunto,$mensaje)) {
@@ -644,16 +644,16 @@ echo "<br> --------------------------- ";
 								
 							} else {
 								
-									// la persona no tiene organismo de coordinaci�n
-									$mensaje = " At.: ".$fila_candidato["pers_nombre"]." ".$fila_candidato["pers_apellido"]."\n\n El INAP ha confirmado su inscripci�n para la siguiente actividad :\n";
+									// la persona no tiene organismo de coordinación
+									$mensaje = " At.: ".$fila_candidato["pers_nombre"]." ".$fila_candidato["pers_apellido"]."\n\n El INAP ha confirmado su inscripción para la siguiente actividad :\n";
 									$mensaje .= " Actividad:   ".$fila_actividad['act_nombre']."\n";
-									$mensaje .= " C�digo INAP:   ".$fila_actividad['act_codinap']."\n";	;
-									$mensaje .= " Comisi�n:   ".$fila_comision['comi_codinap']."\n";	;
+									$mensaje .= " Código INAP:   ".$fila_actividad['act_codinap']."\n";	;
+									$mensaje .= " Comisión:   ".$fila_comision['comi_codinap']."\n";	;
 									$mensaje .=  $fila_candidato["pers_cuilt"]." ".$fila_candidato["pers_nombre"]." ".$fila_candidato["pers_apellido"]." (".$fila_candidato["pers_email"].")\n";
-									$asunto = "Confirmaci�n de Inscripci�n en Actividad";
+									$asunto = "Confirmación de Inscripción en Actividad";
 		
 									// Agrego cabeceras al mail
-									$cabeceras = "Content-type: text/plain; charset=iso-8859-1\r\n";
+									$cabeceras = "Content-type: text/plain; charset=utf-8\r\n";
 									$cabeceras .= "From: ".MAIL_SISTEMA_FROM;
 		
 									if(mail($fila_candidato['pers_email'],$asunto,$mensaje,$cabeceras))
@@ -795,7 +795,7 @@ function ModifDatosInscripcionWeb($datos) {
 
 
 			if(!$this->TraerDatosInscripcion($ArregloDatos,$result_candidatos,$numfilas_candidatos)) {
-				$error="Error al buscar los datos de inscripci�n.";
+				$error="Error al buscar los datos de inscripción.";
 				FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,$error,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 				return false;
 			}
@@ -803,7 +803,7 @@ function ModifDatosInscripcionWeb($datos) {
 
 			if ($cComision->TraerDatosComision($ArregloDatos['comi_codigo'],$filacomision,$es_modif)) {
 				if (!$es_modif) {
-					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No se ha encontrado la Comisi�n.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+					FuncionesPHPLocal::MostrarMensaje($conexion,MSG_INF,"No se ha encontrado la Comisión.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 					return false;
 				} // Tiene permiso el usuario sobre la comision
 			} else
@@ -839,7 +839,7 @@ function ModifDatosInscripcionWeb($datos) {
 			$fila_asignacion['pais_revista'] =  $pais_descipcion;
 
 
-			// escalaf�n
+			// escalafón
 			$escalafon = "--";
 			if (!$this->conexion->TraerCampo("escalafones","escalafnom",array("escalafcod='",$fila_asignacion['escalafcod'],"'"),$escalafon,$numfilas,$errorcod))
 				return false;
@@ -891,7 +891,7 @@ function ModifDatosInscripcionWeb($datos) {
 
 			$fila_asignacion['jurisdnom_trabajo'] = $jurisdnom_trabajo;
 
-			// funci�n
+			// función
 			$descri_funcion = "--";
 			if (isset($fila_asignacion['agfunc_codigo']))
 				if (!$this->conexion->TraerCampo("agente_funcion","agfunc_descripcion",array("agfunc_codigo='",$fila_asignacion['agfunc_codigo'],"'"),$descri_funcion,$numfilas,$errorcod))
@@ -942,21 +942,21 @@ function ModifDatosInscripcionWeb($datos) {
 									//'evaluacion'=>30,'actcur_creditos'=>10
 									);
 
-			$titulos_columna = array (//'C�digo de Actividad','Actividad',
+			$titulos_columna = array (//'Código de Actividad','Actividad',
 										//'Tipo Actividad',
-									//'C�digo de Comisi�n','Fecha Desde','Fecha Hasta',
+									//'Código de Comisión','Fecha Desde','Fecha Hasta',
 									//'Fecha Dictamen', 'Estado Dictamen',
-									'Cuit/Cuil','Apellido','Nombre','Fecha Nacimiento', 'Email', 'Nivel de educaci�n', 'Agentes a cargo', 'Lugar de revista',
-									'Escalaf�n','Nivel', 'Tramo',
-									'Grado','Organismo del Coordinador T�cnico de Capacitaci�n','Email del Coordinador T�cnico de Capacitaci�n', 'Organismo donde Trabaja',
-									'Funci�n', 'Breve descripci�n de tareas relacionadas con el puesto'
-									//'Evaluaci�n','Cr�ditos'
+									'Cuit/Cuil','Apellido','Nombre','Fecha Nacimiento', 'Email', 'Nivel de educación', 'Agentes a cargo', 'Lugar de revista',
+									'Escalafón','Nivel', 'Tramo',
+									'Grado','Organismo del Coordinador Técnico de Capacitación','Email del Coordinador Técnico de Capacitación', 'Organismo donde Trabaja',
+									'Función', 'Breve descripción de tareas relacionadas con el puesto'
+									//'Evaluación','Créditos'
 									);
 
 			//$oExcel->CargarDatosVariasCeldas (0,0,0,1,$ArregloDatos["leyenda"],true);
 			$oExcel->CargarDatosVariasCeldas (1,0,1,2,$ArregloDatos["leyenda"],true);
-			$oExcel->CargarDatosVariasCeldas (2,0,2,2,"C�digo de Comisi�n: ".$filacomision["comi_codinap"],true);
-			$oExcel->CargarDatosVariasCeldas (3,0,3,2,"Fecha de Realizaci�n de Comisi�n: ".$filacomision["comi_fecha_inicio_ddmmaaaa"]." al ".$filacomision["comi_fecha_fin_ddmmaaaa"],true);
+			$oExcel->CargarDatosVariasCeldas (2,0,2,2,"Código de Comisión: ".$filacomision["comi_codinap"],true);
+			$oExcel->CargarDatosVariasCeldas (3,0,3,2,"Fecha de Realización de Comisión: ".$filacomision["comi_fecha_inicio_ddmmaaaa"]." al ".$filacomision["comi_fecha_fin_ddmmaaaa"],true);
 
 
 			// comi_fecha_fin_ddmmaaaa
@@ -969,17 +969,17 @@ function ModifDatosInscripcionWeb($datos) {
 			// $oExcel->AddFormato ("Align","left");
 			// $oExcel->AddFormato ("Border",1);
 			// $oExcel->AddFormato ("Font","Times New Roman");
-			// $oExcel->AddFormato ("Tama�o",12);
+			// $oExcel->AddFormato ("Tamaño",12);
 			// $oExcel->AddFormato ("Color","azul");
 			// $oExcel->AddFormato ("FgColor",22);
-			// $oExcel->CargarDatosVariasCeldas (0,0,0,count($titulos_columna)-1,'Personas inscriptas en la comisi�n',true);
+			// $oExcel->CargarDatosVariasCeldas (0,0,0,count($titulos_columna)-1,'Personas inscriptas en la comisión',true);
 
 			// Titulos de las columnas
 			$oExcel->AddFormato ("Align","center");
 			$oExcel->AddFormato ("TextWrap","");
 			$oExcel->AddFormato ("Border",1);
 			$oExcel->AddFormato ("Font","Times New Roman");
-			$oExcel->AddFormato ("Tama�o",10);
+			$oExcel->AddFormato ("Tamaño",10);
 			$oExcel->AddFormato ("VAlign","vcenter");
 
 			$oExcel->AddFormato ("Color","negro");
@@ -1279,7 +1279,7 @@ function ImprimirFormularioBeca ($nombre, $carrera, $email, $fecha_nac, $estudio
 			($datos['pers_sexo'] != SEXO_MASCULINO) &&
 			($datos['pers_sexo'] != SEXO_NO_RESPONDE)
 			) ) {
-			$arraymensajepantalla="El sexo ingresado no es v�lido";
+			$arraymensajepantalla="El sexo ingresado no es válido";
 			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,$arraymensajepantalla,array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 			return false;
 		}
@@ -1288,7 +1288,7 @@ function ImprimirFormularioBeca ($nombre, $carrera, $email, $fecha_nac, $estudio
 		// Fecha nacimiento- [pers_fechanac] 	- [OBLIG]
 		if (trim($datos['pers_fechanac'])=="" || !FuncionesPHPLocal::ValidarContenido($this->conexion,$datos['pers_fechanac'],"FechaDDMMAAAA"))
 		{
-			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La fecha de nacimiento no es v�lida.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
+			FuncionesPHPLocal::MostrarMensaje($this->conexion,MSG_ERRSOSP,"La fecha de nacimiento no es válida.",array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__),array("formato"=>FMT_TEXTO));
 			return false;
 		}
 		$fechanac_AAAAMMDD=FuncionesPHPLocal::ConvertirFecha($datos['pers_fechanac'],'dd/mm/aaaa','aaaa-mm-dd');
