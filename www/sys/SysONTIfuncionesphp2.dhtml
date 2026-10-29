@@ -15,7 +15,7 @@ class FuncionesPHP
 		// Constantes Generales 
 		$spparam=array('psistemanom'=>"SYSONTI");
 		if(!$conexiongral->ejecutarStoredProcedure("sel_constantes_grales_xsistemanom",$spparam,$resultado,$numfilas,$errno))
-			die("Error al cargar las constantes");
+			die("Error al cargar las constantes. MySQL ".$errno.": ".mysqli_error($conexiongral->idconexion));
 		
 		while ($fila = mysqli_fetch_assoc($resultado))
 			if(!defined($fila['constantenom']))
@@ -29,7 +29,7 @@ class FuncionesPHP
 			// constantes ROL de USUARIOS
 			$spparam=array('porderby'=>"rolcod" );
 			if(!$conexion->ejecutarStoredProcedure("sel_roles_orden",$spparam,$resultado,$numfilas,$errno))
-				die("Error al cargar los roles");
+				die("Error al cargar los roles. MySQL ".$errno.": ".mysqli_error($conexion->idconexion));
 			
 			while ($fila = mysqli_fetch_assoc($resultado))
 				if($fila['rolcod']!=0)
@@ -42,7 +42,7 @@ class FuncionesPHP
 			// Constantes Generales 
 			$spparam=array('psistemanom'=>$tipocarga['sistema']);
 			if(!$conexion->ejecutarStoredProcedure("sel_constantes_grales_xsistemanom",$spparam,$resultado,$numfilas,$errno))
-				die("Error al cargar las constantes");
+				die("Error al cargar las constantes. MySQL ".$errno.": ".mysqli_error($conexion->idconexion));
 			
 			while ($fila = mysqli_fetch_assoc($resultado)) 
 				if(!defined($fila['constantenom']))
@@ -58,8 +58,15 @@ class FuncionesPHP
 //		sino retorna false en caso de error al ejecutar el SP para seleccionar los usuarios,
 //		por rol inválido o por error al enviar el mail.
 
-	function MandarMail($conexion,$rolcod,$jurisdcod,$subjectmail,$textomail)
+	static function MandarMail($conexion,$rolcod,$jurisdcod,$subjectmail,$textomail)
 	{
+		if (!defined("TABGRALES_ADMIONTI") || !defined("GENERAL_USUARIOACT"))
+			return false;
+
+		static $sending = false;
+		if ($sending)
+			return false;
+		$sending = true;
 
 		switch($rolcod)
 		{
@@ -69,26 +76,21 @@ class FuncionesPHP
 				break;
 	
 			default:
-				$arraymensajepantalla =array("formato" => GENERAL_FMT_TEXTO);	
-				$arraymensajepantalla+=array("texto" => "Error al generar mail. ");
-				$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
-				$arraymensajemail+=array("texto" => $arraymensajepantalla['texto']." Intento de enviar mail a rol inexistente '".$rolcod."'. ");
-				self::MostrarMensaje($conexion,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+				$sending = false;
 				return false;
 		}
 		
 		if(!isset($spnombre))
 		{
-			$arraymensajepantalla =array("formato" => GENERAL_FMT_TEXTO);	
-			$arraymensajepantalla+=array("texto" => "Error al generar mail. ");
-			$arraymensajemail =array("archivo" => __FILE__,"funcion" => __FUNCTION__, "linea" => __LINE__);			
-			$arraymensajemail+=array("texto" => $arraymensajepantalla['texto']." No se pudo determinar el nombre del stored procedure. ");
-			self::MostrarMensaje($conexion,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+			$sending = false;
 			return false;
 		}
 
 		if(!$conexion->ejecutarStoredProcedure($spnombre,$spparam,$resultado,$numfilas,$errno))
+		{
+			$sending = false;
 			return false;
+		}
 
 		$mails_enviar=array();
 		while($fila=mysqli_fetch_assoc($resultado))
@@ -96,14 +98,10 @@ class FuncionesPHP
 		$mails_enviar=array_unique($mails_enviar);
 
 		$destinatarios="Bcc: ".implode(", ",$mails_enviar)."\r\n";
-		if(!mail("",$subjectmail,$textomail,$destinatarios))
-		{
-			$arraymensajepantalla =array("formato" => GENERAL_FMT_TEXTO);	
-			$arraymensajepantalla+=array("texto" => "Imposible enviar mail. ");
-			$arraymensajemail =array();			
-			self::MostrarMensaje($conexion,GENERAL_MSG_ERRGRAVE,$arraymensajepantalla,$arraymensajemail);
+		$sent=mail("",$subjectmail,$textomail,$destinatarios);
+		$sending = false;
+		if(!$sent)
 			return false;
-		}
 
 
 
@@ -135,10 +133,10 @@ class FuncionesPHP
 //		$arraymensajemail['linea'] = línea de llamada
 //		$arraymensajemail['texto'] = texto a mostrar por mail
 
-	function MostrarMensaje($conexion,$nivelmensaje,$arraymensajepantalla,$arraymensajemail=array())
+	static function MostrarMensaje($conexion,$nivelmensaje,$arraymensajepantalla,$arraymensajemail=array())
 	{
 		
-		if(count($arraymensajepantalla)>0)
+		if(count($arraymensajepantalla)>0 && defined("GENERAL_FMT_TEXTO"))
 		{ // mostrar el mensaje en pantalla
 			if(!isset($arraymensajepantalla['formato']))
 				$arraymensajepantalla['formato']=GENERAL_FMT_TEXTO;	
@@ -168,73 +166,8 @@ class FuncionesPHP
 					break;
 			}
 		}
-		if(count($arraymensajemail)>0)
-		{ // envio de mail
-			if(!isset($arraymensajemail['texto']))
-			{
-				$arraymensajemail['texto']=" ";
-				if(isset($arraymensajepantalla['texto']))
-					$arraymensajemail['texto']=$arraymensajepantalla['texto'];
-			}
-
-			if(defined('SISTEMAMOSTRAR'))
-				$subjectmail=SISTEMAMOSTRAR;
-			elseif(defined('SISTEMA'))
-				$subjectmail=SISTEMA;
-			else
-				$subjectmail="";
-
-			switch($nivelmensaje)
-			{
-				case GENERAL_MSG_OK:
-					$subjectmail.=" - Mensaje OK";
-					break;
-				case GENERAL_MSG_INF:
-					$subjectmail.=" - Mensaje Informativo";
-					break;
-				case GENERAL_MSG_ERRGRAVE:
-					$subjectmail.=" - Error de Inconsistencia de Datos";
-					break;
-				case GENERAL_MSG_ERRSOSP:
-					$subjectmail.=" - Error Datos Sospechosos";
-					break;
-				case GENERAL_MSG_ERRPGM:
-					$subjectmail.=" - Error en Programa";
-					break;
-				default:
-					$subjectmail.=" - Nivel de mensaje no definido";
-					break;
-			}
-
-			$textomail ="\nMensaje:\n".$arraymensajemail['texto']."\n\n";
-			$textomail.="Ejecutando Archivo: ".$_SERVER['PHP_SELF']."\n";
-			if(isset($arraymensajemail['archivo']))
-				$textomail.="Ubic Archivo:       ".$arraymensajemail['archivo']."\n";
-			if(isset($arraymensajemail['funcion']))
-				$textomail.="Ubic Función:       ".$arraymensajemail['funcion']."\n";
-			if(isset($arraymensajemail['linea']))
-				$textomail.="Ubic Línea:         ".$arraymensajemail['linea']."\n";
-
-			if(isset($_SESSION['usuariocod']) && $_SESSION['usuariocod']!=0)
-				$textomail.="\nUsuario sesion:    '".$_SESSION['usuariocod']."'";
-
-			if(isset($_SESSION['rolcod']) && $_SESSION['rolcod']!=0)
-				$textomail.="\nRol sesion:        '".$_SESSION['rolcod']."'";
-
-			if(isset($_SESSION['jurisdid']) && $_SESSION['jurisdid']!=0)
-			{
-				$textomail.="\nOrganismo sesion:  '".$_SESSION['jurisdid']."' - ";
-				$cjurisdmail = new SysONTIjurisdicciones2();
-				if($cjurisdmail->SelectJurisdxID($_SESSION['jurisdid'],array('pjurisdestado'=>TABGRALES_JURISDACTIVA),TABGRALES_TS_ARRAY,$filaret,array(),$NumFilas,$CodError))
-				{
-					$filajurisd = current($filaret);
-					$nombrejurisd=htmlspecialchars($filajurisd['jurisdnom'],ENT_QUOTES);
-					$textomail.=$nombrejurisd;
-				}
-			}
-
-			self::MandarMail($conexion,$conexion->VerAdmiGeneral(),"",$subjectmail,$textomail);
-		}
+		// Do not send mail from a failed query. mail() can block the role
+		// picker, and this class is not loaded as SysONTIjurisdicciones2.
 	}
 
 //----------------------------------------------------------------------------------------- 
