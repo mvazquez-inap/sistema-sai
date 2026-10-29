@@ -144,6 +144,12 @@ function Validar(formulario) {
 <br /><div class="textoTitulo" align="left"> Búsqueda de Personas </div><br />
 <?php
 
+if (!isset($_SESSION['array_busqueda_basica_persona']) || !is_array($_SESSION['array_busqueda_basica_persona'])) {
+	$_SESSION['array_busqueda_basica_persona']=array();
+	if (!isset($_SESSION['filtro_busqueda']) || !is_array($_SESSION['filtro_busqueda']))
+		$_SESSION['filtro_busqueda']=array();
+}
+
 if (isset($_POST['boton_buscar'])) {
 	$_SESSION['array_busqueda_basica_persona']['idtextboxAddValor']=$_POST['destino'];	
 	$_SESSION['array_busqueda_basica_persona']['formulario']=$_POST['formulario'];	
@@ -155,11 +161,6 @@ if (isset($_POST['boton_buscar'])) {
 	$_SESSION['filtro_busqueda']['pers_cuilt']=$_POST['pers_cuilt'];
 	$_SESSION['filtro_busqueda']['pers_apellido']=$_POST['pers_apellido'];
 	$_SESSION['filtro_busqueda']['pers_nombre']=$_POST['pers_nombre'];
-}			
-
-if (!isset($_SESSION['array_busqueda_basica_persona'])) {
-	$_SESSION['array_busqueda_basica_persona']=""; 
-	$_SESSION['filtro_busqueda']=array();
 }
 
 if(isset($_POST['boton_buscar']) || isset($_GET['pagina']) ) {
