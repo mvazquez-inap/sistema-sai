@@ -49,7 +49,8 @@ class jurisdicciones
 		
 
 
-		$this->conexion->SetearAdmiGeneral(TABGRALES_ADMIONTI);
+		if (defined("TABGRALES_ADMIONTI"))
+			$this->conexion->SetearAdmiGeneral(TABGRALES_ADMIONTI);
 	}
 
 //----------------------------------------------------------------------------------------- 

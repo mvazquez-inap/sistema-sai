@@ -84,7 +84,13 @@ function ValidarDatosLogin($conexion,&$datosvalidados) {
 				$roles->RolesDeUnUsuarioSP($datosvalidados['usuariocod'],$spnombre,$spparam);
 
 				if(!$conexion->ejecutarStoredProcedure($spnombre,$spparam,$query,$numfilas,$errno))
-					return false;
+				{
+					// Password already matched. This is not a bad login:
+					// returning false prints the link to index.dhtml.
+					$datosvalidados["roles_errno"]=$errno;
+					$datosvalidados["cantroles"]=0;
+					break;
+				}
 				
 				$datosvalidados["cantroles"]=$numfilas;
 				
@@ -154,7 +160,9 @@ function ValidarDatosCambiaPass($conexion,&$datosvalidados)
 $datosvalidados=array();
 $accion="NADA";
 
-if(isset($_POST["botoningresar"]))
+// A password manager can submit the form without the submit button.
+// That used to fall through to Location: index.dhtml.
+if(isset($_POST["botoningresar"]) || (isset($_POST["usuariocuit"]) && isset($_POST["usuarioclave"]) && !isset($_POST["botoncambiapass"]) && !isset($_POST["botonelegirrol"])))
 {
 
 	if(ValidarDatosLogin($conexion,$datosvalidados))
@@ -165,6 +173,11 @@ if(isset($_POST["botoningresar"]))
 		{
 			$accion="CAMBIARPASS";
 			$usuariocuit=$_POST["usuariocuit"];
+		}
+		elseif(isset($datosvalidados["roles_errno"]))
+		{
+			echo "<div align='center' class='textoDatoBold'><br>Error al leer los roles. MySQL ".$datosvalidados["roles_errno"].": ".htmlspecialchars(mysqli_error($conexion->idconexion),ENT_QUOTES)."</div>";
+			$accion="NADA";
 		}
 		elseif($datosvalidados["cantroles"]>1)
 			$accion="ELEGIRROL";
@@ -179,7 +192,9 @@ if(isset($_POST["botoningresar"]))
 			$_SESSION['mostrarmsgbloqueo'] ="SI";
 			$_SESSION['rolcod']=$datosvalidados['rolcod'];
 			$_SESSION['jurisdid_inap']=$datosvalidados['jurisdid_inap'];
-			
+
+			while (ob_get_level() > 0)
+				ob_end_clean();
 			header("Location:ingreso.dhtml");
 			die();
 		} 
@@ -239,7 +254,9 @@ elseif(isset($_POST["botonelegirrol"]))
 		$_SESSION['mostrarmsgbloqueo'] ="SI";
 		$_SESSION['rolcod']=$datosvalidados['rolcod'];
 		$_SESSION['jurisdid_inap']=$datosvalidados['jurisdid_inap'];
-		
+
+		while (ob_get_level() > 0)
+			ob_end_clean();
 		header("Location:ingreso.dhtml");
 		die();
 	}
@@ -256,6 +273,8 @@ else
 	$_SESSION['rolcod']=0;
 	$_SESSION['jurisdid_inap']=0;
 
+	while (ob_get_level() > 0)
+		ob_end_clean();
 	header("Location:index.dhtml");
 	die();
 }

@@ -591,10 +591,15 @@ function selRadioButton(formulario, indice) {
 		if($this->conexion->TraerCampo("roles","rolselecjurisd",array("rolcod='",$fila_usuario_rol['rolcod'],"'"),$rolselecjurisd,$numfilas,$errno)) {	
 			if ($rolselecjurisd=="S" || $fila_usuario_rol['rolcod']==USUACTJUR) {				
 				if ($fila_usuario_rol['jurisdid_inap']!=-1) { 
+						try {
 						$objJurisdicciones= new jurisdicciones;
 						if ($objJurisdicciones->SelectJurisdxID($fila_usuario_rol['jurisdid_inap'],array(),TABGRALES_TS_ARRAY,$fila_jurisd,array(),$NumFilas,$CodError)) {
-							$organismo=htmlspecialchars($fila_jurisd[$fila_usuario_rol['jurisdid_inap']]['jurisdnom'],ENT_QUOTES);
-						}	
+							if (isset($fila_jurisd[$fila_usuario_rol['jurisdid_inap']]['jurisdnom']))
+								$organismo=htmlspecialchars($fila_jurisd[$fila_usuario_rol['jurisdid_inap']]['jurisdnom'],ENT_QUOTES);
+						}
+						} catch (Throwable $e) {
+							$organismo = "&nbsp;";
+						}
 					} else // Caso de ser un USUACTJUR sin ningún organismo como enlace, jurisdid_in.
 					   $organismo =  "No tiene asignado Organismo";
 			}  else 	
@@ -626,11 +631,17 @@ function selRadioButton(formulario, indice) {
 				if($this->conexion->TraerCampo("roles","rolselecjurisd",array("rolcod='",$fila_usuario_rol['rolcod'],"'"),$rolselecjurisd,$numfilas,$errno)) {	
 					if ($rolselecjurisd=="S" || $fila_usuario_rol['rolcod']==USUACTJUR) {				
 						if ($fila_usuario_rol['jurisdid_inap']!=-1) { 
+								try {
 								$objJurisdicciones= new jurisdicciones;
 								if ($objJurisdicciones->SelectJurisdxID($fila_usuario_rol['jurisdid_inap'],array(),TABGRALES_TS_ARRAY,$fila_jurisd,array(),$NumFilas,$CodError)) {
-									$organismo=htmlspecialchars($fila_jurisd[$fila_usuario_rol['jurisdid_inap']]['jurisdnom'],ENT_QUOTES);
-									echo $organismo;
-								}	
+									if (isset($fila_jurisd[$fila_usuario_rol['jurisdid_inap']]['jurisdnom'])) {
+										$organismo=htmlspecialchars($fila_jurisd[$fila_usuario_rol['jurisdid_inap']]['jurisdnom'],ENT_QUOTES);
+										echo $organismo;
+									}
+								}
+								} catch (Throwable $e) {
+									echo "&nbsp;";
+								}
 							} else // Caso de ser un USUACTJUR sin ningún organismo como enlace, jurisdid_in.
 							   echo "No tiene asignado Organismo";
 					}  else 	
@@ -698,7 +709,7 @@ function selRadioButton(formulario, indice) {
     
     <tr> 
       <td colspan="3" align="center" class="textoTablaDato">
-	  <?php echo "<div align='center'><a class='linkFondoBlanco' href='index.dhtml'>Volver a Inicio</a></div>"; ?>
+	  <?php echo "<div align='center' class='textoTablaDato'>Elija un rol y pulse Aceptar.</div>"; ?>
 	  </td>
     </tr>
 	

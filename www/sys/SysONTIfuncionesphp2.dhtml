@@ -15,7 +15,7 @@ class FuncionesPHP
 		// Constantes Generales 
 		$spparam=array('psistemanom'=>"SYSONTI");
 		if(!$conexiongral->ejecutarStoredProcedure("sel_constantes_grales_xsistemanom",$spparam,$resultado,$numfilas,$errno))
-			die("Error al cargar las constantes. MySQL ".$errno.": ".mysqli_error($conexiongral->idconexion));
+			return false;
 		
 		while ($fila = mysqli_fetch_assoc($resultado))
 			if(!defined($fila['constantenom']))
@@ -29,7 +29,7 @@ class FuncionesPHP
 			// constantes ROL de USUARIOS
 			$spparam=array('porderby'=>"rolcod" );
 			if(!$conexion->ejecutarStoredProcedure("sel_roles_orden",$spparam,$resultado,$numfilas,$errno))
-				die("Error al cargar los roles. MySQL ".$errno.": ".mysqli_error($conexion->idconexion));
+				return false;
 			
 			while ($fila = mysqli_fetch_assoc($resultado))
 				if($fila['rolcod']!=0)
@@ -42,7 +42,7 @@ class FuncionesPHP
 			// Constantes Generales 
 			$spparam=array('psistemanom'=>$tipocarga['sistema']);
 			if(!$conexion->ejecutarStoredProcedure("sel_constantes_grales_xsistemanom",$spparam,$resultado,$numfilas,$errno))
-				die("Error al cargar las constantes. MySQL ".$errno.": ".mysqli_error($conexion->idconexion));
+				return false;
 			
 			while ($fila = mysqli_fetch_assoc($resultado)) 
 				if(!defined($fila['constantenom']))
