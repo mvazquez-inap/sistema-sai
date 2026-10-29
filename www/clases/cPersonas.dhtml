@@ -109,7 +109,7 @@ class cPersonas
 		
 
 //-----------------------------------------------------------------------------------------------------	
-	function ValidarFormAltaPersonaJS($valida = true)
+	static function ValidarFormAltaPersonaJS($valida = true)
 	{
 ?>
 		function ValidarFormAltaPersonaJS(formulario) {
