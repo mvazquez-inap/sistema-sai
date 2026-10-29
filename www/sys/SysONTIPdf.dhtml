@@ -270,11 +270,23 @@ class cPDF extends FPDF_TABLE {
 // CELL 
 //----------------------------------------------------------------------------------------//
 
+	function TextoWindows1252($txt)
+	{
+		if (!is_string($txt) || $txt==="")
+			return $txt;
+		if (!mb_check_encoding($txt, "UTF-8"))
+			return $txt;
+		if (strlen($txt)===mb_strlen($txt, "UTF-8"))
+			return $txt;
+		return mb_convert_encoding($txt, "Windows-1252", "UTF-8");
+	}
+
 	function CellEstilo($estilo,$w,$h=0,$txt='',$border=0,$ln=0,$align='',$fill=0,$link='')
 	{
 		
 		if ($estilo!="")
 			$this->SetearFormato($estilo);
+		$txt=$this->TextoWindows1252($txt);
 		$this->Cell($w,$h,$txt,$border,$ln,$align,$fill,$link);
 	}
 
@@ -297,7 +309,8 @@ class cPDF extends FPDF_TABLE {
 	{
 		if ($estilo!="")
 			$this->SetearFormato($estilo);
-	
+		$txt=$this->TextoWindows1252($txt);
+
 		$this->MultiCellMaxLine($w,$h,$txt,$border,$align,$fill,$maxline);
 	}
 

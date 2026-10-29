@@ -399,8 +399,8 @@ class cActividadDisenoPDF extends cPDF {
 		while ($fila_prestador=mysqli_fetch_assoc($this->array_datos['datos_actividad_prestador'])) {
 		 	$tienedatos=true;		 	
 		 	
-		 	$fila_tabla_data[0]['TEXT'] = $fila_prestador['presdoc_cuilt'];
-			$fila_tabla_data[1]['TEXT'] = $fila_prestador['presdoc_apellido'].",".$fila_prestador['presdoc_nombre']; 
+		 	$fila_tabla_data[0]['TEXT'] = $this->TextoWindows1252($fila_prestador['presdoc_cuilt']);
+			$fila_tabla_data[1]['TEXT'] = $this->TextoWindows1252($fila_prestador['presdoc_apellido'].",".$fila_prestador['presdoc_nombre']); 
 		 	
 		 	$tabla_data[]=$fila_tabla_data;
 		}
