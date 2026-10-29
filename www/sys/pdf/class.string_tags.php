@@ -162,7 +162,7 @@ var $iTagMaxElem;
 	    $sTAG = "";
 	    $sHREF = "";
 
-        while (list($key, $val) = each($reg)) {
+        foreach ($reg as $key => $val) {
 	    	if ($val == "") continue;
 
 	        if ($this->OpenTag($val,$reg)){
