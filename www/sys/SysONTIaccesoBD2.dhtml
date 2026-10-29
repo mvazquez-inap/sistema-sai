@@ -13,6 +13,7 @@ class SysONTIAccesoBD
 	{
 		mysqli_report(MYSQLI_REPORT_OFF);
 		$this->idconexion = mysqli_connect($servidor, $usuariodb, $clave) or die("No es posible establecer conexion con MySQL Server");
+		mysqli_set_charset($this->idconexion, "utf8mb4");
 	}
 //-----------------------------------------------------------------------------------------
 //							 PUBLICAS	
@@ -24,6 +25,7 @@ class SysONTIAccesoBD
 	function SeleccionBD($base_datos)
 	{
 		mysqli_select_db($this->idconexion, $base_datos) or die("No es posible conectar a la base de datos");
+		mysqli_set_charset($this->idconexion, "utf8mb4");
 	}
 
 //----------------------------------------------------------------------------------------- 
